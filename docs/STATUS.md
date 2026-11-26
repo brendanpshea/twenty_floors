@@ -11,8 +11,8 @@ https://brendanpshea.github.io/twenty_floors/ on every push to `main`
 (the workflow runs type-check, tests and build first, on Node 24).
 
 - Fighter, levels 1 to 3; Human, Dwarf, Elf; four backgrounds.
-- Three generated floors with rest sites and one set piece each (four kinds per
-  theme: the moated shrine, the hall of rock columns and the well are the newest).
+- Three generated floors with rest sites and one set piece each (five kinds per
+  theme).
 - Turn-based combat, long rests at rest sites, Hit Dice short rests, Last Stand.
 - All SRD 5.2.1 weapons and armor with +1 to +3 variants; six weapon masteries.
 - Twelve monsters with open models; kitbashed goblin variants.

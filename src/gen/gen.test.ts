@@ -376,9 +376,9 @@ describe('rest spots and set pieces', () => {
 
   it('every set piece turns up, and the newer ones leave their mark on the plan', () => {
     const want: Record<string, string[]> = {
-      warrens: ['lake', 'tiers', 'crack', 'columns'],
-      crypt: ['ambulatory', 'grandNave', 'collapsed', 'moat'],
-      depths: ['amphitheatre', 'twinBridge', 'landing', 'well'],
+      warrens: ['lake', 'tiers', 'crack', 'columns', 'stream'],
+      crypt: ['ambulatory', 'grandNave', 'collapsed', 'moat', 'pitHall'],
+      depths: ['amphitheatre', 'twinBridge', 'landing', 'well', 'mesa'],
     };
     for (const theme of THEMES) {
       const seen = new Set<string>();
@@ -402,6 +402,28 @@ describe('rest spots and set pieces', () => {
             expect(rooms.size).toBe(1);
             expect(plan.rooms[[...rooms][0] as number]?.role).toBe('combat');
           }
+        }
+        if (theme === 'crypt' && r.setPiece === 'pitHall') {
+          // Four 2x2 pits, all in one combat room.
+          const rooms = new Set<number>();
+          for (let i = 0; i < w * h; i++) if (kinds[i] === CellKind.Chasm) rooms.add(plan.roomIds[i] as number);
+          expect(count((i) => kinds[i] === CellKind.Chasm)).toBe(16);
+          expect(rooms.size).toBe(1);
+          expect(plan.rooms[[...rooms][0] as number]?.role).toBe('combat');
+        }
+        if (theme === 'warrens' && r.setPiece === 'stream') expect(water).toBeGreaterThanOrEqual(8);
+        if (theme === 'depths' && r.setPiece === 'mesa') {
+          // Some combat platform has a summit two steps above its own floor.
+          const lo = new Map<number, number>();
+          const hi = new Map<number, number>();
+          for (let i = 0; i < w * h; i++) {
+            const id = plan.roomIds[i] as number;
+            if (id < 0 || kinds[i] !== CellKind.Floor) continue;
+            const e = plan.elevation[i] as number;
+            lo.set(id, Math.min(lo.get(id) ?? e, e));
+            hi.set(id, Math.max(hi.get(id) ?? e, e));
+          }
+          expect(plan.rooms.some((room) => room.role === 'combat' && (hi.get(room.id) as number) - (lo.get(room.id) as number) === 2)).toBe(true);
         }
         if (theme === 'depths') {
           // Only the well puts chasm inside a room: nine cells in a combat platform.

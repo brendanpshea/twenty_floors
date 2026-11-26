@@ -20,15 +20,16 @@ import type { MissionGraph } from '../graph';
  *
  * One room per floor is a set piece: the boss hall's pillar ambulatory, a
  * grand nave with raised galleries, a hall whose floor has collapsed into a
- * pit, or a moated shrine (a raised island inside a ring of water, reached
- * by four causeways on the door axes).
+ * pit, a moated shrine (a raised island inside a ring of water, reached
+ * by four causeways on the door axes), or a pit hall (four square pits with
+ * a cross of floor between them and a walkway round the walls).
  *
  * Tunables: PITCH, room size sets, VARIANT weights, alcove chance, descent chance.
  */
 
 const PITCH = 14;
 
-type Variant = 'nave' | 'tombs' | 'quad' | 'gallery' | 'entry' | 'vault' | 'throne' | 'grand' | 'collapsed' | 'moat';
+type Variant = 'nave' | 'tombs' | 'quad' | 'gallery' | 'entry' | 'vault' | 'throne' | 'grand' | 'collapsed' | 'moat' | 'pitHall';
 type Shape = 'rect' | 'chamfer' | 'cross';
 
 interface RoomGeo {
@@ -137,17 +138,17 @@ export function genCrypt(graph: MissionGraph, rng: Rng, opts: CryptOptions = {})
 
   // Set piece: one memorable room per floor, chosen from what the floor can host.
   const combatIds = graph.roles.map((r, i) => (r === 'combat' ? i : -1)).filter((i) => i >= 0);
-  const pieces = opts.plain ? [] : ['ambulatory', 'grandNave', 'collapsed', 'moat'];
+  const pieces = opts.plain ? [] : ['ambulatory', 'grandNave', 'collapsed', 'moat', 'pitHall'];
   const pieceName = pieces.length ? rng.pick(pieces) : 'none';
-  if (pieceName === 'grandNave' || pieceName === 'collapsed' || pieceName === 'moat') {
+  if (pieceName === 'grandNave' || pieceName === 'collapsed' || pieceName === 'moat' || pieceName === 'pitHall') {
     const wide = combatIds.filter((i) => (specs[i] as Spec).w === 10 && (specs[i] as Spec).h === 10);
     const id = rng.pick(wide.length ? wide : combatIds);
     const sp = specs[id] as Spec;
-    if (pieceName === 'grandNave' || pieceName === 'moat') {
+    if (pieceName === 'grandNave' || pieceName === 'moat' || pieceName === 'pitHall') {
       sp.w = 10;
       sp.h = 10;
       sp.shape = 'rect';
-      sp.variant = pieceName === 'moat' ? 'moat' : 'grand';
+      sp.variant = pieceName === 'moat' ? 'moat' : pieceName === 'pitHall' ? 'pitHall' : 'grand';
     } else {
       sp.w = Math.max(8, sp.w);
       sp.h = Math.max(8, sp.h);
@@ -312,6 +313,13 @@ function carveRoom(g: Grid, r: RoomGeo): void {
         if (ax <= MOAT_RING - 1 && ay <= MOAT_RING - 1) e += 1;
       } else if (r.variant === 'collapsed') {
         if (ax <= 1 && ay <= 1 && !(ax === 1 && ay === 1)) {
+          g.floor(x, y, e, r.id);
+          g.kinds[g.idx(x, y)] = K.Chasm;
+          continue;
+        }
+      } else if (r.variant === 'pitHall') {
+        // Four 2x2 pits, leaving a cross of floor on the axes and a walkway round the walls.
+        if (ax >= 2 && ax <= 3 && ay >= 2 && ay <= 3) {
           g.floor(x, y, e, r.id);
           g.kinds[g.idx(x, y)] = K.Chasm;
           continue;
@@ -498,6 +506,26 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[], alcoves: Alcove[], plain: boole
           for (let ib = 0; ib <= 3; ib++) {
             if (Math.max(ia, ib) !== 2) continue;
             for (const [x, y] of cells4(ia, ib)) if (rng.chance(0.55)) props.place(rng.chance(0.7) ? 'rubble' : 'bones', x, y, rng.int(0, 3), false);
+          }
+        }
+        break;
+      }
+      case 'pitHall': {
+        // Braziers in the corners, statues beside the centre, debris strewn on floor touching a pit.
+        sym('brazier', longHalf - 1, shortHalf - 1, true);
+        sym('statue', 1, 1, true, 2);
+        for (let ia = 0; ia <= 4; ia++) {
+          for (let ib = 0; ib <= 4; ib++) {
+            const inPit = ia >= 2 && ia <= 3 && ib >= 2 && ib <= 3;
+            if (inPit) continue;
+            const touches = [
+              [ia + 1, ib],
+              [ia - 1, ib],
+              [ia, ib + 1],
+              [ia, ib - 1],
+            ].some(([a, b]) => (a as number) >= 2 && (a as number) <= 3 && (b as number) >= 2 && (b as number) <= 3);
+            if (!touches) continue;
+            for (const [x, y] of cells4(ia, ib)) if (rng.chance(0.4)) props.place(rng.chance(0.6) ? 'rubble' : 'bones', x, y, rng.int(0, 3), false);
           }
         }
         break;

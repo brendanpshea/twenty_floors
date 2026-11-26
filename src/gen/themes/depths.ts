@@ -26,8 +26,9 @@ import type { DecorCtx, Layout } from '../layout';
  *    Crystals cluster on chasm edges, broken colonnades stand in the middle.
  *
  * One set piece per floor: a tiered amphitheatre for the boss, a second bridge
- * to the boss island, a landing in the middle of the longest bridge, or the
- * well (a combat platform that is a ring around a hole into the chasm).
+ * to the boss island, a landing in the middle of the longest bridge, the
+ * well (a combat platform that is a ring around a hole into the chasm), or the
+ * mesa (a stepped rock mound in the middle of the roomiest combat platform).
  *
  * Tunables: height span 8-11, jitter 3, gap formula, dilation 3-6, crystal counts.
  */
@@ -71,17 +72,20 @@ export function genDepths(graph: MissionGraph, rng: Rng, depth: number): Layout 
   const plats = placePlatforms(graph, rng, W, H, elevs);
   const seed = rng.int(1, 1e9);
   // Set piece for this floor.
-  let piece: 'amphitheatre' | 'twinBridge' | 'landing' | 'well' = rng.pick(['amphitheatre', 'twinBridge', 'landing', 'well'] as const);
-  // The well needs the roomiest combat platform, and that one must be at least 9 cells across.
-  let wellHost = -1;
-  if (piece === 'well') {
+  let piece: 'amphitheatre' | 'twinBridge' | 'landing' | 'well' | 'mesa' = rng.pick(['amphitheatre', 'twinBridge', 'landing', 'well', 'mesa'] as const);
+  // The well and the mesa need the roomiest combat platform, and that one must be at least 9 cells across.
+  let featureHost = -1;
+  if (piece === 'well' || piece === 'mesa') {
     for (const p of plats) {
       if (p.role !== 'combat' || Math.min(p.hx, p.hy) < 4) continue;
-      if (wellHost < 0 || p.hx * p.hy > (plats[wellHost] as Plat).hx * (plats[wellHost] as Plat).hy) wellHost = p.id;
+      if (featureHost < 0 || p.hx * p.hy > (plats[featureHost] as Plat).hx * (plats[featureHost] as Plat).hy) featureHost = p.id;
     }
-    if (wellHost < 0) piece = 'twinBridge';
+    if (featureHost < 0) piece = 'twinBridge';
   }
-  for (const p of plats) carvePlatform(g, p, seed, rng, plats, graph, piece === 'amphitheatre', p.id === wellHost);
+  for (const p of plats) {
+    const host = p.id === featureHost;
+    carvePlatform(g, p, seed, rng, plats, graph, piece === 'amphitheatre', host && piece === 'well', host && piece === 'mesa');
+  }
 
   // Bridges.
   const edges: Array<[number, number]> = [];
@@ -253,11 +257,11 @@ function superPow(a: number, e: number): number {
   return e === 2 ? a2 : e === 3 ? a2 * a : a2 * a2;
 }
 
-function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], graph: MissionGraph, amphitheatre: boolean, well: boolean): void {
+function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], graph: MissionGraph, amphitheatre: boolean, well: boolean, mesa: boolean): void {
   const exp = rng.pick([2, 2, 2, 3, 3, 4]);
   const notchRoll = p.role !== 'entrance' && p.role !== 'treasure' && rng.chance(0.45) ? rng.int(0, 3) : -1;
-  // A notch beside the well's hole would pinch the ring shut.
-  const notch = well ? -1 : notchRoll;
+  // A notch beside the well's hole would pinch the ring shut; the mesa keeps its platform whole too.
+  const notch = well || mesa ? -1 : notchRoll;
   // A second, smaller lobe makes the outline irregular rather than a rounded box.
   const lobe = p.role === 'combat' && rng.chance(0.45) ? { sx: rng.chance(0.5) ? 1 : -1, sy: rng.chance(0.5) ? 1 : -1 } : null;
   const inside = new Set<number>();
@@ -312,7 +316,7 @@ function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], 
     if (Math.abs(vx) >= Math.abs(vy)) fx = Math.sign(vx);
     else fy = Math.sign(vy);
   }
-  const mound = !well && p.role === 'combat' && p.hx * p.hy >= 24 && rng.chance(0.4);
+  const mound = !well && !mesa && p.role === 'combat' && p.hx * p.hy >= 24 && rng.chance(0.4);
   for (const i of keep) {
     const x = i % g.w;
     const y = (i / g.w) | 0;
@@ -326,6 +330,11 @@ function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], 
       const t = fx !== 0 ? ((x - p.cx) * fx) / p.hx : ((y - p.cy) * fy) / p.hy;
       if (t > 0.25) e += 1;
       if (t > 0.6) e += 1;
+    } else if (mesa) {
+      // Stepped rock mound: a 3x3 summit two steps up, ringed by a one-step shoulder.
+      const ring = Math.max(Math.abs(x - p.cx), Math.abs(y - p.cy));
+      if (ring <= 1) e += 2;
+      else if (ring === 2) e += 1;
     } else if (mound && Math.abs(x - p.cx) <= 1 && Math.abs(y - p.cy) <= 1) e += 1;
     g.floor(x, y, e, p.id);
     p.cells.push(i);

@@ -21,8 +21,9 @@ import type { DecorCtx, Layout } from '../layout';
  *    the Lipschitz solver so every slope is a staircase.
  * 5. Water pools and the occasional chasm pit are carved last, then the
  *    floor's set piece (an underground lake with a causeway, a terraced
- *    chamber, a chasm crack with a natural bridge, or a hall of rock
- *    columns left standing in a big chamber); props compose
+ *    chamber, a chasm crack with a natural bridge, a hall of rock
+ *    columns left standing in a big chamber, or a winding stream across a
+ *    chamber); props compose
  *    goblin camps (campfire, crates, barrels, bones), stalagmite clusters and
  *    wall-hugging mushroom patches.
  *
@@ -72,8 +73,8 @@ export function genWarrens(graph: MissionGraph, rng: Rng, depth: number): Layout
   // Set piece: pick a big chamber and a feature that suits it.
   const bigRooms = graph.roles.map((r, i) => i).filter((i) => (graph.roles[i] === 'combat' || graph.roles[i] === 'boss') && roomArea(g, i) >= 50);
   let pieceRoom = bigRooms.length ? rng.pick(bigRooms) : -1;
-  const pieceName: 'lake' | 'tiers' | 'crack' | 'columns' | 'none' =
-    pieceRoom < 0 ? 'none' : rng.pick(['crack', 'lake', 'tiers', 'columns'] as const);
+  const pieceName: 'lake' | 'tiers' | 'crack' | 'columns' | 'stream' | 'none' =
+    pieceRoom < 0 ? 'none' : rng.pick(['crack', 'lake', 'tiers', 'columns', 'stream'] as const);
   // Columns want all the floor they can get: they go in the biggest chamber.
   if (pieceName === 'columns') pieceRoom = bigRooms.reduce((best, i) => (roomArea(g, i) > roomArea(g, best) ? i : best), pieceRoom);
   // The tiered chamber rises toward one side.
@@ -116,6 +117,10 @@ export function genWarrens(graph: MissionGraph, rng: Rng, depth: number): Layout
   else if (pieceName === 'columns') {
     // Pools and pits may have left too little open floor; a crack or a lake still fits then.
     if (carveColumns(g, rng, pieceRoom)) applied = 'columns';
+    else if (carveCrack(g, rng, pieceRoom, blobs[pieceRoom] as Blob)) applied = 'crack';
+    else applied = carveLake(g, rng, pieceRoom) ? 'lake' : 'none';
+  } else if (pieceName === 'stream') {
+    if (carveStream(g, rng, pieceRoom, blobs[pieceRoom] as Blob)) applied = 'stream';
     else if (carveCrack(g, rng, pieceRoom, blobs[pieceRoom] as Blob)) applied = 'crack';
     else applied = carveLake(g, rng, pieceRoom) ? 'lake' : 'none';
   }
@@ -517,6 +522,19 @@ function decorate(ctx: DecorCtx, piece: { name: string; room: number }): void {
       }
     }
 
+    // A winding stream: extra glowing mushrooms on its banks.
+    if (piece.name === 'stream' && r.id === piece.room) {
+      const banks = cells.filter((i) => {
+        const [x, y] = at(i);
+        return free(i) && NEI8.some(([dx, dy]) => g.inb(x + dx, y + dy) && g.kinds[g.idx(x + dx, y + dy)] === K.Water);
+      });
+      rng.shuffle(banks);
+      for (const i of banks.slice(0, 5)) {
+        const [x, y] = at(i);
+        props.place('mushrooms', x, y, rng.int(0, 3), false);
+      }
+    }
+
     // Litter.
     const litter = r.role === 'treasure' ? 3 : 2;
     for (let k = 0; k < litter; k++) {
@@ -643,6 +661,36 @@ function carveCrack(g: Grid, rng: Rng, id: number, b: Blob): boolean {
     carved++;
   }
   if (carved < 5 || !allConnected(g)) {
+    g.kinds.set(saved);
+    return false;
+  }
+  return true;
+}
+
+/** An underground stream winds across the whole chamber along one axis, 1 or 2 cells wide. */
+function carveStream(g: Grid, rng: Rng, id: number, b: Blob): boolean {
+  const horizontal = rng.chance(0.5);
+  const seed = rng.int(1, 1e9);
+  const c = Math.round(horizontal ? b.cy : b.cx);
+  const saved = g.kinds.slice();
+  let total = 0;
+  for (let i = 0; i < g.w * g.h; i++) if (g.room[i] === id && g.kinds[i] === K.Floor) total++;
+  let flooded = 0;
+  const len = horizontal ? g.w : g.h;
+  for (let t = 0; t < len; t++) {
+    const centre = Math.round(c + (fbm2(seed, t * 0.22, 0.5) - 0.5) * 7);
+    const wide = fbm2(seed + 31, t * 0.3, 7.5) > 0.5;
+    for (let k = 0; k < (wide ? 2 : 1); k++) {
+      const x = horizontal ? t : centre + k;
+      const y = horizontal ? centre + k : t;
+      if (!g.inb(x, y)) continue;
+      const i = g.idx(x, y);
+      if (g.room[i] !== id || g.kinds[i] !== K.Floor) continue;
+      g.kinds[i] = K.Water;
+      flooded++;
+    }
+  }
+  if (flooded < 8 || flooded > total * 0.35 || !allConnected(g)) {
     g.kinds.set(saved);
     return false;
   }
