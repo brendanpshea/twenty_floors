@@ -46,7 +46,7 @@ describe('buildEncounters', () => {
       for (const roomId of [1, 2, 3, 4]) {
         const n = placed.filter((m) => m.roomId === roomId).length;
         expect(n).toBeGreaterThanOrEqual(1);
-        expect(n).toBeLessThanOrEqual(ENCOUNTER_TUNING.maxMonstersPerRoom);
+        expect(n).toBeLessThanOrEqual(Math.max(...ENCOUNTER_TUNING.maxMonstersPerRoom));
       }
     }
   });

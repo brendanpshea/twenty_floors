@@ -1,6 +1,6 @@
 import { Rng, floorSeed, hashSeed } from '../core/rng';
 import { themeForDepth } from '../core/themes';
-import type { Ability, ActionDef, Condition, DamageType, MonsterDef } from '../core/types';
+import type { Ability, ActionDef, Condition, DamageType, FloorPlan, MonsterDef } from '../core/types';
 import { fighterImprovementsUpTo, fighterLevel } from '../data/fighter';
 import { MONSTERS } from '../data/monsters';
 import { generateFloor } from '../gen';
@@ -425,7 +425,11 @@ export interface ModelOptions {
   potions?: number;
   /** Hero level minus floor number. Default 0 (the hero gains a level per floor). */
   levelOffset?: number;
+  /** Reuse generated floors between calls (tuning sweeps re-populate the same floors many times). */
+  cachePlans?: boolean;
 }
+
+const planCache = new Map<string, FloorPlan>();
 
 export interface FloorOutcome {
   cleared: boolean;
@@ -442,7 +446,12 @@ export interface FloorOutcome {
 
 export function modelFloor(runSeed: number, depth: number, opts: ModelOptions = {}): FloorOutcome {
   const seed = floorSeed(runSeed, depth);
-  const plan = generateFloor({ seed, depth, theme: themeForDepth(depth) });
+  const key = `${seed}:${depth}`;
+  let plan = opts.cachePlans ? planCache.get(key) : undefined;
+  if (!plan) {
+    plan = generateFloor({ seed, depth, theme: themeForDepth(depth) });
+    if (opts.cachePlans) planCache.set(key, plan);
+  }
   const placed = buildEncounters(plan, MONSTERS, new Rng(hashSeed(seed, 'encounters')));
   const rng = new Rng(hashSeed(seed, 'model'));
   const level = depth + (opts.levelOffset ?? 0);
@@ -452,12 +461,13 @@ export function modelFloor(runSeed: number, depth: number, opts: ModelOptions = 
 
   const route = routeToBoss(plan).filter((id) => placed.some((m) => m.roomId === id));
   const out: FloorOutcome = { cleared: false, fights: 0, rounds: 0, allyDowned: false, xp: 0 };
+  const floor = plan;
   let shortRests = 2;
   let sites = 0;
   let sitesFound = 0;
   for (let i = 0; i < route.length; i++) {
     const roomId = route[i] as number;
-    const boss = plan.rooms.find((r) => r.id === roomId)?.role === 'boss';
+    const boss = floor.rooms.find((r) => r.id === roomId)?.role === 'boss';
     // Rest sites: one becomes available about midway, the other at the boss's door.
     // On a very short route both are met by the time the boss's door is.
     const found = boss ? 2 : i >= Math.floor(route.length / 2) ? 1 : 0;

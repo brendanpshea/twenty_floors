@@ -17,7 +17,7 @@ export interface EncounterTuning {
   overshoot: number;
   /** The first monster of a room may cost up to this multiple of the budget. */
   firstOvershoot: number;
-  maxMonstersPerRoom: number;
+  maxMonstersPerRoom: number[];
   maxOverLevel: number;
   /** Boss room: at most this many extra monsters, by depth (index depth-1, last value repeats). */
   maxBossMinions: number[];
@@ -50,6 +50,17 @@ export interface EncounterTuning {
    * floor's room budget (budgetByLevel), so a theme's tougher monsters wait for deeper floors.
    */
   castBudgetFactor: number;
+  /**
+   * The lower edge, on the same scale: an ordinary monster worth less than this share of the
+   * floor's room budget is not worth a turn and is left out (waived if nothing else is left).
+   */
+  castFloorFactor: number;
+  /**
+   * From this depth on, a theme's lesser bosses (not this floor's boss, challenge rating at most
+   * depth x eliteBossCr and below the boss's own) join the regular cast as elites.
+   */
+  eliteBossFromDepth: number;
+  eliteBossCr: number;
   /** Monsters that only appear in ordinary rooms from this depth on (default: always). */
   monsterMinDepth: Record<string, number>;
   /** Monsters that stop appearing in ordinary rooms after this depth (default: never). */
@@ -82,19 +93,22 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   /** A group may overshoot its budget by this fraction (the first monster may always be at most 1.5x). */
   overshoot: 1.1,
   firstOvershoot: 2.2,
-  maxMonstersPerRoom: 4,
+  maxMonstersPerRoom: [4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
   /** At most this many monsters with CR above the hero's level per room. */
   maxOverLevel: 1,
-  maxBossMinions: [1, 2, 2, 2],
+  maxBossMinions: [1, 2, 2, 3],
   minMonstersPerRoom: [1.8, 2.1, 2.3],
   topUpLimit: 1.8,
-  bossMinionChance: [0.25, 0.5, 0.2, 0.5],
+  bossMinionChance: [0.25, 0.5, 0.2, 0.85],
   /** Selection weight by role. */
   roleWeight: { minion: 1, standard: 1, elite: 0.5, boss: 0 },
   minCrPerDepth: 0.25,
   bossCrBand: [0.5, 0.75],
   maxCastSize: 4,
   castBudgetFactor: 1.5,
+  castFloorFactor: 0.12,
+  eliteBossFromDepth: 4,
+  eliteBossCr: 0.8,
   // Casts are chosen by CR for the floor, not listed per depth, so a theme can appear anywhere.
   monsterMinDepth: {},
   monsterMaxDepth: {},
@@ -107,6 +121,11 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
 
 export function minMonstersAt(depth: number): number {
   const t = ENCOUNTER_TUNING.minMonstersPerRoom;
+  return t[Math.min(Math.max(depth, 1), t.length) - 1] as number;
+}
+
+export function maxMonstersAt(depth: number): number {
+  const t = ENCOUNTER_TUNING.maxMonstersPerRoom;
   return t[Math.min(Math.max(depth, 1), t.length) - 1] as number;
 }
 
@@ -142,7 +161,7 @@ function pickGroup(pool: MonsterDef[], maxCount: number, budget: number, depth: 
     if (cands.length === 0) break;
     const m = rng.weighted(
       cands,
-      cands.map((x) => t.roleWeight[x.role] * (t.monsterWeight[x.id] ?? 1)),
+      cands.map((x) => (x.role === 'boss' ? t.roleWeight.elite : t.roleWeight[x.role]) * (t.monsterWeight[x.id] ?? 1)),
     );
     chosen.push(m);
     remaining -= m.xp;
@@ -175,10 +194,11 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
   const forcedBoss = forcedBossId ? themed.find((m) => m.id === forcedBossId) : undefined;
   const isBoss = (m: MonsterDef): boolean => (forcedBoss ? m.id === forcedBoss.id : m.role === 'boss');
   const t = ENCOUNTER_TUNING;
+  const eliteCr = plan.depth >= t.eliteBossFromDepth && forcedBoss ? Math.min(plan.depth * t.eliteBossCr, forcedBoss.cr - 1) : -1;
   const eligible = themed.filter(
     (m) =>
       !isBoss(m) &&
-      m.role !== 'boss' &&
+      (m.role !== 'boss' || m.cr <= eliteCr) &&
       plan.depth >= (ENCOUNTER_TUNING.monsterMinDepth[m.id] ?? 1) &&
       plan.depth <= (ENCOUNTER_TUNING.monsterMaxDepth[m.id] ?? Infinity),
   );
@@ -189,8 +209,10 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
   const inReach = affordable.length > 0 ? affordable : eligible.filter((m) => m.xp === cheapest);
   // ...and what the floor has outgrown, unless it has nothing stronger.
   const minCr = Math.floor(plan.depth * t.minCrPerDepth);
-  const strong = inReach.filter((m) => m.cr >= minCr);
-  let regular = strong.length > 0 ? strong : inReach;
+  const worth = levelBudget * t.soloFactor * t.castFloorFactor;
+  const strong = inReach.filter((m) => m.cr >= minCr && m.xp >= worth);
+  const fallback = inReach.filter((m) => m.cr >= minCr);
+  let regular = strong.length > 0 ? strong : fallback.length > 0 ? fallback : inReach;
   // A big cast is sampled, so two floors of one theme (or two runs) do not field the same monsters.
   if (regular.length > t.maxCastSize) regular = rng.shuffle(regular.slice()).slice(0, t.maxCastSize);
   // Bosses that fit this depth; failing that, the one nearest to fitting.
@@ -232,7 +254,7 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
     } else if (monsterSlots.length > 0 && regular.length > 0) {
       const budget = roomBudget(plan.depth, room.role, room.distanceFromEntrance);
       if (budget > 0) {
-        const group = pickGroup(regular, Math.min(t.maxMonstersPerRoom, monsterSlots.length), budget, plan.depth, rng);
+        const group = pickGroup(regular, Math.min(maxMonstersAt(plan.depth), monsterSlots.length), budget, plan.depth, rng);
         group.forEach((def, i) => placements.push({ def, slot: monsterSlots[i] as SpawnSlot }));
       }
     }
