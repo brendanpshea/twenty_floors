@@ -108,7 +108,8 @@ export class CameraRig {
         this.pitch = b.pitch;
         this.dist = b.dist;
         this.target.set(b.x, 0, b.z);
-        this.follow = b.follow;
+        // A follow target chosen while in overview wins over the one saved on the way in.
+        this.follow = this.follow ?? b.follow;
       }
     }
     this.snapNext = true;

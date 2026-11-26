@@ -470,7 +470,8 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
           for (let dx = -2; dx <= 2; dx++) {
             const nx = x + dx;
             const ny = y + dy;
-            if (kindAt(nx, ny) !== CellKind.Void) continue;
+            // kindAt reports Void off the map too, and an off-map x would index the next row.
+            if (nx < 0 || ny < 0 || nx >= W || ny >= H || kindAt(nx, ny) !== CellKind.Void) continue;
             const ni = ny * W + nx;
             const dd = Math.max(Math.abs(dx), Math.abs(dy));
             if (dd < massDist[ni]! || (dd === massDist[ni]! && wt > massTop[ni]! + 0.2 * dd)) {

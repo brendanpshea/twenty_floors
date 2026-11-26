@@ -618,7 +618,7 @@ function forest(): FloorPlan {
   for (const [x, y] of [[18, 16], [27, 12], [23, 10], [20, 11], [25, 17]] as const) P('bush', x, y, 0, false);
   P('log', 24, 12, 1); P('log', 19, 14, 0);
   // glade
-  P('gnarled_tree', 5, 19); P('bush', 7, 17, 0, false); P('bush', 9, 19, 0, false); P('boulder', 10, 17); P('mushrooms', 6, 18, 0, false);
+  P('gnarled_tree', 5, 19); P('bush', 7, 17, 0, false); P('bush', 9, 19, 0, false); P('standing_stone', 10, 17); P('mushrooms', 6, 18, 0, false);
   autoLights(d, 'forest');
   return d.toPlan('forest', { x: 4, y: 7 }, { x: 22, y: 12 }, 1013, [{ x: 7, y: 9 }, { x: 22, y: 14 }]);
 }
@@ -646,7 +646,7 @@ function marsh(): FloorPlan {
   P('log', 16, 6, 0); P('bush', 15, 4, 0, false); P('bush', 18, 5, 0, false); P('mushrooms', 17, 7, 0, false);
   for (const [x, y] of [[14, 4], [18, 3], [16, 3]] as const) P('reeds', x, y, x % 4, false);
   // island 3: a boulder and a fallen tree
-  P('gnarled_tree', 25, 6); P('boulder', 22, 8); P('log', 26, 9, 1); P('bones', 24, 8, 0, false);
+  P('gnarled_tree', 25, 6); P('log', 22, 8); P('log', 26, 9, 1); P('bones', 24, 8, 0, false);
   for (const [x, y] of [[23, 5], [27, 6], [22, 6], [26, 4]] as const) P('reeds', x, y, x % 4, false);
   // island 4 (south-west) and 5 (the camp)
   P('gnarled_tree', 5, 14); P('log', 9, 16, 0); P('campfire', 8, 15); P('rubble', 6, 17);
