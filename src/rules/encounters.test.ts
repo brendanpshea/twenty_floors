@@ -89,8 +89,13 @@ describe('buildEncounters', () => {
   });
 
   it('budget grows with depth, in the table and on average in the output', () => {
-    for (let d = 1; d < 20; d++) {
+    // Floors 1 to 3 climb step by step. Deeper floors are tuned theme by theme (a weak cast needs
+    // a bigger budget to field its best), so they only have to stay above everything before floor 4.
+    for (let d = 1; d < 3; d++) {
       expect(roomBudget(d + 1, 'combat', 2)).toBeGreaterThanOrEqual(roomBudget(d, 'combat', 2));
+    }
+    for (let d = 4; d <= 20; d++) {
+      expect(roomBudget(d, 'combat', 2)).toBeGreaterThan(roomBudget(3, 'combat', 2));
     }
     expect(roomBudget(3, 'combat', 5)).toBeGreaterThan(roomBudget(3, 'combat', 1));
     expect(roomBudget(3, 'combat', 99)).toBeLessThanOrEqual(roomBudget(3, 'combat', 1) * 2);

@@ -80,7 +80,7 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
    * 4 the SRD 5.2 "Low" per-character budgets (250, 500, 600 ...) are scaled
    * by 0.65 until those floors are tuned the same way.
    */
-  budgetByLevel: [36, 130, 140, 160, 325, 390, 490, 650, 845, 1040, 1235, 1430, 1690, 1885, 2145, 2470, 2925, 3250, 3575, 4160],
+  budgetByLevel: [36, 130, 140, 320, 1625, 2535, 3185, 4100, 4900, 5930, 9500, 12870, 14030, 15100, 21450, 13585, 16965, 27300, 32175, 22460],
   /** Global multiplier on every budget. */
   soloFactor: 1,
   /** Budget multiplier by room role. 0 = never spawn. */
@@ -96,10 +96,10 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   maxMonstersPerRoom: [4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
   /** At most this many monsters with CR above the hero's level per room. */
   maxOverLevel: 1,
-  maxBossMinions: [1, 2, 2, 3],
-  minMonstersPerRoom: [1.8, 2.1, 2.3],
+  maxBossMinions: [1, 2, 2, 2, 2, 3, 3, 3, 3, 4],
+  minMonstersPerRoom: [1.8, 2.1, 2.3, 3, 3, 3, 3.5],
   topUpLimit: 1.8,
-  bossMinionChance: [0.25, 0.5, 0.2, 0.85],
+  bossMinionChance: [0.25, 0.5, 0.2, 0.4, 0.6, 1],
   /** Selection weight by role. */
   roleWeight: { minion: 1, standard: 1, elite: 0.5, boss: 0 },
   minCrPerDepth: 0.25,
@@ -115,7 +115,7 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   // The fixed run's boss order: on the second floor of a two-floor theme both bosses can fit the
   // band, and the same boss twice running would be a let-down. Randomized runs will replace this
   // table together with themeForDepth.
-  bossByDepth: { 4: 'ochre_jelly', 5: 'green_hag', 6: 'chuul', 7: 'shambling_mound', 8: 'tough_boss', 9: 'gladiator', 10: 'mage', 11: 'shield_guardian', 12: 'fire_giant', 13: 'clay_golem', 14: 'remorhaz', 15: 'adult_white_dragon', 16: 'storm_giant', 17: 'adult_green_dragon', 18: 'marilith', 19: 'balor', 20: 'adult_red_dragon' },
+  bossByDepth: { 4: 'green_hag', 5: 'otyugh', 6: 'shambling_mound', 7: 'treant', 8: 'pirate_captain', 9: 'assassin', 10: 'stone_golem', 11: 'archmage', 12: 'clay_golem', 13: 'fire_giant', 14: 'remorhaz', 15: 'adult_white_dragon', 16: 'storm_giant', 17: 'adult_green_dragon', 18: 'marilith', 19: 'balor', 20: 'adult_red_dragon' },
   monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5 },
 };
 

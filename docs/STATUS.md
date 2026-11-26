@@ -151,13 +151,39 @@ the rules engine has one yet, and floors 1 to 3 are tuned for a solo hero;
 treat "hero plus an ally about two levels lower" as the target when choosing
 casts and tuning floors 4 and deeper.
 
-What it shows today (26 November 2026): from floor 4 on, the floors are far
-too easy. A solo hero clears floors 4 to 20 93 to 100% of the time and a
-hero with an ally two levels lower essentially always, arriving at the boss
-at full health. Raising room budgets alone runs out at about three times
-the current figures, because the themes have no stronger monsters to spend
-it on at those depths: floors from 4 down need tougher casts and bosses
-(CR much nearer the hero's level), not just more of the same.
+Floors 4 to 20 were re-tuned on 26 November 2026 for a hero with an ally two
+levels lower (they had been 93 to 100% clears even solo). In
+`ENCOUNTER_TUNING` (`src/rules/encounters.ts`), from floor 4 on:
+
+- room budgets are 2 to 10 times the old figures, set floor by floor;
+- rooms hold up to 5 monsters (6 from floor 10) and at least 3;
+- a theme's lesser bosses join the regular cast as elites
+  (`eliteBossFromDepth`, `eliteBossCr`);
+- monsters worth under 12% of the floor's budget drop out of the cast
+  (`castFloorFactor`);
+- bosses bring escorts (always, and up to 3, from floor 6; 4 from floor 10),
+  and several floors have a stronger boss (`bossByDepth`).
+
+Floors 1 to 3 are untouched: same casts, same real-engine clear rates.
+
+Model table after the change, hero plus ally, 300 runs per floor
+(first-attempt clears): 4: 64%, 5: 74%, 6: 79%, 7: 73%, 8: 63%, 9: 71%,
+10: 65%, 11: 76%, 12: 60%, 13: 92%, 14: about 55%, 15: 94%, 16: 68%,
+17: 63%, 18: 75%, 19: 63%, 20: 76%.
+
+Read these with care:
+
+- The model is rough (see the calibration above), and the rates move in
+  steps, not smoothly: a small budget change can drop a whole CR tier from
+  the cast and swing a floor by 30 to 50 points. Re-tune against the real
+  engine once the Fighter can reach these floors.
+- Floors 13 (foundry) and 15 (ice) stay easy. Their casts top out at CR 5 to
+  8; they need stronger regular monsters, not more budget.
+- Deaths now come from the rooms, almost never the boss: two fighters
+  arriving rested kill a single boss in about three rounds, escorts or not.
+  Making bosses the main danger needs boss mechanics (legendary actions,
+  lair effects), which the engine does not have.
+- These floors assume the ally; they were not measured for a solo hero.
 
 ## Planned: randomized runs
 
