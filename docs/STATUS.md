@@ -11,7 +11,8 @@ https://brendanpshea.github.io/twenty_floors/ on every push to `main`
 (the workflow runs type-check, tests and build first, on Node 24).
 
 - Fighter, levels 1 to 3; Human, Dwarf, Elf; four backgrounds.
-- Three generated floors with rest sites and one set piece each.
+- Three generated floors with rest sites and one set piece each (four kinds per
+  theme: the moated shrine, the hall of rock columns and the well are the newest).
 - Turn-based combat, long rests at rest sites, Hit Dice short rests, Last Stand.
 - All SRD 5.2.1 weapons and armor with +1 to +3 variants; six weapon masteries.
 - Twelve monsters with open models; kitbashed goblin variants.
@@ -59,7 +60,10 @@ the Archery style with the sword-and-shield kit).
 
 1. Floors 4 to 20 following `docs/research/roster-options.md` (free assets,
    CC0 and CC-BY; floor 20 boss is the Young Red Dragon).
-2. More generator set pieces and a whole-floor overview camera for reviewing layouts.
+2. More generator set pieces. The whole-floor overview camera exists in the
+   renderer preview (`/dev/render-preview.html?gen=1`, key `O` or `&overview=1`;
+   `&piece=moat` steps the seed to the next floor with that set piece) but not
+   in the game itself, where it would need a fog-of-war-aware map view.
 3. A second class.
 
 ## How the work has been organised

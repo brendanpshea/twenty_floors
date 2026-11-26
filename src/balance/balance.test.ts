@@ -99,7 +99,9 @@ describe('balance bounds (loose: a change that wrecks the game should fail here)
 
   it('the other kits stay in a playable range', () => {
     for (const kit of ['b', 'c']) {
-      const s = simulateRun(heroBuild(kit), seeds(60));
+      // 150 runs: kit c sits near 0.3 on floor 3, and at 60 runs the sampling noise alone
+      // (about +/-0.06) can carry it under the bound whenever the floors are reshuffled.
+      const s = simulateRun(heroBuild(kit), seeds(150));
       for (const floor of [1, 2, 3]) {
         expect(firstTry(s, floor), `kit ${kit} floor ${floor}`).toBeGreaterThan(0.2);
         expect(firstTry(s, floor), `kit ${kit} floor ${floor}`).toBeLessThan(0.98);

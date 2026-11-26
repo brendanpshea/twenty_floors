@@ -22,7 +22,7 @@ import { Highlights } from './highlights';
 import { Lighting } from './lighting';
 import { Markers } from './markers';
 import { ModelCache } from './modelCache';
-import { updateOcclusion } from './occlusion';
+import { disableOcclusion, updateOcclusion } from './occlusion';
 import { Picker } from './picking';
 import type { PickOut } from './picking';
 import { buildProps } from './props';
@@ -45,6 +45,12 @@ export interface RendererWithDebug extends Renderer3D {
   stats(): RenderStats;
   /** Set the camera orbit directly (radians / world units). */
   setView(v: { yaw?: number; pitch?: number; dist?: number }): void;
+  /**
+   * Whole-floor overview for reviewing layouts: frames the floor from above, with distance fog
+   * and wall cut-away off. Switching it off restores the previous view. Not part of Renderer3D.
+   */
+  setOverview(on: boolean): void;
+  readonly overview: boolean;
   readonly quality: QualityLevel;
   /** CSS pixel (client) coordinates of a cell or entity, or null if it is behind the camera. Not part of Renderer3D. */
   project(at: GridPos | string): { x: number; y: number } | null;
@@ -218,6 +224,8 @@ class RendererImpl implements RendererWithDebug {
     this.entities.refreshGround();
     this.highlights.setGrid(plan.width, plan.height);
     this.highlights.set([], (x, y) => this.groundAt(x, y));
+    // In overview the rig has already framed the new floor (setBounds above).
+    if (this.rig.overview) return;
     this.rig.focusOn(plan.entrance.x * CELL + CELL / 2, plan.entrance.y * CELL + CELL / 2, true);
     this.rig.focus.set(plan.entrance.x * CELL + CELL / 2, this.groundAt(plan.entrance.x, plan.entrance.y), plan.entrance.y * CELL + CELL / 2);
   }
@@ -364,6 +372,15 @@ class RendererImpl implements RendererWithDebug {
     this.rig.setView(v, true);
   }
 
+  get overview(): boolean {
+    return this.rig.overview;
+  }
+
+  setOverview(on: boolean): void {
+    this.rig.setOverview(on);
+    this.lighting.setOverview(on);
+  }
+
   project(at: GridPos | string): { x: number; y: number } | null {
     const v = this.tmpV;
     if (typeof at === 'string') {
@@ -433,7 +450,8 @@ class RendererImpl implements RendererWithDebug {
     }
     timeUniform.value = this.time;
     this.rig.update(dt);
-    updateOcclusion(this.rig.focus.x, this.rig.focus.z, this.rig.viewYaw, this.rig.viewDist, this.rig.viewPitch);
+    if (this.rig.overview) disableOcclusion();
+    else updateOcclusion(this.rig.focus.x, this.rig.focus.z, this.rig.viewYaw, this.rig.viewDist, this.rig.viewPitch);
     this.lighting.update(dt, this.time, this.rig.focus);
     this.fow?.update(dt);
     this.entities.update(dt, this.time, this.rig.camera.quaternion);

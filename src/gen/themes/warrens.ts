@@ -19,7 +19,10 @@ import type { DecorCtx, Layout } from '../layout';
  * 4. Each chamber gets a base height (random walk over the tree, +/-1 steps);
  *    mounds add +1 where low-frequency noise is high; tunnels are solved with
  *    the Lipschitz solver so every slope is a staircase.
- * 5. Water pools and the occasional chasm pit are carved last; props compose
+ * 5. Water pools and the occasional chasm pit are carved last, then the
+ *    floor's set piece (an underground lake with a causeway, a terraced
+ *    chamber, a chasm crack with a natural bridge, or a hall of rock
+ *    columns left standing in a big chamber); props compose
  *    goblin camps (campfire, crates, barrels, bones), stalagmite clusters and
  *    wall-hugging mushroom patches.
  *
@@ -68,8 +71,11 @@ export function genWarrens(graph: MissionGraph, rng: Rng, depth: number): Layout
 
   // Set piece: pick a big chamber and a feature that suits it.
   const bigRooms = graph.roles.map((r, i) => i).filter((i) => (graph.roles[i] === 'combat' || graph.roles[i] === 'boss') && roomArea(g, i) >= 50);
-  const pieceRoom = bigRooms.length ? rng.pick(bigRooms) : -1;
-  const pieceName: 'lake' | 'tiers' | 'crack' | 'none' = pieceRoom < 0 ? 'none' : rng.pick(['crack', 'lake', 'tiers'] as const);
+  let pieceRoom = bigRooms.length ? rng.pick(bigRooms) : -1;
+  const pieceName: 'lake' | 'tiers' | 'crack' | 'columns' | 'none' =
+    pieceRoom < 0 ? 'none' : rng.pick(['crack', 'lake', 'tiers', 'columns'] as const);
+  // Columns want all the floor they can get: they go in the biggest chamber.
+  if (pieceName === 'columns') pieceRoom = bigRooms.reduce((best, i) => (roomArea(g, i) > roomArea(g, best) ? i : best), pieceRoom);
   // The tiered chamber rises toward one side.
   const tierDir = rng.pick([[1, 0], [-1, 0], [0, 1], [0, -1]] as Array<[number, number]>);
 
@@ -107,6 +113,12 @@ export function genWarrens(graph: MissionGraph, rng: Rng, depth: number): Layout
   let applied: string = pieceName;
   if (pieceName === 'lake') applied = carveLake(g, rng, pieceRoom) ? 'lake' : 'none';
   else if (pieceName === 'crack') applied = carveCrack(g, rng, pieceRoom, blobs[pieceRoom] as Blob) ? 'crack' : 'none';
+  else if (pieceName === 'columns') {
+    // Pools and pits may have left too little open floor; a crack or a lake still fits then.
+    if (carveColumns(g, rng, pieceRoom)) applied = 'columns';
+    else if (carveCrack(g, rng, pieceRoom, blobs[pieceRoom] as Blob)) applied = 'crack';
+    else applied = carveLake(g, rng, pieceRoom) ? 'lake' : 'none';
+  }
   if (applied === 'none') throw new GenFail('no set piece could be built');
   const piece = { name: applied, room: pieceRoom };
   return { grid: g, roles: graph.roles, edges, decorate: (ctx) => decorate(ctx, piece), setPiece: applied };
@@ -632,6 +644,58 @@ function carveCrack(g: Grid, rng: Rng, id: number, b: Blob): boolean {
   }
   if (carved < 5 || !allConnected(g)) {
     g.kinds.set(saved);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Rock columns: uncarved stumps (2x2 or a single cell) left standing inside the chamber (dry floor
+ * or pool), each with at least one clear cell all round and two between neighbours, so they break lines of sight
+ * without making a dead end. Needs room for three.
+ */
+function carveColumns(g: Grid, rng: Rng, id: number): boolean {
+  const open = (x: number, y: number): boolean => {
+    if (!g.inb(x, y)) return false;
+    const i = g.idx(x, y);
+    return g.room[i] === id && (g.kinds[i] === K.Floor || g.kinds[i] === K.Water);
+  };
+  const cand: Array<[number, number]> = [];
+  for (let y = 0; y < g.h; y++) {
+    for (let x = 0; x < g.w; x++) {
+      let ok = true;
+      for (let dy = -1; dy <= 2 && ok; dy++) for (let dx = -1; dx <= 2; dx++) if (!open(x + dx, y + dy)) ok = false;
+      if (ok) cand.push([x, y]);
+    }
+  }
+  // Greedy packing in a random order; keep the best of a few orders.
+  let chosen: Array<[number, number]> = [];
+  for (let attempt = 0; attempt < 4 && chosen.length < 6; attempt++) {
+    rng.shuffle(cand);
+    const pick: Array<[number, number]> = [];
+    for (const [x, y] of cand) {
+      if (pick.length >= 6) break;
+      if (pick.every(([cx, cy]) => Math.max(Math.abs(cx - x), Math.abs(cy - y)) >= 4)) pick.push([x, y]);
+    }
+    if (pick.length > chosen.length) chosen = pick;
+  }
+  if (chosen.length < 3) return false;
+  const saved = { kinds: g.kinds.slice(), room: g.room.slice(), elev: g.elev.slice() };
+  for (const [x, y] of chosen) {
+    const span = rng.chance(0.65) ? 1 : 0;
+    for (let dy = 0; dy <= span; dy++) {
+      for (let dx = 0; dx <= span; dx++) {
+        const i = g.idx(x + dx, y + dy);
+        g.kinds[i] = K.Void; // addWalls raises it into rock
+        g.room[i] = -1;
+        g.elev[i] = 0;
+      }
+    }
+  }
+  if (!allConnected(g)) {
+    g.kinds.set(saved.kinds);
+    g.room.set(saved.room);
+    g.elev.set(saved.elev);
     return false;
   }
   return true;

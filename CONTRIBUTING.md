@@ -22,7 +22,9 @@ With the dev server running, two preview pages let you work on one module
 without playing through a whole run (Vite usually prints
 `http://localhost:5173`):
 
-- `/dev/render-preview.html`: the 3D renderer on fixture floors.
+- `/dev/render-preview.html`: the 3D renderer on fixture floors. Add `?gen=1`
+  for generated floors; `O` toggles a whole-floor overview and the panel names
+  the floor's set piece.
 - `/dev/ui-preview.html`: every UI screen with mock data.
 
 On Windows, run `npm test` from PowerShell. Vitest currently fails when it is

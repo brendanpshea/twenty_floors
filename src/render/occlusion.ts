@@ -33,6 +33,11 @@ export function updateOcclusion(tx: number, tz: number, yaw: number, dist: numbe
   occUniforms.uOccP.value.set(lat, along);
 }
 
+/** No wall is lowered (the overview looks straight down, so nothing hides the floor). */
+export function disableOcclusion(): void {
+  occUniforms.uOccP.value.set(1e-4, 1e-4);
+}
+
 /** CPU twin of the shader factor in [0, 1]. */
 export function occFactor(wx: number, wz: number): number {
   const t = occUniforms.uOccT.value;

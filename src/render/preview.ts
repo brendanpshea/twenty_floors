@@ -2,7 +2,7 @@ import type { CellHighlight, FloorPlan, GridPos, QualityLevel, ThemeId } from '.
 import { CellKind } from '../core/types';
 import { themeForDepth } from '../core/themes';
 import { MONSTERS } from '../data/monsters';
-import { generateFloor } from '../gen';
+import { generateFloorReport } from '../gen/generate';
 import { makeFixture } from './fixtures';
 import { createRenderer } from './index';
 
@@ -28,6 +28,10 @@ if (useGen && params.has('depth') && !params.has('theme')) theme = themeForDepth
 let plan: FloorPlan = makeFixture(theme);
 let buildMs = 0;
 let genMs = 0;
+let setPiece = '';
+/** `?piece=moat` steps the seed forward (at most 200 times) to the next floor built around that set piece. */
+let wantPiece = params.get('piece');
+let overview = params.get('overview') === '1';
 let heroCell: GridPos = { x: 0, y: 0 };
 let fogOn = params.get('fog') === '1';
 let revealed = new Uint8Array(0);
@@ -136,7 +140,11 @@ function setFog(on: boolean): void {
 async function setup(): Promise<void> {
   if (useGen) {
     const t0 = performance.now();
-    plan = generateFloor({ seed, depth, theme });
+    let report = generateFloorReport({ seed, depth, theme });
+    for (let k = 0; wantPiece && report.setPiece !== wantPiece && k < 200; k++) report = generateFloorReport({ seed: ++seed, depth, theme });
+    wantPiece = null;
+    plan = report.plan;
+    setPiece = report.fallback ? 'fallback layout' : (report.setPiece ?? '');
     genMs = performance.now() - t0;
   } else plan = makeFixture(theme);
   monsters.clear();
@@ -205,6 +213,18 @@ async function setup(): Promise<void> {
 }
 
 function applyCamera(): void {
+  renderer.setOverview(false);
+  applyOrbit();
+  renderer.setOverview(overview);
+}
+
+function setOverview(on: boolean): void {
+  overview = on;
+  renderer.setOverview(on);
+  refreshButtons();
+}
+
+function applyOrbit(): void {
   const cam = params.get('cam') ?? 'a';
   const fx = params.get('focus');
   const hero = plan.entrance;
@@ -362,6 +382,7 @@ addButton('P follow', () => {
   renderer.followEntity(follow ? 'hero' : null);
   refreshButtons();
 }, () => follow);
+addButton('O overview', () => setOverview(!overview), () => overview);
 addButton('R reset', () => applyCamera());
 
 window.addEventListener('keydown', (e) => {
@@ -377,6 +398,7 @@ window.addEventListener('keydown', (e) => {
     renderer.followEntity(follow ? 'hero' : null);
     refreshButtons();
   }
+  if (k === 'o') setOverview(!overview);
   if (k === 'r') applyCamera();
   if (k === 'g') { useGen = !useGen; void setup(); }
   if (k === ']') { seed++; void setup(); }
@@ -392,9 +414,10 @@ setInterval(() => {
     `fps ${s.fps.toFixed(0)}  calls ${s.drawCalls}  tris ${s.triangles}\n` +
     `${useGen ? `gen seed ${seed} depth ${depth} (${plan.width}x${plan.height}) gen ${genMs.toFixed(0)}ms` : 'fixture'} build ${buildMs.toFixed(0)}ms
 ` +
+    (useGen && setPiece ? `set piece: ${setPiece}\n` : '') +
     `geo ${s.geometries}  tex ${s.textures}  fog-update ${lastRevealMs.toFixed(1)}ms\n` +
     `click: walk / attack. drag: pan, right-drag: rotate,\nwheel: zoom. WASD pan, Q/E rotate, +/- zoom.\n` +
-    `1-3 theme, 4-6 quality, F fog, P follow, R reset
+    `1-3 theme, 4-6 quality, F fog, P follow, O overview, R reset
 G gen/fixture, [ ] seed, , . depth`;
 }, 500);
 

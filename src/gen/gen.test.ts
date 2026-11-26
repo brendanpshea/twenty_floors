@@ -374,6 +374,78 @@ describe('rest spots and set pieces', () => {
     }
   });
 
+  it('every set piece turns up, and the newer ones leave their mark on the plan', () => {
+    const want: Record<string, string[]> = {
+      warrens: ['lake', 'tiers', 'crack', 'columns'],
+      crypt: ['ambulatory', 'grandNave', 'collapsed', 'moat'],
+      depths: ['amphitheatre', 'twinBridge', 'landing', 'well'],
+    };
+    for (const theme of THEMES) {
+      const seen = new Set<string>();
+      for (let seed = 1; seed <= 60; seed++) {
+        const r = generateFloorReport({ seed, depth: 1 + (seed % 3), theme });
+        const plan = r.plan;
+        const { width: w, height: h, kinds } = plan;
+        seen.add(r.setPiece as string);
+        const count = (pred: (i: number) => boolean): number => {
+          let n = 0;
+          for (let i = 0; i < w * h; i++) if (pred(i)) n++;
+          return n;
+        };
+        const water = count((i) => kinds[i] === CellKind.Water);
+        if (theme === 'crypt') {
+          // The moat is the crypt's only water: a ring of 20 cells in one combat room.
+          expect(water).toBe(r.setPiece === 'moat' ? 20 : 0);
+          if (r.setPiece === 'moat') {
+            const rooms = new Set<number>();
+            for (let i = 0; i < w * h; i++) if (kinds[i] === CellKind.Water) rooms.add(plan.roomIds[i] as number);
+            expect(rooms.size).toBe(1);
+            expect(plan.rooms[[...rooms][0] as number]?.role).toBe('combat');
+          }
+        }
+        if (theme === 'depths') {
+          // Only the well puts chasm inside a room: nine cells in a combat platform.
+          const inRoom = count((i) => kinds[i] === CellKind.Chasm && (plan.roomIds[i] as number) >= 0);
+          expect(inRoom).toBe(r.setPiece === 'well' ? 9 : 0);
+          if (r.setPiece === 'well') {
+            const i = kinds.findIndex((k, j) => k === CellKind.Chasm && (plan.roomIds[j] as number) >= 0);
+            expect(plan.rooms[plan.roomIds[i] as number]?.role).toBe('combat');
+          }
+        }
+        if (theme === 'warrens' && r.setPiece === 'columns') {
+          // At least three free-standing stumps: small wall groups with walkable cells all round.
+          const seenWall = new Uint8Array(w * h);
+          let stumps = 0;
+          for (let s = 0; s < w * h; s++) {
+            if (kinds[s] !== CellKind.Wall || seenWall[s]) continue;
+            const group = [s];
+            seenWall[s] = 1;
+            for (let q = 0; q < group.length; q++) {
+              const c = group[q] as number;
+              for (const d of [-1, 1, -w, w]) {
+                const j = c + d;
+                if (j >= 0 && j < w * h && kinds[j] === CellKind.Wall && !seenWall[j]) {
+                  seenWall[j] = 1;
+                  group.push(j);
+                }
+              }
+            }
+            if (group.length > 4) continue;
+            const ringed = group.every((c) =>
+              [-w - 1, -w, -w + 1, -1, 1, w - 1, w, w + 1].every((d) => {
+                const k = kinds[c + d];
+                return k === CellKind.Wall ? group.includes(c + d) : k === CellKind.Floor || k === CellKind.Water;
+              }),
+            );
+            if (ringed) stumps++;
+          }
+          expect(stumps).toBeGreaterThanOrEqual(3);
+        }
+      }
+      expect([...seen].sort()).toEqual((want[theme] as string[]).slice().sort());
+    }
+  }, 120000);
+
   it('floors keep a sensible size at depths 4-20', () => {
     for (const theme of THEMES) {
       for (let depth = 4; depth <= 20; depth += 4) {

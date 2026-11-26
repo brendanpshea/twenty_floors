@@ -5,6 +5,9 @@ import { heroUniforms } from './occlusion';
 import { CELL, ENTITY_LIGHT } from './util';
 
 const WHITEC = new Color(1, 1, 1);
+const HERO_RADIUS = heroUniforms.uHeroR.value;
+/** Far beyond any floor, so the falloff is flat across it. */
+const OVERVIEW_HERO_RADIUS = 1e5;
 const POOL_BY_QUALITY: Record<QualityLevel, number> = { low: 2, medium: 3, high: 4 };
 
 interface Slot {
@@ -33,6 +36,7 @@ export class Lighting {
   private order: number[] = [];
   private dist: Float32Array = new Float32Array(0);
   private keyOffset = new Vector3(-14, 26, 9);
+  private overview = false;
 
   constructor(private readonly scene: Scene) {
     scene.add(this.hemi);
@@ -67,7 +71,7 @@ export class Lighting {
     this.tmpColor.setHex(look.heroColor);
     heroUniforms.uHeroC.value.set(this.tmpColor.r, this.tmpColor.g, this.tmpColor.b).multiplyScalar(look.heroGain);
     this.fog.color.setHex(look.fog);
-    this.fog.density = look.fogDensity;
+    this.fog.density = this.overview ? 0 : look.fogDensity;
     this.scene.background = this.tmpColor.setHex(look.fog).clone();
     this.dirty = true;
   }
@@ -84,6 +88,16 @@ export class Lighting {
     }
     this.lastTarget.set(1e9, 0, 0);
     this.dirty = true;
+  }
+
+  /**
+   * Overview mode shows the whole floor at once: no distance fog, and the soft light that
+   * normally surrounds the camera target reaches every cell.
+   */
+  setOverview(on: boolean): void {
+    this.overview = on;
+    if (this.look) this.fog.density = on ? 0 : this.look.fogDensity;
+    heroUniforms.uHeroR.value = on ? OVERVIEW_HERO_RADIUS : HERO_RADIUS;
   }
 
   setQuality(q: QualityLevel): void {

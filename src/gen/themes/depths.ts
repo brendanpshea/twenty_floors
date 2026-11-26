@@ -25,6 +25,10 @@ import type { DecorCtx, Layout } from '../layout';
  * 5. The boss platform is large with terraces rising toward its far side.
  *    Crystals cluster on chasm edges, broken colonnades stand in the middle.
  *
+ * One set piece per floor: a tiered amphitheatre for the boss, a second bridge
+ * to the boss island, a landing in the middle of the longest bridge, or the
+ * well (a combat platform that is a ring around a hole into the chasm).
+ *
  * Tunables: height span 8-11, jitter 3, gap formula, dilation 3-6, crystal counts.
  */
 
@@ -67,8 +71,17 @@ export function genDepths(graph: MissionGraph, rng: Rng, depth: number): Layout 
   const plats = placePlatforms(graph, rng, W, H, elevs);
   const seed = rng.int(1, 1e9);
   // Set piece for this floor.
-  let piece = rng.pick(['amphitheatre', 'twinBridge', 'landing'] as const);
-  for (const p of plats) carvePlatform(g, p, seed, rng, plats, graph, piece === 'amphitheatre');
+  let piece: 'amphitheatre' | 'twinBridge' | 'landing' | 'well' = rng.pick(['amphitheatre', 'twinBridge', 'landing', 'well'] as const);
+  // The well needs the roomiest combat platform, and that one must be at least 9 cells across.
+  let wellHost = -1;
+  if (piece === 'well') {
+    for (const p of plats) {
+      if (p.role !== 'combat' || Math.min(p.hx, p.hy) < 4) continue;
+      if (wellHost < 0 || p.hx * p.hy > (plats[wellHost] as Plat).hx * (plats[wellHost] as Plat).hy) wellHost = p.id;
+    }
+    if (wellHost < 0) piece = 'twinBridge';
+  }
+  for (const p of plats) carvePlatform(g, p, seed, rng, plats, graph, piece === 'amphitheatre', p.id === wellHost);
 
   // Bridges.
   const edges: Array<[number, number]> = [];
@@ -240,9 +253,11 @@ function superPow(a: number, e: number): number {
   return e === 2 ? a2 : e === 3 ? a2 * a : a2 * a2;
 }
 
-function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], graph: MissionGraph, amphitheatre: boolean): void {
+function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], graph: MissionGraph, amphitheatre: boolean, well: boolean): void {
   const exp = rng.pick([2, 2, 2, 3, 3, 4]);
-  const notch = p.role !== 'entrance' && p.role !== 'treasure' && rng.chance(0.45) ? rng.int(0, 3) : -1;
+  const notchRoll = p.role !== 'entrance' && p.role !== 'treasure' && rng.chance(0.45) ? rng.int(0, 3) : -1;
+  // A notch beside the well's hole would pinch the ring shut.
+  const notch = well ? -1 : notchRoll;
   // A second, smaller lobe makes the outline irregular rather than a rounded box.
   const lobe = p.role === 'combat' && rng.chance(0.45) ? { sx: rng.chance(0.5) ? 1 : -1, sy: rng.chance(0.5) ? 1 : -1 } : null;
   const inside = new Set<number>();
@@ -297,7 +312,7 @@ function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], 
     if (Math.abs(vx) >= Math.abs(vy)) fx = Math.sign(vx);
     else fy = Math.sign(vy);
   }
-  const mound = p.role === 'combat' && p.hx * p.hy >= 24 && rng.chance(0.4);
+  const mound = !well && p.role === 'combat' && p.hx * p.hy >= 24 && rng.chance(0.4);
   for (const i of keep) {
     const x = i % g.w;
     const y = (i / g.w) | 0;
@@ -318,6 +333,10 @@ function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], 
     if (x > (p.rowMax[y] as number)) p.rowMax[y] = x;
     if (p.colMin[x] === -1 || y < (p.colMin[x] as number)) p.colMin[x] = y;
     if (y > (p.colMax[x] as number)) p.colMax[x] = y;
+  }
+  if (well) {
+    // The hole: nine cells round the centre drop into the chasm, leaving a ring to fight on.
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) g.kinds[g.idx(p.cx + dx, p.cy + dy)] = K.Chasm;
   }
 }
 

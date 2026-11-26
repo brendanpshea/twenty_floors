@@ -18,12 +18,17 @@ import type { MissionGraph } from '../graph';
  * elevation that tends to descend with depth; the boss hall has a stepped dais
  * (+1 ring, +2 core) and some halls have a sunken central aisle (-1).
  *
+ * One room per floor is a set piece: the boss hall's pillar ambulatory, a
+ * grand nave with raised galleries, a hall whose floor has collapsed into a
+ * pit, or a moated shrine (a raised island inside a ring of water, reached
+ * by four causeways on the door axes).
+ *
  * Tunables: PITCH, room size sets, VARIANT weights, alcove chance, descent chance.
  */
 
 const PITCH = 14;
 
-type Variant = 'nave' | 'tombs' | 'quad' | 'gallery' | 'entry' | 'vault' | 'throne' | 'grand' | 'collapsed';
+type Variant = 'nave' | 'tombs' | 'quad' | 'gallery' | 'entry' | 'vault' | 'throne' | 'grand' | 'collapsed' | 'moat';
 type Shape = 'rect' | 'chamfer' | 'cross';
 
 interface RoomGeo {
@@ -132,17 +137,17 @@ export function genCrypt(graph: MissionGraph, rng: Rng, opts: CryptOptions = {})
 
   // Set piece: one memorable room per floor, chosen from what the floor can host.
   const combatIds = graph.roles.map((r, i) => (r === 'combat' ? i : -1)).filter((i) => i >= 0);
-  const pieces = opts.plain ? [] : ['ambulatory', 'grandNave', 'collapsed'];
+  const pieces = opts.plain ? [] : ['ambulatory', 'grandNave', 'collapsed', 'moat'];
   const pieceName = pieces.length ? rng.pick(pieces) : 'none';
-  if (pieceName === 'grandNave' || pieceName === 'collapsed') {
+  if (pieceName === 'grandNave' || pieceName === 'collapsed' || pieceName === 'moat') {
     const wide = combatIds.filter((i) => (specs[i] as Spec).w === 10 && (specs[i] as Spec).h === 10);
     const id = rng.pick(wide.length ? wide : combatIds);
     const sp = specs[id] as Spec;
-    if (pieceName === 'grandNave') {
+    if (pieceName === 'grandNave' || pieceName === 'moat') {
       sp.w = 10;
       sp.h = 10;
       sp.shape = 'rect';
-      sp.variant = 'grand';
+      sp.variant = pieceName === 'moat' ? 'moat' : 'grand';
     } else {
       sp.w = Math.max(8, sp.w);
       sp.h = Math.max(8, sp.h);
@@ -213,6 +218,9 @@ export function genCrypt(graph: MissionGraph, rng: Rng, opts: CryptOptions = {})
   const fixed = new Uint8Array(W * H);
   for (let i = 0; i < W * H; i++) if (g.room[i]! >= 0 && g.kinds[i] === K.Floor) fixed[i] = 1;
   if (!solveElevation(g, fixed, () => 'mid')) throw new GenFail('crypt elevation unsolved');
+
+  // The moat floods only now, so the solver treated its cells as fixed room floor.
+  for (const r of geo) if (r.variant === 'moat') floodMoat(g, r);
 
   return {
     grid: g,
@@ -299,6 +307,9 @@ function carveRoom(g: Grid, r: RoomGeo): void {
         const across = r.hw >= r.hh ? ay : ax;
         if (across === 0) e -= 1;
         else if (across >= 3) e += 1;
+      } else if (r.variant === 'moat') {
+        // The shrine island stands one step above the causeways and the outer walk.
+        if (ax <= MOAT_RING - 1 && ay <= MOAT_RING - 1) e += 1;
       } else if (r.variant === 'collapsed') {
         if (ax <= 1 && ay <= 1 && !(ax === 1 && ay === 1)) {
           g.floor(x, y, e, r.id);
@@ -310,6 +321,22 @@ function carveRoom(g: Grid, r: RoomGeo): void {
         if ((horizontal ? ay : ax) === 0) e -= 1;
       }
       g.floor(x, y, e, r.id);
+    }
+  }
+}
+
+/** Offset (0 on the centre lines) of the moat's ring of water; the island lies inside it. */
+const MOAT_RING = 3;
+
+/** Turn the moat ring to Water, leaving a 2-wide causeway on each axis. */
+function floodMoat(g: Grid, r: RoomGeo): void {
+  for (let y = r.cy - r.hh + 1; y <= r.cy + r.hh; y++) {
+    for (let x = r.cx - r.hw + 1; x <= r.cx + r.hw; x++) {
+      const ax = Math.max(r.cx - x, x - (r.cx + 1));
+      const ay = Math.max(r.cy - y, y - (r.cy + 1));
+      if (Math.max(ax, ay) !== MOAT_RING || Math.min(ax, ay) === 0) continue;
+      const i = g.idx(x, y);
+      if (g.room[i] === r.id && g.kinds[i] === K.Floor) g.kinds[i] = K.Water;
     }
   }
 }
@@ -455,6 +482,13 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[], alcoves: Alcove[], plain: boole
         for (let la = 1; la <= longHalf - 2; la += 2) sym('pillar', la, 3, true);
         for (let la = 2; la <= longHalf - 3; la += 3) sym('statue', la, shortHalf - 1, true, 2);
         sym('brazier', longHalf - 1, 1, true);
+        break;
+      }
+      case 'moat': {
+        // Braziers at the island's corners, a pair of tombs flanking its centre, statues watching from the outer corners.
+        sym('brazier', MOAT_RING - 1, MOAT_RING - 1, true);
+        sym('sarcophagus', 1, 0, true, rotAlong);
+        sym('statue', longHalf - 1, shortHalf - 1, true, 2);
         break;
       }
       case 'collapsed': {

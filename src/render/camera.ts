@@ -6,6 +6,9 @@ const PITCH_MAX = MathUtils.degToRad(80);
 const DIST_MIN = 8;
 const DIST_MAX = 40;
 const TAP_SLOP = 8;
+/** Overview looks almost straight down; a hair off vertical keeps lookAt's up vector stable. */
+const OVERVIEW_PITCH = MathUtils.degToRad(88);
+const FAR = 160;
 
 interface Ptr {
   id: number;
@@ -25,7 +28,7 @@ type Gesture = 'none' | 'pan' | 'rotate' | 'multi';
  * mouse and touch gestures, keyboard. Reports taps and hover as client coordinates.
  */
 export class CameraRig {
-  readonly camera = new PerspectiveCamera(40, 1, 0.5, 160);
+  readonly camera = new PerspectiveCamera(40, 1, 0.5, FAR);
   /** Desired target (ground point). */
   readonly target = new Vector3();
   /** Smoothed target actually looked at. */
@@ -45,6 +48,10 @@ export class CameraRig {
   private cYaw = this.yaw;
   private cPitch = this.pitch;
   private cDist = this.dist;
+  private distMax = DIST_MAX;
+  private pitchMax = PITCH_MAX;
+  /** The view to return to when the overview is switched off; null while it is off. */
+  private beforeOverview: { yaw: number; pitch: number; dist: number; x: number; z: number; follow: CameraRig['follow'] } | null = null;
   private boundsX = 48;
   private boundsZ = 48;
   heightAt: (x: number, z: number) => number = () => 0;
@@ -70,6 +77,55 @@ export class CameraRig {
   setBounds(widthCells: number, heightCells: number, cell: number): void {
     this.boundsX = widthCells * cell;
     this.boundsZ = heightCells * cell;
+    if (this.beforeOverview) this.fitOverview();
+  }
+
+  get overview(): boolean {
+    return this.beforeOverview !== null;
+  }
+
+  /**
+   * Whole-floor view for reviewing layouts: looks straight down from far enough to frame the
+   * floor, north up. Pan, zoom and rotate still work (zoom stops at the framing distance).
+   * Switching it off restores the view and follow target it replaced.
+   */
+  setOverview(on: boolean): void {
+    if (on === this.overview) return;
+    if (on) {
+      this.beforeOverview = { yaw: this.yaw, pitch: this.pitch, dist: this.dist, x: this.target.x, z: this.target.z, follow: this.follow };
+      this.follow = null;
+      this.pitchMax = OVERVIEW_PITCH;
+      this.fitOverview();
+    } else {
+      const b = this.beforeOverview;
+      this.beforeOverview = null;
+      this.distMax = DIST_MAX;
+      this.pitchMax = PITCH_MAX;
+      this.camera.far = FAR;
+      this.camera.updateProjectionMatrix();
+      if (b) {
+        this.yaw = b.yaw;
+        this.pitch = b.pitch;
+        this.dist = b.dist;
+        this.target.set(b.x, 0, b.z);
+        this.follow = b.follow;
+      }
+    }
+    this.snapNext = true;
+  }
+
+  /** Centre on the floor and back off until both its width and its depth fit the viewport. */
+  private fitOverview(): void {
+    const t = Math.tan(MathUtils.degToRad(this.camera.fov) / 2);
+    const fit = Math.max(this.boundsZ / 2 / t, this.boundsX / 2 / (t * this.camera.aspect)) * 1.05;
+    this.distMax = Math.max(DIST_MAX, fit);
+    this.dist = this.distMax;
+    this.yaw = 0;
+    this.pitch = OVERVIEW_PITCH;
+    this.target.set(this.boundsX / 2, 0, this.boundsZ / 2);
+    this.camera.far = Math.max(FAR, this.distMax * 1.5);
+    this.camera.updateProjectionMatrix();
+    this.snapNext = true;
   }
 
   /** Jump or ease to a world position. */
@@ -82,8 +138,8 @@ export class CameraRig {
 
   setView(v: { yaw?: number; pitch?: number; dist?: number }, instant = true): void {
     if (v.yaw !== undefined) this.yaw = v.yaw;
-    if (v.pitch !== undefined) this.pitch = clamp(v.pitch, PITCH_MIN, PITCH_MAX);
-    if (v.dist !== undefined) this.dist = clamp(v.dist, DIST_MIN, DIST_MAX);
+    if (v.pitch !== undefined) this.pitch = clamp(v.pitch, PITCH_MIN, this.pitchMax);
+    if (v.dist !== undefined) this.dist = clamp(v.dist, DIST_MIN, this.distMax);
     if (instant) this.snapNext = true;
   }
 
@@ -95,6 +151,7 @@ export class CameraRig {
   resize(w: number, h: number): void {
     this.camera.aspect = w / Math.max(1, h);
     this.camera.updateProjectionMatrix();
+    if (this.beforeOverview) this.fitOverview();
   }
 
   // ---- input -------------------------------------------------------------
@@ -195,7 +252,7 @@ export class CameraRig {
       const ang = Math.atan2(b.y - a.y, b.x - a.x);
       const mx = (a.x + b.x) / 2;
       const my = (a.y + b.y) / 2;
-      this.dist = clamp(this.dist * (this.pinchDist / d), DIST_MIN, DIST_MAX);
+      this.dist = clamp(this.dist * (this.pinchDist / d), DIST_MIN, this.distMax);
       this.yaw += angleDiff(this.pinchAng, ang);
       this.panPixels(mx - this.pinchX, my - this.pinchY);
       this.pinchDist = d;
@@ -214,7 +271,7 @@ export class CameraRig {
     if (this.gesture === 'pan') this.panPixels(dx, dy);
     else if (this.gesture === 'rotate') {
       this.yaw -= dx * 0.006;
-      this.pitch = clamp(this.pitch + dy * 0.004, PITCH_MIN, PITCH_MAX);
+      this.pitch = clamp(this.pitch + dy * 0.004, PITCH_MIN, this.pitchMax);
     }
   };
 
@@ -264,7 +321,7 @@ export class CameraRig {
   private onWheel = (e: WheelEvent): void => {
     e.preventDefault();
     const unit = e.deltaMode === 1 ? 18 : e.deltaMode === 2 ? 400 : 1;
-    this.dist = clamp(this.dist * Math.exp(e.deltaY * unit * 0.0012), DIST_MIN, DIST_MAX);
+    this.dist = clamp(this.dist * Math.exp(e.deltaY * unit * 0.0012), DIST_MIN, this.distMax);
   };
 
   private typing(e: KeyboardEvent): boolean {
@@ -326,8 +383,8 @@ export class CameraRig {
       }
       if (keys.has('q')) this.yaw += 1.7 * dt;
       if (keys.has('e')) this.yaw -= 1.7 * dt;
-      if (keys.has('+') || keys.has('=')) this.dist = clamp(this.dist * Math.exp(-1.3 * dt), DIST_MIN, DIST_MAX);
-      if (keys.has('-') || keys.has('_')) this.dist = clamp(this.dist * Math.exp(1.3 * dt), DIST_MIN, DIST_MAX);
+      if (keys.has('+') || keys.has('=')) this.dist = clamp(this.dist * Math.exp(-1.3 * dt), DIST_MIN, this.distMax);
+      if (keys.has('-') || keys.has('_')) this.dist = clamp(this.dist * Math.exp(1.3 * dt), DIST_MIN, this.distMax);
     }
     if (this.follow && this.follow(this.tmp)) {
       this.target.x = this.tmp.x;
