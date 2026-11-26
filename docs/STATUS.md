@@ -63,8 +63,9 @@ What is missing before `MILESTONE_FLOORS` can go past 3:
 - **Casts follow the hero's level.** The hero gains a level per floor, so
   ordinary monsters need a CR of at least floor(depth / 4) (`minCrPerDepth`
   in `ENCOUNTER_TUNING`). Pick casts for new themes with that in mind.
-  Giant Frog, Gray Ooze, Violet Fungus and Darkmantle are in the data but
-  fall under the rule on their floors and are never placed.
+  Giant Frog, Gray Ooze, Violet Fungus, Darkmantle and Scout are in the data
+  but fall under the rule on their floors and are never placed. They are
+  kept on purpose: see "Randomized runs" below.
 - Monster features the engine cannot express yet were dropped or simplified
   (grapple and swallow, Split, Engulf, shape-shifting, auras, flying, Parry
   and other reactions, most spell lists); each is noted in a comment above the monster.
@@ -74,6 +75,25 @@ the data but will not be used until it does.
 
 Stat blocks were transcribed from the SRD 5.2.1 text; a clean plain-text copy
 is in the owner's `dnd_combat` repository (`SRD_CC_v5.2.1.txt`).
+
+## Planned: randomized runs
+
+The owner wants runs to vary eventually: not the same themes on the same
+floors every time. Nothing implements this yet, and today three things pin a
+theme to its depth. Keep them in mind when adding content so the change stays
+small:
+
+- `themeForDepth(depth)` is a fixed table. It would become a function of the
+  run seed too, choosing among the themes allowed at that depth.
+- Bosses and casts are listed per depth (`bossByDepth`, `monsterMinDepth`,
+  `monsterMaxDepth`). For a theme to work at several depths, monsters and
+  bosses should be chosen by CR band for the floor instead (`minCrPerDepth`
+  is the lower edge of that band already), and each theme needs monsters
+  across a wider CR range. The low-CR monsters now unplaced (Giant Frog,
+  Gray Ooze, Violet Fungus, Darkmantle, Scout, Giant Rat in the sewers)
+  become that theme's cast when it turns up early.
+- Generators do not depend on depth except through room count, so they
+  already work at any depth.
 
 ## Unfinished work: branch `wip/spell-engine`
 
