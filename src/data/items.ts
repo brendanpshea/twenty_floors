@@ -1,65 +1,44 @@
-import type { ItemDef } from '../core/types';
+import type { ItemDef, ItemRarity } from '../core/types';
 
-/** SRD 5.2 equipment used by the game, in game units. */
-export const ITEMS: ItemDef[] = [
-  // Weapons
+/*
+ * SRD 5.2 equipment used by the game, in game units.
+ *
+ * Mundane weapons, armor and shields are transcribed from the SRD 5.2.1
+ * Weapons and Armor tables (Equipment chapter). Costs are in gold pieces.
+ * Ranges are converted to cells (5 ft = 1 cell). Magic variants are generated
+ * by magicVariants() rather than typed out.
+ */
+
+/**
+ * HOUSE RULE: the SRD gives no per-item prices for magic weapons, armor or
+ * shields, so this is a placeholder premium added to the base cost of each
+ * enchanted variant. Tune freely; nothing else depends on the exact numbers.
+ */
+export const MAGIC_COST_PREMIUM: Readonly<Record<1 | 2 | 3, number>> = {
+  1: 300,
+  2: 1200,
+  3: 4000,
+};
+
+/** Rarity of a +1, +2 or +3 variant, from the SRD magic item entries. */
+const VARIANT_RARITY: Readonly<Record<'weapon' | 'armor' | 'shield', Record<1 | 2 | 3, ItemRarity>>> = {
+  weapon: { 1: 'uncommon', 2: 'rare', 3: 'veryRare' },
+  armor: { 1: 'rare', 2: 'veryRare', 3: 'legendary' },
+  shield: { 1: 'uncommon', 2: 'rare', 3: 'veryRare' },
+};
+
+/** Hand-written mundane weapons (SRD 5.2.1 Weapons table). */
+export const WEAPONS: ItemDef[] = [
+  // Simple melee
   {
-    id: 'longsword',
-    name: 'Longsword',
+    id: 'club',
+    name: 'Club',
     kind: 'weapon',
-    description: 'A long, straight blade that can be gripped one-handed or with both hands for more force.',
-    cost: 15,
+    description: 'A plain length of wood, cheap to make and quick to swing.',
+    cost: 0.1,
+    rarity: 'common',
     icon: 'melee',
-    weapon: {
-      category: 'martial',
-      melee: true,
-      damage: { dice: '1d8', type: 'slashing' },
-      versatileDice: '1d10',
-      properties: ['versatile'],
-    },
-  },
-  {
-    id: 'greatsword',
-    name: 'Greatsword',
-    kind: 'weapon',
-    description: 'A massive two-handed sword whose sweeping cuts can split shields.',
-    cost: 50,
-    icon: 'melee',
-    weapon: {
-      category: 'martial',
-      melee: true,
-      damage: { dice: '2d6', type: 'slashing' },
-      properties: ['heavy', 'twoHanded'],
-    },
-  },
-  {
-    id: 'shortsword',
-    name: 'Shortsword',
-    kind: 'weapon',
-    description: 'A light, quick blade that rewards a nimble wrist.',
-    cost: 10,
-    icon: 'melee',
-    weapon: {
-      category: 'martial',
-      melee: true,
-      damage: { dice: '1d6', type: 'piercing' },
-      properties: ['finesse', 'light'],
-    },
-  },
-  {
-    id: 'handaxe',
-    name: 'Handaxe',
-    kind: 'weapon',
-    description: 'A small axe balanced well enough to be thrown at a foe.',
-    cost: 5,
-    icon: 'melee',
-    weapon: {
-      category: 'simple',
-      melee: true,
-      damage: { dice: '1d6', type: 'slashing' },
-      properties: ['light', 'thrown'],
-      range: { normal: 4, long: 12 },
-    },
+    weapon: { category: 'simple', melee: true, damage: { dice: '1d4', type: 'bludgeoning' }, mastery: 'slow', properties: ['light'] },
   },
   {
     id: 'dagger',
@@ -67,12 +46,75 @@ export const ITEMS: ItemDef[] = [
     kind: 'weapon',
     description: 'A short, sharp blade that serves equally well in close work or as a throwing knife.',
     cost: 2,
+    rarity: 'common',
     icon: 'melee',
     weapon: {
       category: 'simple',
       melee: true,
       damage: { dice: '1d4', type: 'piercing' },
+      mastery: 'nick',
       properties: ['finesse', 'light', 'thrown'],
+      range: { normal: 4, long: 12 },
+    },
+  },
+  {
+    id: 'greatclub',
+    name: 'Greatclub',
+    kind: 'weapon',
+    description: 'A heavy log of a club that trades finesse for brute knockback.',
+    cost: 0.2,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: { category: 'simple', melee: true, damage: { dice: '1d8', type: 'bludgeoning' }, mastery: 'push', properties: ['twoHanded'] },
+  },
+  {
+    id: 'handaxe',
+    name: 'Handaxe',
+    kind: 'weapon',
+    description: 'A small axe balanced well enough to be thrown at a foe.',
+    cost: 5,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'simple',
+      melee: true,
+      damage: { dice: '1d6', type: 'slashing' },
+      mastery: 'vex',
+      properties: ['light', 'thrown'],
+      range: { normal: 4, long: 12 },
+    },
+  },
+  {
+    id: 'javelin',
+    name: 'Javelin',
+    kind: 'weapon',
+    description: 'A light spear made to be hurled at a distant target.',
+    cost: 0.5,
+    rarity: 'common',
+    icon: 'thrown',
+    weapon: {
+      category: 'simple',
+      melee: true,
+      damage: { dice: '1d6', type: 'piercing' },
+      mastery: 'slow',
+      properties: ['thrown'],
+      range: { normal: 6, long: 24 },
+    },
+  },
+  {
+    id: 'light_hammer',
+    name: 'Light Hammer',
+    kind: 'weapon',
+    description: 'A compact hammer with a balanced head, built to be flung as easily as swung.',
+    cost: 2,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'simple',
+      melee: true,
+      damage: { dice: '1d4', type: 'bludgeoning' },
+      mastery: 'nick',
+      properties: ['light', 'thrown'],
       range: { normal: 4, long: 12 },
     },
   },
@@ -82,57 +124,72 @@ export const ITEMS: ItemDef[] = [
     kind: 'weapon',
     description: 'A flanged metal head on a stout haft, built to dent armor and bone alike.',
     cost: 5,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: { category: 'simple', melee: true, damage: { dice: '1d6', type: 'bludgeoning' }, mastery: 'sap', properties: [] },
+  },
+  {
+    id: 'quarterstaff',
+    name: 'Quarterstaff',
+    kind: 'weapon',
+    description: 'A long wooden pole that can be gripped near one end or wielded with both hands.',
+    cost: 0.2,
+    rarity: 'common',
     icon: 'melee',
     weapon: {
       category: 'simple',
       melee: true,
       damage: { dice: '1d6', type: 'bludgeoning' },
-      properties: [],
+      versatileDice: '1d8',
+      mastery: 'topple',
+      properties: ['versatile'],
     },
   },
   {
-    id: 'javelin',
-    name: 'Javelin',
+    id: 'sickle',
+    name: 'Sickle',
     kind: 'weapon',
-    description: 'A light spear made to be hurled at a distant target.',
-    cost: 0.5,
-    icon: 'thrown',
+    description: 'A curved blade meant for reaping grain, quick and awkward in equal measure.',
+    cost: 1,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: { category: 'simple', melee: true, damage: { dice: '1d4', type: 'slashing' }, mastery: 'nick', properties: ['light'] },
+  },
+  {
+    id: 'spear',
+    name: 'Spear',
+    kind: 'weapon',
+    description: 'A long wooden shaft tipped with iron, sturdy in the hand and useful to throw.',
+    cost: 1,
+    rarity: 'common',
+    icon: 'melee',
     weapon: {
       category: 'simple',
       melee: true,
       damage: { dice: '1d6', type: 'piercing' },
-      properties: ['thrown'],
-      range: { normal: 6, long: 24 },
+      versatileDice: '1d8',
+      mastery: 'sap',
+      properties: ['thrown', 'versatile'],
+      range: { normal: 4, long: 12 },
     },
   },
+
+  // Simple ranged
   {
-    id: 'longbow',
-    name: 'Longbow',
+    id: 'dart',
+    name: 'Dart',
     kind: 'weapon',
-    description: 'A tall bow of great draw weight that reaches far across a battlefield.',
-    cost: 50,
-    icon: 'ranged',
-    weapon: {
-      category: 'martial',
-      melee: false,
-      damage: { dice: '1d8', type: 'piercing' },
-      properties: ['ammunition', 'heavy', 'twoHanded'],
-      range: { normal: 30, long: 120 },
-    },
-  },
-  {
-    id: 'shortbow',
-    name: 'Shortbow',
-    kind: 'weapon',
-    description: 'A compact bow that can be drawn quickly from the hip or the saddle.',
-    cost: 25,
-    icon: 'ranged',
+    description: 'A small, weighted spike with flights of feather, thrown in quick succession.',
+    cost: 0.05,
+    rarity: 'common',
+    icon: 'thrown',
     weapon: {
       category: 'simple',
       melee: false,
-      damage: { dice: '1d6', type: 'piercing' },
-      properties: ['ammunition', 'twoHanded'],
-      range: { normal: 16, long: 64 },
+      damage: { dice: '1d4', type: 'piercing' },
+      mastery: 'vex',
+      properties: ['finesse', 'thrown'],
+      range: { normal: 4, long: 12 },
     },
   },
   {
@@ -141,23 +198,455 @@ export const ITEMS: ItemDef[] = [
     kind: 'weapon',
     description: 'A simple crossbow that delivers a stout bolt, though it takes a moment to reload.',
     cost: 25,
+    rarity: 'common',
     icon: 'ranged',
     weapon: {
       category: 'simple',
       melee: false,
       damage: { dice: '1d8', type: 'piercing' },
+      mastery: 'slow',
       properties: ['ammunition', 'loading', 'twoHanded'],
       range: { normal: 16, long: 64 },
     },
   },
+  {
+    id: 'shortbow',
+    name: 'Shortbow',
+    kind: 'weapon',
+    description: 'A compact bow that can be drawn quickly from the hip or the saddle.',
+    cost: 25,
+    rarity: 'common',
+    icon: 'ranged',
+    weapon: {
+      category: 'simple',
+      melee: false,
+      damage: { dice: '1d6', type: 'piercing' },
+      mastery: 'vex',
+      properties: ['ammunition', 'twoHanded'],
+      range: { normal: 16, long: 64 },
+    },
+  },
+  {
+    id: 'sling',
+    name: 'Sling',
+    kind: 'weapon',
+    description: 'A leather cord and pouch that hurls smooth stones with surprising force.',
+    cost: 0.1,
+    rarity: 'common',
+    icon: 'ranged',
+    weapon: {
+      category: 'simple',
+      melee: false,
+      damage: { dice: '1d4', type: 'bludgeoning' },
+      mastery: 'slow',
+      properties: ['ammunition'],
+      range: { normal: 6, long: 24 },
+    },
+  },
 
-  // Armor
+  // Martial melee
+  {
+    id: 'battleaxe',
+    name: 'Battleaxe',
+    kind: 'weapon',
+    description: 'A broad-bladed axe made for the front rank, equally at home one-handed or two.',
+    cost: 10,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d8', type: 'slashing' },
+      versatileDice: '1d10',
+      mastery: 'topple',
+      properties: ['versatile'],
+    },
+  },
+  {
+    id: 'flail',
+    name: 'Flail',
+    kind: 'weapon',
+    description: 'A heavy head on a jointed chain that swings past shields and guards.',
+    cost: 10,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: { category: 'martial', melee: true, damage: { dice: '1d8', type: 'bludgeoning' }, mastery: 'sap', properties: [] },
+  },
+  {
+    id: 'glaive',
+    name: 'Glaive',
+    kind: 'weapon',
+    description: 'A long pole with a broad blade at its end, reaching well beyond the wielder.',
+    cost: 20,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d10', type: 'slashing' },
+      mastery: 'graze',
+      properties: ['heavy', 'reach', 'twoHanded'],
+    },
+  },
+  {
+    id: 'greataxe',
+    name: 'Greataxe',
+    kind: 'weapon',
+    description: 'A huge double-edged axe whose wide arc can cut through a crowd.',
+    cost: 30,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d12', type: 'slashing' },
+      mastery: 'cleave',
+      properties: ['heavy', 'twoHanded'],
+    },
+  },
+  {
+    id: 'greatsword',
+    name: 'Greatsword',
+    kind: 'weapon',
+    description: 'A massive two-handed sword whose sweeping cuts can split shields.',
+    cost: 50,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '2d6', type: 'slashing' },
+      mastery: 'graze',
+      properties: ['heavy', 'twoHanded'],
+    },
+  },
+  {
+    id: 'halberd',
+    name: 'Halberd',
+    kind: 'weapon',
+    description: 'An axe blade topped with a spike on a long haft, favored by guards of gates and walls.',
+    cost: 20,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d10', type: 'slashing' },
+      mastery: 'cleave',
+      properties: ['heavy', 'reach', 'twoHanded'],
+    },
+  },
+  {
+    id: 'lance',
+    name: 'Lance',
+    kind: 'weapon',
+    description: 'A long couched spear that is hard to wield on foot without both hands.',
+    cost: 10,
+    rarity: 'common',
+    icon: 'melee',
+    // SRD: "Heavy, Reach, Two-Handed (unless mounted)". The mounted clause is not modeled.
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d10', type: 'piercing' },
+      mastery: 'topple',
+      properties: ['heavy', 'reach', 'twoHanded'],
+    },
+  },
+  {
+    id: 'longsword',
+    name: 'Longsword',
+    kind: 'weapon',
+    description: 'A long, straight blade that can be gripped one-handed or with both hands for more force.',
+    cost: 15,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d8', type: 'slashing' },
+      versatileDice: '1d10',
+      mastery: 'sap',
+      properties: ['versatile'],
+    },
+  },
+  {
+    id: 'maul',
+    name: 'Maul',
+    kind: 'weapon',
+    description: 'A two-handed hammer of iron and oak that crushes whatever it lands on.',
+    cost: 10,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '2d6', type: 'bludgeoning' },
+      mastery: 'topple',
+      properties: ['heavy', 'twoHanded'],
+    },
+  },
+  {
+    id: 'morningstar',
+    name: 'Morningstar',
+    kind: 'weapon',
+    description: 'A spiked metal ball on a haft, nasty to hit with and harder to shrug off.',
+    cost: 15,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: { category: 'martial', melee: true, damage: { dice: '1d8', type: 'piercing' }, mastery: 'sap', properties: [] },
+  },
+  {
+    id: 'pike',
+    name: 'Pike',
+    kind: 'weapon',
+    description: 'A very long spear that keeps a line of foes at bay with its reach alone.',
+    cost: 5,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d10', type: 'piercing' },
+      mastery: 'push',
+      properties: ['heavy', 'reach', 'twoHanded'],
+    },
+  },
+  {
+    id: 'rapier',
+    name: 'Rapier',
+    kind: 'weapon',
+    description: 'A slender thrusting sword that rewards precise footwork over brute strength.',
+    cost: 25,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: { category: 'martial', melee: true, damage: { dice: '1d8', type: 'piercing' }, mastery: 'vex', properties: ['finesse'] },
+  },
+  {
+    id: 'scimitar',
+    name: 'Scimitar',
+    kind: 'weapon',
+    description: 'A curved, single-edged blade that slashes quickly and recovers its stance just as fast.',
+    cost: 25,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d6', type: 'slashing' },
+      mastery: 'nick',
+      properties: ['finesse', 'light'],
+    },
+  },
+  {
+    id: 'shortsword',
+    name: 'Shortsword',
+    kind: 'weapon',
+    description: 'A light, quick blade that rewards a nimble wrist.',
+    cost: 10,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d6', type: 'piercing' },
+      mastery: 'vex',
+      properties: ['finesse', 'light'],
+    },
+  },
+  {
+    id: 'trident',
+    name: 'Trident',
+    kind: 'weapon',
+    description: 'A three-pronged spear that can be thrown or gripped for a firm two-handed thrust.',
+    cost: 5,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d8', type: 'piercing' },
+      versatileDice: '1d10',
+      mastery: 'topple',
+      properties: ['thrown', 'versatile'],
+      range: { normal: 4, long: 12 },
+    },
+  },
+  {
+    id: 'warhammer',
+    name: 'Warhammer',
+    kind: 'weapon',
+    description: 'A battle hammer with a heavy head that drives foes back with each blow.',
+    cost: 15,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d8', type: 'bludgeoning' },
+      versatileDice: '1d10',
+      mastery: 'push',
+      properties: ['versatile'],
+    },
+  },
+  {
+    id: 'war_pick',
+    name: 'War Pick',
+    kind: 'weapon',
+    description: 'A spiked pick on a sturdy haft, built to punch through plate.',
+    cost: 5,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d8', type: 'piercing' },
+      versatileDice: '1d10',
+      mastery: 'sap',
+      properties: ['versatile'],
+    },
+  },
+  {
+    id: 'whip',
+    name: 'Whip',
+    kind: 'weapon',
+    description: 'A long braided lash that snaps out to strike from a safe distance.',
+    cost: 2,
+    rarity: 'common',
+    icon: 'melee',
+    weapon: {
+      category: 'martial',
+      melee: true,
+      damage: { dice: '1d4', type: 'slashing' },
+      mastery: 'slow',
+      properties: ['finesse', 'reach'],
+    },
+  },
+
+  // Martial ranged
+  {
+    id: 'blowgun',
+    name: 'Blowgun',
+    kind: 'weapon',
+    description: 'A hollow tube that sends a light needle across a room with a single breath.',
+    cost: 10,
+    rarity: 'common',
+    icon: 'ranged',
+    // SRD: flat 1 piercing damage. Expressed as the flat dice string "1".
+    weapon: {
+      category: 'martial',
+      melee: false,
+      damage: { dice: '1', type: 'piercing' },
+      mastery: 'vex',
+      properties: ['ammunition', 'loading'],
+      range: { normal: 5, long: 20 },
+    },
+  },
+  {
+    id: 'hand_crossbow',
+    name: 'Hand Crossbow',
+    kind: 'weapon',
+    description: 'A small, one-handed crossbow that trades power for the ability to fire in close quarters.',
+    cost: 75,
+    rarity: 'common',
+    icon: 'ranged',
+    weapon: {
+      category: 'martial',
+      melee: false,
+      damage: { dice: '1d6', type: 'piercing' },
+      mastery: 'vex',
+      properties: ['ammunition', 'light', 'loading'],
+      range: { normal: 6, long: 24 },
+    },
+  },
+  {
+    id: 'heavy_crossbow',
+    name: 'Heavy Crossbow',
+    kind: 'weapon',
+    description: 'A massive crossbow whose bolt punches through nearly anything at long range, but takes time to crank back.',
+    cost: 50,
+    rarity: 'common',
+    icon: 'ranged',
+    weapon: {
+      category: 'martial',
+      melee: false,
+      damage: { dice: '1d10', type: 'piercing' },
+      mastery: 'push',
+      properties: ['ammunition', 'heavy', 'loading', 'twoHanded'],
+      range: { normal: 20, long: 80 },
+    },
+  },
+  {
+    id: 'longbow',
+    name: 'Longbow',
+    kind: 'weapon',
+    description: 'A tall bow of great draw weight that reaches far across a battlefield.',
+    cost: 50,
+    rarity: 'common',
+    icon: 'ranged',
+    weapon: {
+      category: 'martial',
+      melee: false,
+      damage: { dice: '1d8', type: 'piercing' },
+      mastery: 'slow',
+      properties: ['ammunition', 'heavy', 'twoHanded'],
+      range: { normal: 30, long: 120 },
+    },
+  },
+  {
+    id: 'musket',
+    name: 'Musket',
+    kind: 'weapon',
+    description: 'A long smoothbore firearm that is slow to load but hits with thunderous force.',
+    cost: 500,
+    rarity: 'common',
+    icon: 'ranged',
+    weapon: {
+      category: 'martial',
+      melee: false,
+      damage: { dice: '1d12', type: 'piercing' },
+      mastery: 'slow',
+      properties: ['ammunition', 'loading', 'twoHanded'],
+      range: { normal: 8, long: 24 },
+    },
+  },
+  {
+    id: 'pistol',
+    name: 'Pistol',
+    kind: 'weapon',
+    description: 'A compact single-shot firearm that fits in one hand and a holster.',
+    cost: 250,
+    rarity: 'common',
+    icon: 'ranged',
+    weapon: {
+      category: 'martial',
+      melee: false,
+      damage: { dice: '1d10', type: 'piercing' },
+      mastery: 'vex',
+      properties: ['ammunition', 'loading'],
+      range: { normal: 6, long: 18 },
+    },
+  },
+];
+
+/** Hand-written mundane body armor (SRD 5.2.1 Armor table). */
+export const ARMOR: ItemDef[] = [
+  {
+    id: 'padded',
+    name: 'Padded Armor',
+    kind: 'armor',
+    description: 'Layers of quilted cloth that cushion blows and muffle every movement.',
+    cost: 5,
+    rarity: 'common',
+    armor: { category: 'light', baseAc: 11, stealthDisadvantage: true },
+  },
   {
     id: 'leather',
     name: 'Leather Armor',
     kind: 'armor',
     description: 'Boiled leather plates that protect the body without slowing the wearer.',
     cost: 10,
+    rarity: 'common',
     armor: { category: 'light', baseAc: 11 },
   },
   {
@@ -166,7 +655,17 @@ export const ITEMS: ItemDef[] = [
     kind: 'armor',
     description: 'Tough leather reinforced with rivets, a good balance of protection and freedom.',
     cost: 45,
+    rarity: 'common',
     armor: { category: 'light', baseAc: 12 },
+  },
+  {
+    id: 'hide',
+    name: 'Hide Armor',
+    kind: 'armor',
+    description: 'Thick furs and hides stitched together, rough but warm and dependable.',
+    cost: 10,
+    rarity: 'common',
+    armor: { category: 'medium', baseAc: 12, dexCap: 2 },
   },
   {
     id: 'chain_shirt',
@@ -174,6 +673,7 @@ export const ITEMS: ItemDef[] = [
     kind: 'armor',
     description: 'A shirt of interlocking metal rings worn beneath a cloak.',
     cost: 50,
+    rarity: 'common',
     armor: { category: 'medium', baseAc: 13, dexCap: 2 },
   },
   {
@@ -182,7 +682,35 @@ export const ITEMS: ItemDef[] = [
     kind: 'armor',
     description: 'A coat of overlapping metal scales that clatters with every step.',
     cost: 50,
+    rarity: 'common',
+    armor: { category: 'medium', baseAc: 14, dexCap: 2, stealthDisadvantage: true },
+  },
+  {
+    id: 'breastplate',
+    name: 'Breastplate',
+    kind: 'armor',
+    description: 'A fitted steel chest plate that guards the vitals while leaving the limbs free.',
+    cost: 400,
+    rarity: 'common',
     armor: { category: 'medium', baseAc: 14, dexCap: 2 },
+  },
+  {
+    id: 'half_plate',
+    name: 'Half Plate Armor',
+    kind: 'armor',
+    description: 'Shaped steel plates covering most of the body, heavier than mail but still nimble.',
+    cost: 750,
+    rarity: 'common',
+    armor: { category: 'medium', baseAc: 15, dexCap: 2, stealthDisadvantage: true },
+  },
+  {
+    id: 'ring_mail',
+    name: 'Ring Mail',
+    kind: 'armor',
+    description: 'Leather backing sewn with metal rings, a cheap step up from plain hide.',
+    cost: 30,
+    rarity: 'common',
+    armor: { category: 'heavy', baseAc: 14, dexCap: 0, stealthDisadvantage: true },
   },
   {
     id: 'chain_mail',
@@ -190,18 +718,44 @@ export const ITEMS: ItemDef[] = [
     kind: 'armor',
     description: 'A heavy suit of linked iron rings that turns aside most blows but restricts quick movement.',
     cost: 75,
-    armor: { category: 'heavy', baseAc: 16, dexCap: 0, strRequirement: 13 },
+    rarity: 'common',
+    armor: { category: 'heavy', baseAc: 16, dexCap: 0, strRequirement: 13, stealthDisadvantage: true },
   },
+  {
+    id: 'splint',
+    name: 'Splint Armor',
+    kind: 'armor',
+    description: 'Overlapping vertical strips of steel riveted to a backing, rigid and loud.',
+    cost: 200,
+    rarity: 'common',
+    armor: { category: 'heavy', baseAc: 17, dexCap: 0, strRequirement: 15, stealthDisadvantage: true },
+  },
+  {
+    id: 'plate',
+    name: 'Plate Armor',
+    kind: 'armor',
+    description: 'A full suit of interlocking steel plates, the best protection a mortal can wear.',
+    cost: 1500,
+    rarity: 'common',
+    armor: { category: 'heavy', baseAc: 18, dexCap: 0, strRequirement: 15, stealthDisadvantage: true },
+  },
+];
+
+/** Hand-written shields (SRD 5.2.1 Armor table, Shield row). */
+export const SHIELDS: ItemDef[] = [
   {
     id: 'shield',
     name: 'Shield',
     kind: 'shield',
     description: 'A wooden board faced with iron, held on the arm to catch incoming blows.',
     cost: 10,
+    rarity: 'common',
     shieldBonus: 2,
   },
+];
 
-  // Consumables
+/** Hand-written consumables. */
+export const CONSUMABLES: ItemDef[] = [
   {
     id: 'potion_healing',
     name: 'Potion of Healing',
@@ -220,4 +774,45 @@ export const ITEMS: ItemDef[] = [
     icon: 'potion',
     consumable: { effect: 'heal', dice: '4d4+4' },
   },
+];
+
+/**
+ * The +1, +2 and +3 versions of a weapon, armor or shield. Everything except
+ * the identity, rarity, cost and description comes from a deep copy of the
+ * base, so the variant shares no objects with it. Consumables have no variants.
+ */
+export function magicVariants(base: ItemDef): ItemDef[] {
+  if (base.kind !== 'weapon' && base.kind !== 'armor' && base.kind !== 'shield') {
+    return [];
+  }
+  const family = base.kind;
+  const bonuses: Array<1 | 2 | 3> = [1, 2, 3];
+  return bonuses.map((n) => {
+    const copy: ItemDef = structuredClone(base);
+    const clause =
+      family === 'weapon'
+        ? 'Enchanted: +' + n + ' to attack and damage rolls.'
+        : 'Enchanted: +' + n + ' to Armor Class.';
+    return {
+      ...copy,
+      id: `${base.id}_plus${n}`,
+      name: `${base.name} +${n}`,
+      description: `${base.description} ${clause}`,
+      // Round to whole copper to keep float sums (e.g. 0.05 + 300) clean.
+      cost: Math.round((base.cost + MAGIC_COST_PREMIUM[n]) * 100) / 100,
+      magicBonus: n,
+      rarity: VARIANT_RARITY[family][n],
+      baseId: base.id,
+    };
+  });
+}
+
+const MUNDANE: ItemDef[] = [...WEAPONS, ...ARMOR, ...SHIELDS, ...CONSUMABLES];
+
+/** Every item the game knows: mundane items first, then generated magic variants. */
+export const ITEMS: ItemDef[] = [
+  ...MUNDANE,
+  ...WEAPONS.flatMap(magicVariants),
+  ...ARMOR.flatMap(magicVariants),
+  ...SHIELDS.flatMap(magicVariants),
 ];

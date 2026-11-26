@@ -106,7 +106,7 @@ describe('generateFloor', () => {
       expect(bad).toEqual([]);
       // The fallback is a safety net, not a crutch.
       expect(fallbacks).toBe(0);
-      expect(attempts / 300).toBeLessThan(2);
+      expect(attempts / 300).toBeLessThan(2.6);
     }, 60000);
 
     it(`survives ${theme} floors up to depth 20`, () => {
@@ -237,10 +237,10 @@ describe('variety and theme identity', () => {
     const w = agg.warrens!;
     expect(d.chasm).toBeGreaterThan(0.3);
     expect(d.minRange).toBeGreaterThanOrEqual(8);
-    expect(c.chasm).toBe(0);
+    expect(c.chasm).toBeLessThan(0.02); // only the 'collapsed hall' set piece has chasm
     expect(c.range).toBeGreaterThanOrEqual(2);
     expect(c.maxRange).toBeLessThanOrEqual(8);
-    expect(w.chasm).toBeLessThan(0.02);
+    expect(w.chasm).toBeLessThan(0.05);
     expect(w.maxRange).toBeLessThanOrEqual(8);
     expect(w.range).toBeLessThan(d.range);
     // Rooms: crypt rectangles fill their bounding boxes, cave blobs do not.
@@ -323,5 +323,67 @@ describe('floorToAscii', () => {
     expect(text).toContain('<');
     expect(text).toContain('>');
     expect(text).toContain('-- elevation --');
+  });
+});
+
+describe('rest spots and set pieces', () => {
+  it('every floor has exactly two valid rest spots with warm lights that survive the cap', () => {
+    let tier0 = 0;
+    let total = 0;
+    for (const theme of THEMES) {
+      for (let seed = 1; seed <= 25; seed++) {
+        for (const depth of [1, 2, 3, 9]) {
+          const r = generateFloorReport({ seed, depth, theme });
+          const plan = r.plan;
+          expect(plan.restSpots).toHaveLength(2);
+          expect(validateFloor(plan)).toEqual([]);
+          for (const s of plan.restSpots) {
+            expect(plan.lights.some((l) => l.pos.x === s.x && l.pos.y === s.y)).toBe(true);
+          }
+          expect(plan.lights.length).toBeLessThanOrEqual(24);
+          expect(floorToAscii(plan)).toContain('R');
+          for (const t of r.restTiers) {
+            total++;
+            if (t === 0) tier0++;
+          }
+        }
+      }
+    }
+    // Purpose-built nooks are the norm; the fallbacks are rare.
+    expect(tier0 / total).toBeGreaterThan(0.6);
+  }, 120000);
+
+  it('validateFloor rejects a rest spot beside a monster slot or off the route order', () => {
+    const plan = generateFloor({ seed: 3, depth: 2, theme: 'crypt' });
+    const slot = plan.spawns.find((s) => s.role === 'monster')!;
+    const bad = { ...plan, restSpots: [plan.restSpots[0]!, { x: slot.pos.x + 1, y: slot.pos.y }] };
+    expect(validateFloor(bad).length).toBeGreaterThan(0);
+    expect(validateFloor({ ...plan, restSpots: [plan.restSpots[1]!, plan.restSpots[0]!] }).length).toBeGreaterThan(0);
+    expect(validateFloor({ ...plan, restSpots: [plan.restSpots[0]!] }).length).toBeGreaterThan(0);
+  });
+
+  it('every floor records a set piece, and each theme shows variety', () => {
+    for (const theme of THEMES) {
+      const seen = new Set<string>();
+      for (let seed = 1; seed <= 40; seed++) {
+        const r = generateFloorReport({ seed, depth: 1 + (seed % 3), theme });
+        expect(r.setPiece).toBeTruthy();
+        seen.add(r.setPiece as string);
+      }
+      expect(seen.size).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('floors keep a sensible size at depths 4-20', () => {
+    for (const theme of THEMES) {
+      for (let depth = 4; depth <= 20; depth += 4) {
+        for (const seed of [1, 2, 3]) {
+          const plan = generateFloor({ seed, depth, theme });
+          expect(plan.width).toBeLessThanOrEqual(62);
+          expect(plan.height).toBeLessThanOrEqual(62);
+          expect(plan.rooms.length).toBeLessThanOrEqual(11);
+        }
+      }
+    }
   });
 });

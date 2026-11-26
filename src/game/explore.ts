@@ -1,7 +1,7 @@
 import type { CellHighlight, GridPos, PickResult } from '../core/types';
-import { CellKind } from '../core/types';
-import { getItem, rollDice, shortRest, syncFromCreature } from '../rules';
-import { canShortRest } from './hudModel';
+import { CellKind, SHORT_RESTS_PER_LONG_REST } from '../core/types';
+import { chestLoot, getItem, isHiddenResource, longRest, longRestGain, rollDice, syncFromCreature, takeShortRest } from '../rules';
+import { adjacentRestSite, shortRestBlock } from './hudModel';
 import { cellDistance } from './fog';
 import type { MonsterState, SessionCtx } from './floorState';
 import {
@@ -19,6 +19,8 @@ interface Goal {
   cell: GridPos;
   /** Open this chest on arrival. */
   chestId?: string;
+  /** Rest at this site on arrival. */
+  restId?: string;
 }
 
 export interface ExploreHooks {
@@ -32,6 +34,8 @@ export class Explore {
   walking = false;
   private hoverKey = '';
   private itemUses = 0;
+  resting = false;
+  private shortRests = 0;
 
   constructor(
     private readonly ctx: SessionCtx,
@@ -39,9 +43,9 @@ export class Explore {
   ) {}
 
   /** Monsters that join a fight if one starts at the player's current cell, else null. */
-  combatTrigger(): MonsterState[] | null {
+  combatTrigger(at?: GridPos): MonsterState[] | null {
     const { state } = this.ctx;
-    const p = state.player.pos;
+    const p = at ?? state.player.pos;
     const here = state.plan.roomIds[p.y * state.plan.width + p.x] ?? -1;
     const inEntrance = here >= 0 && state.plan.rooms.find((r) => r.id === here)?.role === 'entrance';
     const alive = livingMonsters(state);
@@ -97,6 +101,13 @@ export class Explore {
       if (isSeen(state, chest.pos)) await this.approachChest(chest.id);
       return;
     }
+    const site =
+      state.restSites.find((r) => r.id === pick.entityId) ??
+      (pick.cell ? state.restSites.find((r) => samePos(r.pos, pick.cell as GridPos)) : undefined);
+    if (site) {
+      if (isSeen(state, site.pos)) await this.approachRest(site.id);
+      return;
+    }
     const mon =
       state.monsters.find((m) => m.creature.id === pick.entityId) ??
       (pick.cell
@@ -131,20 +142,63 @@ export class Explore {
       await this.openChest(chestId);
       return;
     }
-    let best: { cell: GridPos; len: number } | null = null;
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const n = { x: chest.pos.x + dx, y: chest.pos.y + dy };
-        if ((dx === 0 && dy === 0) || !state.nav.isWalkable(n) || blockedAt(state)(n)) continue;
-        const path = state.nav.findPath(state.player.pos, n, { blocked: blockedAt(state) });
-        if (path && (!best || path.length < best.len)) best = { cell: n, len: path.length };
-      }
-    }
+    const best = this.approachCell(chest.pos);
     if (!best) {
       this.ctx.prompt("You can't reach the chest.", 1800);
       return;
     }
     await this.walk({ cell: best.cell, chestId });
+  }
+
+  /** The nearest free cell next to `pos` that the hero can walk to, with its path length. */
+  approachCell(pos: GridPos): { cell: GridPos; path: GridPos[] } | null {
+    const { state } = this.ctx;
+    let best: { cell: GridPos; path: GridPos[] } | null = null;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const n = { x: pos.x + dx, y: pos.y + dy };
+        if ((dx === 0 && dy === 0) || !state.nav.isWalkable(n) || blockedAt(state)(n)) continue;
+        const path = samePos(n, state.player.pos) ? [] : state.nav.findPath(state.player.pos, n, { blocked: blockedAt(state) });
+        if (path && (!best || path.length < best.path.length)) best = { cell: n, path };
+      }
+    }
+    return best;
+  }
+
+  /** Walk next to a rest site and rest there. */
+  async approachRest(siteId: string): Promise<void> {
+    const { state } = this.ctx;
+    const site = state.restSites.find((r) => r.id === siteId);
+    if (!site || state.mode !== 'explore') return;
+    if (site.used) {
+      this.ctx.deps.audio.play('uiError');
+      this.ctx.prompt('This site has been used.', 2500);
+      return;
+    }
+    if (!longRestGain(syncFromCreature(state.pc, state.player))) {
+      this.ctx.deps.audio.play('uiError');
+      this.ctx.prompt('You are already rested.', 2500);
+      return;
+    }
+    if (cellDistance(state.player.pos, site.pos) <= 1) {
+      await this.restAt(siteId);
+      return;
+    }
+    const best = this.approachCell(site.pos);
+    if (!best) {
+      this.ctx.prompt("You can't reach the rest site.", 1800);
+      return;
+    }
+    await this.walk({ cell: best.cell, restId: siteId });
+  }
+
+  /** True if walking to the site would not start a fight on the way. */
+  restPathSafe(siteId: string): boolean {
+    const site = this.ctx.state.restSites.find((r) => r.id === siteId);
+    if (!site) return false;
+    const best = this.approachCell(site.pos);
+    if (!best) return false;
+    return [this.ctx.state.player.pos, ...best.path].every((c) => this.combatTrigger(c) === null);
   }
 
   // -------------------------------------------------------------- walking
@@ -202,6 +256,7 @@ export class Explore {
       this.walking = false;
     }
     if (arrived?.chestId) await this.openChest(arrived.chestId);
+    if (arrived?.restId) await this.restAt(arrived.restId);
     this.ctx.hud();
   }
 
@@ -212,46 +267,100 @@ export class Explore {
     const chest = state.chests.find((c) => c.id === chestId);
     if (!chest || chest.opened || state.finished) return;
     chest.opened = true;
-    const rng = state.floorRng.fork(`chest:${chestId}`);
-    const gold = rng.int(8 + state.depth * 6, 20 + state.depth * 14);
-    const potion = rng.chance(0.3);
+    const loot = chestLoot(state.depth, state.floorRng.fork(`chest:${chestId}`));
     deps.audio.play('chestOpen');
     deps.audio.play('coins', { delay: 0.45 });
     await this.ctx.guard(deps.renderer.playAnim(chest.id, 'attack', { facing: chest.pos }), 1500);
 
     const next = syncFromCreature(state.pc, state.player);
-    next.gold += gold;
-    let found = `${gold} gold`;
-    if (potion) {
-      const stack = next.inventory.find((s) => s.itemId === 'potion_healing');
-      if (stack) stack.quantity += 1;
-      else next.inventory.push({ itemId: 'potion_healing', quantity: 1 });
-      found += ' and a Potion of Healing';
+    next.gold += loot.gold;
+    const names: string[] = [`${loot.gold} gold`];
+    for (const it of loot.items) {
+      const stack = next.inventory.find((x) => x.itemId === it.itemId);
+      if (stack) stack.quantity += it.quantity;
+      else next.inventory.push({ ...it });
+      names.push(`${it.quantity > 1 ? it.quantity + ' x ' : ''}${getItem(it.itemId)?.name ?? it.itemId}`);
     }
     state.pc = next;
     this.ctx.rebuildPlayer();
-    deps.renderer.floatText(chest.id, `+${gold} gold`, 'info');
-    if (potion) deps.renderer.floatText(state.player.pos, 'Potion of Healing', 'heal');
-    this.ctx.say(`${state.pc.build.name} opens the chest and finds ${found}.`);
+    deps.renderer.floatText(chest.id, `+${loot.gold} gold`, 'info');
+    if (loot.items.length > 0) deps.renderer.floatText(state.player.pos, 'Potion found', 'heal');
+    this.ctx.say(`${state.pc.build.name} opens the chest and finds ${names.join(' and ')}.`);
     this.ctx.hud();
   }
 
   // ---------------------------------------------------------------- rests
 
-  shortRest(): void {
+  /** The shortRest intent: a real short rest, anywhere with no enemy in view. */
+  async shortRest(): Promise<void> {
     const { state, deps } = this.ctx;
-    if (!canShortRest(state, this.walking)) return;
-    const before = state.player.hp;
-    state.pc = shortRest(syncFromCreature(state.pc, state.player));
-    state.shortRestsLeft -= 1;
-    deps.audio.play('rest');
-    this.ctx.rebuildPlayer();
-    const gained = state.player.hp - before;
-    deps.renderer.setEntityState('player', { hpFraction: state.player.hp / state.player.maxHp });
-    if (gained > 0) deps.renderer.floatText('player', `+${gained}`, 'heal');
-    this.ctx.say(
-      `${state.pc.build.name} takes a short rest and recovers ${gained} hit points. ${state.shortRestsLeft} short rest${state.shortRestsLeft === 1 ? '' : 's'} left on this floor.`,
-    );
+    if (this.resting || this.walking) return;
+    if (shortRestBlock(state) !== undefined) return;
+    this.resting = true;
+    try {
+      const before = syncFromCreature(state.pc, state.player);
+      const rng = state.floorRng.fork(`short:${this.shortRests++}`);
+      const r = takeShortRest(before, rng);
+      state.pc = r.pc;
+      state.shortRestsLeft -= 1;
+      deps.audio.play('rest');
+      deps.ui.banner('Short rest');
+      await deps.delay(500);
+      this.ctx.rebuildPlayer();
+      deps.renderer.setEntityState('player', { hpFraction: state.player.hp / state.player.maxHp });
+      if (r.healed > 0) deps.renderer.floatText('player', `+${r.healed}`, 'heal');
+      const restored = Object.entries(r.pc.resources)
+        .filter(([k, p]) => !isHiddenResource(k) && p.current > (before.resources[k]?.current ?? 0))
+        .map(([, p]) => p.name);
+      const dice = r.hitDiceSpent === 1 ? '1 Hit Die' : `${r.hitDiceSpent} Hit Dice`;
+      this.ctx.say(
+        `${r.pc.build.name} takes a short rest, spends ${dice} and recovers ${r.healed} HP.${restored.map((n) => ` ${n} restored.`).join('')}`,
+      );
+    } finally {
+      this.resting = false;
+    }
+    this.ctx.hud();
+  }
+
+  /** The longRest intent: long rest at the adjacent site. */
+  async longRestHere(): Promise<void> {
+    const site = adjacentRestSite(this.ctx.state);
+    if (site) await this.restAt(site.id);
+  }
+
+  /** Long rest at a site next to the hero (never in combat). Does not consume the site if nothing would be gained. */
+  async restAt(siteId: string): Promise<void> {
+    const { state, deps } = this.ctx;
+    const site = state.restSites.find((r) => r.id === siteId);
+    if (!site || state.mode !== 'explore' || state.finished || this.resting) return;
+    if (cellDistance(state.player.pos, site.pos) > 1) return;
+    if (site.used) {
+      deps.audio.play('uiError');
+      this.ctx.prompt('This site has been used.', 2500);
+      return;
+    }
+    if (!longRestGain(syncFromCreature(state.pc, state.player))) {
+      deps.audio.play('uiError');
+      this.ctx.prompt('You are already rested.', 2500);
+      return;
+    }
+    this.resting = true;
+    try {
+      site.used = true;
+      deps.audio.play('rest');
+      await this.ctx.guard(deps.renderer.playAnim(site.id, 'cast'), 1500);
+      const before = state.player.hp;
+      state.pc = longRest(syncFromCreature(state.pc, state.player));
+      state.shortRestsLeft = SHORT_RESTS_PER_LONG_REST;
+      this.ctx.rebuildPlayer();
+      const gained = state.player.hp - before;
+      deps.renderer.setEntityState(site.id, { dead: true });
+      deps.renderer.setEntityState('player', { hpFraction: state.player.hp / state.player.maxHp });
+      if (gained > 0) deps.renderer.floatText('player', `+${gained}`, 'heal');
+      this.ctx.say(`${state.pc.build.name} makes camp and is fully restored.`);
+    } finally {
+      this.resting = false;
+    }
     this.ctx.hud();
   }
 

@@ -11,6 +11,8 @@ export interface Layout {
   edges: Array<[number, number]>;
   /** Place themed props once entrance/exit are known. */
   decorate(ctx: DecorCtx): void;
+  /** Name of the memorable feature this floor was built around. */
+  setPiece?: string;
 }
 
 export interface RoomInfo {

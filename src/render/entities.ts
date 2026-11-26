@@ -11,7 +11,7 @@ import {
   SpriteMaterial,
 } from 'three';
 import type { AnimationAction, Material, MeshLambertMaterial, Object3D, Quaternion } from 'three';
-import type { AnimName, Faction, GridPos, Size, VisualSpec } from '../core/types';
+import type { AnimName, Faction, GridPos, Size, ThemeId, VisualSpec } from '../core/types';
 import type { ModelCache } from './modelCache';
 import { createStandIn } from './standins';
 import type { Figure } from './standins';
@@ -114,7 +114,7 @@ export class Entity {
   /** Scale policy: stand-ins by Size, models by manifest scale (already in the figure) times VisualSpec.scale. */
   applyFigureScale(): void {
     const vs = this.spec.scale ?? 1;
-    this.scale = (this.figure.kind === 'model' ? 1 : SIZE_SCALE[this.size]) * vs;
+    this.scale = (this.figure.kind === 'model' || this.figure.kind === 'rest' ? 1 : SIZE_SCALE[this.size]) * vs;
     this.height = this.figure.height * this.scale;
     const r = Math.max(0.8, 0.28 * this.height + 0.35);
     const h = Math.max(1.5, this.height + 0.3);
@@ -130,6 +130,7 @@ export interface EntityHost {
   groundAt(x: number, y: number): number;
   models: ModelCache;
   shadowsOn(): boolean;
+  theme(): ThemeId;
 }
 
 /** Owns all entities: spawning, movement, procedural and clip animation, overlays. */
@@ -166,7 +167,7 @@ export class EntityManager {
     let n = 0;
     if (!this.host.shadowsOn()) {
       for (const e of this.entities.values()) {
-        if (!e.visible || n >= 128) continue;
+        if (!e.visible || n >= 128 || e.figure.kind === 'rest') continue;
         const sc = Math.max(0.6, e.height * 0.33) * (0.5 + 0.5 * e.lastOpacity);
         const o = n * 16;
         arr[o] = sc; arr[o + 1] = 0; arr[o + 2] = 0; arr[o + 3] = 0;
@@ -188,7 +189,7 @@ export class EntityManager {
 
   spawn(id: string, visual: VisualSpec, pos: GridPos, opts: { faction: Faction; size: Size }): void {
     if (this.entities.has(id)) this.remove(id);
-    const fig = createStandIn(visual.model, visual.tint, opts.faction);
+    const fig = createStandIn(visual.model, visual.tint, opts.faction, this.host.theme());
     const e = new Entity(id, opts.faction, opts.size, visual, pos, fig, this.proxyGeo, this.proxyMat);
     this.setCastShadow(e);
     this.entities.set(id, e);
@@ -354,7 +355,7 @@ export class EntityManager {
     const isChest = e.figure.kind === 'chest';
     if (isChest && (anim === 'attack' || anim === 'cast')) e.chestWantOpen = true;
     const clipAct = e.figure.actions?.[anim];
-    const dur = clipAct ? Math.min(3, clipAct.getClip().duration) : ANIM_DUR[anim];
+    const dur = clipAct ? Math.min(3, clipAct.getClip().duration) : e.figure.kind === 'rest' ? 1.2 : ANIM_DUR[anim];
     const needTurn = !!facing && anim !== 'death' && Math.abs(angleDiff(e.yaw, e.targetYaw)) > 0.3;
     return new Promise<void>((resolve) => {
       e.oneShot = { anim, t: 0, dur, resolve, clip: !!clipAct, started: !needTurn, waitT: 0 };
@@ -639,6 +640,20 @@ export class EntityManager {
 
   private updatePose(e: Entity, dt: number, time: number): void {
     const f = e.figure;
+    if (f.kind === 'rest') {
+      // Rest sites animate themselves; no corpse darkening, fade or topple when spent.
+      const s = e.oneShot;
+      let castU = -1;
+      if (s) {
+        s.started = true;
+        s.t += dt;
+        if (s.anim === 'cast' || s.anim === 'attack') castU = Math.min(1, s.t / s.dur);
+        if (s.t >= s.dur) this.finishOneShot(e);
+      }
+      f.tick?.(time, castU, e.dead);
+      if (e.flash > 0) e.flash = Math.max(0, e.flash - dt * 3);
+      return;
+    }
     const P = f.parts;
     const pending = e.oneShot;
     if (pending && !pending.started) {

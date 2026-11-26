@@ -1,8 +1,9 @@
 import type { GridPos } from '../core/types';
+import { canShortRest } from './hudModel';
 import { cellDistance } from './fog';
 import type { FloorSession } from './floorSession';
-import { blockedAt, livingMonsters, samePos } from './floorState';
-import { canShortRest } from './hudModel';
+import { longRestGain, shortRestGain, syncFromCreature } from '../rules';
+import { blockedAt, isSeen, livingMonsters, samePos } from './floorState';
 
 export type BotResult = 'finished' | 'stuck' | 'cap';
 
@@ -18,6 +19,7 @@ export async function runBot(
   const maxSteps = opts.maxSteps ?? 4000;
   const pause = opts.pause ?? (() => Promise.resolve());
   const ignoredChests = new Set<string>();
+  const ignoredSites = new Set<string>();
   const ignoredRooms = new Set<number>();
   for (let step = 0; step < maxSteps; step++) {
     if (session.finished) return 'finished';
@@ -31,9 +33,23 @@ export async function runBot(
       await pause(30);
       continue;
     }
-    if (state.shortRestsLeft > 0 && state.player.hp < state.player.maxHp * 0.8 && canShortRest(state, false)) {
-      session.explore.shortRest();
+    const frac = state.player.hp / state.player.maxHp;
+    const synced = syncFromCreature(state.pc, state.player);
+    // Short rest between fights when hurt or missing short-rest abilities.
+    if (canShortRest(state, false) && (frac < 0.6 || shortRestGain(synced).resources)) {
+      await session.explore.shortRest();
       continue;
+    }
+    // Long rest at a safe, seen, unused site: when hurt, out of short rests, or always before the boss.
+    const bossNext = livingMonsters(state).some((m) => m.boss) && !state.chests.some((c) => !c.opened && !ignoredChests.has(c.id));
+    const missing = longRestGain(synced);
+    if (missing && (frac < 0.75 || state.shortRestsLeft === 0 || bossNext)) {
+      const site = state.restSites.find((r) => !r.used && isSeen(state, r.pos) && !ignoredSites.has(r.id) && session.explore.restPathSafe(r.id));
+      if (site) {
+        await session.explore.approachRest(site.id);
+        if (!site.used && state.mode === 'explore') ignoredSites.add(site.id);
+        continue;
+      }
     }
     const before = { ...state.player.pos };
     if (state.stairsOpen) {

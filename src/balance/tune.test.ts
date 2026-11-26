@@ -1,5 +1,5 @@
 import { it } from 'vitest';
-import { ECONOMY, ENCOUNTER_TUNING, createCharacter } from '../rules';
+import { CHEST_RULE, ECONOMY, ENCOUNTER_TUNING, createCharacter } from '../rules';
 import { heroBuild } from './builds';
 import { encounterStats, formatSummary, simulateRun } from './index';
 
@@ -15,6 +15,7 @@ it.skipIf(!enabled)(
   'tuning table',
   () => {
     if (env['BALANCE_OVERRIDES']) Object.assign(ENCOUNTER_TUNING, JSON.parse(env['BALANCE_OVERRIDES']));
+    if (env['BALANCE_CHEST']) Object.assign(CHEST_RULE, JSON.parse(env['BALANCE_CHEST']));
     if (env['BALANCE_ECONOMY']) Object.assign(ECONOMY, JSON.parse(env['BALANCE_ECONOMY']));
     if (env['BALANCE_NOKITE']) (globalThis as { __NOKITE?: boolean }).__NOKITE = true;
     const seeds = Array.from({ length: n }, (_, i) => 1000 + i);

@@ -147,6 +147,7 @@ export function createCharacter(build: CharacterBuild): PlayerCharacter {
     level: 1,
     maxHp,
     hp: maxHp,
+    hitDiceLeft: 1,
     resources: characterResources(build, 1),
     inventory,
     equipped: { ...kit.equipped },
@@ -408,6 +409,7 @@ export function applyLevelUp(pc: PlayerCharacter, choices: Record<string, string
   next.level = preview.toLevel;
   next.maxHp += preview.hpGain;
   next.hp += preview.hpGain;
+  next.hitDiceLeft += 1;
   for (const [key, pool] of Object.entries(cls.resourcesAt(next.level))) {
     const old = next.resources[key];
     next.resources[key] = old
@@ -419,11 +421,47 @@ export function applyLevelUp(pc: PlayerCharacter, choices: Record<string, string
 
 // ------------------------------------------------------------------------ rests
 
-/** Short rest: recover half of maximum HP (rounded up) and short-rest resources. */
-export function shortRest(pc: PlayerCharacter): PlayerCharacter {
+function hitDieAverage(pc: PlayerCharacter): number {
+  return (classOf(pc.build).hitDie + 1) / 2 + abilityMod(finalAbilities(pc.build).con);
+}
+
+/** True if the next Hit Die would be spent by an optimal short rest. */
+function wouldSpendDie(pc: PlayerCharacter): boolean {
+  const missing = pc.maxHp - pc.hp;
+  if (pc.hitDiceLeft <= 0 || missing <= 0) return false;
+  return missing >= hitDieAverage(pc) || pc.hp < pc.maxHp * 0.5;
+}
+
+/** Would a short rest do anything? For the HUD. */
+export function shortRestGain(pc: PlayerCharacter): { hp: boolean; resources: boolean } {
   const cls = classOf(pc.build);
+  const resources = Object.entries(pc.resources).some(
+    ([key, pool]) => pool.current < pool.max && (pool.refresh === 'shortRest' || (cls.shortRestRecovery[key] ?? 0) > 0),
+  );
+  return { hp: wouldSpendDie(pc), resources };
+}
+
+/**
+ * SRD 5.2 short rest. Spends Hit Dice one at a time (class hit die + CON,
+ * at least 1 each) while a die is left and at least an average die of HP is
+ * missing, or the hero is below half HP with anything missing. Second Wind
+ * regains one use, Action Surge its use. Last Stand is untouched. The
+ * 2-per-long-rest limit is the caller's job.
+ */
+export function takeShortRest(pc: PlayerCharacter, rng: Rng): { pc: PlayerCharacter; healed: number; hitDiceSpent: number } {
+  const cls = classOf(pc.build);
+  const con = abilityMod(finalAbilities(pc.build).con);
   const next = clone(pc);
-  next.hp = Math.min(next.maxHp, next.hp + Math.ceil(next.maxHp / 2));
+  let healed = 0;
+  let spent = 0;
+  while (wouldSpendDie(next)) {
+    const roll = Math.max(1, rng.die(cls.hitDie) + con);
+    const gain = Math.min(roll, next.maxHp - next.hp);
+    next.hp += gain;
+    healed += gain;
+    next.hitDiceLeft -= 1;
+    spent += 1;
+  }
   for (const [key, pool] of Object.entries(next.resources)) {
     if (pool.refresh === 'shortRest') pool.current = pool.max;
     else {
@@ -431,19 +469,32 @@ export function shortRest(pc: PlayerCharacter): PlayerCharacter {
       if (n) pool.current = Math.min(pool.max, pool.current + n);
     }
   }
-  return next;
+  return { pc: next, healed, hitDiceSpent: spent };
 }
 
+/** Would a long rest do anything? */
+export function longRestGain(pc: PlayerCharacter): boolean {
+  return (
+    pc.hp < pc.maxHp ||
+    pc.hitDiceLeft < pc.level ||
+    Object.entries(pc.resources).some(([key, pool]) => key !== 'lastStand' && pool.current < pool.max)
+  );
+}
+
+/** Long rest: full HP, all Hit Dice, every resource except Last Stand (that returns on entering a floor). */
 export function longRest(pc: PlayerCharacter): PlayerCharacter {
   const next = clone(pc);
   next.hp = next.maxHp;
-  for (const pool of Object.values(next.resources)) pool.current = pool.max;
+  next.hitDiceLeft = next.level;
+  for (const [key, pool] of Object.entries(next.resources)) if (key !== 'lastStand') pool.current = pool.max;
   return next;
 }
 
-/** Refill resources that refresh once per floor. */
+/** Entering a floor restores Last Stand (once per floor, however many long rests). */
 export function enterFloor(pc: PlayerCharacter): PlayerCharacter {
   const next = clone(pc);
+  const ls = next.resources['lastStand'];
+  if (ls) ls.current = ls.max;
   for (const pool of Object.values(next.resources)) if (pool.refresh === 'floor') pool.current = pool.max;
   return next;
 }
@@ -509,4 +560,19 @@ export function useConsumable(pc: PlayerCharacter, itemId: string, rng: Rng): { 
   s.quantity -= 1;
   next.inventory = next.inventory.filter((x) => x.quantity > 0);
   return { pc: next, healed };
+}
+
+/** Tunable chest loot (mutable for the balance harness). */
+export const CHEST_RULE = { goldMin: 12, goldMax: 24, goldPerDepthMin: 8, goldPerDepthMax: 16, extraPotionChance: 0.25 };
+
+/**
+ * What a treasure-room chest holds on `depth`: gold, one guaranteed Potion of
+ * Healing, and sometimes a second. The game and the balance simulation both
+ * roll chests through this function.
+ */
+export function chestLoot(depth: number, rng: Rng): { gold: number; items: ItemStack[] } {
+  const c = CHEST_RULE;
+  const gold = rng.int(c.goldMin + c.goldPerDepthMin * depth, c.goldMax + c.goldPerDepthMax * depth);
+  const potions = 1 + (rng.chance(c.extraPotionChance) ? 1 : 0);
+  return { gold, items: [{ itemId: 'potion_healing', quantity: potions }] };
 }

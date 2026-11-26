@@ -169,6 +169,7 @@ async function setup(): Promise<void> {
     heroCell = { ...c };
     renderer.placeEntity('hero', c);
   }
+  plan.restSpots.forEach((c, i) => renderer.spawnEntity(`rest${i}`, { model: 'rest_site' }, c, { faction: 'ally', size: 'small' }));
   const chestCell = pick(2, 3);
   renderer.spawnEntity('chest', { model: 'chest' }, chestCell, { faction: 'ally', size: 'small' });
   monsters.set('chest', { hp: 1, max: 1, cell: chestCell });
@@ -300,6 +301,11 @@ async function attack(id: string): Promise<void> {
 }
 
 renderer.onPick((p) => {
+  if (p.entityId?.startsWith('rest')) {
+    const id = p.entityId;
+    void renderer.playAnim(id, 'cast').then(() => renderer.setEntityState(id, { dead: true }));
+    return;
+  }
   (window as unknown as { __lastPick: unknown }).__lastPick = p;
   (window as unknown as { __picks: number }).__picks = ((window as unknown as { __picks?: number }).__picks ?? 0) + 1;
   if (p.entityId && p.entityId !== 'hero') void attack(p.entityId);

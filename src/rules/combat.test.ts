@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Rng } from '../core/rng';
 import type { ActionDef, CombatApi, Creature, GameEvent, NavGrid } from '../core/types';
-import { applyLevelUp, createCharacter, enterFloor, shortRest, syncFromCreature, toCreature } from './character';
+import { applyLevelUp, createCharacter, enterFloor, takeShortRest, syncFromCreature, toCreature } from './character';
 import { computeAreaCells, createCombat } from './combat';
 import { resetItemCatalog, setItemCatalog } from './items';
 import { instantiateMonster } from './monster';
@@ -720,7 +720,7 @@ describe('Last Stand (house rule) and Vex', () => {
     expect(rat.resources['lastStand']).toBeUndefined();
     const pc0 = createCharacter(makeBuild());
     const spent = { ...pc0, resources: { ...pc0.resources, lastStand: { ...pc0.resources['lastStand']!, current: 0 } } };
-    expect(shortRest(spent).resources['lastStand']?.current).toBe(0);
+    expect(takeShortRest(spent, new Rng(1)).pc.resources['lastStand']?.current).toBe(0);
     expect(enterFloor(spent).resources['lastStand']?.current).toBe(1);
   });
 

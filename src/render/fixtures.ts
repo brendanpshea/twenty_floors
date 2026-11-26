@@ -74,7 +74,7 @@ class Draft {
     this.lights.push({ pos: { x, y }, color, intensity, radius });
   }
 
-  toPlan(theme: ThemeId, entrance: GridPos, exit: GridPos, seed: number): FloorPlan {
+  toPlan(theme: ThemeId, entrance: GridPos, exit: GridPos, seed: number, restSpots: GridPos[] = []): FloorPlan {
     const rooms: Room[] = [
       {
         id: 0,
@@ -108,6 +108,7 @@ class Draft {
       spawns: [],
       props: this.props,
       lights: this.lights,
+      restSpots,
     };
   }
 }
@@ -185,7 +186,7 @@ function crypt(): FloorPlan {
   P('crystal', 21, 17); P('brazier', 2, 17); P('brazier', 3, 21); P('statue', 21, 20, 3);
   P('cobweb', 1, 1, 0); P('bones', 8, 3); P('stalagmite', 20, 21);
   autoLights(d, 'crypt');
-  return d.toPlan('crypt', { x: 3, y: 3 }, { x: 22, y: 11 }, 1002);
+  return d.toPlan('crypt', { x: 3, y: 3 }, { x: 22, y: 11 }, 1002, [{ x: 7, y: 4 }, { x: 11, y: 13 }]);
 }
 
 function warrens(): FloorPlan {
@@ -216,7 +217,7 @@ function warrens(): FloorPlan {
   P('statue', 7, 18, 2); P('chain', 14, 20); P('broken_pillar', 17, 21); P('pillar', 12, 14);
   P('torch', 13, 18, 0);
   autoLights(d, 'warrens');
-  return d.toPlan('warrens', { x: 4, y: 6 }, { x: 21, y: 18 }, 1001);
+  return d.toPlan('warrens', { x: 4, y: 6 }, { x: 21, y: 18 }, 1001, [{ x: 5, y: 8 }, { x: 17, y: 6 }]);
 }
 
 function depths(): FloorPlan {
@@ -261,7 +262,7 @@ function depths(): FloorPlan {
   P('stalagmite', 8, 16); P('bones', 12, 8); P('bones', 21, 13); P('urn', 11, 17); P('cobweb', 18, 2);
   P('chain', 5, 15); P('torch', 2, 14, 3); P('mushrooms', 7, 15); P('crate', 22, 11); P('barrel', 22, 12);
   autoLights(d, 'depths');
-  return d.toPlan('depths', { x: 4, y: 4 }, { x: 19, y: 21 }, 1003);
+  return d.toPlan('depths', { x: 4, y: 4 }, { x: 19, y: 21 }, 1003, [{ x: 5, y: 5 }, { x: 13, y: 7 }]);
 }
 
 export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, depths };

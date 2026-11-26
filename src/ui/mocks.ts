@@ -191,6 +191,9 @@ export function exploreHud(): HudModel {
     prompt: undefined,
     shortRestsLeft: 2,
     canShortRest: true,
+    hitDice: { current: 2, max: 2, die: 10 },
+    restSitesLeft: 2,
+    canLongRest: false,
   };
 }
 
@@ -240,6 +243,10 @@ export function combatHud(): HudModel {
     prompt: undefined,
     shortRestsLeft: 2,
     canShortRest: false,
+    shortRestBlockedReason: 'An enemy is in view.',
+    hitDice: { current: 2, max: 2, die: 10 },
+    restSitesLeft: 2,
+    canLongRest: false,
   };
 }
 
@@ -359,6 +366,7 @@ export function makeHubModel(): HubModel {
         choices: { fightingStyle: 'defense' },
       },
       level: 2,
+      hitDiceLeft: 2,
       maxHp: 22,
       hp: 22,
       resources: {},

@@ -36,7 +36,7 @@ describe('new game', () => {
     const save = readSave(h.storage.get(SAVE_KEY));
     expect(save.depth).toBe(1);
     expect(save.runSeed).toBe(42);
-    expect(save.shortRestsLeft).toBe(2);
+    expect(save.shortRestsLeft).toBe(plan?.restSpots?.length ?? 0);
     expect(h.ui.hud?.mode).toBe('explore');
     expect(h.ui.banners).toContain('Floor 1');
     // Monsters start hidden in the fog.

@@ -97,9 +97,14 @@ describe('combat quality of life', () => {
       m.creature.hp = m.creature.maxHp = 200;
       st.player.actions = st.player.actions.filter((a) => a.id !== 'throw_javelin');
       const mp = m.creature.pos;
+      const nbrs = [-1, 0, 1]
+        .flatMap((dy) => [-1, 0, 1].map((dx) => ({ x: mp.x + dx, y: mp.y + dy })))
+        .filter((n) => (n.x !== mp.x || n.y !== mp.y) && st.nav.isWalkable(n));
       const start = walkable(s).find((c) => {
-        const p = st.nav.findPath(c, mp);
-        return p !== null && p.length >= distance[0] && p.length <= distance[1] && st.nav.hasLineOfSight(c, mp);
+        if (!st.nav.hasLineOfSight(c, mp)) return false;
+        const lens = nbrs.map((n) => st.nav.findPath(c, n)?.length ?? 99);
+        const best = Math.min(...lens);
+        return best >= distance[0] && best <= distance[1];
       });
       if (!start) continue;
       st.revealAll = true;
@@ -113,7 +118,7 @@ describe('combat quality of life', () => {
   }
 
   it('walks to a distant enemy and attacks when it is reachable this turn', async () => {
-    const { h, s, m } = await fight([3, 4]);
+    const { h, s, m } = await fight([2, 3]);
     await s.combat.tap({ cell: null, entityId: m.creature.id });
     await until(() => s.combat.playerTurn || s.state.mode === 'explore');
     expect(cellDistance(s.state.player.pos, m.creature.pos)).toBeLessThanOrEqual(1);
@@ -128,8 +133,8 @@ describe('combat quality of life', () => {
     await until(() => s.combat.playerTurn);
     const moved = cellDistance(start, s.state.player.pos);
     expect(moved).toBeGreaterThan(2);
-    expect(cellDistance(s.state.player.pos, m.creature.pos)).toBeGreaterThan(1);
-    expect(h.ui.huds.some((m) => (m.prompt ?? '').includes('Out of reach this turn'))).toBe(true);
+    expect(s.state.nav.findPath(s.state.player.pos, m.creature.pos)?.length ?? 99).toBeGreaterThan(1);
+    expect(h.ui.huds.map((m) => m.prompt).filter(Boolean)).toContain('Out of reach this turn.');
   });
 });
 

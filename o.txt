@@ -1,0 +1,4 @@
+warrens: n 300 fb 0 att 1.45 maxDim 62 tiers 549,41,8,2 {"no set piece could be built":23,"could not place chambers":73,"tunnel failed":11,"chamber too small":28}
+crypt: n 300 fb 0 att 1.03 maxDim 62 tiers 459,112,13,16 {"no rest spot site":9}
+depths: n 300 fb 0 att 1.79 maxDim 62 tiers 466,114,5,15 {"no landing":98,"no rest spot site":9,"platform placement":131}
+{"carved":7119,"order1":6681,"within N cells and sight of a monster slot":2332,"blocks path":25,"only N cells from a monster slot":65,"elevation":6,"ref unreachable":188,"on a spawn slot":1}

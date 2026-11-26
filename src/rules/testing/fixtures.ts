@@ -346,5 +346,6 @@ export function makePlan(depth: number, theme: FloorPlan['theme'], rooms: Partia
     spawns,
     props: [],
     lights: [],
+    restSpots: [],
   };
 }

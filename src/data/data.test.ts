@@ -31,7 +31,7 @@ const MONSTER_IDS = [
   'ogre',
 ];
 
-const ITEM_IDS = [
+const ORIGINAL_ITEM_IDS = [
   'longsword',
   'greatsword',
   'shortsword',
@@ -51,6 +51,91 @@ const ITEM_IDS = [
   'potion_healing',
   'potion_greater_healing',
 ];
+
+/** SRD 5.2.1 Weapons table, all 38 entries. */
+const MUNDANE_WEAPON_IDS = [
+  // Simple melee
+  'club',
+  'dagger',
+  'greatclub',
+  'handaxe',
+  'javelin',
+  'light_hammer',
+  'mace',
+  'quarterstaff',
+  'sickle',
+  'spear',
+  // Simple ranged
+  'dart',
+  'light_crossbow',
+  'shortbow',
+  'sling',
+  // Martial melee
+  'battleaxe',
+  'flail',
+  'glaive',
+  'greataxe',
+  'greatsword',
+  'halberd',
+  'lance',
+  'longsword',
+  'maul',
+  'morningstar',
+  'pike',
+  'rapier',
+  'scimitar',
+  'shortsword',
+  'trident',
+  'warhammer',
+  'war_pick',
+  'whip',
+  // Martial ranged
+  'blowgun',
+  'hand_crossbow',
+  'heavy_crossbow',
+  'longbow',
+  'musket',
+  'pistol',
+];
+
+/** SRD 5.2.1 Armor table, armor entries (the shield is listed separately). */
+const MUNDANE_ARMOR_IDS = [
+  'padded',
+  'leather',
+  'studded_leather',
+  'hide',
+  'chain_shirt',
+  'scale_mail',
+  'breastplate',
+  'half_plate',
+  'ring_mail',
+  'chain_mail',
+  'splint',
+  'plate',
+];
+
+const MUNDANE_SHIELD_IDS = ['shield'];
+
+const WEAPON_MASTERIES = ['cleave', 'graze', 'nick', 'push', 'sap', 'slow', 'topple', 'vex'];
+
+const WEAPON_PROPERTIES = [
+  'finesse',
+  'light',
+  'heavy',
+  'twoHanded',
+  'versatile',
+  'reach',
+  'thrown',
+  'ammunition',
+  'loading',
+];
+
+/** Expected rarity of a magic variant, from the SRD magic item entries. */
+const VARIANT_RARITY = {
+  weapon: { 1: 'uncommon', 2: 'rare', 3: 'veryRare' },
+  armor: { 1: 'rare', 2: 'veryRare', 3: 'legendary' },
+  shield: { 1: 'uncommon', 2: 'rare', 3: 'veryRare' },
+} as const;
 
 const XP_BY_CR: Record<number, number> = { 0.125: 25, 0.25: 50, 0.5: 100, 1: 200, 2: 450 };
 
@@ -159,10 +244,120 @@ describe('monster data', () => {
 });
 
 describe('item data', () => {
-  it('has exactly the 18 expected ids, each unique', () => {
+  const mundaneEquipment = ITEMS.filter((i) => i.magicBonus === undefined && i.kind !== 'consumable');
+  const variants = ITEMS.filter((i) => i.magicBonus !== undefined);
+  const byId = new Map(ITEMS.map((i) => [i.id, i] as const));
+
+  it('keeps the 18 original ids, each unique across all items', () => {
     const ids = ITEMS.map((i) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect([...ids].sort()).toEqual([...ITEM_IDS].sort());
+    for (const id of ORIGINAL_ITEM_IDS) {
+      expect(ids, `${id} present`).toContain(id);
+    }
+  });
+
+  it('has exactly the expected mundane weapon, armor and shield ids', () => {
+    const weaponIds = mundaneEquipment.filter((i) => i.kind === 'weapon').map((i) => i.id);
+    const armorIds = mundaneEquipment.filter((i) => i.kind === 'armor').map((i) => i.id);
+    const shieldIds = mundaneEquipment.filter((i) => i.kind === 'shield').map((i) => i.id);
+    expect([...weaponIds].sort()).toEqual([...MUNDANE_WEAPON_IDS].sort());
+    expect([...armorIds].sort()).toEqual([...MUNDANE_ARMOR_IDS].sort());
+    expect([...shieldIds].sort()).toEqual([...MUNDANE_SHIELD_IDS].sort());
+  });
+
+  it('gives every mundane weapon a mastery and valid properties', () => {
+    for (const i of mundaneEquipment.filter((x) => x.kind === 'weapon')) {
+      expect(WEAPON_MASTERIES, `${i.id} mastery`).toContain(i.weapon!.mastery);
+      for (const p of i.weapon!.properties) {
+        expect(WEAPON_PROPERTIES, `${i.id} property ${p}`).toContain(p);
+      }
+    }
+  });
+
+  it('keeps versatile and versatileDice in step', () => {
+    for (const i of ITEMS.filter((x) => x.weapon)) {
+      const hasVersatile = i.weapon!.properties.includes('versatile');
+      expect(hasVersatile, `${i.id} versatile`).toBe(i.weapon!.versatileDice !== undefined);
+    }
+  });
+
+  it('never combines twoHanded with light', () => {
+    for (const i of ITEMS.filter((x) => x.weapon)) {
+      const p = i.weapon!.properties;
+      expect(p.includes('twoHanded') && p.includes('light'), `${i.id}`).toBe(false);
+    }
+  });
+
+  it('sets dexCap by armor category: none for light, 2 for medium, 0 for heavy', () => {
+    for (const i of ITEMS.filter((x) => x.armor)) {
+      const cap = i.armor!.dexCap;
+      if (i.armor!.category === 'light') expect(cap, `${i.id}`).toBeUndefined();
+      if (i.armor!.category === 'medium') expect(cap, `${i.id}`).toBe(2);
+      if (i.armor!.category === 'heavy') expect(cap, `${i.id}`).toBe(0);
+    }
+  });
+
+  it('gives each magic variant a valid base, bonus, rarity and higher cost', () => {
+    expect(variants.length).toBeGreaterThan(0);
+    for (const v of variants) {
+      const base = byId.get(v.baseId!);
+      expect(base, `${v.id} baseId`).toBeDefined();
+      expect(base!.magicBonus, `${v.id} base is mundane`).toBeUndefined();
+      expect([1, 2, 3], `${v.id} magicBonus`).toContain(v.magicBonus);
+      const family = base!.kind === 'weapon' ? 'weapon' : base!.kind === 'armor' ? 'armor' : 'shield';
+      expect(v.rarity, `${v.id} rarity`).toBe(VARIANT_RARITY[family][v.magicBonus as 1 | 2 | 3]);
+      expect(v.cost, `${v.id} cost`).toBeGreaterThan(base!.cost);
+    }
+  });
+
+  it('gives each magic variant the same combat stats as its base', () => {
+    for (const v of variants) {
+      const base = byId.get(v.baseId!)!;
+      expect(v.kind, `${v.id} kind`).toBe(base.kind);
+      expect(v.weapon, `${v.id} weapon`).toEqual(base.weapon);
+      expect(v.armor, `${v.id} armor`).toEqual(base.armor);
+      expect(v.shieldBonus, `${v.id} shieldBonus`).toBe(base.shieldBonus);
+    }
+  });
+
+  it('shares no nested objects between a variant and its base', () => {
+    for (const v of variants) {
+      const base = byId.get(v.baseId!)!;
+      if (v.weapon) {
+        expect(v.weapon, `${v.id} weapon`).not.toBe(base.weapon);
+        expect(v.weapon.damage, `${v.id} damage`).not.toBe(base.weapon!.damage);
+        expect(v.weapon.properties, `${v.id} properties`).not.toBe(base.weapon!.properties);
+        if (v.weapon.range) expect(v.weapon.range, `${v.id} range`).not.toBe(base.weapon!.range);
+      }
+      if (v.armor) {
+        expect(v.armor, `${v.id} armor`).not.toBe(base.armor);
+      }
+    }
+  });
+
+  it('has exactly three variants for each weapon, armor and shield, and none for consumables', () => {
+    const baseIds = mundaneEquipment.filter((i) => i.kind !== 'consumable').map((i) => i.id);
+    for (const id of baseIds) {
+      const made = variants.filter((v) => v.baseId === id).map((v) => v.magicBonus).sort();
+      expect(made, `${id} variants`).toEqual([1, 2, 3]);
+    }
+    for (const v of variants) {
+      expect(byId.get(v.baseId!)!.kind, `${v.id}`).not.toBe('consumable');
+    }
+    expect(variants.length).toBe(baseIds.length * 3);
+  });
+
+  it('keeps magic variant ids in the expected form', () => {
+    for (const v of variants) {
+      expect(v.id, `${v.id}`).toBe(`${v.baseId}_plus${v.magicBonus}`);
+      expect(v.name, `${v.id} name`).toBe(`${byId.get(v.baseId!)!.name} +${v.magicBonus}`);
+    }
+  });
+
+  it('keeps mundane items common and unenchanted', () => {
+    for (const i of mundaneEquipment.filter((x) => x.kind !== 'consumable')) {
+      expect(i.rarity, `${i.id} rarity`).toBe('common');
+    }
   });
 
   it('uses only valid Dice strings', () => {

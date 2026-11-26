@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { Rng } from '../core/rng';
 import type { CharacterBuild, PlayerCharacter } from '../core/types';
 import {
   applyLevelUp,
@@ -12,7 +13,9 @@ import {
   longRest,
   previewLevelUp,
   shopStock,
-  shortRest,
+  takeShortRest,
+  shortRestGain,
+  longRestGain,
   syncFromCreature,
   toCreature,
   validateBuild,
@@ -222,34 +225,97 @@ describe('levelling', () => {
 });
 
 describe('rests', () => {
-  it('short rest heals half max HP and restores short-rest resources', () => {
-    let pc = applyLevelUp(hero(), {});
-    pc = {
-      ...pc,
-      hp: 3,
-      resources: {
-        ...pc.resources,
-        secondWind: { ...pc.resources['secondWind']!, current: 0 },
-        actionSurge: { ...pc.resources['actionSurge']!, current: 0 },
-      },
-    };
-    const r = shortRest(pc);
-    expect(r.hp).toBe(3 + 12);
-    expect(r.resources['actionSurge']?.current).toBe(1);
-    expect(r.resources['secondWind']?.current).toBe(1); // regains one use
-    expect(shortRest({ ...pc, hp: 23 }).hp).toBe(24);
-    expect(pc.hp).toBe(3);
+  const level2 = (over: Partial<PlayerCharacter> = {}): PlayerCharacter => ({ ...applyLevelUp(hero(), {}), ...over });
+
+  it('hit dice start at the level and grow with level-ups', () => {
+    expect(hero().hitDiceLeft).toBe(1);
+    expect(applyLevelUp(hero(), {}).hitDiceLeft).toBe(2);
+    expect(applyLevelUp(applyLevelUp(hero(), {}), {}).hitDiceLeft).toBe(3);
   });
 
-  it('long rest restores everything; floors refresh floor resources', () => {
-    let pc = hero();
-    pc = { ...pc, hp: 1, resources: { ...pc.resources, secondWind: { ...pc.resources['secondWind']!, current: 0 }, inspiration: { ...pc.resources['inspiration']!, current: 0 } } };
-    const e = enterFloor(pc);
-    expect(e.resources['inspiration']?.current).toBe(1);
-    expect(e.hp).toBe(1);
+  it('short rest spends hit dice for d10 + CON (min 1 each) and never overheals', () => {
+    const pc = level2({ hp: 4 }); // maxHp 24, CON +2
+    const r = takeShortRest(pc, new Rng(3));
+    expect(r.hitDiceSpent).toBe(2);
+    expect(r.pc.hitDiceLeft).toBe(0);
+    expect(r.healed).toBeGreaterThanOrEqual(6);
+    expect(r.healed).toBeLessThanOrEqual(24);
+    expect(r.pc.hp).toBe(4 + r.healed);
+    expect(r.pc.hp).toBeLessThanOrEqual(24);
+    expect(pc.hp).toBe(4);
+    expect(pc.hitDiceLeft).toBe(2);
+  });
+
+  it('optimal spending: skip a die that would mostly be wasted, spend one below half HP', () => {
+    // average die = 5.5 + 2 = 7.5
+    const small = takeShortRest(level2({ hp: 24 - 7 }), new Rng(1)); // missing 7 < 7.5 and above half
+    expect(small.hitDiceSpent).toBe(0);
+    expect(small.healed).toBe(0);
+    const enough = takeShortRest(level2({ hp: 24 - 8 }), new Rng(1)); // missing 8 >= 7.5
+    expect(enough.hitDiceSpent).toBeGreaterThanOrEqual(1);
+    const low = takeShortRest({ ...level2({ hp: 11 }), maxHp: 24 }, new Rng(1)); // below 50%
+    expect(low.hitDiceSpent).toBeGreaterThanOrEqual(1);
+    // stops once the remaining gap is small
+    for (let seed = 1; seed < 30; seed++) {
+      const r = takeShortRest(level2({ hp: 10 }), new Rng(seed));
+      expect(r.pc.hp >= 24 - 7.5 || r.pc.hitDiceLeft === 0 || r.pc.hp >= 12).toBe(true);
+    }
+    expect(takeShortRest(level2({ hp: 1, hitDiceLeft: 0 }), new Rng(1)).healed).toBe(0);
+  });
+
+  it('short rest: Second Wind regains exactly one use, Action Surge refills, Last Stand untouched', () => {
+    const base = level2();
+    const pc = {
+      ...base,
+      resources: {
+        ...base.resources,
+        secondWind: { ...base.resources['secondWind']!, current: 0 },
+        actionSurge: { ...base.resources['actionSurge']!, current: 0 },
+        lastStand: { ...base.resources['lastStand']!, current: 0 },
+      },
+    };
+    const r = takeShortRest(pc, new Rng(1)).pc;
+    expect(r.resources['secondWind']?.current).toBe(1);
+    expect(r.resources['actionSurge']?.current).toBe(1);
+    expect(r.resources['lastStand']?.current).toBe(0);
+    expect(takeShortRest(r, new Rng(1)).pc.resources['secondWind']?.current).toBe(2);
+    expect(takeShortRest(takeShortRest(r, new Rng(1)).pc, new Rng(1)).pc.resources['secondWind']?.current).toBe(2);
+  });
+
+  it('shortRestGain and longRestGain report whether resting would do anything', () => {
+    const full = level2();
+    expect(shortRestGain(full)).toEqual({ hp: false, resources: false });
+    expect(longRestGain(full)).toBe(false);
+    expect(shortRestGain({ ...full, hp: 5 }).hp).toBe(true);
+    const spent = { ...full, resources: { ...full.resources, secondWind: { ...full.resources['secondWind']!, current: 1 } } };
+    expect(shortRestGain(spent)).toEqual({ hp: false, resources: true });
+    expect(longRestGain(spent)).toBe(true);
+    expect(longRestGain({ ...full, hitDiceLeft: 1 })).toBe(true);
+    const lsOnly = { ...full, resources: { ...full.resources, lastStand: { ...full.resources['lastStand']!, current: 0 } } };
+    expect(longRestGain(lsOnly)).toBe(false);
+  });
+
+  it('long rest restores HP, all hit dice and resources but not Last Stand; enterFloor restores it', () => {
+    const base = level2();
+    const pc = {
+      ...base,
+      hp: 1,
+      hitDiceLeft: 0,
+      resources: {
+        ...base.resources,
+        secondWind: { ...base.resources['secondWind']!, current: 0 },
+        lastStand: { ...base.resources['lastStand']!, current: 0 },
+      },
+    };
     const l = longRest(pc);
     expect(l.hp).toBe(l.maxHp);
+    expect(l.hitDiceLeft).toBe(2);
     expect(l.resources['secondWind']?.current).toBe(2);
+    expect(l.resources['lastStand']?.current).toBe(0);
+    expect(enterFloor(l).resources['lastStand']?.current).toBe(1);
+    const human = hero();
+    const spentInsp = { ...human, resources: { ...human.resources, inspiration: { ...human.resources['inspiration']!, current: 0 } } };
+    expect(longRest(spentInsp).resources['inspiration']?.current).toBe(1);
   });
 });
 
@@ -307,5 +373,25 @@ describe('useConsumable', () => {
     expect(() => useConsumable(hero(), 'potion_healing', new Rng(1))).toThrow(/full/);
     expect(() => useConsumable(pc, 'longsword', new Rng(1))).toThrow();
     expect(() => useConsumable(pc, 'potion_greater_healing', new Rng(1))).toThrow(/do not have/);
+  });
+});
+
+describe('chestLoot', () => {
+  it('always holds a potion, scales gold with depth and is deterministic', async () => {
+    const { chestLoot } = await import('./character');
+    const { Rng } = await import('../core/rng');
+    let seconds = 0;
+    for (let i = 0; i < 300; i++) {
+      for (const depth of [1, 2, 3]) {
+        const a = chestLoot(depth, new Rng(i));
+        expect(a).toEqual(chestLoot(depth, new Rng(i)));
+        expect(a.gold).toBeGreaterThanOrEqual(12 + 8 * depth);
+        expect(a.gold).toBeLessThanOrEqual(24 + 16 * depth);
+        const potions = a.items.find((s) => s.itemId === 'potion_healing')?.quantity ?? 0;
+        expect(potions).toBeGreaterThanOrEqual(1);
+        if (potions === 2) seconds++;
+      }
+    }
+    expect(seconds).toBeGreaterThan(100);
   });
 });

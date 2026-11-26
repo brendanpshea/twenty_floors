@@ -140,7 +140,7 @@
       }
     },
     "goblin_minion": {
-      "url": "assets/models/goblin_smooth.glb",
+      "url": "assets/models/goblin_minion.glb",
       "scale": 1.0504,
       "animations": {
         "idle": "Idle",
@@ -151,7 +151,7 @@
       }
     },
     "goblin_warrior": {
-      "url": "assets/models/goblin_smooth.glb",
+      "url": "assets/models/goblin_warrior.glb",
       "scale": 1.0504,
       "animations": {
         "idle": "Idle",
@@ -162,8 +162,8 @@
       }
     },
     "goblin_boss": {
-      "url": "assets/models/goblin_smooth.glb",
-      "scale": 1.0504,
+      "url": "assets/models/goblin_boss.glb",
+      "scale": 1.1344,
       "animations": {
         "idle": "Idle",
         "walk": "Walk",
@@ -204,7 +204,7 @@
       }
     },
     "bugbear_warrior": {
-      "url": "assets/models/orc.glb",
+      "url": "assets/models/bugbear.glb",
       "scale": 0.7213,
       "animations": {
         "idle": "Idle",

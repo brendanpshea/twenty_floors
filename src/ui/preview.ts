@@ -78,10 +78,19 @@ ui.onIntent((i: UiIntent) => {
       hud.player.hp = hud.player.maxHp;
       hud.shortRestsLeft = Math.max(0, hud.shortRestsLeft - 1);
       hud.canShortRest = false;
+      hud.shortRestBlockedReason = 'Nothing to recover.';
+      hud.hitDice = { ...hud.hitDice, current: Math.max(0, hud.hitDice.current - 1) };
       log('You rest and bind your wounds.');
       break;
     case 'selectCreature':
       if (hud.target) hud.target = { ...hud.target, name: i.creatureId };
+      break;
+    case 'longRest':
+      hud.player.hp = hud.player.maxHp;
+      hud.canLongRest = false;
+      hud.restSitesLeft = Math.max(0, hud.restSitesLeft - 1);
+      hud.hitDice = { ...hud.hitDice, current: hud.hitDice.max };
+      log('You rest by the fire and wake fully restored.');
       break;
     case 'openMenu':
       run('menu');
@@ -155,6 +164,18 @@ const SCREENS: Record<string, Runner> = {
   },
   'hud-explore': () => {
     hud = exploreHud();
+    pushHud();
+  },
+  'hud-rest': () => {
+    hud = exploreHud();
+    hud.canShortRest = true;
+    hud.canLongRest = true;
+    pushHud();
+  },
+  'hud-blocked': () => {
+    hud = exploreHud();
+    hud.canShortRest = false;
+    hud.shortRestBlockedReason = 'An enemy is in view.';
     pushHud();
   },
   'hud-combat': () => {

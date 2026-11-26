@@ -1,9 +1,14 @@
 import type { ActionDef, CombatApi, Condition, Creature, HudAction, HudModel } from '../core/types';
-import { getCreationOptions, isHiddenResource } from '../rules';
-import type { FloorState } from './floorState';
-import { creatureById, isEntityVisible, monsterDef } from './floorState';
+import { getCreationOptions, isHiddenResource, longRestGain, shortRestGain, syncFromCreature } from '../rules';
+import type { FloorState, RestSiteState } from './floorState';
+import { creatureById, isEntityVisible, livingMonsters, monsterDef } from './floorState';
 
 let classNames: Map<string, string> | null = null;
+let classDice: Map<string, number> | null = null;
+function hitDieOf(id: string): number {
+  if (!classDice) classDice = new Map(getCreationOptions().classes.map((c) => [c.id, c.hitDie]));
+  return classDice.get(id) ?? 8;
+}
 function classNameOf(id: string): string {
   if (!classNames) classNames = new Map(getCreationOptions().classes.map((c) => [c.id, c.name]));
   return classNames.get(id) ?? id;
@@ -77,7 +82,12 @@ export function buildHudModel(inp: HudInputs): HudModel {
     log: [...state.log],
     shortRestsLeft: state.shortRestsLeft,
     canShortRest: canShortRest(state, busy),
+    hitDice: { current: state.pc.hitDiceLeft, max: state.pc.level, die: hitDieOf(state.pc.build.classId) },
+    restSitesLeft: state.restSites.filter((r) => !r.used).length,
+    canLongRest: canLongRest(state, busy),
   };
+  const blocked = shortRestBlock(state);
+  if (blocked !== undefined && state.mode === 'explore') model.shortRestBlockedReason = blocked;
   if (state.prompt !== undefined) model.prompt = state.prompt;
 
   if (inCombat && combat) {
@@ -144,12 +154,36 @@ export function buildHudModel(inp: HudInputs): HudModel {
   return model;
 }
 
-/** Exploring, rests left, and something to recover. */
-export function canShortRest(state: FloorState, busy: boolean): boolean {
-  if (state.mode !== 'explore' || busy || state.shortRestsLeft <= 0 || state.finished) return false;
-  const p = state.player;
-  if (p.hp < p.maxHp) return true;
-  return Object.entries(p.resources).some(
-    ([key, pool]) => !isHiddenResource(key) && !key.startsWith('item:') && pool.refresh !== 'floor' && pool.current < pool.max,
+/** The unused rest site next to the hero, if any. */
+export function adjacentRestSite(state: FloorState): RestSiteState | undefined {
+  const p = state.player.pos;
+  return state.restSites.find((r) => !r.used && Math.max(Math.abs(r.pos.x - p.x), Math.abs(r.pos.y - p.y)) <= 1);
+}
+
+/** Any living monster within 12 cells that has actual line of sight to the hero. */
+export function enemyInView(state: FloorState): boolean {
+  const p = state.player.pos;
+  return livingMonsters(state).some(
+    (m) => Math.max(Math.abs(m.creature.pos.x - p.x), Math.abs(m.creature.pos.y - p.y)) <= 12 && state.nav.hasLineOfSight(p, m.creature.pos),
   );
+}
+
+/** Why a short rest is unavailable right now, or undefined if it is allowed. */
+export function shortRestBlock(state: FloorState): string | undefined {
+  if (state.mode !== 'explore' || state.finished) return 'Not during combat';
+  if (state.shortRestsLeft <= 0) return 'No short rests left';
+  if (enemyInView(state)) return 'An enemy is in view';
+  const gain = shortRestGain(syncFromCreature(state.pc, state.player));
+  if (!gain.hp && !gain.resources) return 'Nothing to recover';
+  return undefined;
+}
+
+export function canShortRest(state: FloorState, busy: boolean): boolean {
+  return !busy && shortRestBlock(state) === undefined;
+}
+
+/** Exploring, adjacent to an unused site, and a long rest would restore something. */
+export function canLongRest(state: FloorState, busy: boolean): boolean {
+  if (state.mode !== 'explore' || busy || state.finished || !adjacentRestSite(state)) return false;
+  return longRestGain(syncFromCreature(state.pc, state.player));
 }

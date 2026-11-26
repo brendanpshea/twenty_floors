@@ -3,7 +3,7 @@ import type { FloorPlan, ThemeId } from '../core/types';
 import { GenFail } from './grid';
 import { buildGraph, fallbackGraph } from './graph';
 import type { Layout } from './layout';
-import { finalize } from './post';
+import { finalize, type FinalizeReport } from './post';
 import { genCrypt } from './themes/crypt';
 import { genDepths } from './themes/depths';
 import { genWarrens } from './themes/warrens';
@@ -23,6 +23,10 @@ export interface GenerateReport {
   fallback: boolean;
   /** Why earlier attempts were discarded (for tuning and tests). */
   failures: string[];
+  /** Tier of each rest spot (0 = purpose-built nook on the intended passage ... 3 = any quiet cell). */
+  restTiers: number[];
+  /** Name of the set piece built on this floor, if any. */
+  setPiece?: string;
 }
 
 const MAX_ATTEMPTS = 24;
@@ -58,16 +62,17 @@ export function generateFloorReport(opts: GenerateOptions): GenerateReport {
           layout = genDepths(graph, layoutRng, depth);
           break;
       }
-      const plan = finalize(layout, req, rng.fork('post'));
+      const info: FinalizeReport = { restTiers: [] };
+      const plan = finalize(layout, req, rng.fork('post'), info);
       const errs = validateFloor(plan);
-      if (errs.length === 0) return { plan, attempts: attempt + 1, fallback: false, failures };
+      if (errs.length === 0) return { plan, attempts: attempt + 1, fallback: false, failures, restTiers: info.restTiers, setPiece: info.setPiece };
       failures.push(`invalid: ${errs[0]}`);
     } catch (e) {
       if (!(e instanceof GenFail)) throw e;
       failures.push(e.message);
     }
   }
-  return { plan: fallbackPlan(req), attempts: MAX_ATTEMPTS, fallback: true, failures };
+  return { plan: fallbackPlan(req), attempts: MAX_ATTEMPTS, fallback: true, failures, restTiers: [] };
 }
 
 /** A fixed six-room crypt-style layout; used only if every attempt failed. */

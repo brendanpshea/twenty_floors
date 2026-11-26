@@ -5,17 +5,22 @@ import { MONSTERS } from '../data/monsters';
 import { createNavGrid, generateFloor } from '../gen';
 import {
   buildEncounters,
+  chestLoot,
   createCombat,
   playerPolicy,
   runAiTurn,
   runTurnWith,
-  shortRest,
+  longRest,
+  longRestGain,
+  shortRestGain,
+  takeShortRest,
   syncFromCreature,
   useConsumable,
   toCreature,
   type PlacedMonster,
   type PolicyFn,
 } from '../rules';
+import { SHORT_RESTS_PER_LONG_REST } from '../core/types';
 import { getItem } from '../rules/items';
 
 export interface FloorOptions {
@@ -46,13 +51,14 @@ export interface FloorResult {
   bossArrivalHp?: number;
   potionsUsed: number;
   shortRestsUsed: number;
+  longRestsUsed: number;
   chestGold: number;
 }
 
-/** Stand-in for chest loot until the game defines it. */
-export const CHEST_LOOT = { goldBase: 15, goldPerDepth: 10, potionChance: 0.35 };
 
 const MAX_ROUNDS = 40;
+/** The hero notices and steps over to a rest site within this many cells of its path (sites are alcoves 1-3 cells off the route). */
+const SITE_NOTICE = 4;
 /** The game wakes monsters within this many walking cells with line of sight. */
 const TRIGGER_CELLS = 7;
 
@@ -138,7 +144,6 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
   const { runSeed, depth } = opts;
   const policy = opts.policy ?? playerPolicy;
   const sideChance = opts.sideRoomChance ?? 0.5;
-  let restsLeft = opts.shortRests ?? 2;
   const cached = floorFor(runSeed, depth);
   const plan = cached.plan;
   const nav = cached.nav;
@@ -160,7 +165,7 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
   const order = visit.filter((id, i) => visit.indexOf(id) === i);
 
   const startPotions = potionCount(pc);
-  const result: FloorResult = { cleared: false, pc, fightsWon: 0, log: [], potionsUsed: 0, shortRestsUsed: 0, chestGold: 0 };
+  const result: FloorResult = { cleared: false, pc, fightsWon: 0, log: [], potionsUsed: 0, shortRestsUsed: 0, longRestsUsed: 0, chestGold: 0 };
   let cur = pc;
   let pos: GridPos = plan.entrance;
   let potionsFound = 0;
@@ -206,23 +211,59 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
     }
   };
 
-  const maybeRest = (before: 'boss' | 'room'): void => {
-    if (restsLeft <= 0) {
-      maybePotion();
-      return;
-    }
+  // Rest sites: real FloorPlan.restSpots when the generator provides them; otherwise a stand-in
+  // (site 1 after the fight in the middle main-path combat room, site 2 after the last one).
+  interface Site {
+    pos?: GridPos;
+    roomId?: number;
+    used: boolean;
+    passed: boolean;
+  }
+  const mainCombat = route.filter((id) => byRoom(id).length > 0 && plan.rooms.find((r) => r.id === id)?.role !== 'boss');
+  const sites: Site[] =
+    (plan.restSpots ?? []).length >= 2
+      ? (plan.restSpots as GridPos[]).map((p) => ({ pos: p, used: false, passed: false }))
+      : [
+          { roomId: mainCombat[Math.floor((mainCombat.length - 1) / 2)], used: false, passed: false },
+          { roomId: mainCombat[mainCombat.length - 1], used: false, passed: false },
+        ];
+  let shortRestsLeft = SHORT_RESTS_PER_LONG_REST;
+  /** Short rest anywhere between fights (the route is out of enemy view): worthwhile when hurt or resources are spent. */
+  const maybeShortRest = (): void => {
+    if (shortRestsLeft <= 0) return;
     const frac = cur.hp / cur.maxHp;
-    const spent = Object.entries(cur.resources).some(([k, p]) => !k.startsWith('_') && p.refresh !== 'floor' && p.current < p.max);
-    let want: boolean;
-    if (careless) want = frac < 0.35;
-    else if (before === 'boss') want = frac < 0.9 || spent;
-    else want = frac < 0.45 && restsLeft > 1; // keep the last rest for the boss
+    const gain = shortRestGain(cur);
+    const want = careless ? frac < 0.4 && (gain.hp || gain.resources) : frac < 0.6 || gain.resources;
+    if (!want || !(gain.hp || gain.resources)) return;
+    cur = takeShortRest(cur, rng).pc;
+    shortRestsLeft--;
+    result.shortRestsUsed++;
+  };
+  const longRestHere = (site: Site): void => {
+    cur = longRest(cur);
+    site.used = true;
+    shortRestsLeft = SHORT_RESTS_PER_LONG_REST;
+    result.longRestsUsed++;
+  };
+  /** The hero reaches a site: long rest if it is worth it. A skipped site is lost unless the route passes it again. */
+  const reachSite = (i: number): void => {
+    const site = sites[i] as Site;
+    if (site.used) return;
+    site.passed = true;
+    const frac = cur.hp / cur.maxHp;
+    const isLast = i === sites.length - 1;
+    const want = careless
+      ? frac < 0.5
+      : frac < 0.75 || shortRestsLeft < SHORT_RESTS_PER_LONG_REST || cur.hitDiceLeft < cur.level || (isLast && longRestGain(cur));
     if (want) {
-      cur = shortRest(cur);
-      restsLeft--;
-      result.shortRestsUsed++;
+      longRestHere(site);
+      maybePotion();
     }
-    maybePotion();
+  };
+  const touchSites = (p: GridPos): void => {
+    sites.forEach((site, i) => {
+      if (site.pos && !site.passed && cheb(p, site.pos) <= SITE_NOTICE) reachSite(i);
+    });
   };
 
   /** Walk toward `target`, fighting whatever the trigger wakes on the way. Returns false if the hero died. */
@@ -234,6 +275,7 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
       let at = pos;
       if (group.length === 0) {
         for (const p of path) {
+          touchSites(p);
           const t = triggered(p);
           if (t.length > 0) {
             group = t;
@@ -258,7 +300,12 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
         return false;
       }
       result.fightsWon++;
-      maybeRest('room');
+      maybeShortRest();
+      sites.forEach((site, i) => {
+        if (site.roomId !== undefined && site.roomId === group[0]?.roomId && !site.passed) reachSite(i);
+        if (site.pos && !site.passed && cheb(pos, site.pos) <= SITE_NOTICE + 2) reachSite(i);
+      });
+      maybePotion();
     }
     return true;
   };
@@ -268,17 +315,22 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
     if (room.role === 'entrance') continue;
     if (room.role === 'boss') {
       result.bossArrivalHp = cur.hp / cur.maxHp;
-      maybeRest('boss');
+      maybeShortRest();
+      // One optional backtrack: a hurt normal player returns to an unused first site when the second is spent.
+      if (!careless && cur.hp / cur.maxHp < 0.5 && sites.length >= 2 && (sites[1] as Site).used && !(sites[0] as Site).used) {
+        longRestHere(sites[0] as Site);
+        maybePotion();
+      }
       result.bossEntryHp = cur.hp / cur.maxHp;
     }
     if (!walkTo(room.center, room.role)) return finishWith(result, cur, startPotions, potionsFound);
     if (room.role === 'treasure') {
-      const gold = CHEST_LOOT.goldBase + CHEST_LOOT.goldPerDepth * depth;
-      result.chestGold += gold;
-      cur = { ...cur, gold: cur.gold + gold };
-      if (rng.chance(CHEST_LOOT.potionChance)) {
-        cur = addPotion(cur);
-        potionsFound++;
+      const loot = chestLoot(depth, rng);
+      result.chestGold += loot.gold;
+      cur = { ...cur, gold: cur.gold + loot.gold };
+      for (const stack of loot.items) {
+        for (let k = 0; k < stack.quantity; k++) cur = addPotion(cur);
+        potionsFound += stack.quantity;
       }
     }
   }

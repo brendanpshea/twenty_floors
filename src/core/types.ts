@@ -117,6 +117,17 @@ export interface FloorPlan {
   spawns: SpawnSlot[];
   props: PropPlacement[];
   lights: LightPlacement[];
+  /**
+   * Safe rest sites: the only places the hero can take a LONG rest (full
+   * heal), each usable once. Exactly two per floor, in order along the route: the first
+   * about midway along the main path, the second on the approach to the boss
+   * room. Each is a walkable, non-Door cell with no prop and no spawn slot, in
+   * a spot no monster starts near (a passage alcove or a monster-free nook),
+   * reachable from the entrance without passing through the boss room. The
+   * game places a 'rest_site' entity on the cell (so the cell itself becomes
+   * occupied); the hero rests from an adjacent cell.
+   */
+  restSpots: GridPos[];
 }
 
 /** Movement and sight queries over a floor. Implemented in src/gen/nav.ts. */
@@ -438,6 +449,10 @@ export type WeaponProperty =
   | 'ammunition'
   | 'loading';
 
+export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'veryRare' | 'legendary';
+
+export type WeaponMastery = 'cleave' | 'graze' | 'nick' | 'push' | 'sap' | 'slow' | 'topple' | 'vex';
+
 export interface ItemDef {
   id: string;
   name: string;
@@ -446,10 +461,20 @@ export interface ItemDef {
   /** Price in gold pieces. */
   cost: number;
   icon?: string;
+  /**
+   * Magic enhancement, 1 to 3. On a weapon it adds to attack and damage rolls;
+   * on armor or a shield it adds to Armor Class. Absent on mundane items.
+   */
+  magicBonus?: number;
+  rarity?: ItemRarity;
+  /** For a magic variant, the id of the mundane item it is based on. */
+  baseId?: string;
   weapon?: {
     category: 'simple' | 'martial';
     melee: boolean;
     damage: DamagePart;
+    /** The weapon's SRD 5.2 mastery property. */
+    mastery?: WeaponMastery;
     /** Two-handed damage dice for versatile weapons. */
     versatileDice?: Dice;
     properties: WeaponProperty[];
@@ -462,6 +487,8 @@ export interface ItemDef {
     /** Maximum Dexterity modifier added to AC; omitted = unlimited; 0 = none. */
     dexCap?: number;
     strRequirement?: number;
+    /** True if the armor imposes Disadvantage on Stealth checks (recorded; no effect yet). */
+    stealthDisadvantage?: boolean;
   };
   /** AC bonus for shields. */
   shieldBonus?: number;
@@ -559,6 +586,8 @@ export interface PlayerCharacter {
   level: number;
   maxHp: number;
   hp: number;
+  /** Unspent Hit Dice (maximum = level). Spent on short rests, restored by a long rest. */
+  hitDiceLeft: number;
   resources: Record<string, ResourcePool>;
   inventory: ItemStack[];
   equipped: { mainHand?: string; offHand?: string; armor?: string };
@@ -582,9 +611,12 @@ export interface SaveGame {
   /** The floor the player is on (the save is taken at its entrance). */
   depth: number;
   character: PlayerCharacter;
-  /** Short rests left on the current floor. */
+  /** Short rests left before the next long rest (the save is taken fully rested, so normally the maximum). */
   shortRestsLeft: number;
 }
+
+/** Short rests allowed between long rests. */
+export const SHORT_RESTS_PER_LONG_REST = 2;
 
 // ---------------------------------------------------------------------------
 // Rules: combat
@@ -852,9 +884,24 @@ export interface HudModel {
   log: string[];
   /** One-line contextual hint, e.g. "Choose a target" or "The stairs are sealed". */
   prompt?: string;
+  /** Short rests left before the next long rest. */
   shortRestsLeft: number;
-  /** True when the short rest button should be usable (exploring, not at full health/resources). */
+  /**
+   * True while exploring with no enemy in view, a short rest left, and
+   * something to gain from one. The HUD enables its Short Rest button then.
+   */
   canShortRest: boolean;
+  /** Why a short rest is unavailable ("An enemy is in view", "No short rests left", "Nothing to recover"). */
+  shortRestBlockedReason?: string;
+  /** The hero's Hit Dice, spent automatically on short rests. */
+  hitDice: { current: number; max: number; die: number };
+  /** Unused rest sites remaining on this floor. */
+  restSitesLeft: number;
+  /**
+   * True only while exploring, standing next to an unused rest site, and
+   * missing anything a long rest restores. The HUD shows "Rest here" only then.
+   */
+  canLongRest: boolean;
 }
 
 export type UiIntent =
@@ -862,6 +909,8 @@ export type UiIntent =
   | { type: 'cancel' }
   | { type: 'endTurn' }
   | { type: 'shortRest' }
+  /** Long rest at the adjacent rest site. */
+  | { type: 'longRest' }
   | { type: 'openMenu' }
   | { type: 'selectCreature'; creatureId: string };
 

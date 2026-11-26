@@ -1,5 +1,6 @@
 import { Rng, floorSeed } from '../core/rng';
 import { THEMES, themeForDepth } from '../core/themes';
+import { SHORT_RESTS_PER_LONG_REST } from '../core/types';
 import type { GridPos, PickResult, PlayerCharacter, UiIntent } from '../core/types';
 import { MONSTERS } from '../data/monsters';
 import { createNavGrid, generateFloor } from '../gen';
@@ -84,9 +85,12 @@ export class FloorSession {
       chests: plan.spawns
         .filter((s) => s.role === 'chest')
         .map((s, i) => ({ id: `chest_${i}`, pos: { ...s.pos }, opened: false })),
+      restSites: [],
+      restSpotted: false,
+      restHintShown: false,
       seen: new Uint8Array(plan.width * plan.height),
       revealAll: deps.options.reveal === true,
-      shortRestsLeft: run.shortRestsLeft,
+      shortRestsLeft: SHORT_RESTS_PER_LONG_REST,
       mode: 'explore',
       stairsOpen: false,
       log: [],
@@ -121,6 +125,7 @@ export class FloorSession {
       renderer.setEntityState(ch.id, { visible: false });
       state.entityVisible.set(ch.id, false);
     }
+    (plan.restSpots ?? []).forEach((pos) => this.addRestSite(pos));
     this.ctx.reveal();
     renderer.followEntity('player');
     deps.audio.setAmbience(theme);
@@ -129,6 +134,17 @@ export class FloorSession {
     this.ctx.say(`Floor ${depth}: ${themeName}. ${THEMES[theme].tagline}`);
     this.entered = true;
     this.ctx.hud();
+  }
+
+  /** Place a rest site entity on a cell (the generator's spots, or a test's). */
+  addRestSite(pos: GridPos): void {
+    const state = this.state;
+    const id = `rest_${state.restSites.length}`;
+    state.restSites.push({ id, pos: { ...pos }, used: false });
+    state.shortRestsLeft = state.restSites.length;
+    this.deps.renderer.spawnEntity(id, { model: 'rest_site' }, pos, { faction: 'ally', size: 'small' });
+    this.deps.renderer.setEntityState(id, { visible: false });
+    state.entityVisible.set(id, false);
   }
 
   private makePlayer(pc: PlayerCharacter, pos: GridPos) {
@@ -170,7 +186,7 @@ export class FloorSession {
         combat: this.combat.combat,
         selectedActionId: this.combat.selectedActionId,
         previewActionId: this.combat.previewActionId,
-        busy: this.combat.busy || this.explore.walking,
+        busy: this.combat.busy || this.explore.walking || this.explore.resting,
       }),
     );
   }
@@ -204,6 +220,11 @@ export class FloorSession {
     }
     for (const m of state.monsters) setEntityVisible(this.ctx, m.creature.id, isSeen(state, m.creature.pos));
     for (const c of state.chests) setEntityVisible(this.ctx, c.id, isSeen(state, c.pos));
+    for (const r of state.restSites) setEntityVisible(this.ctx, r.id, isSeen(state, r.pos));
+    if (!state.restSpotted && state.restSites.some((r) => isSeen(state, r.pos))) {
+      state.restSpotted = true;
+      this.ctx.say('You spot a safe place to rest.');
+    }
   }
 
   private finish(outcome: FloorOutcome): void {
@@ -227,6 +248,7 @@ export class FloorSession {
     r.removeEntity('player');
     for (const m of this.state.monsters) r.removeEntity(m.creature.id);
     for (const c of this.state.chests) r.removeEntity(c.id);
+    for (const rs of this.state.restSites) r.removeEntity(rs.id);
   }
 
   // ---------------------------------------------------------------- input
@@ -270,7 +292,10 @@ export class FloorSession {
         }
         break;
       case 'shortRest':
-        if (state.mode === 'explore') this.explore.shortRest();
+        if (state.mode === 'explore') this.safe(this.explore.shortRest());
+        break;
+      case 'longRest':
+        if (state.mode === 'explore') this.safe(this.explore.longRestHere());
         break;
       case 'cancel':
         if (state.mode === 'combat') {

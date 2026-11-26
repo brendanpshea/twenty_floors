@@ -2,7 +2,9 @@ import type { Rng } from '../core/rng';
 import type { FloorPlan, GridPos, LightPlacement, Room, SpawnSlot, ThemeId } from '../core/types';
 import { GenFail, Grid, K, NEI8, isWalkKind } from './grid';
 import { LIGHT_TYPES, PropLayer, type DecorCtx, type Layout, type RoomInfo } from './layout';
-import { floodReach } from './nav';
+import { buildCost, floodReach } from './nav';
+import { REST_LIGHT, dressNook, placeRestSpots } from './rest';
+import { addWalls } from './walls';
 
 export interface FloorRequest {
   seed: number;
@@ -15,7 +17,13 @@ export interface FloorRequest {
  * list, pick entrance and exit, let the theme decorate, place spawn slots,
  * repair prop-induced disconnections, then add torches and lights.
  */
-export function finalize(layout: Layout, req: FloorRequest, rng: Rng): FloorPlan {
+/** Optional out-parameter collecting generation diagnostics. */
+export interface FinalizeReport {
+  restTiers: number[];
+  setPiece?: string;
+}
+
+export function finalize(layout: Layout, req: FloorRequest, rng: Rng, report?: FinalizeReport): FloorPlan {
   const g = layout.grid;
   const { w, h } = g;
 
@@ -83,12 +91,24 @@ export function finalize(layout: Layout, req: FloorRequest, rng: Rng): FloorPlan
     spawns,
     props: props.list,
     lights: [],
+    restSpots: [],
   };
+
+  const rest = placeRestSpots(g, plan, props, infos, rng.fork('rest'));
+  const dressRng = rng.fork('restdress');
+  for (const nook of rest.nooks) dressNook(g, props, nook, req.theme, dressRng);
+  for (const s of plan.restSpots) props.keepFree[g.idx(s.x, s.y)] = 1;
+  if (report) {
+    report.restTiers = rest.tiers;
+    report.setPiece = layout.setPiece;
+  }
 
   repairConnectivity(plan, props);
   const spawnCells = new Set(spawns.map((s) => g.idx(s.pos.x, s.pos.y)));
-  addTorches(g, infos, props, spawnCells, rng.fork('torches'));
-  plan.lights = buildLights(props, rng.fork('lights'));
+  for (const s of plan.restSpots) spawnCells.add(g.idx(s.x, s.y));
+  const route = new Set(rest.path);
+  addTorches(g, infos, props, spawnCells, rng.fork('torches'), route, exit);
+  plan.lights = buildLights(props, rng.fork('lights'), plan.restSpots, rest.path, exit);
   return plan;
 }
 
@@ -102,36 +122,6 @@ function normalizeElevation(g: Grid): void {
   for (let i = 0; i < n; i++) {
     g.elev[i] = isWalkKind(g.kinds[i] as number) ? (g.elev[i] as number) - min : 0;
   }
-}
-
-/** Every Void cell touching walkable or Chasm cells becomes a Wall with the highest adjacent walkable elevation. */
-function addWalls(g: Grid): void {
-  const { w, h } = g;
-  const toWall: number[] = [];
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      if (g.kinds[i] !== K.Void) continue;
-      for (const [dx, dy] of NEI8) {
-        const k = g.kind(x + dx, y + dy);
-        if (isWalkKind(k) || k === K.Chasm) {
-          toWall.push(i);
-          break;
-        }
-      }
-    }
-  }
-  for (const i of toWall) {
-    g.kinds[i] = K.Wall;
-    const x = i % w;
-    const y = (i / w) | 0;
-    let best = 0;
-    for (const [dx, dy] of NEI8) {
-      if (g.walkable(x + dx, y + dy)) best = Math.max(best, g.elev[(y + dy) * w + x + dx] as number);
-    }
-    g.elev[i] = best;
-  }
-  for (let i = 0; i < w * h; i++) if (g.kinds[i] === K.Chasm) g.elev[i] = 0;
 }
 
 function buildRoomInfos(g: Grid, roles: Layout['roles']): RoomInfo[] {
@@ -418,7 +408,9 @@ function repairConnectivity(plan: FloorPlan, props: PropLayer): void {
   const w = plan.width;
   const targets: GridPos[] = [plan.exit, ...plan.rooms.map((r) => r.center), ...plan.spawns.map((s) => s.pos)];
   for (let guard = 0; guard < 400; guard++) {
-    const reach = floodReach(plan, plan.entrance);
+    const cost = buildCost(plan);
+    for (const r of plan.restSpots) cost[r.y * w + r.x] = 0;
+    const reach = floodReach(plan, plan.entrance, cost);
     if (targets.every((t) => reach[t.y * w + t.x] === 1)) return;
     let removed = false;
     for (let k = props.list.length - 1; k >= 0; k--) {
@@ -437,7 +429,7 @@ function repairConnectivity(plan: FloorPlan, props: PropLayer): void {
 // ---------------------------------------------------------------------------
 // Torches and lights
 
-function addTorches(g: Grid, infos: RoomInfo[], props: PropLayer, avoid: Set<number>, rng: Rng): void {
+function addTorches(g: Grid, infos: RoomInfo[], props: PropLayer, avoid: Set<number>, rng: Rng, route: Set<number>, exit: GridPos): void {
   const placed: number[] = [];
   const spacingOk = (i: number, d: number): boolean => {
     for (const p of placed) {
@@ -460,15 +452,21 @@ function addTorches(g: Grid, infos: RoomInfo[], props: PropLayer, avoid: Set<num
       }
     }
   };
+  // The exit is lit so it reads from across the boss room.
+  const near: number[] = [];
+  for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) near.push((exit.y + dy) * g.w + exit.x + dx);
+  tryRoom(near.filter((i) => i >= 0 && i < g.w * g.h), 2, 3);
+  // Rooms on the main route are lit well; side rooms get a single torch.
   for (const r of infos) {
     const area = r.cells.length;
-    const count = r.role === 'boss' ? 4 : r.role === 'entrance' ? 2 : area > 70 ? 3 : 2;
+    const onRoute = r.cells.some((i) => route.has(i));
+    const count = r.role === 'boss' ? 4 : r.role === 'entrance' ? 2 : onRoute ? (area > 70 ? 3 : 2) : 1;
     tryRoom(r.cells, count, 5);
   }
-  // Passages (corridors, tunnels, bridges) get the occasional torch.
+  // Only passages on the main route get torches; branches stay dark.
   const passage: number[] = [];
-  for (let i = 0; i < g.w * g.h; i++) if (g.room[i] === -1 && g.kinds[i] === K.Floor) passage.push(i);
-  tryRoom(passage, 4, 8);
+  for (const i of route) if (g.room[i] === -1 && g.kinds[i] === K.Floor) passage.push(i);
+  tryRoom(passage, 5, 7);
   // Make sure there are enough torches to reach the minimum light count even on sparse floors.
   const lit = props.list.filter((p) => LIGHT_TYPES.has(p.type)).length;
   if (lit < 8) {
@@ -486,16 +484,18 @@ const LIGHT_DEFS: Record<string, { color: number; intensity: [number, number]; r
   crystal: { color: 0x55d8ff, intensity: [1, 1.4], radius: [5, 6.5] },
 };
 
-function buildLights(props: PropLayer, rng: Rng): LightPlacement[] {
+function buildLights(props: PropLayer, rng: Rng, restSpots: GridPos[], path: number[], exit: GridPos): LightPlacement[] {
   const w = props.g.w;
   const cands = props.list.filter((p) => LIGHT_TYPES.has(p.type));
-  const major = cands.filter((p) => p.type === 'campfire' || p.type === 'brazier' || p.type === 'crystal');
+  const nearExit = (p: GridPos): boolean => Math.max(Math.abs(p.x - exit.x), Math.abs(p.y - exit.y)) <= 3;
+  const major = cands.filter((p) => p.type === 'campfire' || p.type === 'brazier' || p.type === 'crystal' || nearExit(p.pos));
   const minor = cands.filter((p) => !major.includes(p));
   const selected: typeof cands = [];
+  const cap = 24 - restSpots.length;
   const d2 = (a: GridPos, b: GridPos): number => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
   for (const pool of [major, minor]) {
     const left = pool.slice();
-    while (selected.length < 24 && left.length > 0) {
+    while (selected.length < cap && left.length > 0) {
       let bi = 0;
       let bs = -1;
       for (let k = 0; k < left.length; k++) {
@@ -511,16 +511,26 @@ function buildLights(props: PropLayer, rng: Rng): LightPlacement[] {
       selected.push(left.splice(bi, 1)[0] as (typeof cands)[number]);
     }
   }
-  return selected.map((p) => {
+  const restLights: LightPlacement[] = restSpots.map((s) => ({ pos: { x: s.x, y: s.y }, ...REST_LIGHT }));
+  return restLights.concat(selected.map((p) => {
     const def = LIGHT_DEFS[p.type] as (typeof LIGHT_DEFS)[string];
     const tint = props.tint.get(p.pos.y * w + p.pos.x);
+    // Brighter along the main route, dimmer on branches.
+    let onRoute = false;
+    for (const c of path) {
+      if (Math.abs((c % w) - p.pos.x) <= 4 && Math.abs(((c / w) | 0) - p.pos.y) <= 4) {
+        onRoute = true;
+        break;
+      }
+    }
+    const gain = onRoute ? 1.15 : 0.8;
     return {
       pos: { x: p.pos.x, y: p.pos.y },
       color: tint ?? def.color,
-      intensity: round2(rng.range(def.intensity[0], def.intensity[1])),
+      intensity: round2(rng.range(def.intensity[0], def.intensity[1]) * gain),
       radius: round2(rng.range(def.radius[0], def.radius[1])),
     };
-  });
+  }));
 }
 
 function round2(v: number): number {

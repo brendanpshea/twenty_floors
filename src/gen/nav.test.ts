@@ -35,6 +35,7 @@ function mini(rows: string[], elev?: string[], props: PropPlacement[] = []): Flo
     spawns: [],
     props,
     lights: [],
+    restSpots: [],
   };
 }
 

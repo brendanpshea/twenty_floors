@@ -27,6 +27,9 @@
 .tf-hud .tf-actions,
 .tf-hud .tf-endturn,
 .tf-hud .tf-rest,
+.tf-hud .tf-shortrest,
+.tf-hud .tf-hd,
+.tf-hud .tf-sites,
 .tf-hud .tf-menu,
 .tf-hud .tf-floor,
 .tf-hud .tf-init,
@@ -751,43 +754,72 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 48px;
-  padding: 0.4em 1em;
-  border: 1px solid var(--tf-line);
+  gap: 10px;
+  min-height: 56px;
+  padding: 0.5em 1em;
+  border: 2px solid var(--tf-gold-hi);
   border-radius: 10px;
-  background: var(--tf-panel);
-  color: var(--tf-text);
+  background: linear-gradient(180deg, #8a6628, #523a14);
+  color: #fff1cf;
   font-family: var(--tf-serif);
-  letter-spacing: 0.05em;
+  font-size: 1.15em;
+  letter-spacing: 0.06em;
   cursor: pointer;
-  transition: border-color var(--tf-ease), opacity var(--tf-ease), filter var(--tf-ease);
+  box-shadow: 0 0 22px rgba(236, 150, 66, 0.35);
+  animation: tf-rest-in 320ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+  transition: filter var(--tf-ease), transform var(--tf-ease);
 }
-.tf-rest:hover:not(.is-disabled) {
-  border-color: var(--tf-gold-hi);
-  filter: brightness(1.2);
+.tf-rest[hidden] {
+  display: none;
+}
+.tf-rest:hover {
+  filter: brightness(1.15);
+}
+.tf-rest:active {
+  transform: scale(0.98);
 }
 .tf-rest .tf-icon {
-  color: var(--tf-teal-hi);
+  width: 1.5em;
+  height: 1.5em;
+  color: #ffc477;
 }
-.tf-rest-badge {
-  min-width: 22px;
-  height: 22px;
-  padding: 0 5px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--tf-teal-lo);
-  color: #d7f5f0;
-  font-family: var(--tf-sans);
-  font-size: 0.8em;
-  font-weight: 700;
-}
-.tf-rest.is-disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+@keyframes tf-rest-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
 }
 .is-combat .tf-rest {
+  display: none;
+}
+
+/* Rest-site indicator (informational) */
+.tf-sites {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--tf-line-soft);
+  border-radius: 6px;
+  background: var(--tf-panel);
+  color: var(--tf-amber);
+  font-family: var(--tf-serif);
+  pointer-events: auto;
+  flex: none;
+}
+.tf-sites .tf-icon {
+  width: 1.3em;
+  height: 1.3em;
+}
+.tf-sites-num {
+  color: var(--tf-text);
+  font-size: 1.05em;
+}
+.tf-sites.is-none {
+  color: var(--tf-faint);
+}
+.is-combat .tf-sites {
   display: none;
 }
 
@@ -932,4 +964,83 @@
   .tf-endturn {
     min-height: 52px;
   }
+}
+
+/* Exploring: no initiative strip, so the top-left group may grow past its column. */
+.is-explore .tf-tl {
+  width: max-content;
+  max-width: calc(100vw - 2 * var(--tf-pad));
+}
+
+/* Short rest (always present while exploring) */
+.tf-shortrest {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0.4em 1em;
+  border: 1px solid var(--tf-line);
+  border-radius: 10px;
+  background: var(--tf-panel);
+  color: var(--tf-text);
+  font-family: var(--tf-serif);
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: border-color var(--tf-ease), opacity var(--tf-ease), filter var(--tf-ease);
+}
+.tf-shortrest:hover:not(.is-disabled) {
+  border-color: var(--tf-gold-hi);
+  filter: brightness(1.2);
+}
+.tf-shortrest .tf-icon {
+  color: var(--tf-teal-hi);
+}
+.tf-shortrest.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.tf-rest-badge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--tf-teal-lo);
+  color: #d7f5f0;
+  font-family: var(--tf-sans);
+  font-size: 0.8em;
+  font-weight: 700;
+}
+.is-combat .tf-shortrest {
+  display: none;
+}
+.tf-rest {
+  min-height: 52px;
+}
+
+/* Hit dice readout */
+.tf-statrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+.tf-hd {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8em;
+  color: var(--tf-dim);
+}
+.tf-hd .tf-icon {
+  width: 1.2em;
+  height: 1.2em;
+  color: var(--tf-gold);
+}
+.tf-hd-text {
+  color: var(--tf-text);
+  font-weight: 600;
 }

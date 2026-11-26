@@ -507,7 +507,7 @@ export const MONSTERS: MonsterDef[] = [
     ],
     visual: { model: 'bugbear_warrior', tint: 0x9a5a2a },
     themes: ['depths'],
-    role: 'boss',
+    role: 'elite',
     description: 'A hulking, sneaky goblinoid who prefers to surprise its prey and crush it at close quarters.',
   },
   {
@@ -563,7 +563,7 @@ export const MONSTERS: MonsterDef[] = [
     ],
     visual: { model: 'ogre', tint: 0xc89a4a },
     themes: ['depths'],
-    role: 'elite',
+    role: 'boss',
     description: 'A brutish giant who hoards whatever it can carry and smashes whatever it cannot.',
   },
 ];

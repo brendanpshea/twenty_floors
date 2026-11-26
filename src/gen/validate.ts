@@ -3,6 +3,7 @@ import { CellKind } from '../core/types';
 import { MAX_GRID, NEI4, NEI8, isWalkKind } from './grid';
 import { LIGHT_TYPES } from './layout';
 import { buildCost, createNavGrid, floodReach } from './nav';
+import { restSetProblems } from './rest';
 
 export const PROP_BLOCKING: Record<string, boolean> = {
   torch: false,
@@ -248,7 +249,9 @@ export function validateFloor(plan: FloorPlan): string[] {
   }
   if (plan.lights.length < 8 || plan.lights.length > 24) fail(`${plan.lights.length} lights (need 8..24)`);
   for (const l of plan.lights) {
-    if (propAt.get(`${l.pos.x},${l.pos.y}`) !== true) fail(`light at ${l.pos.x},${l.pos.y} has no light-giving prop`);
+    const atRest = (plan.restSpots ?? []).some((r) => r.x === l.pos.x && r.y === l.pos.y);
+    if (!atRest && propAt.get(`${l.pos.x},${l.pos.y}`) !== true) fail(`light at ${l.pos.x},${l.pos.y} has no light-giving prop`);
   }
+  for (const e of restSetProblems(plan)) fail(e);
   return errs;
 }

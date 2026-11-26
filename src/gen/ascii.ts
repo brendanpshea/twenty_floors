@@ -21,7 +21,7 @@ const DIGITS = '0123456789abcdefghijklmnopqrstuvwxyz';
 /**
  * Debug dump. Legend: '#' wall, '.' floor, ':' chasm, '~' water, '+' door,
  * '<' entrance, '>' exit, 'm' monster slot, 'B' boss slot, 'c' chest slot,
- * 'o' blocking prop, ' ' void. With `withElevation`, a second grid follows
+ * 'o' blocking prop, 'R' rest spot, ' ' void. With `withElevation`, a second grid follows
  * where walkable cells show their elevation step (0-9 then a-z).
  */
 export function floorToAscii(plan: FloorPlan, withElevation = false, propLetters = false): string {
@@ -58,6 +58,7 @@ export function floorToAscii(plan: FloorPlan, withElevation = false, propLetters
   for (const s of plan.spawns) {
     (rows[s.pos.y] as string[])[s.pos.x] = s.role === 'boss' ? 'B' : s.role === 'chest' ? 'c' : 'm';
   }
+  for (const r of plan.restSpots ?? []) (rows[r.y] as string[])[r.x] = 'R';
   (rows[plan.entrance.y] as string[])[plan.entrance.x] = '<';
   (rows[plan.exit.y] as string[])[plan.exit.x] = '>';
   const main = rows.map((r) => r.join('').trimEnd()).join('\n');

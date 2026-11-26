@@ -63,6 +63,7 @@ export interface FloorStats {
   bossEntryCount: number;
   potionsUsed: number;
   shortRestsUsed: number;
+  longRestsUsed: number;
   attemptsTotalForClear: number;
   bossArrivalHpSum: number;
   /** Per fight group ("role: monsters"): fights and hero deaths, all attempts. */
@@ -88,6 +89,7 @@ function emptyStats(depth: number): FloorStats {
     bossEntryCount: 0,
     potionsUsed: 0,
     shortRestsUsed: 0,
+    longRestsUsed: 0,
     attemptsTotalForClear: 0,
     bossArrivalHpSum: 0,
     rooms: {},
@@ -124,6 +126,7 @@ export function simulateRun(build: CharacterBuild, runSeeds: number[], opts: Run
         st.attempts++;
         st.potionsUsed += r.potionsUsed;
         st.shortRestsUsed += r.shortRestsUsed;
+        st.longRestsUsed += r.longRestsUsed;
         for (const l of r.log) {
           const k = `${l.role}: ${[...l.monsters].sort().join("+")}`;
           const e = (st.rooms[k] ??= { n: 0, deaths: 0 });
@@ -163,7 +166,7 @@ export function formatSummary(label: string, s: RunSummary): string {
     lines.push(
       `  floor ${f.depth}: first-try ${((f.firstAttemptClears / f.runs) * 100).toFixed(0)}%  attempts/clear ${(f.attempts / f.runs).toFixed(2)}` +
         `  deaths ${JSON.stringify(f.deathsByRole)}  bossHP arrive/afterRest ${f.bossEntryCount ? ((f.bossArrivalHpSum / f.bossEntryCount) * 100).toFixed(0) : "-"}/${f.bossEntryCount ? ((f.bossEntryHpSum / f.bossEntryCount) * 100).toFixed(0) : "-"}%` +
-        `  potions/att ${(f.potionsUsed / f.attempts).toFixed(2)} rests/att ${(f.shortRestsUsed / f.attempts).toFixed(2)}  killers ${killers}`,
+        `  potions/att ${(f.potionsUsed / f.attempts).toFixed(2)} short/long rests per att ${(f.shortRestsUsed / f.attempts).toFixed(2)}/${(f.longRestsUsed / f.attempts).toFixed(2)}  killers ${killers}`,
     );
   }
   return lines.join('\n');

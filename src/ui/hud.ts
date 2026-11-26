@@ -174,8 +174,14 @@ export class Hud {
   private readonly endTurn = h('button', 'tf-endturn');
   private readonly endLabel = h('span', 'tf-endturn-label');
   private readonly endHint = h('span', 'tf-endturn-hint');
-  private readonly restBtn = h('button', 'tf-rest');
-  private readonly restBadge = h('span', 'tf-rest-badge');
+  private readonly restBtn = h('button', 'tf-rest'); // long rest, Rest here
+  private readonly shortBtn = h('button', 'tf-shortrest');
+  private readonly shortBadge = h('span', 'tf-rest-badge');
+  private readonly hdEl = h('div', 'tf-hd');
+  private readonly hdText = h('span', 'tf-hd-text');
+  private readonly hdDie = h('span', 'tf-hd-die');
+  private readonly sites = h('div', 'tf-sites');
+  private readonly sitesNum = h('span', 'tf-sites-num');
 
   constructor(
     private readonly tip: Tooltip,
@@ -247,7 +253,16 @@ export class Hud {
     pHead.append(this.playerName, this.playerSub);
     this.playerBar.el.append(this.playerHpText);
     this.playerTemp.append(this.playerTempFill);
-    pMain.append(pHead, this.playerBar.el, this.playerTemp, this.playerConds, this.resEl);
+    this.hdEl.setAttribute('role', 'img');
+    this.hdEl.append(createIcon('dice'), this.hdDie, this.hdText);
+    this.tip.attach(this.hdEl, () => ({
+      title: `Hit Dice (${this.hdDie.textContent ?? 'd?'})`,
+      sub: this.hdText.textContent ?? undefined,
+      body: 'Spent on short rests, restored by a long rest.',
+    }));
+    const statRow = h('div', 'tf-statrow');
+    statRow.append(this.hdEl, this.resEl);
+    pMain.append(pHead, this.playerBar.el, this.playerTemp, this.playerConds, statRow);
     player.append(acBadge, pMain);
     this.playerCondList = chipList(this.playerConds);
     this.resList = new KeyedList(
@@ -297,27 +312,46 @@ export class Hud {
     this.endHint.textContent = 'Space';
     this.endTurn.append(this.endLabel, this.endHint);
     this.endTurn.addEventListener('click', () => this.emit({ type: 'endTurn' }));
+    // Long rest: appears only next to a usable rest site, above the (always present) short rest button.
     this.restBtn.type = 'button';
-    this.restBtn.append(createIcon('rest'), h('span', 'tf-rest-label', 'Short Rest'), this.restBadge);
-    this.restBtn.addEventListener('click', () => {
-      if (!this.model) return;
-      if (this.restBtn.getAttribute('aria-disabled') === 'true') {
-        this.tip.flash(this.restBtn);
+    this.restBtn.hidden = true;
+    this.restBtn.append(createIcon('fire'), h('span', 'tf-rest-label', 'Rest here'));
+    this.restBtn.addEventListener('click', () => this.emit({ type: 'longRest' }));
+    this.tip.attach(this.restBtn, () => ({
+      title: 'Rest here',
+      body: 'A rest site fully restores you: health, Hit Dice and all abilities. It can be used once.',
+    }));
+
+    this.shortBtn.type = 'button';
+    this.shortBtn.append(createIcon('rest'), h('span', 'tf-rest-label', 'Short Rest'), this.shortBadge);
+    this.shortBtn.addEventListener('click', () => {
+      if (this.shortBtn.getAttribute('aria-disabled') === 'true') {
+        this.tip.flash(this.shortBtn);
         return;
       }
       this.emit({ type: 'shortRest' });
     });
-    this.tip.attach(this.restBtn, () => {
+    this.tip.attach(this.shortBtn, () => {
       const m = this.model;
       if (!m) return null;
+      const blocked = this.shortBtn.getAttribute('aria-disabled') === 'true';
       return {
         title: 'Short Rest',
-        sub: `${m.shortRestsLeft} left on this floor`,
-        body: 'Catch your breath: recover half your hit points and short-rest abilities.',
-        warn: this.restBtn.getAttribute('aria-disabled') === 'true' ? this.restReason(m) : undefined,
+        sub: `${m.shortRestsLeft} left before your next long rest`,
+        body: 'Spend Hit Dice to recover health and regain short-rest abilities. Not possible with an enemy in view.',
+        warn: blocked ? (m.shortRestBlockedReason ?? 'Not available right now.') : undefined,
       };
     });
-    br.append(this.endTurn, this.restBtn);
+
+    this.sites.setAttribute('role', 'img');
+    this.sites.append(createIcon('fire'), this.sitesNum);
+    this.tip.attach(this.sites, () => ({
+      title: 'Rest sites',
+      sub: `${this.model?.restSitesLeft ?? 0} left on this floor`,
+      body: 'Rest sites left on this floor. A rest site fully restores you, once.',
+    }));
+    tl.append(this.sites);
+    br.append(this.endTurn, this.restBtn, this.shortBtn);
 
     bottom.append(bl, bc, br);
     this.el.append(top, bottom);
@@ -371,18 +405,19 @@ export class Hud {
     setText(this.promptEl, prompt);
     this.promptEl.classList.toggle('is-open', prompt !== '');
 
-    // Short rest (exploring only)
-    const restOk = m.canShortRest && m.shortRestsLeft > 0;
-    setText(this.restBadge, String(m.shortRestsLeft));
-    setAttr(this.restBtn, 'aria-disabled', restOk ? null : 'true');
-    this.restBtn.classList.toggle('is-disabled', !restOk);
+    // Rest controls (exploring only): short rest always present; long rest only beside a usable site.
+    setText(this.sitesNum, String(m.restSitesLeft));
+    setAttr(this.sites, 'aria-label', `${m.restSitesLeft} rest sites left on this floor`);
+    this.sites.classList.toggle('is-none', m.restSitesLeft <= 0);
+    this.restBtn.hidden = !(m.canLongRest && !combat);
+    setText(this.shortBadge, String(m.shortRestsLeft));
+    setAttr(this.shortBtn, 'aria-disabled', m.canShortRest ? null : 'true');
+    this.shortBtn.classList.toggle('is-disabled', !m.canShortRest);
+    setText(this.hdText, `${m.hitDice.current}/${m.hitDice.max}`);
+    setAttr(this.hdEl, 'aria-label', `Hit Dice d${m.hitDice.die}: ${m.hitDice.current} of ${m.hitDice.max}`);
+    setText(this.hdDie, `d${m.hitDice.die}`);
 
     this.tip.refresh();
-  }
-
-  private restReason(m: HudModel): string {
-    if (m.shortRestsLeft <= 0) return 'No short rests left on this floor.';
-    return 'You are already fresh: nothing to recover.';
   }
 
   private syncPlayer(m: HudModel): void {

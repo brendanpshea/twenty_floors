@@ -124,6 +124,7 @@ class RendererImpl implements RendererWithDebug {
       groundAt: (x, y) => this.groundAt(x, y),
       models: this.models,
       shadowsOn: () => this.lighting.shadowsEnabled,
+      theme: () => this.plan?.theme ?? 'crypt',
     });
     this.rig = new CameraRig(canvas);
     this.picker = new Picker(this.rig.camera, canvas, this.entities);

@@ -30,7 +30,7 @@ Clearing a floor grants a level, so clearing floor 20 means reaching level 20.
 | Art | Stylized low-poly. Procedural geometry for architecture, free open glTF models for creatures. |
 | Asset licences | CC0 and CC-BY (any version) are both acceptable. Free assets only: no purchased or commissioned packs for now. Creature variety comes from recolouring and kit parts on the rigs we have (see `docs/research/kitbash-findings.md`). |
 | Later floors | Floors 4 to 20 follow `docs/research/roster-options.md`. The final boss on floor 20 is a red dragon (planned as the Young Red Dragon, which fits the difficulty curve). |
-| Rests | Resting in the middle of a floor is allowed. |
+| Rests | Two kinds, as in the tabletop rules. A **long rest** fully heals and restores everything; it is possible only at the safe rest sites found on each floor (two per floor, each usable once: one about midway, one on the approach to the boss) and in the hub. A **short rest** can be taken anywhere while exploring, as long as no enemy is in view: it spends Hit Dice automatically, without waste, and restores short-rest abilities. Up to two short rests between long rests. |
 | Hosting | Static site on GitHub Pages. Saves in localStorage. No backend. |
 
 ## Solo balance
@@ -42,8 +42,8 @@ Clearing a floor grants a level, so clearing floor 20 means reaching level 20.
   the hero drops to 1 HP instead. This replaces death saves. It is a visible
   resource that refreshes on entering a floor, not on a short rest. Monsters
   do not have it.
-- Each floor allows two short rests (recover half of maximum HP and short-rest resources).
-- The hub is a long rest.
+- Each floor has two rest sites, each good for one long rest. The hub is a long rest too.
+- Short rests follow the tabletop Hit Dice rules, limited to two between long rests.
 - A prone creature stands automatically at the start of its turn for half its
   speed, and a creature held by an indefinite restraint (a spider's web) can
   spend its action on a Strength check to break free.

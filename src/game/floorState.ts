@@ -17,6 +17,12 @@ export interface ChestState {
   opened: boolean;
 }
 
+export interface RestSiteState {
+  id: string;
+  pos: GridPos;
+  used: boolean;
+}
+
 export type FloorMode = 'explore' | 'combat';
 
 /** Everything about the floor in play. Plain data, shared by the controllers. */
@@ -31,6 +37,11 @@ export interface FloorState {
   player: Creature;
   monsters: MonsterState[];
   chests: ChestState[];
+  restSites: RestSiteState[];
+  /** The "you spot a safe place to rest" hint has been shown. */
+  restSpotted: boolean;
+  /** The first-floor explanation of the two rests has been shown. */
+  restHintShown: boolean;
   seen: Uint8Array;
   revealAll: boolean;
   shortRestsLeft: number;
@@ -89,7 +100,9 @@ export function isEntityVisible(state: FloorState, id: string): boolean {
   const c = creatureById(state, id);
   if (c) return isSeen(state, c.pos);
   const chest = state.chests.find((ch) => ch.id === id);
-  return chest ? isSeen(state, chest.pos) : false;
+  if (chest) return isSeen(state, chest.pos);
+  const site = state.restSites.find((r) => r.id === id);
+  return site ? isSeen(state, site.pos) : false;
 }
 
 export function livingMonsters(state: FloorState): MonsterState[] {
@@ -100,7 +113,8 @@ export function livingMonsters(state: FloorState): MonsterState[] {
 export function blockedAt(state: FloorState): (p: GridPos) => boolean {
   return (p) =>
     state.monsters.some((m) => !m.creature.dead && m.creature.hp > 0 && m.creature.pos.x === p.x && m.creature.pos.y === p.y) ||
-    state.chests.some((c) => c.pos.x === p.x && c.pos.y === p.y);
+    state.chests.some((c) => c.pos.x === p.x && c.pos.y === p.y) ||
+    state.restSites.some((r) => r.pos.x === p.x && r.pos.y === p.y);
 }
 
 /** Push an entity's visibility to the renderer only when it changed. */

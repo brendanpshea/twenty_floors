@@ -1,0 +1,34 @@
+<!doctype html><body style="margin:0;background:#334"><canvas id=c></canvas>
+<script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
+const P=new URLSearchParams(location.search);
+const man=await (await fetch(P.get('man')||'/assets/manifest.json')).json();
+const keys=(P.get('keys')||Object.keys(man.models).join(',')).split(',');
+const anim=P.get('anim')||'idle', t=+(P.get('t')||0.3), cam=P.get('cam')||'front';
+const W=1600,H=500;const r=new THREE.WebGLRenderer({canvas:c,antialias:true,preserveDrawingBuffer:true});r.setSize(W,H);
+const sc=new THREE.Scene();sc.background=new THREE.Color(0x778);
+sc.add(new THREE.HemisphereLight(0xffffff,0x555566,2.2));const dl=new THREE.DirectionalLight(0xffffff,2);dl.position.set(2,5,6);sc.add(dl);
+const gl=new GLTFLoader();gl.setMeshoptDecoder(MeshoptDecoder);
+const sp=2.6;let i=0;
+for(const ks of keys){const [k,kt,ka]=ks.split('@');const e=man.models[k];const g=await gl.loadAsync('/'+e.url);const o=g.scene;const w=new THREE.Group();w.add(o);o.scale.setScalar(P.get('raw')?1:e.scale);w.rotation.y=e.rotationY||0;w.position[P.get('axis')||'x']=(i-(keys.length-1)/2)*sp;sc.add(w);i++;
+ const cn=e.animations?.[ka||anim];const mx=new THREE.AnimationMixer(o);if(cn){const cl=THREE.AnimationClip.findByName(g.animations,cn);if(!cl)console.log('MISSING',k,cn);else{mx.clipAction(cl).play();mx.update((kt!==undefined?+kt:t)*cl.duration);}}
+ const box=new THREE.Box3().setFromObject(o);console.log(k,'h',(box.max.y-box.min.y).toFixed(2),'minY',box.min.y.toFixed(2));
+ const ln=new THREE.Mesh(new THREE.BoxGeometry(0.02,1.8,0.02),new THREE.MeshBasicMaterial({color:0xff0000}));ln.position.set(w.position.x-1.1,0.9,0);sc.add(ln);
+ const ar=new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(w.position.x,0.02,0),1.0,0x00ff00);sc.add(ar);}
+const CH=P.get('chk');
+if(CH){const [pn,hn,en]=CH.split(':');const san=s=>s.split('.').join('').split(' ').join('');const key=keys[0].split('@')[0];const e=man.models[key];const g=await gl.loadAsync('/'+e.url);const o=g.scene;o.scale.setScalar(e.scale);sc.add(o);
+ const find=n=>{let r;o.traverse(x=>{if(x.name===san(n))r=x});return r;};const part=find(pn),hand=find(hn),elb=find(en);const mx=new THREE.AnimationMixer(o);
+ for(const an of ['idle','walk','attack']){const cl=THREE.AnimationClip.findByName(g.animations,e.animations[an]);if(!cl)continue;const ac=mx.clipAction(cl);ac.play();const out=[];
+  for(let i=0;i<10;i++){ac.time=cl.duration*i/10;mx.update(0);o.updateMatrixWorld(true);const hp=new THREE.Vector3(),ep=new THREE.Vector3();hand.getWorldPosition(hp);elb.getWorldPosition(ep);const fd=hp.clone().sub(ep).normalize();const bb=new THREE.Box3().setFromObject(part);const c=bb.getCenter(new THREE.Vector3());
+   let tip=hp,md=0;for(const x of [bb.min.x,bb.max.x])for(const y of [bb.min.y,bb.max.y])for(const z of [bb.min.z,bb.max.z]){const q=new THREE.Vector3(x,y,z);const d=q.distanceTo(hp);if(d>md){md=d;tip=q}}
+   out.push([+c.clone().sub(hp).dot(fd).toFixed(2),+tip.clone().sub(hp).dot(fd).toFixed(2)]);}
+  console.log('CHK',pn,an,'centerAlongForearm/tipAlongForearm',JSON.stringify(out));ac.stop();}}
+sc.add(new THREE.GridHelper(40,40,0x888899,0x666677));
+const cm=new THREE.PerspectiveCamera(30,W/H,0.1,100);
+const cx=0,span=keys.length*sp;
+if(cam==='iso'){const pp=(+(P.get('pitch')||50))*Math.PI/180,dd=+(P.get('d')||14);cm.position.set(0,Math.sin(pp)*dd,Math.cos(pp)*dd);cm.lookAt(0,0.8,0);}else if(cam==='top'){cm.position.set(0,+(P.get('d')||10),0.01);cm.up.set(0,0,-1);cm.lookAt(0,0,0);}else if(cam==='front'){cm.position.set(0,1.6,(+P.get('d')||Math.max(9,span*1.15)));cm.lookAt(0,+(P.get('ly')||1.0),0);}else{cm.position.set((+P.get('d')||Math.max(9,span*1.15)),1.6,0);cm.lookAt(0,+(P.get('ly')||1.0),0);}
+r.render(sc,cm);document.title='done';
+</script>

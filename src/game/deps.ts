@@ -1,3 +1,4 @@
+import { SHORT_RESTS_PER_LONG_REST } from '../core/types';
 import type { GameAudio } from '../audio';
 import type { GameUi, PlayerCharacter, QualityLevel, Renderer3D } from '../core/types';
 
@@ -49,4 +50,4 @@ export type FloorOutcome =
 
 export const SAVE_KEY = 'twenty-floors.save';
 export const QUALITY_KEY = 'twenty-floors.quality';
-export const SHORT_RESTS_PER_FLOOR = 2;
+export const SHORT_RESTS_PER_FLOOR = SHORT_RESTS_PER_LONG_REST;

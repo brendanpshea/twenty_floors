@@ -126,6 +126,10 @@ export class CombatController {
       this.ctx.say('Victory!');
     }
     deps.renderer.followEntity('player');
+    if (state.depth === 1 && !state.restHintShown && state.player.hp < state.player.maxHp) {
+      state.restHintShown = true;
+      this.ctx.prompt('Short rests work anywhere safe (2 between long rests). Campsites give a full long rest, once each.', 9000);
+    }
     this.onEnded();
   }
 

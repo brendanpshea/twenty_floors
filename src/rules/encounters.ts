@@ -49,7 +49,7 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
    * 4 the SRD 5.2 "Low" per-character budgets (250, 500, 600 ...) are scaled
    * by 0.65 until those floors are tuned the same way.
    */
-  budgetByLevel: [30, 70, 90, 160, 325, 390, 490, 650, 845, 1040, 1235, 1430, 1690, 1885, 2145, 2470, 2925, 3250, 3575, 4160],
+  budgetByLevel: [32, 110, 125, 160, 325, 390, 490, 650, 845, 1040, 1235, 1430, 1690, 1885, 2145, 2470, 2925, 3250, 3575, 4160],
   /** Global multiplier on every budget. */
   soloFactor: 1,
   /** Budget multiplier by room role. 0 = never spawn. */
@@ -65,10 +65,10 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   maxMonstersPerRoom: 4,
   /** At most this many monsters with CR above the hero's level per room. */
   maxOverLevel: 1,
-  maxBossMinions: [1, 1, 1, 2],
-  minMonstersPerRoom: [1.65, 1.5, 1.6],
+  maxBossMinions: [1, 2, 2, 2],
+  minMonstersPerRoom: [1.7, 2.0, 2.1],
   topUpLimit: 1.8,
-  bossMinionChance: [0.1, 0.15, 0.8, 0.5],
+  bossMinionChance: [0.15, 0.4, 0, 0.5],
   /** Selection weight by role. */
   roleWeight: { minion: 1, standard: 1, elite: 0.5, boss: 0 },
   monsterMinDepth: {},
@@ -174,7 +174,7 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
       const bossSlot = bossSlots[0] ?? monsterSlots.shift();
       if (bossSlot) placements.push({ def: bossDef, slot: bossSlot });
       // Boss escorts must fit the boss-room budget, so a 200 XP "standard" monster is never an escort at low depth.
-      const escortCap = Math.max(roomBudget(plan.depth, 'boss', room.distanceFromEntrance) * t.firstOvershoot, Math.min(...regular.map((m) => m.xp)));
+      const escortCap = Math.max(roomBudget(plan.depth, 'boss', room.distanceFromEntrance) * 1.2, Math.min(...regular.map((m) => m.xp)));
       const legal = regular.filter((m) => m.cr <= plan.depth && m.xp <= escortCap);
       const minionPool = legal.filter((m) => m.role === 'minion');
       const pool = minionPool.length > 0 ? minionPool : legal.filter((m) => m.role === 'standard');

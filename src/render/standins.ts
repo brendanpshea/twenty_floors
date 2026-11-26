@@ -1,6 +1,7 @@
 import { Group, Mesh, MeshLambertMaterial } from 'three';
 import type { AnimationAction, AnimationMixer, BufferGeometry, Material } from 'three';
-import type { AnimName, Faction } from '../core/types';
+import type { AnimName, Faction, ThemeId } from '../core/types';
+import { buildRestSite } from './restSite';
 import { GeoBuilder } from './gb';
 
 /** A visual for one entity: either a procedural stand-in or a loaded model. */
@@ -21,7 +22,9 @@ export interface Figure {
   height: number;
   /** Opacity of the undamaged figure (ghosts are translucent). */
   baseOpacity?: number;
-  kind: 'humanoid' | 'beast' | 'blob' | 'chest' | 'model';
+  kind: 'humanoid' | 'beast' | 'blob' | 'chest' | 'model' | 'rest';
+  /** Self-animating figures (rest sites): called every frame. castU is the cast progress 0..1, or -1. */
+  tick?(time: number, castU: number, spent: boolean): void;
   mixer?: AnimationMixer;
   actions?: Partial<Record<AnimName, AnimationAction>>;
   dispose(): void;
@@ -343,8 +346,9 @@ function buildChest(): Figure {
 }
 
 /** Build a procedural stand-in for a model key. */
-export function createStandIn(model: string, tint: number | undefined, faction: Faction): Figure {
+export function createStandIn(model: string, tint: number | undefined, faction: Faction, theme: ThemeId = 'crypt'): Figure {
   const k = model.toLowerCase();
+  if (k === 'rest_site') return buildRestSite(theme);
   const col = tint ?? FACTION_TINT[faction];
   if (k === 'chest' || k.includes('chest')) return buildChest();
   if (/(slime|ooze|blob|cube|jelly|pudding)/.test(k)) return buildBlob(tint ?? 0x6fbf5a);

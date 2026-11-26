@@ -1,7 +1,7 @@
 import type { Rng } from '../../core/rng';
 import type { RoomRole } from '../../core/types';
 import { solveElevation } from '../elevation';
-import { GenFail, Grid, K, NEI4, NEI8, fbm2 } from '../grid';
+import { GenFail, Grid, K, NEI4, NEI8, dist, fbm2 } from '../grid';
 import type { MissionGraph } from '../graph';
 import type { DecorCtx, Layout } from '../layout';
 
@@ -66,13 +66,27 @@ export function genDepths(graph: MissionGraph, rng: Rng, depth: number): Layout 
   const g = new Grid(W, H);
   const plats = placePlatforms(graph, rng, W, H, elevs);
   const seed = rng.int(1, 1e9);
-  for (const p of plats) carvePlatform(g, p, seed, rng, plats, graph);
+  // Set piece for this floor.
+  let piece = rng.pick(['amphitheatre', 'twinBridge', 'landing'] as const);
+  for (const p of plats) carvePlatform(g, p, seed, rng, plats, graph, piece === 'amphitheatre');
 
   // Bridges.
   const edges: Array<[number, number]> = [];
+  const bridgeLog: Array<Array<[number, number]>> = [];
   for (const [a, b] of graph.edges) {
-    if (!bridge(g, plats[a] as Plat, plats[b] as Plat, rng, true)) throw new GenFail('no bridge row');
+    if (!bridge(g, plats[a] as Plat, plats[b] as Plat, rng, true, bridgeLog)) throw new GenFail('no bridge row');
     edges.push([a, b]);
+  }
+  if (piece === 'landing') {
+    const longest = bridgeLog.reduce((best, s) => (s.length > best.length ? s : best), [] as Array<[number, number]>);
+    if (longest.length >= 8 && carveLanding(g, longest)) piece = 'landing';
+    else piece = 'twinBridge'; // no long span to rest on: give the boss a second bridge instead
+  }
+  if (piece === 'twinBridge') {
+    // The boss platform is an island reached by two bridges (different lanes, so different heights).
+    const boss = graph.roles.indexOf('boss');
+    const par = graph.parent[boss] as number;
+    if (!bridge(g, plats[par] as Plat, plats[boss] as Plat, rng, true)) throw new GenFail('no second bridge');
   }
   for (const [a, b] of graph.optional) {
     if (Math.abs((plats[a] as Plat).e - (plats[b] as Plat).e) <= 4 && bridge(g, plats[a] as Plat, plats[b] as Plat, rng, false)) {
@@ -88,7 +102,7 @@ export function genDepths(graph: MissionGraph, rng: Rng, depth: number): Layout 
   fillChasm(g, plats, seed, rng);
 
   const accent = rng.pick([0x55d8ff, 0xa070ff, 0x55d8ff]);
-  return { grid: g, roles: graph.roles, edges, decorate: (ctx) => decorate(ctx, accent) };
+  return { grid: g, roles: graph.roles, edges, decorate: (ctx) => decorate(ctx, accent), setPiece: piece };
 }
 
 // ---------------------------------------------------------------------------
@@ -226,17 +240,22 @@ function superPow(a: number, e: number): number {
   return e === 2 ? a2 : e === 3 ? a2 * a : a2 * a2;
 }
 
-function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], graph: MissionGraph): void {
-  const exp = rng.pick([2, 3, 3, 4]);
-  const notch = p.role !== 'entrance' && p.role !== 'treasure' && rng.chance(0.3) ? rng.int(0, 3) : -1;
+function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], graph: MissionGraph, amphitheatre: boolean): void {
+  const exp = rng.pick([2, 2, 2, 3, 3, 4]);
+  const notch = p.role !== 'entrance' && p.role !== 'treasure' && rng.chance(0.45) ? rng.int(0, 3) : -1;
+  // A second, smaller lobe makes the outline irregular rather than a rounded box.
+  const lobe = p.role === 'combat' && rng.chance(0.45) ? { sx: rng.chance(0.5) ? 1 : -1, sy: rng.chance(0.5) ? 1 : -1 } : null;
   const inside = new Set<number>();
   for (let y = y0(p); y <= y1(p); y++) {
     for (let x = x0(p); x <= x1(p); x++) {
       const nx = (x - p.cx) / (p.hx + 0.5);
       const ny = (y - p.cy) / (p.hy + 0.5);
       const v = superPow(Math.abs(nx), exp) + superPow(Math.abs(ny), exp);
-      if (v > 1 + (fbm2(seed, x * 0.3, y * 0.3) - 0.5) * 0.5) continue;
-      if (notch >= 0) {
+      const lx = (x - (p.cx + (lobe ? lobe.sx * p.hx * 0.45 : 0))) / (p.hx * 0.62 + 0.5);
+      const ly = (y - (p.cy + (lobe ? lobe.sy * p.hy * 0.45 : 0))) / (p.hy * 0.62 + 0.5);
+      const inLobe = lobe !== null && lx * lx + ly * ly <= 1;
+      if (!inLobe && v > 1 + (fbm2(seed, x * 0.3, y * 0.3) - 0.5) * 0.5) continue;
+      if (notch >= 0 && !inLobe) {
         const sx = notch & 1 ? 1 : -1;
         const sy = notch & 2 ? 1 : -1;
         if (nx * sx > 0.3 && ny * sy > 0.3) continue;
@@ -283,7 +302,12 @@ function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], 
     const x = i % g.w;
     const y = (i / g.w) | 0;
     let e = p.e;
-    if (p.role === 'boss') {
+    if (p.role === 'boss' && amphitheatre) {
+      // Tiered arena: the rim is two steps above the sunken floor, stepping down toward the middle.
+      const rr = dist((x - p.cx) / (p.hx + 0.5), (y - p.cy) / (p.hy + 0.5));
+      if (rr > 0.45) e += 1;
+      if (rr > 0.75) e += 1;
+    } else if (p.role === 'boss') {
       const t = fx !== 0 ? ((x - p.cx) * fx) / p.hx : ((y - p.cy) * fy) / p.hy;
       if (t > 0.25) e += 1;
       if (t > 0.6) e += 1;
@@ -298,7 +322,7 @@ function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], 
 }
 
 /** Carve a straight 1 or 2 wide strip between two platforms. Returns false if no clean row exists. */
-function bridge(g: Grid, a: Plat, b: Plat, rng: Rng, mandatory: boolean): boolean {
+function bridge(g: Grid, a: Plat, b: Plat, rng: Rng, mandatory: boolean, log?: Array<Array<[number, number]>>): boolean {
   const horizontal = x1(a) < x0(b) || x1(b) < x0(a);
   const vertical = y1(a) < y0(b) || y1(b) < y0(a);
   if (!horizontal && !vertical) return false;
@@ -348,6 +372,7 @@ function bridge(g: Grid, a: Plat, b: Plat, rng: Rng, mandatory: boolean): boolea
       }
       if (!ok) continue;
       for (const [x, y] of strips.flat()) g.floor(x, y, 0, -1);
+      log?.push(strips[0] as Array<[number, number]>);
       const da = useH ? (a.cx < b.cx ? 0 : 2) : a.cy < b.cy ? 1 : 3;
       a.used.add(da);
       b.used.add((da + 2) % 4);
@@ -475,4 +500,23 @@ function decorate(ctx: DecorCtx, accent: number): void {
   for (let i = 0; i < g.w * g.h; i++) if (g.room[i] === -1 && g.kinds[i] === K.Floor) strip.push(i);
   rng.shuffle(strip);
   for (let k = 0; k < Math.min(strip.length, 5); k++) props.place(k < 3 ? 'chain' : 'rubble', ...at(strip[k] as number), rng.int(0, 3), false);
+}
+
+/** Carve a 3x3 rest platform on the middle of a long bridge strip, if the surroundings are clear. */
+function carveLanding(g: Grid, strip: Array<[number, number]>): boolean {
+  const mid = strip[strip.length >> 1] as [number, number];
+  const own = new Set(strip.map(([x, y]) => g.idx(x, y)));
+  for (let dy = -3; dy <= 3; dy++) {
+    for (let dx = -3; dx <= 3; dx++) {
+      const x = mid[0] + dx;
+      const y = mid[1] + dy;
+      if (!g.inb(x, y)) return false;
+      const i = g.idx(x, y);
+      if (g.kinds[i] === K.Floor && !own.has(i) && g.room[i] !== -1) return false;
+      // Another bridge running alongside would merge with the landing.
+      if (g.kinds[i] === K.Floor && !own.has(i)) return false;
+    }
+  }
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) g.floor(mid[0] + dx, mid[1] + dy, 0, -1);
+  return true;
 }

@@ -1,0 +1,355 @@
+{
+ "hero_knight": {
+  "height": 1.8,
+  "scale": 0.7347,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "bytes": 271296,
+  "rawHeight": 2.45
+ },
+ "hero_barbarian": {
+  "height": 1.8,
+  "scale": 0.7563,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "bytes": 268012,
+  "rawHeight": 2.38
+ },
+ "hero_rogue": {
+  "height": 1.8,
+  "scale": 0.8219,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "Dualwield_Melee_Attack_Slice",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "bytes": 254308,
+  "rawHeight": 2.19
+ },
+ "hero_mage": {
+  "height": 1.9,
+  "scale": 0.6354,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "bytes": 258616,
+  "rawHeight": 2.99
+ },
+ "skeleton_warrior": {
+  "height": 1.8,
+  "scale": 0.6977,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "bytes": 312660,
+  "rawHeight": 2.58
+ },
+ "skeleton_mage": {
+  "height": 1.8,
+  "scale": 0.687,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "Spellcast_Shoot",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Raise"
+  },
+  "bytes": 295812,
+  "rawHeight": 2.62
+ },
+ "skeleton_rogue": {
+  "height": 1.8,
+  "scale": 0.786,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "bytes": 292688,
+  "rawHeight": 2.29
+ },
+ "skeleton_minion": {
+  "height": 1.8,
+  "scale": 0.8295,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "bytes": 288916,
+  "rawHeight": 2.17
+ },
+ "goblin": {
+  "height": 1.2,
+  "scale": 0.4068,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Attack",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "bytes": 45352,
+  "rawHeight": 2.95
+ },
+ "giant": {
+  "height": 3.2,
+  "scale": 0.8247,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Attack",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "bytes": 49820,
+  "rawHeight": 3.88
+ },
+ "zombie": {
+  "height": 1.8,
+  "scale": 0.6569,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Attack",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "bytes": 49016,
+  "rawHeight": 2.74
+ },
+ "ghoul": {
+  "height": 1.7,
+  "scale": 1.4286,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 122700,
+  "rawHeight": 1.19
+ },
+ "orc": {
+  "height": 2.2,
+  "scale": 0.7213,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Weapon",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 124008,
+  "rawHeight": 3.05
+ },
+ "ghost": {
+  "height": 1.8,
+  "scale": 0.5882,
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 63552,
+  "rawHeight": 3.06
+ },
+ "rat": {
+  "height": 0.58,
+  "scale": 0.2555,
+  "anim": {
+   "idle": "Rat_Idle",
+   "walk": "Rat_Walk",
+   "attack": "Rat_Attack",
+   "death": "Rat_Death"
+  },
+  "bytes": 136140,
+  "rawHeight": 2.29
+ },
+ "spider": {
+  "height": 0.8,
+  "scale": 0.4145,
+  "anim": {
+   "idle": "Spider_Idle",
+   "walk": "Spider_Walk",
+   "attack": "Spider_Attack",
+   "death": "Spider_Death"
+  },
+  "bytes": 118024,
+  "rawHeight": 1.93
+ },
+ "wolfA": {
+  "height": 1,
+  "scale": 0.3745,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Attack",
+   "hit": "Idle_HitReact_Left",
+   "death": "Death"
+  },
+  "bytes": 138112,
+  "rawHeight": 2.67
+ },
+ "wolfB": {
+  "height": 1.776,
+  "scale": 0.5631,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Headbutt",
+   "death": "Death"
+  },
+  "bytes": 45060
+ },
+ "goblin_smooth": {
+  "height": 1.25,
+  "scale": 1.0504,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 122700,
+  "rawHeight": 1.19
+ },
+ "zombie_smooth": {
+  "height": 1.8,
+  "scale": 1.2081,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 121020,
+  "rawHeight": 1.49
+ },
+ "ghoul_smooth": {
+  "height": 1.7,
+  "scale": 0.2401,
+  "anim": {
+   "idle": "ZombieIdle",
+   "walk": "ZombieWalk",
+   "attack": "ZombieBite"
+  },
+  "bytes": 171132,
+  "rawHeight": 7.08
+ },
+ "ogre_smooth": {
+  "height": 2.8,
+  "scale": 1.931,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 117116,
+  "rawHeight": 1.45
+ },
+ "wolf_smooth": {
+  "height": 1,
+  "scale": 0.3745,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Attack",
+   "hit": "Idle_HitReact_Left",
+   "death": "Death"
+  },
+  "bytes": 138112,
+  "rawHeight": 2.67
+ },
+ "goblin_minion": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 1.0504,
+  "height": 1.25,
+  "variantOf": "goblin_smooth",
+  "bytes": 142780
+ },
+ "goblin_warrior": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 1.0504,
+  "height": 1.25,
+  "variantOf": "goblin_smooth",
+  "bytes": 154448
+ },
+ "goblin_boss": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 1.1344,
+  "height": 1.25,
+  "variantOf": "goblin_smooth",
+  "bytes": 203692
+ },
+ "bugbear": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Weapon",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.7213,
+  "height": 2.2,
+  "variantOf": "orc",
+  "bytes": 153092
+ }
+}

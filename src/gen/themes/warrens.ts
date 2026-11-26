@@ -1,7 +1,7 @@
 import type { Rng } from '../../core/rng';
 import type { RoomRole } from '../../core/types';
 import { solveElevation } from '../elevation';
-import { GenFail, Grid, K, NEI8, dist, fbm2 } from '../grid';
+import { GenFail, Grid, K, NEI8, dist, fbm2, floodCells } from '../grid';
 import type { MissionGraph } from '../graph';
 import type { DecorCtx, Layout } from '../layout';
 
@@ -66,6 +66,13 @@ export function genWarrens(graph: MissionGraph, rng: Rng, depth: number): Layout
     if (tryTunnel(g, rng, blobs[a] as Blob, blobs[b] as Blob, 4)) edges.push([a, b]);
   }
 
+  // Set piece: pick a big chamber and a feature that suits it.
+  const bigRooms = graph.roles.map((r, i) => i).filter((i) => (graph.roles[i] === 'combat' || graph.roles[i] === 'boss') && roomArea(g, i) >= 50);
+  const pieceRoom = bigRooms.length ? rng.pick(bigRooms) : -1;
+  const pieceName: 'lake' | 'tiers' | 'crack' | 'none' = pieceRoom < 0 ? 'none' : rng.pick(['crack', 'lake', 'tiers'] as const);
+  // The tiered chamber rises toward one side.
+  const tierDir = rng.pick([[1, 0], [-1, 0], [0, 1], [0, -1]] as Array<[number, number]>);
+
   // Elevation: random walk of chamber heights, mounds, solved tunnels.
   const base: number[] = [];
   for (let i = 0; i < n; i++) {
@@ -83,7 +90,13 @@ export function genWarrens(graph: MissionGraph, rng: Rng, depth: number): Layout
       const i = y * W + x;
       const id = g.room[i] as number;
       if (id < 0 || g.kinds[i] !== K.Floor) continue;
-      g.elev[i] = (base[id] as number) + (fbm2(mound, x * 0.16, y * 0.16) > 0.62 ? 1 : 0);
+      let terrace = 0;
+      if (pieceName === 'tiers' && id === pieceRoom) {
+        const b = blobs[id] as Blob;
+        const t = ((x - b.cx) * tierDir[0] + (y - b.cy) * tierDir[1]) / (b.ext * 0.8);
+        terrace = (t > 0.15 ? 1 : 0) + (t > 0.5 ? 1 : 0);
+      }
+      g.elev[i] = (base[id] as number) + terrace + (pieceName === 'tiers' && id === pieceRoom ? 0 : fbm2(mound, x * 0.16, y * 0.16) > 0.62 ? 1 : 0);
       fixed[i] = 1;
     }
   }
@@ -91,8 +104,12 @@ export function genWarrens(graph: MissionGraph, rng: Rng, depth: number): Layout
 
   carvePools(g, rng, blobs);
   carvePits(g, rng, blobs);
-
-  return { grid: g, roles: graph.roles, edges, decorate: (ctx) => decorate(ctx) };
+  let applied: string = pieceName;
+  if (pieceName === 'lake') applied = carveLake(g, rng, pieceRoom) ? 'lake' : 'none';
+  else if (pieceName === 'crack') applied = carveCrack(g, rng, pieceRoom, blobs[pieceRoom] as Blob) ? 'crack' : 'none';
+  if (applied === 'none') throw new GenFail('no set piece could be built');
+  const piece = { name: applied, room: pieceRoom };
+  return { grid: g, roles: graph.roles, edges, decorate: (ctx) => decorate(ctx, piece), setPiece: applied };
 }
 
 function clampInt(v: number, lo: number, hi: number): number {
@@ -102,8 +119,9 @@ function clampInt(v: number, lo: number, hi: number): number {
 // ---------------------------------------------------------------------------
 
 function placeBlobs(graph: MissionGraph, rng: Rng, W: number, H: number): Blob[] {
-  const shrink = graph.roles.length > 8 ? 0.88 : 1;
-  for (let attempt = 0; attempt < 120; attempt++) {
+  const nr = graph.roles.length;
+  const shrink = nr > 10 ? 0.78 : nr > 8 ? 0.86 : 1;
+  for (let attempt = 0; attempt < 50; attempt++) {
     const blobs: Blob[] = [];
     let ok = true;
     for (let i = 0; i < graph.roles.length && ok; i++) {
@@ -115,7 +133,7 @@ function placeBlobs(graph: MissionGraph, rng: Rng, W: number, H: number): Blob[]
       const ext = Math.max(rx, ry) * 1.28;
       const m = ext + 3;
       if (i === 0) {
-        blobs.push({ id: 0, cx: rng.range(m, W - m), cy: rng.range(m, H - m), rx, ry, ext, role });
+        blobs.push({ id: 0, cx: rng.range(Math.max(m, W * 0.25), Math.min(W - m, W * 0.75)), cy: rng.range(Math.max(m, H * 0.25), Math.min(H - m, H * 0.75)), rx, ry, ext, role });
         continue;
       }
       const p = blobs[graph.parent[i] as number] as Blob;
@@ -334,7 +352,7 @@ function walkTunnel(g: Grid, rng: Rng, a: Blob, b: Blob): Array<[number, number]
     }
   }
   void touches;
-  if (foreign > 6) return null;
+  if (foreign > 2) return null;
   return cells;
 }
 
@@ -400,7 +418,7 @@ function carvePits(g: Grid, rng: Rng, blobs: Blob[]): void {
 
 // ---------------------------------------------------------------------------
 
-function decorate(ctx: DecorCtx): void {
+function decorate(ctx: DecorCtx, piece: { name: string; room: number }): void {
   const { props, grid: g, rng, edge } = ctx;
   const w = g.w;
   const free = (i: number): boolean => props.free(i % w, (i / w) | 0);
@@ -412,9 +430,15 @@ function decorate(ctx: DecorCtx): void {
     const byEdge = (lo: number, hi: number): number[] => cells.filter((i) => (edge[i] as number) >= lo && (edge[i] as number) <= hi && free(i));
 
     // Goblin camp: campfire, supplies piled toward a wall, bones around.
-    const wantCamp = r.role === 'boss' || (r.role === 'combat' && rng.chance(0.5));
+    const wantCamp = r.role === 'boss' || (piece.name === 'tiers' && r.id === piece.room) || (r.role === 'combat' && rng.chance(0.5));
     if (wantCamp) {
-      const inner = byEdge(3, 99).filter((i) => dist(at(i)[0] - r.center.x, at(i)[1] - r.center.y) <= 5);
+      let inner = byEdge(3, 99).filter((i) => dist(at(i)[0] - r.center.x, at(i)[1] - r.center.y) <= 5);
+      if (piece.name === 'tiers' && r.id === piece.room) {
+        // The camp sits on the highest ledge, overlooking the way in.
+        const top = Math.max(...cells.map((i) => g.elev[i] as number));
+        const ledge = byEdge(2, 99).filter((i) => g.elev[i] === top);
+        if (ledge.length) inner = ledge;
+      }
       if (inner.length) {
         const f = rng.pick(inner);
         const [fx, fy] = at(f);
@@ -499,4 +523,116 @@ function decorate(ctx: DecorCtx): void {
     const [x, y] = at(tunnel[k] as number);
     props.place(k < 3 ? 'mushrooms' : 'rubble', x, y, rng.int(0, 3), false);
   }
+}
+
+function roomArea(g: Grid, id: number): number {
+  let n = 0;
+  for (let i = 0; i < g.w * g.h; i++) if (g.room[i] === id && g.kinds[i] === K.Floor) n++;
+  return n;
+}
+
+/** Are all walkable cells (4-connected) one region? Used to veto set pieces that would cut the cave in two. */
+function allConnected(g: Grid): boolean {
+  let start = -1;
+  let total = 0;
+  for (let i = 0; i < g.w * g.h; i++) {
+    if (g.kinds[i] === K.Floor || g.kinds[i] === K.Water) {
+      total++;
+      if (start < 0) start = i;
+    }
+  }
+  if (start < 0) return false;
+  return floodCells(g, start, (i) => g.kinds[i] === K.Floor || g.kinds[i] === K.Water).length === total;
+}
+
+/**
+ * Underground lake: the chamber floods except a 1-wide causeway between its two farthest edge
+ * cells and a handful of stepping-stone islands and shore patches.
+ */
+function carveLake(g: Grid, rng: Rng, id: number): boolean {
+  const cells: number[] = [];
+  for (let i = 0; i < g.w * g.h; i++) if (g.room[i] === id && g.kinds[i] === K.Floor) cells.push(i);
+  // Doorways: room cells touching a passage.
+  const doors = cells.filter((i) => {
+    const x = i % g.w;
+    const y = (i / g.w) | 0;
+    return NEI8.some(([dx, dy]) => g.walkable(x + dx, y + dy) && g.room[(y + dy) * g.w + x + dx] !== id);
+  });
+  if (doors.length === 0) return false;
+  const a = doors[0] as number;
+  let b = a;
+  let bd = -1;
+  for (const i of cells) {
+    const d = (i % g.w - (a % g.w)) ** 2 + (((i / g.w) | 0) - ((a / g.w) | 0)) ** 2;
+    if (d > bd) {
+      bd = d;
+      b = i;
+    }
+  }
+  // Straight-ish causeway: walk from a to b, one orthogonal step at a time, staying inside the room.
+  const causeway = new Set<number>([a, b]);
+  let x = a % g.w;
+  let y = (a / g.w) | 0;
+  const tx = b % g.w;
+  const ty = (b / g.w) | 0;
+  for (let guard = 0; guard < 200 && (x !== tx || y !== ty); guard++) {
+    const dx = Math.sign(tx - x);
+    const dy = Math.sign(ty - y);
+    const useX = dx !== 0 && (dy === 0 || rng.chance(0.55));
+    const nx = useX ? x + dx : x;
+    const ny = useX ? y : y + dy;
+    if (g.room[ny * g.w + nx] !== id || g.kinds[ny * g.w + nx] !== K.Floor) {
+      // Blocked by the cave wall: try the other axis.
+      if (useX && dy !== 0 && g.room[(y + dy) * g.w + x] === id) y += dy;
+      else if (!useX && dx !== 0 && g.room[y * g.w + x + dx] === id) x += dx;
+      else break;
+    } else {
+      x = nx;
+      y = ny;
+    }
+    causeway.add(y * g.w + x);
+  }
+  const saved = g.kinds.slice();
+  const seed = rng.int(1, 1e9);
+  let kept = 0;
+  for (const i of cells) {
+    const cx = i % g.w;
+    const cy = (i / g.w) | 0;
+    const near = [...causeway].some((c) => Math.abs((c % g.w) - cx) + Math.abs(((c / g.w) | 0) - cy) <= 0);
+    const island = fbm2(seed, cx * 0.55, cy * 0.55) > 0.7;
+    const shore = NEI8.every(([dx, dy]) => g.walkable(cx + dx, cy + dy)) ? false : fbm2(seed + 9, cx * 0.4, cy * 0.4) > 0.45;
+    if (near || island || shore) kept++;
+    else g.kinds[i] = K.Water;
+  }
+  if (kept < 10 || !allConnected(g)) {
+    g.kinds.set(saved);
+    return false;
+  }
+  return true;
+}
+
+/** A chasm crack splits the chamber; a 2-wide natural bridge spans it somewhere off-centre. */
+function carveCrack(g: Grid, rng: Rng, id: number, b: Blob): boolean {
+  const horizontal = rng.chance(0.5);
+  const width = rng.pick([2, 2, 3]);
+  const line = Math.round(horizontal ? b.cy : b.cx) + rng.int(-1, 1);
+  const bridgeAt = Math.round(horizontal ? b.cx : b.cy) + rng.pick([-2, -1, 1, 2]);
+  const saved = g.kinds.slice();
+  let carved = 0;
+  for (let i = 0; i < g.w * g.h; i++) {
+    if (g.room[i] !== id || g.kinds[i] !== K.Floor) continue;
+    const x = i % g.w;
+    const y = (i / g.w) | 0;
+    const across = (horizontal ? y : x) - line;
+    const along = (horizontal ? x : y) - bridgeAt;
+    if (across < 0 || across >= width) continue;
+    if (along >= 0 && along <= 1) continue; // the natural bridge
+    g.kinds[i] = K.Chasm;
+    carved++;
+  }
+  if (carved < 5 || !allConnected(g)) {
+    g.kinds.set(saved);
+    return false;
+  }
+  return true;
 }

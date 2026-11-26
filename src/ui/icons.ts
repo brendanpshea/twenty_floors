@@ -28,6 +28,7 @@ const ICONS: Record<string, string> = {
     '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 1 V4"/><path d="M12 20 V23"/><path d="M1 12 H4"/><path d="M20 12 H23"/>',
   generic: '<path d="M12 3 L21 12 L12 21 L3 12 Z"/><circle cx="12" cy="12" r="1.6"/>',
   // UI glyphs
+  fire: '<path d="M12 3 C13 6 17 8 17 12.5 A5 5 0 0 1 7 12.5 C7 10.5 8 9.5 9 8.5 C9.5 10 10 10.5 10.5 10.5 C11 8 10.5 5.5 12 3 Z"/><path d="M4 21 L20 17"/><path d="M4 17 L20 21"/>',
   menu: '<path d="M4 7 H20"/><path d="M4 12 H20"/><path d="M4 17 H20"/>',
   coin: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/>',
   shield: '<path d="M12 3 L20 6 V12 C20 17 16 20 12 22 C8 20 4 17 4 12 V6 Z"/>',

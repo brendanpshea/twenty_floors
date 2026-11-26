@@ -23,7 +23,7 @@ import type { MissionGraph } from '../graph';
 
 const PITCH = 14;
 
-type Variant = 'nave' | 'tombs' | 'quad' | 'gallery' | 'entry' | 'vault' | 'throne';
+type Variant = 'nave' | 'tombs' | 'quad' | 'gallery' | 'entry' | 'vault' | 'throne' | 'grand' | 'collapsed';
 type Shape = 'rect' | 'chamfer' | 'cross';
 
 interface RoomGeo {
@@ -38,6 +38,8 @@ interface RoomGeo {
   shape: Shape;
   variant: Variant;
   sunken: boolean;
+  /** Boss hall with a ring ambulatory of pillars around the dais. */
+  ring: boolean;
   base: number;
 }
 
@@ -79,12 +81,6 @@ export function genCrypt(graph: MissionGraph, rng: Rng, opts: CryptOptions = {})
   }
   const cols = cmax - cmin + 1;
   const rows = rmax - rmin + 1;
-  const W = Math.max(PITCH * cols, 40);
-  const H = Math.max(PITCH * rows, 40);
-  const ox = Math.floor((W - PITCH * cols) / 2);
-  const oy = Math.floor((H - PITCH * rows) / 2);
-  const g = new Grid(W, H);
-
   // Base elevations: the crypt descends as you go deeper.
   const base: number[] = [];
   for (let i = 0; i < n; i++) {
@@ -101,55 +97,107 @@ export function genCrypt(graph: MissionGraph, rng: Rng, opts: CryptOptions = {})
     base.push(Math.max(-3, Math.min(2, (base[p] as number) + d)));
   }
 
+  // Room specs first, so lattice spacing can follow the actual room sizes.
+  interface Spec {
+    w: number;
+    h: number;
+    shape: Shape;
+    variant: Variant;
+  }
+  const specs: Spec[] = [];
+  for (let i = 0; i < n; i++) {
+    const role = graph.roles[i] as RoomRole;
+    let spec: Spec = { w: 8, h: 8, shape: 'rect', variant: 'quad' };
+    switch (role) {
+      case 'entrance':
+        spec = { w: rng.pick([6, 8]), h: rng.pick([6, 8]), shape: rng.chance(0.3) ? 'chamfer' : 'rect', variant: 'entry' };
+        break;
+      case 'boss':
+        spec = { w: 10, h: 10, shape: rng.chance(0.4) ? 'chamfer' : 'rect', variant: 'throne' };
+        break;
+      case 'treasure':
+        spec = { w: 6, h: 6, shape: 'rect', variant: 'vault' };
+        break;
+      default:
+        spec = {
+          w: rng.pick([8, 10]),
+          h: rng.pick([8, 10]),
+          shape: rng.weighted<Shape>(['rect', 'cross', 'chamfer'], [0.4, 0.35, 0.25]),
+          variant: rng.weighted<Variant>(['nave', 'tombs', 'quad', 'gallery'], [0.3, 0.3, 0.2, 0.2]),
+        };
+    }
+    if (opts.plain) spec = { ...spec, shape: 'rect', variant: role === 'combat' ? 'quad' : spec.variant };
+    specs.push(spec);
+  }
+
+  // Set piece: one memorable room per floor, chosen from what the floor can host.
+  const combatIds = graph.roles.map((r, i) => (r === 'combat' ? i : -1)).filter((i) => i >= 0);
+  const pieces = opts.plain ? [] : ['ambulatory', 'grandNave', 'collapsed'];
+  const pieceName = pieces.length ? rng.pick(pieces) : 'none';
+  if (pieceName === 'grandNave' || pieceName === 'collapsed') {
+    const wide = combatIds.filter((i) => (specs[i] as Spec).w === 10 && (specs[i] as Spec).h === 10);
+    const id = rng.pick(wide.length ? wide : combatIds);
+    const sp = specs[id] as Spec;
+    if (pieceName === 'grandNave') {
+      sp.w = 10;
+      sp.h = 10;
+      sp.shape = 'rect';
+      sp.variant = 'grand';
+    } else {
+      sp.w = Math.max(8, sp.w);
+      sp.h = Math.max(8, sp.h);
+      sp.shape = 'rect';
+      sp.variant = 'collapsed';
+    }
+  }
+
+  // Lattice spacing: each gap between neighbouring columns/rows is at least 4 cells of corridor, plus
+  // a random extra while the floor still fits in 62 cells, so corridors differ in length.
+  const axisPositions = (count: number, minIdx: number, idxOf: (i: number) => number, half: (s: Spec) => number): { at: number[]; size: number } => {
+    const maxHalf = new Array<number>(count).fill(3);
+    for (let i = 0; i < n; i++) {
+      const k = idxOf(i) - minIdx;
+      maxHalf[k] = Math.max(maxHalf[k] as number, half(specs[i] as Spec));
+    }
+    const gaps: number[] = [];
+    for (let k = 0; k + 1 < count; k++) gaps.push(Math.max(PITCH, (maxHalf[k] as number) + (maxHalf[k + 1] as number) + 4));
+    const total = (): number => (maxHalf[0] as number) + 3 + gaps.reduce((s, v) => s + v, 0) + (maxHalf[count - 1] as number) + 4;
+    if (!opts.forced) {
+      for (let k = 0; k < gaps.length; k++) {
+        const extra = rng.pick([0, 0, 2, 4, 6]);
+        if (total() + extra <= 62) gaps[k] = (gaps[k] as number) + extra;
+      }
+    }
+    const at: number[] = [(maxHalf[0] as number) + 3];
+    for (let k = 0; k + 1 < count; k++) at.push((at[k] as number) + (gaps[k] as number));
+    return { at, size: Math.max(40, total()) };
+  };
+  const xs = axisPositions(cols, cmin, (i) => (pos[i] as [number, number])[0], (s) => s.w / 2);
+  const ys = axisPositions(rows, rmin, (i) => (pos[i] as [number, number])[1], (s) => s.h / 2);
+  const W = xs.size;
+  const H = ys.size;
+  const ox = Math.floor((W - (xs.at[cols - 1] as number) - 8) / 2);
+  const oy = Math.floor((H - (ys.at[rows - 1] as number) - 8) / 2);
+  const g = new Grid(W, H);
+
   const geo: RoomGeo[] = [];
   for (let i = 0; i < n; i++) {
     const role = graph.roles[i] as RoomRole;
     const [col, row] = pos[i] as [number, number];
-    const size = (opts_: number[]): number => rng.pick(opts_);
-    let w = 8;
-    let h = 8;
-    let shape: Shape = 'rect';
-    let variant: Variant = 'quad';
-    switch (role) {
-      case 'entrance':
-        w = size([6, 8]);
-        h = size([6, 8]);
-        shape = rng.chance(0.3) ? 'chamfer' : 'rect';
-        variant = 'entry';
-        break;
-      case 'boss':
-        w = 10;
-        h = 10;
-        shape = rng.chance(0.4) ? 'chamfer' : 'rect';
-        variant = 'throne';
-        break;
-      case 'treasure':
-        w = 6;
-        h = 6;
-        variant = 'vault';
-        break;
-      default:
-        w = size([8, 10]);
-        h = size([8, 10]);
-        shape = rng.weighted<Shape>(['rect', 'cross', 'chamfer'], [0.4, 0.35, 0.25]);
-        variant = rng.weighted<Variant>(['nave', 'tombs', 'quad', 'gallery'], [0.3, 0.3, 0.2, 0.2]);
-    }
-    if (opts.plain) {
-      shape = 'rect';
-      variant = role === 'combat' ? 'quad' : variant;
-    }
+    const spec = specs[i] as Spec;
     geo.push({
       id: i,
       role,
       col,
       row,
-      cx: ox + 6 + PITCH * (col - cmin),
-      cy: oy + 6 + PITCH * (row - rmin),
-      hw: w / 2,
-      hh: h / 2,
-      shape,
-      variant,
-      sunken: variant === 'nave' && rng.chance(0.6),
+      cx: Math.max(0, ox) + (xs.at[col - cmin] as number),
+      cy: Math.max(0, oy) + (ys.at[row - rmin] as number),
+      hw: spec.w / 2,
+      hh: spec.h / 2,
+      shape: spec.shape,
+      variant: spec.variant,
+      sunken: spec.variant === 'nave' && rng.chance(0.6),
+      ring: pieceName === 'ambulatory' && role === 'boss',
       base: base[i] as number,
     });
   }
@@ -171,6 +219,7 @@ export function genCrypt(graph: MissionGraph, rng: Rng, opts: CryptOptions = {})
     roles: graph.roles,
     edges,
     decorate: (ctx) => decorate(ctx, geo, alcoves, !!opts.plain),
+    setPiece: pieceName === 'none' ? 'plain' : pieceName,
   };
 }
 
@@ -245,6 +294,17 @@ function carveRoom(g: Grid, r: RoomGeo): void {
       if (r.variant === 'throne') {
         if (ax <= 1 && ay <= 1) e += 2;
         else if (ax <= 2 && ay <= 2) e += 1;
+      } else if (r.variant === 'grand') {
+        // Sunken central aisle, flanking floor, raised side galleries: one step per band.
+        const across = r.hw >= r.hh ? ay : ax;
+        if (across === 0) e -= 1;
+        else if (across >= 3) e += 1;
+      } else if (r.variant === 'collapsed') {
+        if (ax <= 1 && ay <= 1 && !(ax === 1 && ay === 1)) {
+          g.floor(x, y, e, r.id);
+          g.kinds[g.idx(x, y)] = K.Chasm;
+          continue;
+        }
       } else if (r.sunken) {
         const horizontal = r.hw >= r.hh;
         if ((horizontal ? ay : ax) === 0) e -= 1;
@@ -273,8 +333,8 @@ function carveCorridor(g: Grid, a: RoomGeo, b: RoomGeo, rng: Rng, alcoves: Alcov
     const inner = end - start - 1; // cells strictly between the doors
     const t0 = start + 1 + Math.floor((inner - 2) / 2);
     const kind = rng.pick<Alcove['kind']>(['urn', 'brazier', 'statue']);
-    for (const side of [-1, 2]) {
-      if (side === 2 && rng.chance(0.3)) continue;
+    // One side only: the other stays free (rest-spot nooks are carved there).
+    for (const side of [rng.chance(0.5) ? -1 : 2]) {
       const cells: Array<[number, number]> = [];
       for (let t = t0; t < t0 + 2; t++) {
         const x = horizontal ? t : axis + side;
@@ -372,6 +432,7 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[], alcoves: Alcove[], plain: boole
         sym('pillar', 2, 2, true);
         if (longHalf >= 5 && shortHalf >= 5) sym('pillar', longHalf - 2, shortHalf - 2, true);
         sym('brazier', longHalf - 1, shortHalf - 1, true);
+        if (longHalf >= 4) sym('statue', 3, shortHalf - 1, true, 2);
         break;
       }
       case 'gallery': {
@@ -389,7 +450,33 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[], alcoves: Alcove[], plain: boole
         sym('sarcophagus', 1, 2, true, rotAlong);
         break;
       }
+      case 'grand': {
+        // Colonnade on the gallery lip, statues against the outer wall, braziers at the ends of the aisle.
+        for (let la = 1; la <= longHalf - 2; la += 2) sym('pillar', la, 3, true);
+        for (let la = 2; la <= longHalf - 3; la += 3) sym('statue', la, shortHalf - 1, true, 2);
+        sym('brazier', longHalf - 1, 1, true);
+        break;
+      }
+      case 'collapsed': {
+        // Rubble heaped round the hole, pillars standing at the corners.
+        sym('pillar', longHalf - 2, shortHalf - 2, true);
+        for (let ia = 0; ia <= 3; ia++) {
+          for (let ib = 0; ib <= 3; ib++) {
+            if (Math.max(ia, ib) !== 2) continue;
+            for (const [x, y] of cells4(ia, ib)) if (rng.chance(0.55)) props.place(rng.chance(0.7) ? 'rubble' : 'bones', x, y, rng.int(0, 3), false);
+          }
+        }
+        break;
+      }
       case 'throne': {
+        if (r.ring) {
+          // Ambulatory: a ring of pillars around the dais, leaving the door axes open.
+          for (let ia = 1; ia <= 3; ia++) {
+            for (let ib = 1; ib <= 3; ib++) if (Math.max(ia, ib) === 3) sym('pillar', ia, ib, true);
+          }
+          sym('brazier', 4, 4, true);
+          break;
+        }
         sym('pillar', 3, 3, true);
         sym('brazier', 4, 2, true);
         sym('brazier', 2, 4, true);
@@ -409,7 +496,7 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[], alcoves: Alcove[], plain: boole
             rot = d;
           }
         }
-        if (walls >= 2 && rng.chance(0.45)) props.place('cobweb', x, y, rot, false);
+        if (walls >= 2 && rng.chance(0.2)) props.place('cobweb', x, y, rot, false);
       }
     }
     // A little litter.
