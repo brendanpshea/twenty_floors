@@ -17,6 +17,27 @@ const TRAIT_IDS: TraitId[] = [
 const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin', 'hell', 'lair', 'forest', 'marsh', 'peaks'];
 
 const MONSTER_IDS = [
+  'young_brass_dragon',
+  'young_copper_dragon',
+  'young_bronze_dragon',
+  'young_silver_dragon',
+  'young_gold_dragon',
+  'adult_silver_dragon',
+  'ancient_white_dragon',
+  'incubus',
+  'lamia',
+  'spirit_naga',
+  'efreeti',
+  'djinni',
+  'sphinx_of_lore',
+  'rakshasa',
+  'ice_devil',
+  'mummy_lord',
+  'purple_worm',
+  'iron_golem',
+  'pit_fiend',
+  'lich',
+
   'giant_rat',
   'goblin_minion',
   'goblin_warrior',

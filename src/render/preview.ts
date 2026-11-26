@@ -1,6 +1,6 @@
 import type { CellHighlight, FloorPlan, GridPos, QualityLevel, ThemeId } from '../core/types';
 import { CellKind } from '../core/types';
-import { themeForDepth } from '../core/themes';
+import { planRunThemes, themeForDepth } from '../core/themes';
 import { MONSTERS } from '../data/monsters';
 import { generateFloorReport } from '../gen/generate';
 import { makeFixture } from './fixtures';
@@ -25,7 +25,11 @@ const renderer = createRenderer(canvas, { quality });
 let useGen = params.get('gen') === '1';
 let seed = Number(params.get('seed') ?? 1);
 let depth = Number(params.get('depth') ?? 1);
-if (useGen && params.has('depth') && !params.has('theme')) theme = themeForDepth(depth);
+// run=<seed> walks a randomized run: each depth shows the theme that run puts there.
+const runThemes = params.has('run') ? planRunThemes(Number(params.get('run')), { fixedFloors: 0 }) : undefined;
+const themeAt = (d: number): typeof theme => runThemes?.[Math.max(1, Math.min(20, d)) - 1] ?? themeForDepth(d);
+if (runThemes) useGen = true;
+if (useGen && (runThemes || params.has('depth')) && !params.has('theme')) theme = themeAt(depth);
 let plan: FloorPlan = makeFixture(theme);
 let buildMs = 0;
 let genMs = 0;
@@ -406,8 +410,8 @@ window.addEventListener('keydown', (e) => {
   if (k === 'g') { useGen = !useGen; void setup(); }
   if (k === ']') { seed++; void setup(); }
   if (k === '[') { seed = Math.max(0, seed - 1); void setup(); }
-  if (k === '.') { depth++; theme = themeForDepth(depth); void setup(); }
-  if (k === ',') { depth = Math.max(1, depth - 1); theme = themeForDepth(depth); void setup(); }
+  if (k === '.') { depth++; theme = themeAt(depth); void setup(); }
+  if (k === ',') { depth = Math.max(1, depth - 1); theme = themeAt(depth); void setup(); }
 });
 
 setInterval(() => {

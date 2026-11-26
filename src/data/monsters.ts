@@ -8,6 +8,8 @@ import type { MonsterDef } from '../core/types';
 import { HELL_MONSTERS } from './monsters/hell';
 import { ICE_MONSTERS } from './monsters/ice';
 import { LAIR_MONSTERS } from './monsters/lair';
+import { DEEP_DRAGONS } from './monsters/deepDragons';
+import { DEEP_REGULARS } from './monsters/deepRegulars';
 import { OUTDOOR_MONSTERS } from './monsters/outdoor';
 import { RUIN_MONSTERS } from './monsters/ruin';
 import { TOUGH_CRYPT } from './monsters/toughCrypt';
@@ -3377,4 +3379,6 @@ export const MONSTERS: MonsterDef[] = [
   ...HELL_MONSTERS,
   ...LAIR_MONSTERS,
   ...OUTDOOR_MONSTERS,
+  ...DEEP_DRAGONS,
+  ...DEEP_REGULARS,
 ];
