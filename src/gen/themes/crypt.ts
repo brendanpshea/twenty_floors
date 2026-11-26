@@ -521,9 +521,9 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[], alcoves: Alcove[], plain: boole
         break;
       }
       case 'pitHall': {
-        // Braziers in the corners, statues beside the centre, debris strewn on floor touching a pit.
-        sym('brazier', longHalf - 1, shortHalf - 1, true);
-        sym('statue', 1, 1, true, 2);
+        // Braziers where the arms of the cross meet (a corner brazier would stand diagonally next to
+        // a pit, which the prop rules refuse), debris strewn on floor touching a pit.
+        sym('brazier', 1, 1, true);
         for (let ia = 0; ia <= 4; ia++) {
           for (let ib = 0; ib <= 4; ib++) {
             const inPit = ia >= 2 && ia <= 3 && ib >= 2 && ib <= 3;

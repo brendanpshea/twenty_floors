@@ -64,6 +64,15 @@ function decorate(ctx: DecorCtx): void {
       if (spots.length) props.place('brazier', ...at(rng.pick(spots)), 0, true);
     }
 
+    // What is left of the roof supports.
+    if (r.role === 'combat' || r.role === 'boss') {
+      for (let k = 0; k < rng.int(0, 2); k++) {
+        const spots = cells.filter((i) => (edge[i] as number) >= 2 && props.can(...at(i), true));
+        if (!spots.length) break;
+        props.place('broken_pillar', ...at(rng.pick(spots)), rng.int(0, 3), true);
+      }
+    }
+
     // Finished stock, stacked out of the way.
     const stacks = r.role === 'treasure' ? 3 : rng.int(0, 2);
     for (let k = 0; k < stacks; k++) {

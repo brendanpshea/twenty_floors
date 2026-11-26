@@ -347,8 +347,9 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[]): void {
         for (const [x, y] of cells4(2, 2)) if (rng.chance(0.75)) props.place(rng.chance(0.5) ? 'crate' : 'barrel', x, y, rng.int(0, 3), true);
         break;
       case 'grandCistern':
-        sym('pillar', 3, 3, true);
+        // Corner braziers first, then a pillar at each corner of the walk that a tunnel mouth leaves free.
         sym('brazier', r.hw - 1, r.hh - 1, true);
+        for (const [x, y] of cells4(3, 3)) props.place('pillar', x, y, 0, true);
         break;
     }
 

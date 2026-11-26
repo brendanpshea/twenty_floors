@@ -14,7 +14,7 @@ import { embedLattice, spaceAxis } from './crypt';
  * about who can see whom down which aisle.
  *
  *   foyer    the way in: statues, a few fallen books
- *   stacks   shelf rows the length of the room either side of a centre aisle,
+ *   stacks   a shelf row the length of the room either side of a centre aisle,
  *            broken by a cross-aisle
  *   reading  desks in ranks, shelves against the walls, a lectern
  *   flooded  a stacks room whose side aisles lie under water
@@ -255,6 +255,14 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[]): void {
     };
     /** Shelves standing against the long walls. */
     const wallShelves = (): void => shelfRow(shortHalf - 1, 1, longHalf - 2);
+    /** Lecterns face the middle of the room along its long axis. */
+    const lecterns = (la: number, lb: number, only?: number): void => {
+      quad(la, lb).forEach(([x, y], k) => {
+        if (only !== undefined && k !== only) return;
+        const facing = horiz ? (x <= r.cx ? 1 : 3) : y <= r.cy ? 2 : 0;
+        props.place('lectern', x, y, facing, true);
+      });
+    };
     const litter = (count: number): void => {
       for (let k = 0; k < count && cells.length > 0; k++) {
         const [x, y] = at(rng.pick(cells));
@@ -268,17 +276,17 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[]): void {
         litter(2);
         break;
       case 'stacks':
-        // One row a side of the centre aisle (and a second against it in wide rooms), cut by a cross-aisle.
-        shelfRow(2, 1, longHalf - 1, [3]);
-        if (shortHalf >= 5) wallShelves();
+        // One row a side of the centre aisle, cut by a cross-aisle.
         put('candelabra', longHalf - 1, 0, true);
+        shelfRow(2, 1, longHalf - 1, [3]);
         litter(3);
         break;
       case 'reading':
-        for (let la = 1; la <= longHalf - 2; la += 2) put('desk', la, 1, true, along);
-        wallShelves();
+        // Wall-side pieces first: a blocker may not go in diagonally next to one already standing.
+        lecterns(longHalf - 1, 0);
         put('candelabra', longHalf - 1, shortHalf - 1, true);
-        put('lectern', longHalf - 1, 0, true, horiz ? 1 : 2);
+        wallShelves();
+        for (let la = 1; la <= longHalf - 2; la += 2) put('desk', la, 1, true, along);
         litter(2);
         break;
       case 'flooded':
@@ -288,30 +296,32 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[]): void {
         litter(4);
         break;
       case 'archive':
+        // Shelves on all four walls, and one lectern a step off the centre.
         shelfRow(shortHalf - 1, 0, longHalf - 2);
-        put('lectern', 0, 0, true, horiz ? 1 : 2);
+        for (let lb = 0; lb <= shortHalf - 2; lb++) put('bookshelf', longHalf - 1, lb, true, across);
+        lecterns(0, 0, rng.int(0, 3));
         litter(2);
         break;
       case 'sanctum':
         // Lecterns at the corners of the dais, cold lamps in the corners of the room, shelves on the long walls.
-        put('lectern', 2, 2, true, horiz ? 1 : 2);
         put('candelabra', longHalf - 1, shortHalf - 1, true);
         shelfRow(shortHalf - 1, 1, longHalf - 2);
+        lecterns(2, 2);
         litter(4);
         break;
       case 'rotunda':
         // Shelves ring the reading well: each quarter is an L, open on both axes.
+        put('candelabra', longHalf - 1, shortHalf - 1, true);
         for (let k = 1; k <= 3; k++) put('bookshelf', k, 3, true, along);
         for (let k = 2; k >= 1; k--) put('bookshelf', 3, k, true, across);
         put('desk', 1, 1, true, along);
-        put('candelabra', longHalf - 1, shortHalf - 1, true);
         litter(4);
         break;
       case 'grandStacks':
         // Two rows a side: aisles between them, a cross-aisle through all four.
+        put('candelabra', 0, shortHalf - 1, true);
         shelfRow(1, 1, longHalf - 1, [3]);
         shelfRow(3, 1, longHalf - 1, [3]);
-        put('candelabra', 0, shortHalf - 1, true);
         litter(5);
         break;
       case 'drownedWing':

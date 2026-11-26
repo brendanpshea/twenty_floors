@@ -303,11 +303,12 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[]): void {
         break;
       case 'trainingYard': {
         // A square pen of sharpened stakes, open on both axes; each quarter is an L built from its open end.
+        // The fire first: a blocker may not go in diagonally next to one already standing.
+        const corner = rng.pick(quad(longHalf - 1, shortHalf - 1));
+        props.place('campfire', corner[0], corner[1], 0, true);
         for (let k = 1; k <= 3; k++) put('palisade', k, 3, true, fenceAlong);
         for (let k = 2; k >= 1; k--) put('palisade', 3, k, true, fenceAcross);
         put('dummy', 1, 1, true);
-        const corner = rng.pick(quad(longHalf - 1, shortHalf - 1));
-        props.place('campfire', corner[0], corner[1], 0, true);
         banners(2);
         break;
       }

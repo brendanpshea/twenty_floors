@@ -321,7 +321,7 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[]): void {
         vines(3);
         break;
       case 'grove':
-        // A ring of trees round the pool, open on both axes: each quarter is an L built from its open end.
+        // A sparse ring of trees round the pool: three to a quarter, open on both axes.
         for (let k = 1; k <= 3; k += 2) put('gnarled_tree', k, 3, true);
         put('gnarled_tree', 3, 1, true);
         scatter('bush', 6, 1, 9, false);

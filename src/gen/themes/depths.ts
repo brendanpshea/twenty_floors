@@ -10,7 +10,7 @@ import type { DecorCtx, Layout } from '../layout';
  *
  * 1. Heights first. The main path climbs (or descends) 8-11 steps from
  *    entrance to boss with +/-3 jitter so the route winds up and down; side
- *    rooms perch 3-5 steps above or below their parent.
+ *    rooms perch above or below their parent (treasure 3-5 steps, others 2-3).
  * 2. Platforms (rounded superellipses, sometimes L-shaped) are walked out over
  *    the plane in cardinal directions, each separated from its parent by a gap
  *    of at least |height difference|+1 cells so a staircase fits in between.
@@ -48,6 +48,12 @@ interface Plat {
   colMax: Int16Array;
   /** Directions (0 +x, 1 +y, 2 -x, 3 -y) used by bridges. */
   used: Set<number>;
+}
+
+/** A carved bridge: its first lane (for length and midpoint) and every cell of it. */
+interface BridgeLog {
+  lane: Array<[number, number]>;
+  cells: Array<[number, number]>;
 }
 
 const DIRS: ReadonlyArray<readonly [number, number]> = [
@@ -95,14 +101,14 @@ export function genDepths(graph: MissionGraph, rng: Rng, depth: number, opts: Pl
 
   // Bridges.
   const edges: Array<[number, number]> = [];
-  const bridgeLog: Array<Array<[number, number]>> = [];
+  const bridgeLog: BridgeLog[] = [];
   for (const [a, b] of graph.edges) {
     if (!bridge(g, plats[a] as Plat, plats[b] as Plat, rng, true, bridgeLog)) throw new GenFail('no bridge row');
     edges.push([a, b]);
   }
   if (piece === 'landing') {
-    const longest = bridgeLog.reduce((best, s) => (s.length > best.length ? s : best), [] as Array<[number, number]>);
-    if (longest.length >= 8 && carveLanding(g, longest)) piece = 'landing';
+    const longest = bridgeLog.reduce<BridgeLog | null>((best, s) => (!best || s.lane.length > best.lane.length ? s : best), null);
+    if (longest && longest.lane.length >= 8 && carveLanding(g, longest)) piece = 'landing';
     else piece = 'twinBridge'; // no long span to rest on: give the boss a second bridge instead
   }
   if (piece === 'twinBridge') {
@@ -356,7 +362,7 @@ function carvePlatform(g: Grid, p: Plat, seed: number, rng: Rng, plats: Plat[], 
 }
 
 /** Carve a straight 1 or 2 wide strip between two platforms. Returns false if no clean row exists. */
-function bridge(g: Grid, a: Plat, b: Plat, rng: Rng, mandatory: boolean, log?: Array<Array<[number, number]>>): boolean {
+function bridge(g: Grid, a: Plat, b: Plat, rng: Rng, mandatory: boolean, log?: BridgeLog[]): boolean {
   const horizontal = x1(a) < x0(b) || x1(b) < x0(a);
   const vertical = y1(a) < y0(b) || y1(b) < y0(a);
   if (!horizontal && !vertical) return false;
@@ -406,7 +412,7 @@ function bridge(g: Grid, a: Plat, b: Plat, rng: Rng, mandatory: boolean, log?: A
       }
       if (!ok) continue;
       for (const [x, y] of strips.flat()) g.floor(x, y, 0, -1);
-      log?.push(strips[0] as Array<[number, number]>);
+      log?.push({ lane: strips[0] as Array<[number, number]>, cells: strips.flat() });
       const da = useH ? (a.cx < b.cx ? 0 : 2) : a.cy < b.cy ? 1 : 3;
       a.used.add(da);
       b.used.add((da + 2) % 4);
@@ -537,9 +543,11 @@ function decorate(ctx: DecorCtx, accent: number): void {
 }
 
 /** Carve a 3x3 rest platform on the middle of a long bridge strip, if the surroundings are clear. */
-function carveLanding(g: Grid, strip: Array<[number, number]>): boolean {
+function carveLanding(g: Grid, bridge: BridgeLog): boolean {
+  const strip = bridge.lane;
   const mid = strip[strip.length >> 1] as [number, number];
-  const own = new Set(strip.map(([x, y]) => g.idx(x, y)));
+  // Both lanes of a two-cell bridge are the bridge's own.
+  const own = new Set(bridge.cells.map(([x, y]) => g.idx(x, y)));
   for (let dy = -3; dy <= 3; dy++) {
     for (let dx = -3; dx <= 3; dx++) {
       const x = mid[0] + dx;

@@ -19,7 +19,8 @@ import { embedLattice, spaceAxis } from './crypt';
  *   gallery    statues of the gaolers down both sides
  *   pit        a square of floor fallen into the fire, chains over the edge
  *   reliquary  the treasure room: an altar under guard
- *   throne     the boss's hall: a dais inside a moat of lava, four causeways
+ *   throne     the boss's hall: a dais inside a moat of lava, four causeways,
+ *              braziers on the inner bank
  *
  * One combat room per floor is a set piece: the chain pit (a wide pit of lava
  * crossed by one bridge), the trench (lava nearly the width of the room, one crossing)
@@ -230,7 +231,6 @@ function breach(g: Grid, r: RoomGeo): void {
       default:
         break;
     }
-    void along;
     const i = g.idx(x, y);
     if (open && g.room[i] === r.id && g.kinds[i] === K.Floor) g.kinds[i] = K.Chasm;
   });
@@ -286,16 +286,16 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[]): void {
         chains(2);
         break;
       case 'cells':
-        // Bars either side of the aisle with a gap every third cell, cross-bars making cells, bones inside.
+        // Bars either side of the aisle with a gap every third cell, bones behind them.
         for (let la = 0; la <= longHalf - 1; la++) if (la % 3 !== 1) put('iron_bars', la, 2, true, along);
-        for (let lb = shortHalf - 1; lb >= 3; lb--) put('iron_bars', 2, lb, true, across);
         for (const [x, y] of quad(longHalf - 1, shortHalf - 1)) props.place('bones', x, y, rng.int(0, 3), false);
         for (const [x, y] of quad(0, shortHalf - 1)) props.place('bones', x, y, rng.int(0, 3), false);
         chains(2);
         break;
       case 'shrine':
-        put('altar', longHalf - 2, 0, true, across);
+        // Braziers first: a blocker may not go in diagonally next to one already standing.
         put('brazier', longHalf - 1, 1, true);
+        put('altar', longHalf - 2, 0, true, across);
         put('sigil', longHalf - 4, 0, false);
         bones(2);
         break;
@@ -315,10 +315,10 @@ function decorate(ctx: DecorCtx, geo: RoomGeo[]): void {
         chains(2);
         break;
       case 'throne':
-        // Braziers at the corners of the hall, sigils at the corners of the dais.
-        put('brazier', longHalf - 1, shortHalf - 1, true);
+        // Braziers on the inner bank at the corners of the moat (the outer walk is one cell wide and
+        // must stay clear), sigils at the corners of the dais.
+        put('brazier', 2, 2, true);
         put('sigil', 1, 1, false);
-        put('statue', longHalf - 1, 1, true, 2);
         chains(6);
         break;
       case 'chainPit':

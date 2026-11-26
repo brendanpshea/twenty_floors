@@ -201,6 +201,20 @@ the Archery style with the sword-and-shield kit).
 
 ## Known problems
 
+- **Crypt rooms are barer than their code intends** (found by the bug sweep of
+  26 November, not fixed because floor 2 is tuned around it): treasure vaults
+  never get their urns and sarcophagi, the grand nave never gets its statues
+  or end braziers, and about 58% of crypt combat rooms have no blocking prop
+  at all. Cause: symmetric groups are placed all-or-nothing, and one cell of
+  the group is almost always in a doorway's reserved zone or diagonal to
+  another blocker (`PropLayer.can` refuses a blocker that splits its ring of
+  open neighbours). The depths' combat colonnade is lopsided for a related
+  reason. Fixing these changes floors 2 and 3, so re-run the balance tests.
+- **A theme placed far below its natural depth gets a boss that is too
+  strong** (the lair on floor 1 would field the Adult Red Dragon). Only the
+  outdoor alternates have depth ranges; the fixed-run themes need them too
+  before runs are randomized.
+
 - **Archer kit is far behind**: about 31% first-attempt clears on floor 3
   against about 69% for the melee kits. Items 2 and 3 above are the intended fix.
 - **Players who rarely rest do badly** on floors 2 and 3 in the simulation.

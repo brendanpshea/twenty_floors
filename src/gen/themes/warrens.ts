@@ -28,7 +28,7 @@ import type { DecorCtx, Layout } from '../layout';
  *    wall-hugging mushroom patches.
  *
  * Tunables: size formula, blob radii, noise amplitude 0.55, tunnel wiggle 0.22,
- * pool chance 0.45 per eligible room, pit chance 0.45, camp chance 0.5.
+ * pool chance 0.45 per eligible room, pit chance 0.5, camp chance 0.5.
  */
 
 interface Blob {

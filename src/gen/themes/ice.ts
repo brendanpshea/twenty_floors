@@ -78,7 +78,7 @@ function decorate(ctx: DecorCtx): void {
     }
   }
 
-  // Tunnels: drifts in the corners, a spike or two where there is room to pass.
+  // Tunnels: snow drifted against the walls.
   const tunnel: number[] = [];
   for (let i = 0; i < g.w * g.h; i++) if (g.room[i] === -1 && g.kinds[i] === K.Floor && (edge[i] as number) === 1) tunnel.push(i);
   rng.shuffle(tunnel);

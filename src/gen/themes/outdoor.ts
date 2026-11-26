@@ -17,8 +17,8 @@ import { genWarrens } from './warrens';
  *           odd standing stone. Set pieces: the lake, the stream, the tiers
  *           (a terraced hillside), the columns (rock outcrops) and the grove
  *           (a ring of standing stones round a clearing).
- *   marsh   The Drowned Fen. The cave recipe with nearly every island holding
- *           a pool and about half of every channel under water, so most of the
+ *   marsh   The Drowned Fen. The cave recipe with nearly every fighting island
+ *           holding a pool (the entrance and treasure islands stay dry) and about half of every channel under water, so most of the
  *           going is slow. Reeds along every shore, dead trees, logs, glowing
  *           fungus. Set pieces: the lake and the stream.
  *           (In both, the recipe's fallback when a piece will not fit is the
