@@ -14,7 +14,7 @@ const TRAIT_IDS: TraitId[] = [
   'keenSenses',
 ];
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal'];
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold'];
 
 const MONSTER_IDS = [
   'giant_rat',
@@ -44,6 +44,14 @@ const MONSTER_IDS = [
   'ettercap',
   'darkmantle',
   'shambling_mound',
+  'scout',
+  'bandit_captain',
+  'berserker',
+  'warrior_veteran',
+  'tough_boss',
+  'priest',
+  'hobgoblin_captain',
+  'gladiator',
 ];
 
 const ORIGINAL_ITEM_IDS = [
@@ -228,9 +236,9 @@ describe('monster data', () => {
       const inTheme = MONSTERS.filter((m) => m.themes.includes(theme));
       const bosses = inTheme.filter((m) => m.role === 'boss');
       const others = inTheme.filter((m) => m.role !== 'boss');
-      // The sewers (floors 4 and 5) and the fungal caverns (floors 6 and 7) span two floors, each with
-      // its own boss; every other theme has one.
-      expect(bosses.length, `${theme} bosses`).toBe(theme === 'sewers' || theme === 'fungal' ? 2 : 1);
+      // The sewers (floors 4 and 5), the fungal caverns (floors 6 and 7) and the bandit hold (floors 8
+      // and 9) span two floors, each with its own boss; every other theme has one.
+      expect(bosses.length, `${theme} bosses`).toBe(theme === 'sewers' || theme === 'fungal' || theme === 'hold' ? 2 : 1);
       expect(others.length, `${theme} non-bosses`).toBeGreaterThanOrEqual(2);
     }
   });

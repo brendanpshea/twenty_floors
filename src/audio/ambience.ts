@@ -327,9 +327,70 @@ const BEDS: Record<ThemeId, BedDef> = {
       ];
     },
   },
+  hold: {
+    verb: 0.3,
+    build(rig, out) {
+      // Draught through timber: low-mid noise with slow gusts.
+      const wind = rig.gain(0.5, out);
+      rig.lfo(0.06, 0.3, wind.gain);
+      rig.lfo(0.023, 0.15, wind.gain);
+      const bp = rig.filter('bandpass', 420, 0.7, wind);
+      rig.lfo(0.04, 150, bp.frequency);
+      rig.noiseLoop(rig.filter('lowpass', 900, 0.5, bp));
+      // Faint low room tone of the hall.
+      rig.osc('sine', 62, rig.gain(0.05, out));
+    },
+    events(emit, rng) {
+      return [
+        {
+          // Steady quiet fire crackle: frequent tiny ticks, occasionally a small pop.
+          minGap: 0.12, maxGap: 0.7, firstDelay: [0.2, 1],
+          fire: (t) => {
+            const pan = between(rng, -0.5, 0.5);
+            const layers: Layer[] = [puff('bandpass', between(rng, 1500, 4500), 0, 0.012, between(rng, 0.2, 0.6), { q: 1.5 })];
+            if (rng() < 0.15) layers.push(puff('lowpass', 1200, 0.01, 0.03, 0.3));
+            emit(layers, 0.2, t, pan);
+          },
+        },
+        {
+          // Timber creak: a short low tone with a slow pitch bend.
+          minGap: 9, maxGap: 24, firstDelay: [4, 10],
+          fire: (t) => {
+            const f = between(rng, 110, 190);
+            const up = rng() < 0.5;
+            emit([tone('triangle', f, 0, 0.7, 0.3, { freqEnd: f * (up ? 1.12 : 0.88), lp: 600, a: 0.15, r: 0.35 })], 0.4, t, between(rng, -0.6, 0.6));
+          },
+        },
+        {
+          // Distant metallic clink or two, as from a forge or mail.
+          minGap: 14, maxGap: 36, firstDelay: [8, 18],
+          fire: (t) => {
+            const pan = rng() < 0.5 ? -0.7 : 0.7;
+            const n = rng() < 0.4 ? 2 : 1;
+            for (let i = 0; i < n; i++) {
+              const f = between(rng, 1800, 3200);
+              emit([ping('sine', f, 0, 0.35, 0.3), ping('sine', f * 2.54, 0, 0.18, 0.15), ping('sine', f * 4.1, 0, 0.08, 0.07)], 0.28, t + i * between(rng, 0.18, 0.4), pan);
+            }
+          },
+        },
+        {
+          // Rare muffled thump or door knock.
+          minGap: 25, maxGap: 60, firstDelay: [12, 25],
+          fire: (t) => {
+            const f = between(rng, 60, 90);
+            const pan = between(rng, -0.5, 0.5);
+            const n = rng() < 0.5 ? 1 : 2 + Math.floor(rng() * 2);
+            for (let i = 0; i < n; i++) {
+              emit([ping('sine', f, 0, 0.2, 0.4, { freqEnd: f * 0.7 }), puff('lowpass', 300, 0, 0.05, 0.25)], 0.4, t + i * between(rng, 0.2, 0.35), pan);
+            }
+          },
+        },
+      ];
+    },
+  },
 };
 
-export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal'];
+export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold'];
 
 const LOOKAHEAD = 1.5;
 const TICK_MS = 400;

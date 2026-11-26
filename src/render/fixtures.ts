@@ -95,7 +95,7 @@ class Draft {
     ];
     return {
       seed,
-      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : 3,
+      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : 3,
       theme,
       width: this.w,
       height: this.h,
@@ -125,12 +125,12 @@ function autoLights(d: Draft, theme: ThemeId): void {
     const { x, y } = p.pos;
     switch (p.type) {
       case 'torch': {
-        const warm = theme === 'warrens' || (theme === 'crypt' && (x + y) % 4 === 0);
+        const warm = theme === 'warrens' || theme === 'hold' || (theme === 'crypt' && (x + y) % 4 === 0);
         d.light(x, y, warm || theme === 'sewers' ? 0xffa050 : theme === 'fungal' ? 0x60f0c0 : theme === 'crypt' ? 0x60d8f0 : 0xa070ff, 1.1, theme === 'depths' ? 5 : 6.5);
         break;
       }
       case 'brazier':
-        d.light(x, y, theme === 'warrens' || theme === 'sewers' ? 0xff8a30 : theme === 'fungal' ? 0x58e8b8 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
+        d.light(x, y, theme === 'warrens' || theme === 'sewers' || theme === 'hold' ? 0xff8a30 : theme === 'fungal' ? 0x58e8b8 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
         break;
       case 'campfire':
         d.light(x, y, 0xff8030, 1.7, 8);
@@ -285,6 +285,42 @@ function fungal(): FloorPlan {
   return d.toPlan('fungal', { x: 5, y: 7 }, { x: 19, y: 18 }, 1005, [{ x: 7, y: 5 }, { x: 17, y: 12 }]);
 }
 
+function hold(): FloorPlan {
+  const d = new Draft(24, 24);
+  d.rect(1, 1, 10, 8); // A: barracks
+  d.rect(11, 4, 13, 5); // corridor
+  d.set(11, 4, DOOR); d.set(11, 5, DOOR); d.set(13, 4, DOOR); d.set(13, 5, DOOR);
+  d.rect(14, 1, 22, 8); // B: mess hall
+  d.set(5, 9, DOOR); d.set(6, 9, DOOR); // barracks -> yard
+  d.set(18, 9, DOOR); d.set(19, 9, DOOR); // mess -> yard
+  d.rect(1, 10, 22, 22); // C: training yard
+  d.wallsAround();
+  const P = d.prop.bind(d);
+  // barracks: two rows of bunks, racks and banners on the north wall
+  for (const x of [2, 4, 6, 8]) P('bunk', x, 3, 0);
+  P('bunk', 2, 6, 1); P('bunk', 4, 6, 1); P('bunk', 8, 6, 0); P('bunk', 9, 3, 1);
+  P('weapon_rack', 3, 1, 0); P('weapon_rack', 6, 1, 0); P('weapon_rack', 1, 5, 3);
+  P('banner', 4, 1, 0, false); P('banner', 8, 1, 0, false); P('banner', 10, 5, 1, false);
+  P('torch', 2, 1, 0); P('torch', 9, 1, 0); P('torch', 10, 7, 1);
+  P('crate', 10, 8, 0); P('barrel', 9, 8, 1);
+  // mess hall: trestle tables, stores
+  P('table', 16, 3, 1); P('table', 20, 3, 1); P('table', 16, 6, 0); P('table', 20, 6, 0);
+  P('banner', 17, 1, 0, false); P('banner', 21, 1, 0, false); P('banner', 14, 7, 3, false);
+  P('torch', 15, 1, 0); P('torch', 19, 1, 0); P('torch', 22, 4, 1);
+  P('barrel', 22, 8, 0); P('barrel', 21, 8, 1); P('crate', 22, 7, 1); P('brazier', 14, 3);
+  P('bones', 18, 5); P('weapon_rack', 14, 5, 3);
+  // yard: palisade along the south and east, dummies, fire
+  for (let x = 2; x <= 21; x++) if (x < 10 || x > 13) P('palisade', x, 21, 0);
+  for (let y = 12; y <= 20; y++) P('palisade', 21, y, 1);
+  for (const [x, y] of [[4, 13], [7, 13], [10, 13], [4, 17], [8, 17]] as const) P('dummy', x, y, (x + y) % 4);
+  P('weapon_rack', 2, 10, 0); P('weapon_rack', 13, 10, 0); P('torch', 4, 10, 0); P('torch', 17, 10, 0);
+  P('banner', 9, 10, 0, false); P('banner', 15, 10, 0, false);
+  P('campfire', 16, 15); P('crate', 19, 12, 0); P('barrel', 20, 12, 1); P('crate', 2, 20, 0);
+  P('rubble', 12, 19); P('bones', 14, 18); P('pillar', 12, 11);
+  autoLights(d, 'hold');
+  return d.toPlan('hold', { x: 3, y: 4 }, { x: 18, y: 19 }, 1006, [{ x: 17, y: 16 }, { x: 5, y: 7 }]);
+}
+
 function depths(): FloorPlan {
   const d = new Draft(24, 24, CHASM);
   // platforms
@@ -330,7 +366,7 @@ function depths(): FloorPlan {
   return d.toPlan('depths', { x: 4, y: 4 }, { x: 19, y: 21 }, 1003, [{ x: 5, y: 5 }, { x: 13, y: 7 }]);
 }
 
-export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, depths };
+export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, depths };
 
 export function makeFixture(theme: ThemeId): FloorPlan {
   return FIXTURES[theme]();

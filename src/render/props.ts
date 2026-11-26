@@ -231,6 +231,115 @@ const BUILDERS: Record<string, Builder> = {
     g.box(0.3, 0.012, 0.3, 0x5c7a2c, { y: 0.02, z: -0.5, shade: 0.8 }); // puddle
     return { lit: g.build(), glow: null };
   },
+  // Low wooden bed (long axis along Z): frame, legs, straw mattress, rolled blanket and a pillow.
+  bunk: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    for (const [x, z] of [[-0.42, -0.82], [0.42, -0.82], [-0.42, 0.82], [0.42, 0.82]] as const)
+      g.box(0.12, 0.3, 0.12, p.woodDark, { x, z, y: 0.15 });
+    g.box(1.0, 0.1, 1.8, p.wood, { y: 0.3 }); // frame
+    g.box(1.0, 0.3, 0.1, p.woodDark, { z: -0.85, y: 0.45 }); // headboard
+    g.box(1.0, 0.2, 0.1, p.woodDark, { z: 0.85, y: 0.4 }); // footboard
+    g.box(0.84, 0.14, 1.6, 0xc8a85a, { y: 0.42, shade: 1.0, top: 0xe0c070 }); // straw mattress
+    g.box(0.5, 0.1, 0.34, 0xe8dcc0, { z: -0.58, y: 0.53, shade: 1.0 }); // pillow
+    g.cyl(0.13, 0.13, 0.84, 8, 0x7a2a22, { z: 0.5, y: 0.56, rz: Math.PI / 2 }); // rolled red blanket
+    return { lit: g.build(), glow: null };
+  },
+  // Sturdy trestle table (long axis along Z) with a couple of mugs and a bowl.
+  table: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    g.box(1.2, 0.1, 1.8, p.wood, { y: 0.85 }); // top
+    g.box(1.2, 0.04, 0.5, p.woodDark, { y: 0.9, z: -0.45, shade: 0.7 }); // worn stain
+    for (const z of [-0.65, 0.65]) {
+      g.box(0.1, 0.8, 0.1, p.woodDark, { x: -0.5, z, y: 0.4 });
+      g.box(0.1, 0.8, 0.1, p.woodDark, { x: 0.5, z, y: 0.4 });
+      g.box(1.1, 0.08, 0.08, p.woodDark, { z, y: 0.2 }); // stretcher
+    }
+    g.box(0.08, 0.08, 1.4, p.woodDark, { y: 0.2 }); // long stretcher
+    g.cyl(0.09, 0.08, 0.15, 7, p.clay, { x: -0.3, z: -0.5, y: 1.0 });
+    g.cyl(0.09, 0.08, 0.15, 7, p.iron, { x: 0.25, z: 0.2, y: 1.0, shade: 1.2 });
+    g.cyl(0.2, 0.1, 0.12, 8, p.clay, { x: 0.1, z: -0.2, y: 0.97, shade: 1.1 }); // bowl
+    g.box(0.18, 0.04, 0.3, p.bone, { x: -0.2, z: 0.55, y: 0.92, ry: 0.3 }); // scrap of bread board
+    return { lit: g.build(), glow: null };
+  },
+  // Weapon rack against the wall on the -Z side (authored like torch): frame, rail and spears/swords.
+  weapon_rack: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    const z = -0.7;
+    for (const x of [-0.75, 0.75]) {
+      g.box(0.1, 1.6, 0.1, p.woodDark, { x, z, y: 0.8 }); // uprights
+      g.box(0.1, 0.08, 0.5, p.woodDark, { x, z: z + 0.1, y: 0.04 }); // feet
+    }
+    g.box(1.6, 0.1, 0.1, p.wood, { z, y: 1.5 }); // top bar
+    g.box(1.5, 0.1, 0.1, p.wood, { z, y: 0.55 }); // lower bar
+    g.box(1.4, 0.07, 0.1, p.wood, { z: z + 0.1, y: 0.95, shade: 1.1 }); // rest rail
+    // spears (long, leaning slightly), swords (short, hilt up)
+    const spears: [number, number][] = [[-0.5, 0.04], [-0.25, -0.03]];
+    for (const [x, rz] of spears) {
+      g.box(0.05, 1.7, 0.05, p.wood, { x, z: z + 0.1, y: 0.9, rz, shade: 1.1 });
+      g.cone(0.07, 0.24, 4, p.iron, { x: x - rz * 0.85, z: z + 0.1, y: 1.85, rz, shade: 1.3 });
+    }
+    for (const [x, rz] of [[0.2, -0.05], [0.5, 0.03]] as const) {
+      g.box(0.09, 0.8, 0.03, p.iron, { x, z: z + 0.1, y: 0.95, rz, shade: 1.25 }); // blade
+      g.box(0.3, 0.05, 0.06, p.woodDark, { x, z: z + 0.1, y: 1.4 }); // guard
+      g.box(0.05, 0.2, 0.05, p.wood, { x, z: z + 0.1, y: 1.53 }); // grip
+    }
+    return { lit: g.build(), glow: null };
+  },
+  // Wall banner (authored for a wall on the -Z side like torch): pole, red cloth, dark emblem, tattered hem.
+  banner: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    const z = -0.93;
+    g.box(1.1, 0.07, 0.07, p.woodDark, { z, y: 2.0 }); // pole
+    g.box(0.1, 0.1, 0.1, p.iron, { x: -0.58, z, y: 2.0 });
+    g.box(0.1, 0.1, 0.1, p.iron, { x: 0.58, z, y: 2.0 });
+    g.box(0.06, 0.12, 0.1, p.iron, { x: -0.3, z: z + 0.05, y: 1.96 });
+    g.box(0.06, 0.12, 0.1, p.iron, { x: 0.3, z: z + 0.05, y: 1.96 });
+    g.box(0.9, 1.15, 0.04, 0x5a1212, { z: z + 0.06, y: 1.38, top: 0x741818 }); // cloth
+    for (const [x, w, h] of [[-0.3, 0.3, 0.3], [0.0, 0.3, 0.42], [0.3, 0.3, 0.26]] as const)
+      g.box(w, h, 0.04, 0x5a1212, { x, z: z + 0.06, y: 0.8 - h / 2 + 0.1, shade: 1.0 }); // tattered strips
+    g.box(0.2, 0.2, 0.05, 0x2a1210, { z: z + 0.07, y: 1.6, ry: 0, rz: Math.PI / 4 }); // emblem diamond
+    g.box(0.5, 0.1, 0.05, 0x2a1210, { z: z + 0.07, y: 1.15 }); // stripe
+    g.box(0.1, 0.34, 0.05, 0x2a1210, { z: z + 0.07, y: 1.3 }); // stripe
+    return { lit: g.build(), glow: null };
+  },
+  // Palisade segment (row along X): a row of sharpened logs with a binding rail.
+  palisade: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    const xs = [-0.78, -0.39, 0, 0.39, 0.78];
+    xs.forEach((x, i) => {
+      const h = 1.8 + ((i * 37) % 5) * 0.04;
+      const rz = ((i % 3) - 1) * 0.02;
+      g.cyl(0.2, 0.22, h, 6, i % 2 ? p.wood : p.woodDark, { x, y: h / 2, rz, shade: 0.95 + 0.05 * (i % 3) });
+      g.cone(0.2, 0.34, 6, p.wood, { x, y: h + 0.15, rz, shade: 1.15 }); // sharpened tip
+    });
+    g.box(1.9, 0.1, 0.08, p.woodDark, { z: 0.2, y: 0.55, shade: 0.8 });
+    g.box(1.9, 0.1, 0.08, p.woodDark, { z: 0.2, y: 1.25, shade: 0.8 });
+    return { lit: g.build(), glow: null };
+  },
+  // Straw training dummy on a post: base, post, crossbar arms, sack torso and head, painted target.
+  dummy: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    const straw = 0xc8a860;
+    g.box(0.7, 0.1, 0.7, p.woodDark, { y: 0.05 }); // base plate
+    g.cyl(0.08, 0.1, 1.9, 6, p.wood, { y: 0.95 }); // post
+    g.box(1.3, 0.1, 0.1, p.wood, { y: 1.4 }); // crossbar arms
+    g.cyl(0.12, 0.12, 0.1, 6, straw, { x: -0.68, y: 1.4, rz: Math.PI / 2, shade: 1.1 }); // bound hands
+    g.cyl(0.12, 0.12, 0.1, 6, straw, { x: 0.68, y: 1.4, rz: Math.PI / 2, shade: 1.1 });
+    g.cyl(0.32, 0.28, 0.75, 8, 0xb89860, { y: 1.3, shade: 1.0 }); // sack torso
+    g.cyl(0.33, 0.33, 0.06, 8, p.woodDark, { y: 1.1, shade: 0.8 }); // belt rope
+    g.sphere(0.24, 8, 6, 0xd0b878, { y: 1.9, shade: 1.05 }); // head
+    g.box(0.3, 0.04, 0.3, 0xe0d0a0, { y: 1.72, shade: 0.9 }); // neck tie
+    g.cyl(0.22, 0.22, 0.03, 10, 0xa82a22, { y: 1.35, z: 0.3, rx: Math.PI / 2 }); // target (outer)
+    g.cyl(0.14, 0.14, 0.035, 10, 0xe8dcc0, { y: 1.35, z: 0.3, rx: Math.PI / 2 });
+    g.cyl(0.06, 0.06, 0.04, 8, 0xa82a22, { y: 1.35, z: 0.3, rx: Math.PI / 2 });
+    return { lit: g.build(), glow: null };
+  },
   cobweb: () => {
     const g = new GeoBuilder();
     const c = 0xe8e8ec;
@@ -383,7 +492,7 @@ export function buildProps(
     const glow = built.glow ? new InstancedMesh(built.glow, built.glowKind === 'flame' ? flameMat : steadyMat, n) : null;
     if (built.lit) geos.push(built.lit);
     if (built.glow) geos.push(built.glow);
-    const wallMounted = type === 'torch' || type === 'pipe';
+    const wallMounted = type === 'torch' || type === 'pipe' || type === 'banner' || type === 'weapon_rack';
     list.forEach((p, i) => {
       const gi = p.pos.y * plan.width + p.pos.x;
       let gy = groundY[gi]!;

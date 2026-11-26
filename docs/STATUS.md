@@ -22,9 +22,9 @@ The creation screen and hub already contain UI for three features whose rules
 are not on `main` yet, so these parts are inert there: background feat choices
 (Magic Initiate), play-style presets, and the ranged weapon slot.
 
-## Floors 4 to 7: Flooded Sewers and Fungal Caverns (content only, not reachable yet)
+## Floors 4 to 9: Flooded Sewers, Fungal Caverns, Bandit Hold (content only, not reachable yet)
 
-Two themes exist end to end except for play:
+Three themes exist end to end except for play:
 
 - **Flooded Sewers, floors 4 and 5.** Generator `src/gen/themes/sewers.ts`
   (channel tunnels, wet and dry chambers; set pieces sluice, flooded hall,
@@ -34,24 +34,34 @@ Two themes exist end to end except for play:
   (the warrens cave recipe with its own dressing and a grove set piece),
   look, giant mushroom prop, ambience, seven SRD monsters. Bosses: Chuul,
   Shambling Mound.
+- **Bandit Hold, floors 8 and 9.** Generator `src/gen/themes/hold.ts` (a fort
+  of furnished rooms: barracks, mess, stores, armoury; set pieces training
+  yard, great hall, stockade), look, six props (bunk, table, weapon rack,
+  banner, palisade, dummy), ambience, eight SRD humanoids on tinted hero
+  rigs. Bosses: Tough Boss, Gladiator.
 
 Per-floor casts and bosses are in `ENCOUNTER_TUNING`. See the floors at
-`/dev/render-preview.html?gen=1&theme=sewers&depth=4` and `...theme=fungal&depth=6`.
+`/dev/render-preview.html?gen=1&theme=sewers&depth=4`, `...theme=fungal&depth=6`
+and `...theme=hold&depth=8`.
 
 What is missing before `MILESTONE_FLOORS` can go past 3:
 
-- **Fighter levels 4 to 7** (in `src/rules`, after the spell-engine branch).
-- **Models.** The fifteen new monsters use tinted stand-ins from rigs we
+- **Fighter levels 4 to 9** (in `src/rules`, after the spell-engine branch).
+- **Models.** The fifteen sewer and cavern monsters use tinted stand-ins from rigs we
   already ship (each has a `TODO model:` comment in `src/data/monsters.ts`
   naming the intended free model). Fetching needs `tools/assets/fetch.mjs`
-  on a machine that can reach poly.pizza.
+  on a machine that can reach poly.pizza. The hold's humanoids are tinted
+  hero rigs as planned; three still want a weapon or shield prop.
 - **Balance.** Encounter budgets from level 4 are the untuned SRD figures.
-  Rooms on floors 5 to 7 come out over budget and are padded with the
+  Rooms on floors 5 to 9 come out over budget and are padded with the
   cheapest monster of the floor (toads, violet fungi, darkmantles). Tune with
   `src/balance` once the hero can reach those levels.
 - Monster features the engine cannot express yet were dropped or simplified
-  (grapple and swallow, Split, Engulf, shape-shifting, auras, flying, most of
-  the hag's spells); each is noted in a comment above the monster.
+  (grapple and swallow, Split, Engulf, shape-shifting, auras, flying, Parry
+  and other reactions, most spell lists); each is noted in a comment above the monster.
+
+The monster AI never takes bonus actions, so the Priest's healing word is in
+the data but will not be used until it does.
 
 Stat blocks were transcribed from the SRD 5.2.1 text; a clean plain-text copy
 is in the owner's `dnd_combat` repository (`SRD_CC_v5.2.1.txt`).

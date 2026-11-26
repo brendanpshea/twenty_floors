@@ -54,4 +54,5 @@ export const AMB_LEVEL: Record<ThemeId, number> = {
   depths: 0.073,
   sewers: 0.125,
   fungal: 0.065,
+  hold: 0.2,
 };
