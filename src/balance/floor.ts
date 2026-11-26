@@ -1,0 +1,306 @@
+import { Rng, floorSeed, hashSeed } from '../core/rng';
+import { themeForDepth } from '../core/themes';
+import type { Creature, FloorPlan, GameEvent, GridPos, NavGrid, PlayerCharacter, Room } from '../core/types';
+import { MONSTERS } from '../data/monsters';
+import { createNavGrid, generateFloor } from '../gen';
+import {
+  buildEncounters,
+  createCombat,
+  playerPolicy,
+  runAiTurn,
+  runTurnWith,
+  shortRest,
+  syncFromCreature,
+  useConsumable,
+  toCreature,
+  type PlacedMonster,
+  type PolicyFn,
+} from '../rules';
+import { getItem } from '../rules/items';
+
+export interface FloorOptions {
+  runSeed: number;
+  depth: number;
+  /** Retry counter: changes the dice, not the floor. Default 0. */
+  attempt?: number;
+  policy?: PolicyFn;
+  /** Chance of visiting each optional side room (treasure branches, branch combat). Default 0.5. */
+  sideRoomChance?: number;
+  /** Careless player: short rests only below 35% HP (no pre-boss rest). */
+  careless?: boolean;
+  /** Short rests available on this floor. Default 2. */
+  shortRests?: number;
+}
+
+export interface FloorResult {
+  cleared: boolean;
+  /** Character after the floor (hp/resources/potions carried); unchanged-from-entry semantics are the caller's job on a failure. */
+  pc: PlayerCharacter;
+  death?: { roomId: number; role: Room['role']; killer: string };
+  fightsWon: number;
+  /** One entry per fight: room, monsters, HP fraction before, and whether the hero survived. */
+  log: { roomId: number; role: Room["role"]; monsters: string[]; hpBefore: number; won: boolean }[];
+  /** HP fraction on entering the boss room, after any rest. Undefined if never reached. */
+  bossEntryHp?: number;
+  /** HP fraction on reaching the boss room, before any rest. */
+  bossArrivalHp?: number;
+  potionsUsed: number;
+  shortRestsUsed: number;
+  chestGold: number;
+}
+
+/** Stand-in for chest loot until the game defines it. */
+export const CHEST_LOOT = { goldBase: 15, goldPerDepth: 10, potionChance: 0.35 };
+
+const MAX_ROUNDS = 40;
+/** The game wakes monsters within this many walking cells with line of sight. */
+const TRIGGER_CELLS = 7;
+
+function potionCount(pc: PlayerCharacter): number {
+  return pc.inventory.filter((s) => getItem(s.itemId)?.consumable).reduce((n, s) => n + s.quantity, 0);
+}
+
+function addPotion(pc: PlayerCharacter): PlayerCharacter {
+  const inv = pc.inventory.map((s) => ({ ...s }));
+  const s = inv.find((x) => x.itemId === 'potion_healing');
+  if (s) s.quantity++;
+  else inv.push({ itemId: 'potion_healing', quantity: 1 });
+  return { ...pc, inventory: inv };
+}
+
+/** Route of room ids from the entrance room to the boss room (shortest in the room graph). */
+export function routeToBoss(plan: FloorPlan): number[] {
+  const start = plan.rooms.find((r) => r.role === 'entrance') as Room;
+  const prev = new Map<number, number>();
+  const queue = [start.id];
+  const seen = new Set([start.id]);
+  while (queue.length > 0) {
+    const id = queue.shift() as number;
+    const room = plan.rooms.find((r) => r.id === id) as Room;
+    if (room.role === 'boss') {
+      const path = [id];
+      let cur = id;
+      while (prev.has(cur)) {
+        cur = prev.get(cur) as number;
+        path.unshift(cur);
+      }
+      return path;
+    }
+    for (const n of room.neighbors) {
+      if (!seen.has(n)) {
+        seen.add(n);
+        prev.set(n, id);
+        queue.push(n);
+      }
+    }
+  }
+  return [start.id];
+}
+
+interface FightOutcome {
+  pc: PlayerCharacter;
+  won: boolean;
+  killer?: string;
+  heroPos: GridPos;
+}
+
+function fight(
+  pc: PlayerCharacter,
+  monsters: Creature[],
+  nav: NavGrid,
+  at: GridPos,
+  policy: PolicyFn,
+  rng: Rng,
+): FightOutcome {
+  const hero = toCreature(pc, at);
+  const combat = createCombat([hero, ...monsters], nav, rng);
+  const events: GameEvent[] = [...combat.begin()];
+  let rounds = 0;
+  while (!combat.isOver) {
+    if (combat.round > MAX_ROUNDS || rounds++ > 4000) return { pc: syncFromCreature(pc, hero), won: false, killer: 'timeout', heroPos: hero.pos };
+    if (combat.activeId === 'player') events.push(...runTurnWith(combat, (c) => policy(c, nav)));
+    else events.push(...runAiTurn(combat, nav));
+  }
+  if (combat.winner === 'player') return { pc: syncFromCreature(pc, hero), won: true, heroPos: hero.pos };
+  let killer = 'unknown';
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i] as GameEvent;
+    if (e.type === 'damage' && e.targetId === 'player' && e.sourceId) {
+      killer = monsters.find((m) => m.id === e.sourceId)?.defId ?? killer;
+      break;
+    }
+  }
+  return { pc: syncFromCreature(pc, hero), won: false, killer, heroPos: hero.pos };
+}
+
+/** Play one whole floor with the scripted hero. */
+export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorResult {
+  const { runSeed, depth } = opts;
+  const policy = opts.policy ?? playerPolicy;
+  const sideChance = opts.sideRoomChance ?? 0.5;
+  let restsLeft = opts.shortRests ?? 2;
+  const cached = floorFor(runSeed, depth);
+  const plan = cached.plan;
+  const nav = cached.nav;
+  const placed = buildEncounters(plan, MONSTERS, new Rng(hashSeed(floorSeed(runSeed, depth), 'encounters')));
+  const rng = new Rng(hashSeed(floorSeed(runSeed, depth), `dice:${opts.attempt ?? 0}`));
+  const byRoom = (id: number): PlacedMonster[] => placed.filter((m) => m.roomId === id);
+
+  const route = routeToBoss(plan);
+  const visit: number[] = [];
+  for (const id of route) {
+    visit.push(id);
+    const room = plan.rooms.find((r) => r.id === id) as Room;
+    for (const n of room.neighbors) {
+      if (route.includes(n)) continue;
+      if (rng.chance(sideChance)) visit.push(n);
+    }
+  }
+  // Side rooms that were already queued once must not repeat.
+  const order = visit.filter((id, i) => visit.indexOf(id) === i);
+
+  const startPotions = potionCount(pc);
+  const result: FloorResult = { cleared: false, pc, fightsWon: 0, log: [], potionsUsed: 0, shortRestsUsed: 0, chestGold: 0 };
+  let cur = pc;
+  let pos: GridPos = plan.entrance;
+  let potionsFound = 0;
+  const careless = opts.careless === true;
+  const alive = (m: PlacedMonster): boolean => !m.creature.dead && m.creature.hp > 0;
+  const cheb = (p: GridPos, q: GridPos): number => Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y));
+
+  /** The game's fight trigger: standing in a room with living monsters, or within 7 walking cells of one with line of sight. */
+  const triggered = (p: GridPos): PlacedMonster[] => {
+    const rooms = new Set<number>();
+    const here = plan.roomIds[p.y * plan.width + p.x] as number;
+    if (here >= 0 && byRoom(here).some(alive)) rooms.add(here);
+    for (const m of placed) {
+      if (!alive(m) || rooms.has(m.roomId) || cheb(p, m.creature.pos) > TRIGGER_CELLS) continue;
+      if (!nav.hasLineOfSight(p, m.creature.pos)) continue;
+      const path = nav.findPath(p, m.creature.pos, { maxCost: TRIGGER_CELLS });
+      if (path && path.length <= TRIGGER_CELLS) rooms.add(m.roomId);
+    }
+    return placed.filter((m) => rooms.has(m.roomId) && alive(m));
+  };
+
+  const freeCell = (p: GridPos, group: PlacedMonster[]): GridPos => {
+    const taken = new Set(group.map((m) => `${m.creature.pos.x},${m.creature.pos.y}`));
+    if (!taken.has(`${p.x},${p.y}`)) return p;
+    for (let r = 1; r < 6; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const q = { x: p.x + dx, y: p.y + dy };
+          if (nav.isWalkable(q) && !taken.has(`${q.x},${q.y}`)) return q;
+        }
+      }
+    }
+    return p;
+  };
+
+  /** Drink potions between fights when hurt (the game allows potion use outside combat). */
+  const maybePotion = (): void => {
+    const limit = careless ? 0.5 : 0.4;
+    for (let i = 0; i < 2 && cur.hp / cur.maxHp < limit; i++) {
+      const id = cur.inventory.find((st) => st.quantity > 0 && getItem(st.itemId)?.consumable)?.itemId;
+      if (!id) return;
+      cur = useConsumable(cur, id, rng).pc;
+    }
+  };
+
+  const maybeRest = (before: 'boss' | 'room'): void => {
+    if (restsLeft <= 0) {
+      maybePotion();
+      return;
+    }
+    const frac = cur.hp / cur.maxHp;
+    const spent = Object.entries(cur.resources).some(([k, p]) => !k.startsWith('_') && p.refresh !== 'floor' && p.current < p.max);
+    let want: boolean;
+    if (careless) want = frac < 0.35;
+    else if (before === 'boss') want = frac < 0.9 || spent;
+    else want = frac < 0.45 && restsLeft > 1; // keep the last rest for the boss
+    if (want) {
+      cur = shortRest(cur);
+      restsLeft--;
+      result.shortRestsUsed++;
+    }
+    maybePotion();
+  };
+
+  /** Walk toward `target`, fighting whatever the trigger wakes on the way. Returns false if the hero died. */
+  const walkTo = (target: GridPos, roleOfTarget: Room['role']): boolean => {
+    for (let guard = 0; guard < 40; guard++) {
+      const here = triggered(pos);
+      const path = here.length > 0 ? [] : (nav.findPath(pos, target) ?? []);
+      let group = here;
+      let at = pos;
+      if (group.length === 0) {
+        for (const p of path) {
+          const t = triggered(p);
+          if (t.length > 0) {
+            group = t;
+            at = p;
+            break;
+          }
+        }
+      }
+      if (group.length === 0) {
+        pos = target;
+        return true;
+      }
+      at = freeCell(at, group);
+      const role = group.some((m) => plan.rooms.find((r) => r.id === m.roomId)?.role === 'boss') ? 'boss' : roleOfTarget === 'boss' ? 'combat' : (plan.rooms.find((r) => r.id === group[0]?.roomId)?.role ?? 'combat');
+      const hpBefore = cur.hp / cur.maxHp;
+      const out = fight(cur, group.map((m) => m.creature), nav, at, policy, rng);
+      result.log.push({ roomId: group[0]?.roomId ?? -1, role, monsters: group.map((m) => m.creature.defId), hpBefore, won: out.won });
+      cur = out.pc;
+      pos = out.heroPos;
+      if (!out.won) {
+        result.death = { roomId: group[0]?.roomId ?? -1, role, killer: out.killer ?? 'unknown' };
+        return false;
+      }
+      result.fightsWon++;
+      maybeRest('room');
+    }
+    return true;
+  };
+
+  for (const id of order) {
+    const room = plan.rooms.find((r) => r.id === id) as Room;
+    if (room.role === 'entrance') continue;
+    if (room.role === 'boss') {
+      result.bossArrivalHp = cur.hp / cur.maxHp;
+      maybeRest('boss');
+      result.bossEntryHp = cur.hp / cur.maxHp;
+    }
+    if (!walkTo(room.center, room.role)) return finishWith(result, cur, startPotions, potionsFound);
+    if (room.role === 'treasure') {
+      const gold = CHEST_LOOT.goldBase + CHEST_LOOT.goldPerDepth * depth;
+      result.chestGold += gold;
+      cur = { ...cur, gold: cur.gold + gold };
+      if (rng.chance(CHEST_LOOT.potionChance)) {
+        cur = addPotion(cur);
+        potionsFound++;
+      }
+    }
+  }
+  result.cleared = true;
+  return finishWith(result, cur, startPotions, potionsFound);
+}
+
+function finishWith(result: FloorResult, cur: PlayerCharacter, startPotions: number, found: number): FloorResult {
+  result.pc = cur;
+  result.potionsUsed = Math.max(0, startPotions + found - potionCount(cur));
+  return result;
+}
+
+const floorCache = new Map<string, { plan: FloorPlan; nav: NavGrid }>();
+function floorFor(runSeed: number, depth: number): { plan: FloorPlan; nav: NavGrid } {
+  const key = `${runSeed}:${depth}`;
+  let hit = floorCache.get(key);
+  if (!hit) {
+    if (floorCache.size > 400) floorCache.clear();
+    const plan = generateFloor({ seed: floorSeed(runSeed, depth), depth, theme: themeForDepth(depth) });
+    hit = { plan, nav: createNavGrid(plan) };
+    floorCache.set(key, hit);
+  }
+  return hit;
+}

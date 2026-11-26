@@ -1,0 +1,19 @@
+{
+  "name": "Twenty Floors",
+  "short_name": "Twenty Floors",
+  "description": "An open-source, turn-based dungeon crawler for the browser, built on three.js and the D&D SRD 5.2.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#0b0a10",
+  "theme_color": "#0b0a10",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Twenty Floors: audio preview</title>
+    <style>
+      body { margin: 0; padding: 16px; background: #0b0a10; color: #e8e3d6; font: 14px/1.4 system-ui, sans-serif; }
+      h1 { font-size: 18px; margin: 0 0 12px; }
+      h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: #a79f8a; margin: 18px 0 6px; }
+      .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+      button { background: #25222f; color: inherit; border: 1px solid #3a3648; border-radius: 6px; padding: 6px 10px; cursor: pointer; font: inherit; }
+      button:hover { background: #342f42; }
+      button.on { background: #6b4e1f; border-color: #c89b3c; }
+      label { display: inline-flex; gap: 6px; align-items: center; }
+      pre { background: #15131c; padding: 10px; overflow: auto; font-size: 12px; border-radius: 6px; }
+      #selftest { display: none; }
+      body.selftest #selftest { display: block; }
+    </style>
+  </head>
+  <body>
+    <h1>Twenty Floors: audio preview</h1>
+    <div class="row">
+      <button id="mute">Mute</button>
+      <label>Volume <input id="vol" type="range" min="0" max="1" step="0.01" /></label>
+      <button id="fight">Play a fight (10 s)</button>
+    </div>
+    <h2>Ambience</h2>
+    <div class="row" id="amb"></div>
+    <h2>Sounds</h2>
+    <div class="row" id="sfx"></div>
+    <div id="selftest"><h2>Self-test</h2><pre id="selftest-out">running...</pre></div>
+    <script type="module" src="/src/audio/preview.ts"></script>
+  </body>
+</html>

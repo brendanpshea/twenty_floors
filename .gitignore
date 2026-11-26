@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.vite/
+# Raw downloaded asset packs; only curated files in public/assets are committed.
+assets-src/

@@ -1,0 +1,164 @@
+import type { ThemeId } from '../core/types';
+
+/** Everything that makes a theme look like itself. Colours are 0xRRGGBB. */
+export interface ThemeLook {
+  id: ThemeId;
+  wallStyle: 'rough' | 'dressed' | 'jagged';
+  floorA: number;
+  floorB: number;
+  /** Colour of the bevel groove between tiles, as a multiplier. */
+  groove: number;
+  wall: number;
+  wall2: number;
+  cap: number;
+  water: number;
+  waterBed: number;
+  waterOpacity: number;
+  /** Fog and clear colour. */
+  fog: number;
+  fogDensity: number;
+  hemiSky: number;
+  hemiGround: number;
+  hemiIntensity: number;
+  keyColor: number;
+  keyIntensity: number;
+  /** Ambient term baked into vertex colours (before lights). */
+  baseLight: number;
+  /** Multiplier on baked point light contribution. */
+  lightGain: number;
+  /** Real point light intensity multiplier. */
+  pointGain: number;
+  /** Strength of the always-on light around the camera target. */
+  heroGain: number;
+  /** Colour of that light (warm in warrens, neutral-cool elsewhere). */
+  heroColor: number;
+  /** Chasm glow far below. */
+  chasmGlow: number;
+  moteColor: number;
+  moteCount: number;
+  /** Flame colour pairs for torch/brazier/campfire (outer, core). */
+  flame: number;
+  flameCore: number;
+  /** Alternate warm torch (used on a share of torches in the crypt). */
+  flameAlt: number;
+  altShare: number;
+  crystal: number[];
+  mushroom: number;
+  prop: {
+    stone: number;
+    stoneDark: number;
+    wood: number;
+    woodDark: number;
+    iron: number;
+    bone: number;
+    clay: number;
+  };
+}
+
+export const LOOKS: Record<ThemeId, ThemeLook> = {
+  warrens: {
+    id: 'warrens',
+    wallStyle: 'rough',
+    floorA: 0x8e6c4c,
+    floorB: 0xb28a62,
+    groove: 0.62,
+    wall: 0x6a4630,
+    wall2: 0x7e5a3a,
+    cap: 0x4a3626,
+    water: 0x4f8a78,
+    waterBed: 0x2c3a2f,
+    waterOpacity: 0.66,
+    fog: 0x24170e,
+    fogDensity: 0.02,
+    hemiSky: 0xffdcb8,
+    hemiGround: 0x6e4c34,
+    hemiIntensity: 1.25,
+    keyColor: 0xffcf9a,
+    keyIntensity: 1.5,
+    baseLight: 0.68,
+    lightGain: 1.0,
+    pointGain: 1.0,
+    heroGain: 0.45,
+    heroColor: 0xffd9b0,
+    chasmGlow: 0x5a2a10,
+    moteColor: 0xffa040,
+    moteCount: 70,
+    flame: 0xff7a1a,
+    flameCore: 0xffd070,
+    flameAlt: 0xff7a1a,
+    altShare: 0,
+    crystal: [0x66e0a0, 0xffb040],
+    mushroom: 0x6dff9a,
+    prop: { stone: 0x8a7a68, stoneDark: 0x5c5046, wood: 0x8a5a30, woodDark: 0x5a3a20, iron: 0x4a4a52, bone: 0xe0d6bc, clay: 0xa8643c },
+  },
+  crypt: {
+    id: 'crypt',
+    wallStyle: 'dressed',
+    floorA: 0x8a94a2,
+    floorB: 0x9ca6b4,
+    groove: 0.55,
+    wall: 0x6f7e96,
+    wall2: 0x8190a8,
+    cap: 0x484e5c,
+    water: 0x4f86aa,
+    waterBed: 0x1d2e3c,
+    waterOpacity: 0.62,
+    fog: 0x0d1420,
+    fogDensity: 0.017,
+    hemiSky: 0xc8d6f0,
+    hemiGround: 0x46526c,
+    hemiIntensity: 1.45,
+    keyColor: 0xc4d8ff,
+    keyIntensity: 1.3,
+    baseLight: 0.8,
+    lightGain: 1.15,
+    pointGain: 1.0,
+    heroGain: 0.4,
+    heroColor: 0xcfdcff,
+    chasmGlow: 0x142a44,
+    moteColor: 0x9fe0ff,
+    moteCount: 50,
+    flame: 0x3fd8e0,
+    flameCore: 0xd8fbff,
+    flameAlt: 0xff8a2a,
+    altShare: 0.25,
+    crystal: [0x6fd8ff, 0x9fa8ff],
+    mushroom: 0x7affd0,
+    prop: { stone: 0xa0a8b6, stoneDark: 0x6a7282, wood: 0x6a4e3a, woodDark: 0x453325, iron: 0x3c424e, bone: 0xd8d8cc, clay: 0x7a6a62 },
+  },
+  depths: {
+    id: 'depths',
+    wallStyle: 'jagged',
+    floorA: 0x6d727d,
+    floorB: 0x7b808c,
+    groove: 0.55,
+    wall: 0x575d6e,
+    wall2: 0x646b7c,
+    cap: 0x464b5a,
+    water: 0x486a98,
+    waterBed: 0x1b2230,
+    waterOpacity: 0.64,
+    fog: 0x070818,
+    fogDensity: 0.015,
+    hemiSky: 0xbcc4dc,
+    hemiGround: 0x34384c,
+    hemiIntensity: 1.6,
+    keyColor: 0xd2dafa,
+    keyIntensity: 1.4,
+    baseLight: 1.0,
+    lightGain: 0.9,
+    pointGain: 0.9,
+    heroGain: 0.5,
+    heroColor: 0xd4dcf4,
+    chasmGlow: 0x1f1648,
+    moteColor: 0xb890ff,
+    moteCount: 140,
+    flame: 0x9a5cff,
+    flameCore: 0xe8d8ff,
+    flameAlt: 0x40e8ff,
+    altShare: 0.35,
+    crystal: [0xb070ff, 0x40e0ff],
+    mushroom: 0x66ffe0,
+    prop: { stone: 0x5e5a78, stoneDark: 0x3a3750, wood: 0x4a3a52, woodDark: 0x2e2438, iron: 0x34364a, bone: 0xc8c4d8, clay: 0x584468 },
+  },
+};

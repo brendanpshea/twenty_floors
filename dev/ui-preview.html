@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Twenty Floors: UI preview</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0b0a10;
+        touch-action: none;
+        overscroll-behavior: none;
+      }
+      /* Stand-in for the 3D canvas: a lit floor with a grid. */
+      #fake-canvas {
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(ellipse at 50% 55%, rgba(255, 190, 110, 0.35), transparent 55%),
+          repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 64px),
+          repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 64px),
+          linear-gradient(160deg, #3b4a3f, #1f2a2c 55%, #2c2230);
+      }
+      #fake-canvas.checker {
+        background:
+          conic-gradient(#8a8a8a 25%, #d0d0d0 0 50%, #8a8a8a 0 75%, #d0d0d0 0) 0 0 / 64px 64px;
+      }
+      #ui-root {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+      }
+      .pv-bar {
+        position: fixed;
+        left: 0;
+        top: 50%;
+        z-index: 10000;
+        font: 12px system-ui, sans-serif;
+        display: flex;
+        align-items: flex-start;
+        gap: 4px;
+        transform: translateY(-50%);
+      }
+      .pv-bar button {
+        font: inherit;
+        padding: 6px 8px;
+        border: 1px solid #555;
+        background: rgba(20, 20, 24, 0.92);
+        color: #ddd;
+        cursor: pointer;
+      }
+      .pv-toggle {
+        border-radius: 0 6px 6px 0;
+      }
+      .pv-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        max-height: 80vh;
+        overflow: auto;
+      }
+      .pv-list[hidden] {
+        display: none;
+      }
+      .pv-status {
+        max-width: 200px;
+        padding: 4px 6px;
+        background: rgba(0, 0, 0, 0.8);
+        color: #9fd;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="fake-canvas"></div>
+    <div id="ui-root"></div>
+    <script type="module" src="/src/ui/preview.ts"></script>
+  </body>
+</html>

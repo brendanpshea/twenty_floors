@@ -1,0 +1,229 @@
+{
+  "models": {
+    "hero_knight": {
+      "url": "assets/models/hero_knight.glb",
+      "scale": 0.7347,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "hero_barbarian": {
+      "url": "assets/models/hero_barbarian.glb",
+      "scale": 0.7563,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "hero_rogue": {
+      "url": "assets/models/hero_rogue.glb",
+      "scale": 0.8219,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "Dualwield_Melee_Attack_Slice",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "hero_mage": {
+      "url": "assets/models/hero_mage.glb",
+      "scale": 0.6354,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "skeleton": {
+      "url": "assets/models/skeleton_minion.glb",
+      "scale": 0.8295,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "skeleton_warrior": {
+      "url": "assets/models/skeleton_warrior.glb",
+      "scale": 0.6977,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "skeleton_mage": {
+      "url": "assets/models/skeleton_mage.glb",
+      "scale": 0.687,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "Spellcast_Shoot",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Raise"
+      }
+    },
+    "skeleton_rogue": {
+      "url": "assets/models/skeleton_rogue.glb",
+      "scale": 0.786,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "skeleton_minion": {
+      "url": "assets/models/skeleton_minion.glb",
+      "scale": 0.8295,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "zombie": {
+      "url": "assets/models/zombie_smooth.glb",
+      "scale": 1.2081,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Punch",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "ghoul": {
+      "url": "assets/models/ghoul_smooth.glb",
+      "scale": 0.2401,
+      "animations": {
+        "idle": "ZombieIdle",
+        "walk": "ZombieWalk",
+        "attack": "ZombieBite"
+      }
+    },
+    "shadow": {
+      "url": "assets/models/ghost.glb",
+      "scale": 0.5882,
+      "animations": {
+        "idle": "Flying_Idle",
+        "walk": "Fast_Flying",
+        "attack": "Punch",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "goblin_minion": {
+      "url": "assets/models/goblin_smooth.glb",
+      "scale": 1.0504,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Punch",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "goblin_warrior": {
+      "url": "assets/models/goblin_smooth.glb",
+      "scale": 1.0504,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Punch",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "goblin_boss": {
+      "url": "assets/models/goblin_smooth.glb",
+      "scale": 1.0504,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Punch",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "wolf": {
+      "url": "assets/models/wolf_smooth.glb",
+      "scale": 0.3745,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Attack",
+        "hit": "Idle_HitReact_Left",
+        "death": "Death"
+      }
+    },
+    "giant_rat": {
+      "url": "assets/models/rat.glb",
+      "scale": 0.2555,
+      "animations": {
+        "idle": "Rat_Idle",
+        "walk": "Rat_Walk",
+        "attack": "Rat_Attack",
+        "death": "Rat_Death"
+      }
+    },
+    "giant_spider": {
+      "url": "assets/models/spider.glb",
+      "scale": 0.4145,
+      "animations": {
+        "idle": "Spider_Idle",
+        "walk": "Spider_Walk",
+        "attack": "Spider_Attack",
+        "death": "Spider_Death"
+      }
+    },
+    "bugbear_warrior": {
+      "url": "assets/models/orc.glb",
+      "scale": 0.7213,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Weapon",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "ogre": {
+      "url": "assets/models/ogre_smooth.glb",
+      "scale": 1.931,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Punch",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    }
+  }
+}
