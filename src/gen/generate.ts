@@ -8,8 +8,10 @@ import { genCrypt } from './themes/crypt';
 import { genDepths } from './themes/depths';
 import { genFoundry } from './themes/foundry';
 import { genFungal } from './themes/fungal';
+import { genHell } from './themes/hell';
 import { genHold } from './themes/hold';
 import { genIce } from './themes/ice';
+import { genLair } from './themes/lair';
 import { genLibrary } from './themes/library';
 import { genRuin } from './themes/ruin';
 import { genSewers } from './themes/sewers';
@@ -76,6 +78,12 @@ export function generateFloorReport(opts: GenerateOptions): GenerateReport {
           break;
         case 'ice':
           layout = genIce(graph, layoutRng, depth);
+          break;
+        case 'hell':
+          layout = genHell(graph, layoutRng);
+          break;
+        case 'lair':
+          layout = genLair(graph, layoutRng, depth);
           break;
         case 'hold':
           layout = genHold(graph, layoutRng);

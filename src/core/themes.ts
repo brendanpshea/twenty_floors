@@ -57,6 +57,16 @@ export const THEMES: Record<ThemeId, ThemeInfo> = {
     name: 'The Overgrown Ruin',
     tagline: 'Roofless halls under open sky, and a forest that has taken them back.',
   },
+  hell: {
+    id: 'hell',
+    name: 'The Hell-touched Vault',
+    tagline: 'Red stone, chained doors, and a heat that is not from any fire.',
+  },
+  lair: {
+    id: 'lair',
+    name: "The Dragon's Lair",
+    tagline: 'Scorched rock, old bones, and gold enough to be worth all twenty floors.',
+  },
 };
 
 export const TOTAL_FLOORS = 20;
@@ -76,5 +86,7 @@ export function themeForDepth(depth: number): ThemeId {
   if (depth === 12 || depth === 13) return 'foundry';
   if (depth === 14 || depth === 15) return 'ice';
   if (depth === 16 || depth === 17) return 'ruin';
+  if (depth === 18 || depth === 19) return 'hell';
+  if (depth === 20) return 'lair';
   return THEME_ORDER[(depth - 1) % THEME_ORDER.length] as ThemeId;
 }

@@ -22,9 +22,9 @@ The creation screen and hub already contain UI for three features whose rules
 are not on `main` yet, so these parts are inert there: background feat choices
 (Magic Initiate), play-style presets, and the ranged weapon slot.
 
-## Floors 4 to 17: seven more themes (content only, not reachable yet)
+## Floors 4 to 20: nine more themes (content only, not reachable yet)
 
-Seven themes exist end to end except for play:
+Every floor now has a theme. Nine themes beyond the first three exist end to end except for play:
 
 - **Flooded Sewers, floors 4 and 5.** Generator `src/gen/themes/sewers.ts`
   (channel tunnels, wet and dry chambers; set pieces sluice, flooded hall,
@@ -58,16 +58,29 @@ Seven themes exist end to end except for play:
   broken hall), an outdoor moonlit look, four props (gnarled tree, bush,
   vines, fallen column), ambience, fourteen SRD monsters from CR 1 to CR 15
   in `src/data/monsters/ruin.ts`. Bosses: Storm Giant, Adult Green Dragon.
+- **Hell-touched Vault, floors 18 and 19.** Generator
+  `src/gen/themes/hell.ts` (a descending prison over lava: barred cells,
+  shrines, pits; set pieces chain pit, trench, summoning hall), look with
+  lava, three props (altar, iron bars, sigil), ambience, thirteen SRD
+  fiends from CR 1 to CR 19 in `src/data/monsters/hell.ts`. Bosses:
+  Marilith, Balor.
+- **Dragon's Lair, floor 20.** Generator `src/gen/themes/lair.ts` (the cave
+  recipe, scorched, with a hoard that thickens toward the boss), look with
+  lava cracks, gold pile and dragon bones props, ambience, nine SRD
+  monsters from CR 1/8 to CR 24 in `src/data/monsters/lair.ts`. Boss: the
+  Adult Red Dragon (CR 17). `docs/DESIGN.md` still says Young Red Dragon
+  (CR 10), which is in the data as a tough regular; the Ancient Red Dragon
+  (CR 24) is there too. Which one ends the game is the owner's call.
 
 Per-floor casts and bosses are in `ENCOUNTER_TUNING`. See the floors at
 `/dev/render-preview.html?gen=1&theme=sewers&depth=4`, `...theme=fungal&depth=6`
 `...theme=hold&depth=8`, `...theme=library&depth=10`,
-`...theme=foundry&depth=12`, `...theme=ice&depth=14` and
-`...theme=ruin&depth=16`.
+`...theme=foundry&depth=12`, `...theme=ice&depth=14`,
+`...theme=ruin&depth=16`, `...theme=hell&depth=18` and `...theme=lair&depth=20`.
 
 What is missing before `MILESTONE_FLOORS` can go past 3:
 
-- **Fighter levels 4 to 17** (in `src/rules`, after the spell-engine branch).
+- **Fighter levels 4 to 20** (in `src/rules`, after the spell-engine branch).
 - **Models.** The sewer, cavern and library monsters use tinted stand-ins from rigs we
   already ship (each has a `TODO model:` comment in `src/data/monsters.ts`
   naming the intended free model). Fetching needs `tools/assets/fetch.mjs`

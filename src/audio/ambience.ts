@@ -678,9 +678,168 @@ const BEDS: Record<ThemeId, BedDef> = {
       ];
     },
   },
+  hell: {
+    verb: 0.6,
+    build(rig, out) {
+      // Dissonant drone: low sines a tritone and a minor second apart, slowly beating.
+      const drone = rig.gain(0.1, rig.filter('lowpass', 300, 0.5, out));
+      rig.lfo(0.05, 0.04, drone.gain);
+      rig.osc('sine', 55, drone);
+      rig.osc('sine', 58.3, rig.gain(0.8, drone));
+      rig.osc('sine', 77.8, rig.gain(0.5, drone));
+      // Dry furnace hiss underneath: low-passed noise with slow surges.
+      const fur = rig.gain(0.6, out);
+      rig.lfo(0.05, 0.3, fur.gain);
+      rig.lfo(0.15, 0.1, fur.gain);
+      const lp = rig.filter('lowpass', 700, 0.5, fur);
+      rig.lfo(0.05, 250, lp.frequency);
+      rig.noiseLoop(lp);
+    },
+    events(emit, rng) {
+      return [
+        {
+          // Heavy chains dragging or rattling: a quick irregular run of dull inharmonic clanks.
+          minGap: 10, maxGap: 28, firstDelay: [4, 10],
+          fire: (t) => {
+            const layers: Layer[] = [];
+            const n = 4 + Math.floor(rng() * 6);
+            let at = 0;
+            for (let i = 0; i < n; i++) {
+              const f = between(rng, 220, 700);
+              const k = between(rng, 0.4, 1);
+              layers.push(
+                ping('sine', f, at, 0.1, 0.35 * k, { freqEnd: f * 0.9 }),
+                ping('sine', f * 2.63, at, 0.06, 0.15 * k),
+                puff('bandpass', f * 3, at, 0.02, 0.2 * k, { q: 2 }),
+              );
+              at += between(rng, 0.04, 0.22);
+            }
+            emit(layers, 0.5, t, between(rng, -0.7, 0.7));
+          },
+        },
+        {
+          // Distant iron door booming shut: low thud with a short metallic ring.
+          minGap: 30, maxGap: 70, firstDelay: [12, 26],
+          fire: (t) => {
+            const f = between(rng, 330, 480);
+            emit([
+              ping('sine', 60, 0, 0.5, 0.9, { freqEnd: 35 }),
+              puff('lowpass', 400, 0, 0.08, 0.5),
+              ping('sine', f, 0.01, 0.6, 0.12),
+              ping('sine', f * 2.4, 0.01, 0.35, 0.07),
+            ], 0.8, t, between(rng, -0.6, 0.6));
+          },
+        },
+        {
+          // Far-off wail that is not a voice: slow sine glide (a detuned twin gives the wobble, the tone layer has no vibrato), quiet and washed in reverb.
+          minGap: 35, maxGap: 80, firstDelay: [15, 30],
+          fire: (t) => {
+            const f = between(rng, 300, 420);
+            const up = f * Math.pow(2, between(rng, 2, 4) / 12);
+            const pan = between(rng, -0.7, 0.7);
+            emit([
+              tone('sine', f, 0, 3.4, 0.08, { freqEnd: up, a: 1.4, r: 1.6 }),
+              tone('sine', f * 1.012, 0, 3.4, 0.07, { freqEnd: up * 0.992, a: 1.4, r: 1.6 }),
+            ], 1, t, pan);
+          },
+        },
+        {
+          // Brimstone pop and sizzle: short noise crackle.
+          minGap: 5, maxGap: 16, firstDelay: [2, 7],
+          fire: (t) => {
+            const layers: Layer[] = [puff('bandpass', between(rng, 1200, 3000), 0, 0.02, 0.5, { q: 1.5 })];
+            const n = 2 + Math.floor(rng() * 4);
+            let at = 0.04;
+            for (let i = 0; i < n; i++) {
+              layers.push(puff('highpass', between(rng, 2500, 5000), at, 0.012, between(rng, 0.15, 0.35)));
+              at += between(rng, 0.02, 0.08);
+            }
+            emit(layers, 0.3, t, between(rng, -0.6, 0.6));
+          },
+        },
+      ];
+    },
+  },
+  lair: {
+    verb: 0.6,
+    build(rig, out) {
+      // Huge sleeper breathing: low-passed noise, level and cutoff swelling in step (~6.7 s cycle).
+      const breath = rig.gain(0.45, out);
+      rig.lfo(0.15, 0.4, breath.gain);
+      const lp = rig.filter('lowpass', 220, 0.6, breath);
+      rig.lfo(0.15, 130, lp.frequency);
+      rig.noiseLoop(lp);
+      // Warm low drone.
+      const drone = rig.gain(0.12, out);
+      rig.lfo(0.05, 0.04, drone.gain);
+      rig.osc('sine', 48, drone);
+      rig.osc('sine', 48.5, rig.gain(0.7, drone));
+      rig.osc('triangle', 96.2, rig.gain(0.25, rig.filter('lowpass', 300, 0.4, drone)));
+    },
+    events(emit, rng) {
+      return [
+        {
+          // Coins sliding on the hoard: a quick scatter of very short bright pings, descending slightly.
+          minGap: 8, maxGap: 22, firstDelay: [3, 9],
+          fire: (t) => {
+            const layers: Layer[] = [];
+            const n = 5 + Math.floor(rng() * 6);
+            let f = between(rng, 3800, 5200);
+            let at = 0;
+            for (let i = 0; i < n; i++) {
+              const g = f * between(rng, 0.9, 1.1);
+              layers.push(ping('sine', g, at, 0.07, between(rng, 0.15, 0.35)), ping('sine', g * 2.7, at, 0.03, 0.06));
+              f *= 0.97;
+              at += between(rng, 0.02, 0.11);
+            }
+            emit(layers, 0.5, t, between(rng, -0.7, 0.7));
+          },
+        },
+        {
+          // Rare deep growl or snort: low sawtooth and sine through a low-pass, slow pitch dip.
+          minGap: 35, maxGap: 80, firstDelay: [14, 30],
+          fire: (t) => {
+            const f = between(rng, 42, 62);
+            emit([
+              tone('sawtooth', f * 1.5, 0, 2.2, 0.3, { freqEnd: f, lp: 240, a: 0.7, r: 1.2 }),
+              tone('sine', f, 0, 2.2, 0.25, { freqEnd: f * 0.75, a: 0.7, r: 1.2 }),
+              noise('lowpass', 300, 0.2, 1.6, 0.2, { a: 0.6, r: 0.8 }),
+            ], 0.6, t, between(rng, -0.4, 0.4));
+          },
+        },
+        {
+          // Ember crackle: a few short noise ticks.
+          minGap: 4, maxGap: 14, firstDelay: [1.5, 6],
+          fire: (t) => {
+            const layers: Layer[] = [];
+            const n = 2 + Math.floor(rng() * 4);
+            let at = 0;
+            for (let i = 0; i < n; i++) {
+              layers.push(puff('bandpass', between(rng, 1500, 4500), at, 0.012, between(rng, 0.2, 0.5), { q: 1.5 }));
+              at += between(rng, 0.05, 0.3);
+            }
+            emit(layers, 0.25, t, between(rng, -0.6, 0.6));
+          },
+        },
+        {
+          // Rare single distant stone falling: a dull click and a low knock.
+          minGap: 40, maxGap: 90, firstDelay: [18, 34],
+          fire: (t) => {
+            const f = between(rng, 1200, 2000);
+            emit([
+              puff('bandpass', f, 0, 0.02, 0.5, { q: 2 }),
+              ping('sine', f * 0.3, 0, 0.08, 0.2),
+              ping('sine', 80, 0.15, 0.25, 0.4, { freqEnd: 50 }),
+              puff('lowpass', 400, 0.15, 0.05, 0.25),
+            ], 0.8, t, between(rng, -0.7, 0.7));
+          },
+        },
+      ];
+    },
+  },
 };
 
-export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin'];
+export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin', 'hell', 'lair'];
 
 const LOOKAHEAD = 1.5;
 const TICK_MS = 400;

@@ -746,6 +746,156 @@ const BUILDERS: Record<string, Builder> = {
     g.ico(0.1, 0, p.stone, { x: 0.85, y: 0.07, z: 0.45 });
     return { lit: g.build(), glow: null };
   },
+  // Heavy sacrificial altar (long axis along X): stepped base, slab, blood-red runner and stain, a horn at each corner.
+  altar: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    g.box(1.95, 0.14, 1.2, p.stoneDark, { y: 0.07, shade: 0.8 }); // lower step
+    g.box(1.75, 0.14, 1.0, p.stone, { y: 0.21, shade: 0.85 }); // upper step
+    g.box(1.45, 0.44, 0.78, p.stoneDark, { y: 0.5, shade: 0.9 }); // body
+    g.box(1.1, 0.3, 0.06, p.stone, { y: 0.5, z: 0.4, shade: 0.7 }); // carved panel
+    g.box(1.1, 0.3, 0.06, p.stone, { y: 0.5, z: -0.4, shade: 0.7 });
+    g.box(1.7, 0.16, 1.0, p.stoneDark, { y: 0.81, shade: 0.7 }); // slab
+    g.box(1.76, 0.05, 1.06, p.stone, { y: 0.71, shade: 0.6 }); // slab underlip
+    g.box(0.46, 0.025, 1.06, 0x8a1010, { x: 0.1, y: 0.897, shade: 1.0 }); // blood-red runner across the top
+    g.box(0.46, 0.2, 0.04, 0x8a1010, { x: 0.1, y: 0.78, z: 0.53, shade: 0.9 }); // hanging ends
+    g.box(0.46, 0.2, 0.04, 0x8a1010, { x: 0.1, y: 0.78, z: -0.53, shade: 0.9 });
+    g.box(0.5, 0.012, 0.3, 0x4a0606, { x: -0.5, y: 0.9, z: 0.1, ry: 0.4 }); // dark stain
+    g.box(0.3, 0.012, 0.2, 0x4a0606, { x: 0.6, y: 0.9, z: -0.2, ry: -0.5 });
+    for (const [x, z, tz] of [[-0.74, -0.4, 0.3], [0.74, -0.4, -0.3], [-0.74, 0.4, 0.3], [0.74, 0.4, -0.3]] as const) {
+      g.cone(0.07, 0.3, 5, 0xd8cbb0, { x, y: 1.1, z, rz: tz, shade: 1.0 }); // horn / candle stub
+      g.cyl(0.08, 0.1, 0.05, 6, p.iron, { x, y: 0.92, z });
+    }
+    g.ico(0.14, 0, 0xcfc0a8, { x: -0.1, y: 1.03, z: -0.1, sy: 0.9, shade: 1.0 }); // skull on the slab
+    g.box(0.12, 0.07, 0.1, 0xcfc0a8, { x: -0.1, y: 0.95, z: 0.0, shade: 0.9 });
+    return { lit: g.build(), glow: null };
+  },
+  // One cell of prison bars (row along X): top and bottom rail, seven black bars, a mid band; rails reach the cell edge so runs join up.
+  iron_bars: (look) => {
+    const iron = 0x16141a;
+    const g = new GeoBuilder();
+    g.box(2.0, 0.12, 0.16, look.prop.iron, { y: 0.06, shade: 0.8 }); // bottom rail
+    g.box(2.0, 0.14, 0.16, look.prop.iron, { y: 2.23, shade: 0.8 }); // top rail
+    g.box(2.0, 0.07, 0.1, iron, { y: 1.2, shade: 1.1 }); // cross band
+    for (let i = 0; i < 7; i++) {
+      const x = -0.9 + i * 0.3;
+      g.cyl(0.04, 0.04, 2.2, 6, iron, { x, y: 1.15, shade: 1.0 });
+      g.cone(0.05, 0.14, 4, iron, { x, y: 2.34, shade: 1.3 });
+    }
+    return { lit: g.build(), glow: null };
+  },
+  // Flat rune circle (~1.7 across): outer ring, inner ring and a six-pointed star, all self-lit, just above the floor.
+  sigil: () => {
+    const glow = new GeoBuilder();
+    const ring = (r: number, w: number, n: number, y: number, sh: number): void => {
+      const len = (2 * Math.PI * r) / n + 0.02;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        glow.box(len, 0.012, w, 0xffffff, { x: Math.cos(a) * r, z: -Math.sin(a) * r, y, ry: a + Math.PI / 2, shade: sh });
+      }
+    };
+    ring(0.84, 0.07, 28, 0.03, 1.0);
+    ring(0.6, 0.045, 20, 0.03, 0.9);
+    // six-pointed star: two triangles inscribed in the inner ring
+    const R = 0.6;
+    for (let t = 0; t < 2; t++) {
+      for (let e = 0; e < 3; e++) {
+        const a0 = (t * 60 + e * 120) * (Math.PI / 180);
+        const a1 = a0 + (120 * Math.PI) / 180;
+        const x0 = Math.cos(a0) * R;
+        const z0 = Math.sin(a0) * R;
+        const x1 = Math.cos(a1) * R;
+        const z1 = Math.sin(a1) * R;
+        const len = Math.hypot(x1 - x0, z1 - z0);
+        glow.box(len + 0.04, 0.012, 0.045, 0xffffff, { x: (x0 + x1) / 2, z: (z0 + z1) / 2, y: 0.034 + t * 0.003, ry: -Math.atan2(z1 - z0, x1 - x0), shade: 1.2 });
+      }
+    }
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+      glow.box(0.12, 0.012, 0.12, 0xffffff, { x: Math.cos(a) * 0.72, z: Math.sin(a) * 0.72, y: 0.036, ry: -a + Math.PI / 4, shade: 1.0 }); // rune ticks between the rings
+    }
+    glow.box(0.16, 0.012, 0.16, 0xffffff, { y: 0.038, ry: Math.PI / 4, shade: 1.5 });
+    return { lit: null, glow: glow.build(), glowKind: 'steady' };
+  },
+  // Heap of treasure (~1.6 across, 0.7 high): a lumpy gold dome with bright facets, coins, goblet, crown, gem and a sword hilt.
+  gold_pile: () => {
+    const g = new GeoBuilder();
+    const glow = new GeoBuilder();
+    const gold = 0xc08410;
+    const bright = 0xf2b820;
+    g.ico(0.82, 1, gold, { y: 0, sy: 0.86, top: bright, shade: 1.0 });
+    g.ico(0.5, 1, gold, { x: 0.5, z: 0.3, y: 0, sy: 0.8, top: bright, shade: 1.05, ry: 0.5 });
+    g.ico(0.42, 1, gold, { x: -0.5, z: -0.2, y: 0, sy: 0.85, top: bright, shade: 0.95, ry: 1.2 });
+    g.ico(0.34, 0, 0xf5c030, { x: 0.15, y: 0.5, z: -0.1, sy: 0.7, shade: 1.05, ry: 0.3 });
+    g.ico(0.26, 0, 0xf5c840, { x: -0.3, y: 0.44, z: 0.25, sy: 0.7, shade: 1.0, ry: 1.0 });
+    for (let i = 0; i < 9; i++) {
+      const a = i * 2.2;
+      const r = 0.45 + (i % 3) * 0.17;
+      g.cyl(0.12, 0.12, 0.03, 8, i % 2 ? 0xffe27a : 0xf0b828, { x: Math.cos(a) * r, z: Math.sin(a) * r, y: 0.28 - r * 0.2, rx: 0.35 * Math.sin(i), rz: 0.3 * Math.cos(i * 2), shade: 1.1 }); // coins on the slopes
+    }
+    for (let i = 0; i < 5; i++) {
+      const a = 0.6 + i * 1.3;
+      g.cyl(0.11, 0.11, 0.03, 8, 0xf5c030, { x: Math.cos(a) * 0.95, z: Math.sin(a) * 0.95, y: 0.02, rz: 0.1 * i, shade: 1.05 }); // strays on the floor
+    }
+    // goblet, sticking out of the heap on the left
+    g.cyl(0.03, 0.05, 0.22, 6, 0xc0c4cc, { x: -0.2, y: 0.8, z: 0.45, rz: 0.2, shade: 1.1 });
+    g.cyl(0.14, 0.05, 0.16, 8, 0xe8d060, { x: -0.24, y: 0.98, z: 0.45, rz: 0.2, shade: 1.15 });
+    // crown, tilted on the right
+    g.cyl(0.17, 0.17, 0.12, 8, 0xffd84a, { x: 0.45, y: 0.58, z: -0.25, rx: 0.4, rz: -0.2, shade: 1.2 });
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      g.cone(0.045, 0.14, 4, 0xffe070, { x: 0.45 + Math.cos(a) * 0.15 + 0.03, y: 0.7 + Math.sin(a) * 0.04, z: -0.25 + Math.sin(a) * 0.15 - 0.05, rx: 0.4, rz: -0.2, shade: 1.3 });
+    }
+    g.ico(0.05, 0, 0xd02030, { x: 0.45, y: 0.64, z: -0.1, shade: 1.1 });
+    // gem
+    g.octa(0.11, 0x2a9a6a, { x: 0.05, y: 0.7, z: 0.4, sy: 1.4, rz: 0.3, shade: 1.0 });
+    g.octa(0.08, 0xc0284a, { x: -0.55, y: 0.34, z: -0.45, sy: 1.3, rz: -0.4, shade: 1.0 });
+    // sword hilt: grip, crossguard, pommel, short blade stub buried in the heap
+    g.box(0.05, 0.3, 0.05, 0x5a3a22, { x: 0.78, y: 0.72, z: 0.45, rz: -0.5, rx: 0.1 });
+    g.box(0.3, 0.05, 0.06, 0xc8ccd4, { x: 0.68, y: 0.55, z: 0.45, rz: -0.5, shade: 1.2 });
+    g.ico(0.05, 0, 0xffd23a, { x: 0.9, y: 0.88, z: 0.46, shade: 1.1 });
+    // glints
+    for (const [x, y, z, r] of [[0.15, 0.7, -0.1, 0.07], [-0.3, 0.6, 0.25, 0.055], [0.55, 0.45, 0.2, 0.05], [-0.55, 0.45, -0.2, 0.05], [0.0, 0.52, 0.4, 0.045]] as const)
+      glow.octa(r, 0xffffff, { x, y, z, sy: 1.2, shade: 1.0 });
+    return { lit: g.build(), glow: glow.build(), glowKind: 'steady' };
+  },
+  // Part of a huge skeleton (spine along X): a row of vertebrae on the floor with four tall curved ribs arching over it.
+  dragon_bones: (look) => {
+    const bone = look.prop.bone;
+    const g = new GeoBuilder();
+    for (let i = 0; i < 8; i++) {
+      const x = -0.875 + i * 0.25;
+      g.ico(0.15, 0, bone, { x, y: 0.17, sy: 0.85, sz: 1.1, shade: 0.95 + 0.05 * (i % 2), ry: i });
+      g.cone(0.05, 0.28, 4, bone, { x, y: 0.4, shade: 1.05 }); // spinous process
+      g.cyl(0.07, 0.07, 0.12, 6, bone, { x: x + 0.125, y: 0.15, rz: Math.PI / 2, shade: 0.85 }); // disc between vertebrae
+    }
+    const ribs: [number, number][] = [[-0.62, 1.0], [-0.2, 1.0], [0.22, 0.92], [0.64, 0.7]]; // x, scale
+    ribs.forEach(([x, sc], ri) => {
+      for (const side of [-1, 1]) {
+        if (ri === 3 && side === 1) continue; // one rib broken off
+        const steps = 9;
+        let pz = 0;
+        let py = 0.18;
+        const a1 = ((ri === 3 ? 10 : 46) * Math.PI) / 180;
+        for (let k = 1; k <= steps; k++) {
+          const phi = -Math.PI / 2 + ((k / steps) * (a1 + Math.PI / 2));
+          const nz = side * 0.8 * Math.cos(phi) * (0.9 + 0.1 * sc);
+          const ny = 0.18 + 0.95 * (1 + Math.sin(phi)) * sc;
+          const dz = nz - pz;
+          const dy = ny - py;
+          const len = Math.hypot(dz, dy);
+          const t = 1 - (k / steps) * 0.65;
+          g.box(0.15 * t + 0.03, len + 0.02, 0.15 * t + 0.03, bone, { x: x + (k % 2) * 0.005, y: (py + ny) / 2, z: (pz + nz) / 2, rx: Math.atan2(dz, dy), shade: 0.95 + 0.1 * (k % 2) });
+          pz = nz;
+          py = ny;
+        }
+      }
+    });
+    g.box(0.4, 0.05, 0.05, bone, { x: 0.55, y: 0.04, z: 0.7, ry: 0.5, shade: 0.9 }); // fallen bones
+    g.box(0.3, 0.05, 0.05, bone, { x: -0.3, y: 0.04, z: -0.75, ry: -0.7, shade: 0.9 });
+    g.ico(0.1, 0, bone, { x: 0.85, y: 0.08, z: -0.5, sy: 0.7 });
+    return { lit: g.build(), glow: null };
+  },
 };
 
 const ROCK: Builder = (look) => {
@@ -755,8 +905,8 @@ const ROCK: Builder = (look) => {
   return { lit: g.build(), glow: null };
 };
 
-const JITTER_YAW = new Set(['rubble', 'bones', 'book_pile', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'urn', 'crystal', 'barrel', 'crate', 'campfire', 'brazier', 'gnarled_tree', 'bush']);
-const SCALE_JITTER = new Set(['gnarled_tree', 'bush', 'rubble', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'crystal', 'urn']);
+const JITTER_YAW = new Set(['rubble', 'bones', 'book_pile', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'urn', 'crystal', 'barrel', 'crate', 'campfire', 'brazier', 'gnarled_tree', 'bush', 'gold_pile']);
+const SCALE_JITTER = new Set(['gnarled_tree', 'bush', 'rubble', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'crystal', 'urn', 'gold_pile']);
 
 export interface PropField {
   group: Group | null;
@@ -859,6 +1009,8 @@ export function buildProps(
         if (built.glowKind === 'flame') {
           _col.setHex(look.altShare > 0 && hash2(p.pos.x, p.pos.y, 43) < look.altShare ? look.flameAlt : look.flame);
         } else if (type === 'mushrooms' || type === 'giant_mushroom') _col.setHex(look.mushroom);
+        else if (type === 'sigil') _col.setHex(0xff3a12);
+        else if (type === 'gold_pile') _col.setHex(0xffd870);
         else _col.setHex(look.crystal[idx % look.crystal.length]!);
         glow.setColorAt(i, _col);
       }

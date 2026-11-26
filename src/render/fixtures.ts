@@ -95,7 +95,7 @@ class Draft {
     ];
     return {
       seed,
-      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : theme === 'library' ? 10 : theme === 'foundry' ? 12 : theme === 'ice' ? 14 : theme === 'ruin' ? 16 : 3,
+      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : theme === 'library' ? 10 : theme === 'foundry' ? 12 : theme === 'ice' ? 14 : theme === 'ruin' ? 16 : theme === 'hell' ? 18 : theme === 'lair' ? 20 : 3,
       theme,
       width: this.w,
       height: this.h,
@@ -125,15 +125,21 @@ function autoLights(d: Draft, theme: ThemeId): void {
     const { x, y } = p.pos;
     switch (p.type) {
       case 'torch': {
-        const warm = theme === 'warrens' || theme === 'ice' || theme === 'hold' || theme === 'foundry' || theme === 'ruin' || (theme === 'crypt' && (x + y) % 4 === 0);
-        d.light(x, y, theme === 'library' ? 0x90c8ff : warm || theme === 'sewers' ? 0xffa050 : theme === 'fungal' ? 0x60f0c0 : theme === 'crypt' ? 0x60d8f0 : 0xa070ff, 1.1, theme === 'depths' ? 5 : 6.5);
+        const warm = theme === 'warrens' || theme === 'lair' || theme === 'ice' || theme === 'hold' || theme === 'foundry' || theme === 'ruin' || (theme === 'crypt' && (x + y) % 4 === 0);
+        d.light(x, y, theme === 'hell' ? 0xff4a22 : theme === 'library' ? 0x90c8ff : warm || theme === 'sewers' ? 0xffa050 : theme === 'fungal' ? 0x60f0c0 : theme === 'crypt' ? 0x60d8f0 : 0xa070ff, 1.1, theme === 'depths' ? 5 : 6.5);
         break;
       }
       case 'brazier':
-        d.light(x, y, theme === 'library' ? 0x90c8ff : theme === 'warrens' || theme === 'sewers' || theme === 'hold' || theme === 'foundry' || theme === 'ruin' ? 0xff8a30 : theme === 'fungal' ? 0x58e8b8 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
+        d.light(x, y, theme === 'hell' ? 0xff3a1a : theme === 'lair' ? 0xff9028 : theme === 'library' ? 0x90c8ff : theme === 'warrens' || theme === 'sewers' || theme === 'hold' || theme === 'foundry' || theme === 'ruin' ? 0xff8a30 : theme === 'fungal' ? 0x58e8b8 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
         break;
       case 'candelabra':
         d.light(x, y, 0x90c8ff, 1.2, 6);
+        break;
+      case 'sigil':
+        d.light(x, y, 0xff3010, 1.2, 5);
+        break;
+      case 'gold_pile':
+        d.light(x, y, 0xffc050, 0.55, 4);
         break;
       case 'forge':
         d.light(x, y, 0xff7a28, 1.8, 7.5);
@@ -527,7 +533,65 @@ function ruin(): FloorPlan {
   return d.toPlan('ruin', { x: 3, y: 3 }, { x: 21, y: 15 }, 1010, [{ x: 4, y: 4 }, { x: 14, y: 6 }]);
 }
 
-export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, library, depths, foundry, ice, ruin };
+function hell(): FloorPlan {
+  const d = new Draft(26, 22);
+  d.rect(2, 2, 23, 19);
+  d.rect(8, 4, 10, 16, CHASM); // lava trench
+  d.rect(8, 10, 10, 11, FLOOR); // the bridge
+  d.rect(14, 14, 17, 15, CHASM); // a lava pool
+  d.rect(16, 3, 21, 8, FLOOR, 1); // dais
+  d.wallsAround();
+  const P = d.prop.bind(d);
+  // prison cells in the south-west: a cage wall along y = 13 with dividers
+  for (let x = 2; x <= 6; x++) P('iron_bars', x, 13, 0);
+  for (let y = 14; y <= 19; y++) P('iron_bars', 4, y, 1);
+  P('iron_bars', 6, 14, 1); P('iron_bars', 6, 15, 1);
+  P('bones', 3, 17); P('bones', 5, 18); P('chain', 2, 15, 3); P('rubble', 3, 15);
+  // the altar on its dais, braziers at the corners and a sigil before it
+  P('altar', 18, 4, 0);
+  P('brazier', 16, 3); P('brazier', 21, 3); P('brazier', 16, 8); P('brazier', 21, 8);
+  P('sigil', 18, 6, 0, false); P('sigil', 13, 17, 0, false);
+  P('statue', 22, 5, 2); P('statue', 14, 5, 0);
+  // the hall
+  P('torch', 5, 2, 0); P('torch', 12, 2, 0); P('torch', 23, 12, 1); P('torch', 12, 19, 2);
+  P('broken_pillar', 12, 6); P('broken_pillar', 12, 12); P('pillar', 20, 12); P('pillar', 20, 16);
+  P('chain', 9, 4, 0); P('chain', 9, 16, 2); P('chain', 14, 14, 1); P('chain', 16, 16, 2);
+  P('bones', 18, 11); P('bones', 7, 6); P('rubble', 5, 10); P('rubble', 22, 18); P('brazier', 3, 4);
+  P('statue', 11, 17); P('bones', 13, 8);
+  autoLights(d, 'hell');
+  return d.toPlan('hell', { x: 4, y: 4 }, { x: 19, y: 15 }, 1011, [{ x: 5, y: 8 }, { x: 13, y: 9 }]);
+}
+
+function lair(): FloorPlan {
+  const d = new Draft(26, 24);
+  d.ellipse(7, 7, 5.4, 4.6); // cave 1
+  d.ellipse(7, 9, 2.0, 1.4, WATER); // dark pool
+  d.rect(11, 7, 14, 8);
+  d.ellipse(18, 8, 5.4, 4.8); // the hoard cave
+  d.rect(6, 12, 7, 15); // tunnel south
+  d.ellipse(9, 18, 6.2, 4.2); // cave 3: the carcass
+  d.rect(15, 17, 18, 18);
+  d.ellipse(21, 17, 3.6, 4.4); // cave 4
+  d.rect(19, 12, 20, 14);
+  d.rect(19, 19, 23, 19, CHASM); // a lava crack
+  d.rect(10, 22, 12, 22, CHASM);
+  d.wallsAround();
+  const P = d.prop.bind(d);
+  // the hoard
+  P('gold_pile', 16, 6); P('gold_pile', 19, 5); P('gold_pile', 18, 8); P('gold_pile', 21, 8); P('gold_pile', 15, 9); P('gold_pile', 20, 11);
+  P('brazier', 14, 5); P('brazier', 22, 6); P('torch', 18, 3, 0); P('bones', 17, 10); P('rubble', 22, 10);
+  // the carcass: a spine and ribs running west to east, a neck turning north
+  for (let x = 5; x <= 9; x++) P('dragon_bones', x, 18, 0);
+  P('dragon_bones', 10, 17, 1); P('dragon_bones', 10, 16, 1);
+  P('bones', 12, 19); P('rubble', 4, 17); P('stalagmite', 5, 21); P('stalagmite', 13, 15); P('torch', 8, 15, 0);
+  // the rest
+  P('stalagmite', 3, 5); P('stalagmite', 10, 4); P('stalagmite', 4, 9); P('stalagmite', 12, 9); P('stalagmite', 22, 15);
+  P('bones', 8, 5); P('bones', 21, 20); P('rubble', 5, 7); P('rubble', 19, 15); P('brazier', 21, 14); P('torch', 3, 8, 3);
+  autoLights(d, 'lair');
+  return d.toPlan('lair', { x: 5, y: 6 }, { x: 18, y: 8 }, 1012, [{ x: 8, y: 6 }, { x: 21, y: 16 }]);
+}
+
+export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, library, depths, foundry, ice, ruin, hell, lair };
 
 export function makeFixture(theme: ThemeId): FloorPlan {
   return FIXTURES[theme]();

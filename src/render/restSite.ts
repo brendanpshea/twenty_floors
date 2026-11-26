@@ -26,9 +26,9 @@ export function buildRestSite(theme: ThemeId): Figure {
   const lit = new GeoBuilder();
   const flame = new GeoBuilder();
   const ember = new GeoBuilder();
-  const stoneC = theme === 'ruin' ? 0x8c9480 : theme === 'ice' ? 0xa4b0be : theme === 'foundry' ? 0x6e6a74 : theme === 'depths' ? 0x6f7482 : theme === 'crypt' ? 0x9aa2b2 : theme === 'sewers' ? 0x8a8468 : theme === 'library' ? 0x9aa4b4 : theme === 'fungal' ? 0x7a7494 : 0x8a8070;
-  const stoneD = theme === 'ruin' ? 0x5c6650 : theme === 'ice' ? 0x6c7a8e : theme === 'foundry' ? 0x423e48 : theme === 'depths' ? 0x4a4e5c : theme === 'crypt' ? 0x6a7282 : theme === 'sewers' ? 0x5a5640 : theme === 'library' ? 0x64708a : theme === 'fungal' ? 0x4c4868 : 0x5c5246;
-  const flameColor = theme === 'library' ? 0x9ad0ff : theme === 'fungal' ? 0x70f0c8 : theme === 'warrens' || theme === 'hold' || theme === 'ice' || theme === 'foundry' || theme === 'ruin' ? 0xffa040 : theme === 'crypt' || theme === 'sewers' ? 0xffc468 : 0xffd890;
+  const stoneC = theme === 'hell' ? 0x6a3a3c : theme === 'lair' ? 0x6e6258 : theme === 'ruin' ? 0x8c9480 : theme === 'ice' ? 0xa4b0be : theme === 'foundry' ? 0x6e6a74 : theme === 'depths' ? 0x6f7482 : theme === 'crypt' ? 0x9aa2b2 : theme === 'sewers' ? 0x8a8468 : theme === 'library' ? 0x9aa4b4 : theme === 'fungal' ? 0x7a7494 : 0x8a8070;
+  const stoneD = theme === 'hell' ? 0x3a1c20 : theme === 'lair' ? 0x3e342e : theme === 'ruin' ? 0x5c6650 : theme === 'ice' ? 0x6c7a8e : theme === 'foundry' ? 0x423e48 : theme === 'depths' ? 0x4a4e5c : theme === 'crypt' ? 0x6a7282 : theme === 'sewers' ? 0x5a5640 : theme === 'library' ? 0x64708a : theme === 'fungal' ? 0x4c4868 : 0x5c5246;
+  const flameColor = theme === 'hell' ? 0xff5a2a : theme === 'lair' ? 0xffa030 : theme === 'library' ? 0x9ad0ff : theme === 'fungal' ? 0x70f0c8 : theme === 'warrens' || theme === 'hold' || theme === 'ice' || theme === 'foundry' || theme === 'ruin' ? 0xffa040 : theme === 'crypt' || theme === 'sewers' ? 0xffc468 : 0xffd890;
   const flameAt = (x: number, y: number, z: number, s: number): void => {
     flame.cone(0.13 * s, 0.4 * s, 6, 0xffffff, { x, y: y + 0.2 * s, z });
     flame.cone(0.08 * s, 0.28 * s, 5, 0xffffff, { x: x + 0.02, y: y + 0.16 * s, z, shade: 1.8 });
@@ -38,7 +38,7 @@ export function buildRestSite(theme: ThemeId): Figure {
   };
   let flameTop = 0.2;
 
-  if (theme === 'warrens' || theme === 'fungal' || theme === 'hold' || theme === 'ice' || theme === 'foundry' || theme === 'ruin') {
+  if (theme === 'warrens' || theme === 'lair' || theme === 'fungal' || theme === 'hold' || theme === 'ice' || theme === 'foundry' || theme === 'ruin') {
     for (let i = 0; i < 9; i++) {
       const a = (i / 9) * Math.PI * 2;
       lit.ico(0.16, 0, i % 2 ? stoneC : stoneD, { x: Math.cos(a) * 0.5, z: Math.sin(a) * 0.5, y: 0.09, sy: 0.7, ry: i });
@@ -56,7 +56,7 @@ export function buildRestSite(theme: ThemeId): Figure {
     emberAt(-0.12, 0.09, -0.08, 0.06);
     emberAt(0.0, 0.1, 0.18, 0.05);
     flameTop = 0.5;
-  } else if (theme === 'crypt' || theme === 'sewers' || theme === 'library') {
+  } else if (theme === 'crypt' || theme === 'sewers' || theme === 'library' || theme === 'hell') {
     lit.box(1.3, 0.2, 0.8, stoneD, { y: 0.1 });
     lit.box(1.15, 0.5, 0.65, stoneC, { y: 0.45 });
     lit.box(1.3, 0.1, 0.8, stoneC, { y: 0.74, shade: 1.1 });
@@ -177,7 +177,7 @@ export function buildRestSite(theme: ThemeId): Figure {
     root,
     parts: {},
     materials: [bodyMat],
-    height: theme === 'warrens' || theme === 'fungal' || theme === 'hold' || theme === 'ice' || theme === 'foundry' || theme === 'ruin' ? 0.9 : 1.6,
+    height: theme === 'warrens' || theme === 'lair' || theme === 'fungal' || theme === 'hold' || theme === 'ice' || theme === 'foundry' || theme === 'ruin' ? 0.9 : 1.6,
     kind: 'rest',
     tick,
     dispose() {

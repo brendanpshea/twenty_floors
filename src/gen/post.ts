@@ -488,6 +488,8 @@ const LIGHT_DEFS: Record<string, { color: number; intensity: [number, number]; r
   candelabra: { color: 0xa8b8ff, intensity: [1, 1.3], radius: [5, 6] },
   forge: { color: 0xff7a2a, intensity: [1.3, 1.6], radius: [6, 7] },
   crucible: { color: 0xffa030, intensity: [1, 1.3], radius: [5, 6] },
+  sigil: { color: 0xff3a2a, intensity: [1, 1.3], radius: [5, 6] },
+  gold_pile: { color: 0xffc850, intensity: [0.6, 0.8], radius: [3.5, 4.5] },
   crystal: { color: 0x55d8ff, intensity: [1, 1.4], radius: [5, 6.5] },
 };
 

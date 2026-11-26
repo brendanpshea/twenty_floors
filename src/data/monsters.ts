@@ -5,7 +5,9 @@ import type { MonsterDef } from '../core/types';
  * printed stat blocks. Features the schema cannot express (senses, skills,
  * grapples, ability drain, some reactions) are left out.
  */
+import { HELL_MONSTERS } from './monsters/hell';
 import { ICE_MONSTERS } from './monsters/ice';
+import { LAIR_MONSTERS } from './monsters/lair';
 import { RUIN_MONSTERS } from './monsters/ruin';
 import { TOUGH_CRYPT } from './monsters/toughCrypt';
 import { TOUGH_DEPTHS } from './monsters/toughDepths';
@@ -2775,7 +2777,7 @@ export const MONSTERS: MonsterDef[] = [
       },
     ],
     visual: { model: 'wolf', tint: 0xff8a1a, scale: 1.3 },
-    themes: ['foundry'],
+    themes: ['foundry', 'hell'],
     role: 'elite',
     description: 'A fiendish hound with a coat like cooling iron and a hunting howl that rattles the forge chains.',
   },
@@ -2838,7 +2840,7 @@ export const MONSTERS: MonsterDef[] = [
       },
     ],
     visual: { model: 'goblin_warrior', tint: 0xff5030, scale: 1.3 },
-    themes: ['foundry'],
+    themes: ['foundry', 'lair'],
     role: 'elite',
     description: 'A half-grown crimson dragon that has made a warm slag ledge its nursery and treats every visitor as a meal.',
   },
@@ -3371,4 +3373,6 @@ export const MONSTERS: MonsterDef[] = [
   ...TOUGH_SEWERS_HOLD,
   ...ICE_MONSTERS,
   ...RUIN_MONSTERS,
+  ...HELL_MONSTERS,
+  ...LAIR_MONSTERS,
 ];

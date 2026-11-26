@@ -261,7 +261,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
       },
     ],
     visual: { model: 'goblin_warrior', tint: 0x90c850, scale: 1.55 },
-    themes: ['ruin'],
+    themes: ['ruin', 'lair'],
     role: 'elite',
     description: 'A two-legged, bat-winged cousin of true dragons that perches on crumbling arches and strikes with a venomous tail.',
   },

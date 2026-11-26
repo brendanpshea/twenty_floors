@@ -14,7 +14,7 @@ const TRAIT_IDS: TraitId[] = [
   'keenSenses',
 ];
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin'];
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin', 'hell', 'lair'];
 
 const MONSTER_IDS = [
   'giant_rat',
@@ -142,6 +142,28 @@ const MONSTER_IDS = [
   'cloud_giant',
   'storm_giant',
   'adult_green_dragon',
+  'imp',
+  'bearded_devil',
+  'barbed_devil',
+  'vrock',
+  'chain_devil',
+  'hezrou',
+  'bone_devil',
+  'glabrezu',
+  'horned_devil',
+  'nalfeshnee',
+  'erinyes',
+  'marilith',
+  'balor',
+  'kobold_warrior',
+  'half_dragon',
+  'young_black_dragon',
+  'young_blue_dragon',
+  'young_red_dragon',
+  'adult_black_dragon',
+  'adult_blue_dragon',
+  'adult_red_dragon',
+  'ancient_red_dragon',
 ];
 
 const ORIGINAL_ITEM_IDS = [
@@ -253,6 +275,7 @@ const VARIANT_RARITY = {
 const XP_BY_CR: Record<number, number> = {
   0.125: 25, 0.25: 50, 0.5: 100, 1: 200, 2: 450, 3: 700, 4: 1100, 5: 1800, 6: 2300, 7: 2900,
   8: 3900, 9: 5000, 10: 5900, 11: 7200, 12: 8400, 13: 10000, 14: 11500, 15: 13000,
+  16: 15000, 17: 18000, 18: 20000, 19: 22000, 20: 25000, 21: 33000, 22: 41000, 23: 50000, 24: 62000,
 };
 /** Where the SRD 5.2.1 stat block prints a different figure from the table, the stat block wins. */
 const XP_AS_PRINTED: Record<string, number> = { archmage: 8000 };
@@ -340,8 +363,8 @@ describe('monster data', () => {
   it('matches the CR to XP table and the SRD proficiency bonus', () => {
     for (const m of MONSTERS) {
       expect(m.xp, `${m.id} xp`).toBe(XP_AS_PRINTED[m.id] ?? XP_BY_CR[m.cr]);
-      // SRD proficiency bonus: +2 up to CR 4, +3 for CR 5 to 8, +4 for CR 9 to 12, +5 for CR 13 to 16.
-      expect(m.proficiencyBonus, `${m.id} proficiencyBonus`).toBe(m.cr >= 13 ? 5 : m.cr >= 9 ? 4 : m.cr >= 5 ? 3 : 2);
+      // SRD proficiency bonus: +2 up to CR 4, then one more for every four CR (+3 at 5, +4 at 9 ... +7 at 21).
+      expect(m.proficiencyBonus, `${m.id} proficiencyBonus`).toBe(m.cr < 5 ? 2 : 2 + Math.floor((m.cr - 1) / 4));
     }
   });
 
