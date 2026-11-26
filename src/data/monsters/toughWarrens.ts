@@ -390,7 +390,7 @@ export const TOUGH_WARRENS: MonsterDef[] = [
       },
     ],
     visual: { model: 'ogre', tint: 0xd8e070, scale: 1.8 },
-    themes: ['warrens', 'peaks', 'hold'],
+    themes: ['warrens', 'peaks'],
     role: 'boss',
     description: 'A towering warren overlord who rules the goblins by sheer size and throws whatever is closest.',
   },

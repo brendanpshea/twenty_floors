@@ -607,7 +607,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
       },
     ],
     visual: { model: 'hero_barbarian', tint: 0xa87848, scale: 1.5 },
-    themes: ['forest', 'ice'],
+    themes: ['forest'],
     role: 'boss',
     description: 'A broad-shouldered guardian of the deep woods who fights on two legs with the strength of a bear.',
   },

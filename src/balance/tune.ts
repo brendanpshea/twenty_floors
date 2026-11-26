@@ -32,7 +32,7 @@ export const TUNE = {
 /**
  * The boss for a theme at a depth: the strongest of the theme's bosses the party can face
  * (challenge rating at most the depth; one less on floor 4 and before), taking turns with the
- * runner-up on odd floors when that one is strong enough, so two floors of one theme differ.
+ * runner-up on even floors when that one is strong enough, so two floors of one theme differ.
  */
 export function bossFor(theme: ThemeId, depth: number): MonsterDef | undefined {
   const bosses = MONSTERS.filter((m) => m.role === 'boss' && m.themes.includes(theme)).sort((a, b) => b.cr - a.cr || a.id.localeCompare(b.id));
@@ -41,7 +41,7 @@ export function bossFor(theme: ThemeId, depth: number): MonsterDef | undefined {
   const able = bosses.filter((m) => m.cr <= cap);
   if (able.length === 0) return bosses[bosses.length - 1];
   const second = able[1];
-  return second && second.cr >= depth * 0.6 && depth % 2 === 1 ? second : able[0];
+  return second && second.cr >= depth * 0.6 && depth % 2 === 0 ? second : able[0];
 }
 
 export function isFixedTunedPair(theme: ThemeId, depth: number): boolean {
