@@ -16,7 +16,9 @@ import type {
   ReachableCell,
   TurnState,
 } from '../core/types';
+import { MONSTERS } from '../data/monsters';
 import {
+  INCAPACITATING,
   attackModeFromConditions,
   autoFailsSave,
   d20Probability,
@@ -32,6 +34,7 @@ import {
 } from './conditions';
 import { averageDice, rollDice } from './dice';
 import { abilityMod, areHostile, chebyshev, hasFlag, isAlive, isFriendlySide } from './util';
+import { chromaticOrbType, fxVal, isSpellAction } from './spells';
 
 /**
  * HOUSE RULE: a ranged attacker standing at least `minSteps` elevation steps
@@ -160,6 +163,29 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
   /** Weapon Mastery Sap: sapped creature id -> attacker; its next attack roll has disadvantage until that attacker's next turn. */
   const sapped = new Map<string, { by: string }>();
   const vexed = new Map<string, { targetId: string; turnEnds: number }>();
+  /** Spell state (all per fight; nothing here outlives the combat). */
+  /** Shocking Grasp: creature that cannot make opportunity attacks until the start of its next turn. */
+  const noOpportunity = new Set<string>();
+  /** Chill Touch: creature that cannot regain hit points -> the caster whose next turn start frees it. */
+  const noHealing = new Map<string, string>();
+  /** Guiding Bolt: the next attack roll against this creature has advantage. */
+  const guided = new Map<string, { by: string; turnEnds: number }>();
+  /** Bless (+1d4) and Bane (-1d4) on attack rolls and saving throws. */
+  const rollMods = new Map<string, { bless: boolean; bane: boolean }>();
+  /** Concentration: caster id -> what to undo when it ends. The visible state is the hidden `_concentration` pool. */
+  const conc = new Map<string, { name: string; onEnd: () => void }>();
+  const lastDamageType = new Map<string, DamageType>();
+  /** Resistance cantrip on a creature: the type it reduces and the turn it last did so. */
+  const resistSpell = new Map<string, { type: DamageType; lastKey: string }>();
+  const shielded = new Set<string>();
+  const commanded = new Set<string>();
+  /** Sleep: creature id -> caster, DC and stage (1 incapacitated, 2 unconscious). */
+  const sleepers = new Map<string, { by: string; dc: number; stage: 1 | 2 }>();
+  const savageUsed = new Map<string, string>();
+  /** Two-weapon fighting: creatures that made a main-hand Light attack this turn / their off-hand attack. */
+  const lightMain = new Set<string>();
+  const offhandDone = new Set<string>();
+  const turnKey = (): string => `${round}:${turn.creatureId}`;
   const speedOf = (c: Creature): number => Math.max(0, effectiveSpeed(c) - (slowed.get(c.id)?.cells ?? 0));
   let events: GameEvent[] = [];
 
@@ -213,7 +239,29 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     if (packTacticsActive(att, tgt)) adv = true;
     if (vexed.get(att.id)?.targetId === tgt.id) adv = true;
     if (sapped.has(att.id)) dis = true;
-    return { bonus, mode: mergeMode(adv, dis), critMin: hasFlag(att, 'crit19') ? 19 : 20 };
+    if (guided.has(tgt.id)) adv = true;
+    // SRD Heavy property: disadvantage when the hero lacks the Strength (melee) or Dexterity (ranged) for the weapon.
+    if (a.effects?.includes('heavyDisadvantage')) dis = true;
+    // Improved Critical covers weapon attacks, not spell attacks.
+    const spellOnly = isSpellAction(a) && !a.effects?.includes('weaponAttack');
+    return { bonus, mode: mergeMode(adv, dis), critMin: hasFlag(att, 'crit19') && !spellOnly ? 19 : 20 };
+  }
+
+  /** Equiprobable outcomes of the Bless/Bane dice on a creature's d20 tests ([0] without either). */
+  function modOutcomes(c: Creature): number[] {
+    const m = rollMods.get(c.id);
+    let outs = [0];
+    if (m?.bless) outs = outs.flatMap((o) => [1, 2, 3, 4].map((k) => o + k));
+    if (m?.bane) outs = outs.flatMap((o) => [1, 2, 3, 4].map((k) => o - k));
+    return outs;
+  }
+
+  function rollMod(c: Creature): number {
+    const m = rollMods.get(c.id);
+    let t = 0;
+    if (m?.bless) t += rng.die(4);
+    if (m?.bane) t -= rng.die(4);
+    return t;
   }
 
   const canInspire = (c: Creature): boolean => (c.resources['inspiration']?.current ?? 0) > 0;
@@ -226,15 +274,17 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
 
   function rollAttack(att: Creature, tgt: Creature, a: ActionDef, reaction: boolean, name: string): AttackOutcome {
     const s = attackSetup(att, tgt, a);
+    const bonus = s.bonus + rollMod(att);
     let r = rollD20(s.mode);
-    let outcome = classify(r.d20, s.bonus, tgt.ac, s.critMin);
+    let outcome = classify(r.d20, bonus, tgt.ac, s.critMin);
     if (vexed.get(att.id)?.targetId === tgt.id) vexed.delete(att.id);
+    guided.delete(tgt.id);
     sapped.delete(att.id);
     if ((outcome === 'miss' || outcome === 'fumble') && canInspire(att)) {
       (att.resources['inspiration'] as { current: number }).current -= 1;
       log(`${att.name} spends Heroic Inspiration to reroll (was ${r.d20}).`);
       r = rollD20(s.mode);
-      outcome = classify(r.d20, s.bonus, tgt.ac, s.critMin);
+      outcome = classify(r.d20, bonus, tgt.ac, s.critMin);
     }
     if (
       outcome === 'hit' &&
@@ -242,6 +292,11 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       (hasCondition(tgt, 'paralyzed') || hasCondition(tgt, 'unconscious'))
     ) {
       outcome = 'crit';
+    }
+    // HOUSE RULE: Shield is cast automatically as a reaction when its +5 AC would turn a hit into a miss.
+    if (outcome === 'hit' && shieldReady(tgt) && r.d20 + bonus < tgt.ac + 5) {
+      castShield(tgt);
+      outcome = classify(r.d20, bonus, tgt.ac, s.critMin);
     }
     emit({
       type: 'attackRoll',
@@ -251,8 +306,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       d20: r.d20,
       dice: r.dice,
       mode: s.mode,
-      bonus: s.bonus,
-      total: r.d20 + s.bonus,
+      bonus,
+      total: r.d20 + bonus,
       targetAc: tgt.ac,
       outcome,
       reaction,
@@ -265,7 +320,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
   }
 
   function rollSave(c: Creature, ability: Ability, dc: number, applies?: Condition): boolean {
-    const bonus = saveBonus(c, ability);
+    const bonus = saveBonus(c, ability) + (autoFailsSave(c, ability) ? 0 : rollMod(c));
     if (autoFailsSave(c, ability)) {
       emit({ type: 'saveRoll', creatureId: c.id, ability, d20: 0, bonus, total: 0, dc, success: false });
       return false;
@@ -282,6 +337,14 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
   function dealDamage(target: Creature, raw: number, type: DamageType, sourceId: string | undefined, crit: boolean): void {
     if (!isAlive(target)) return;
     let amount = raw;
+    // Resistance cantrip: once per turn, reduce damage of the chosen type by 1d4.
+    const rs = resistSpell.get(target.id);
+    if (rs && rs.type === type && amount > 0 && rs.lastKey !== turnKey()) {
+      const cut = rollDice(rng, '1d4').total;
+      rs.lastKey = turnKey();
+      amount = Math.max(0, amount - cut);
+      log(`${target.name}'s Resistance absorbs ${Math.min(cut, raw)} ${type} damage.`);
+    }
     let modifier: 'none' | 'resisted' | 'vulnerable' | 'immune' = 'none';
     if (target.immunities.includes(type)) {
       amount = 0;
@@ -324,14 +387,28 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     if (sourceId !== undefined) e.sourceId = sourceId;
     emit(e);
     if (lastStand) log(`Last Stand! ${target.name} clings on at 1 HP.`);
+    if (amount > 0) lastDamageType.set(target.id, type);
     if (target.hp === 0 && !survived) {
       target.dead = true;
       emit({ type: 'death', creatureId: target.id });
+      endConcentration(target, 'dead');
+      return;
+    }
+    if (amount > 0) {
+      wakeSleeper(target);
+      // Concentration: a Constitution save, DC 10 or half the damage taken, whichever is higher.
+      if (conc.has(target.id) && !rollSave(target, 'con', Math.max(10, Math.floor(amount / 2)))) {
+        endConcentration(target, 'failed the save');
+      }
     }
   }
 
   function heal(target: Creature, dice: string): void {
     if (!isAlive(target)) return;
+    if (noHealing.has(target.id)) {
+      log(`${target.name} cannot regain hit points (Chill Touch).`);
+      return;
+    }
     const amount = Math.min(rollDice(rng, dice).total, target.maxHp - target.hp);
     target.hp += amount;
     emit({ type: 'heal', targetId: target.id, amount, hpAfter: target.hp });
@@ -345,6 +422,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     target.conditions = target.conditions.filter((x) => x.condition !== a.condition);
     target.conditions.push(makeCondition(a.condition, rounds, source.id, a.saveEnds));
     emit({ type: 'conditionAdded', creatureId: target.id, condition: a.condition });
+    if (INCAPACITATING.includes(a.condition)) endConcentration(target, 'incapacitated');
   }
 
   function removeCondition(target: Creature, cond: ActiveCondition): void {
@@ -352,14 +430,216 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     if (i < 0) return;
     target.conditions.splice(i, 1);
     emit({ type: 'conditionRemoved', creatureId: target.id, condition: cond.condition });
+    const sl = sleepers.get(target.id);
+    if (sl && cond.sourceId === sl.by && (cond.condition === 'incapacitated' || cond.condition === 'unconscious')) sleepers.delete(target.id);
   }
 
-  function rollParts(a: ActionDef, crit: boolean): { type: DamageType; amount: number }[] {
+  const isWeaponAttack = (a: ActionDef): boolean =>
+    a.id.startsWith('atk_') || a.id.startsWith('throw_') || a.id.startsWith('offhand_') || a.id === 'unarmed' || a.effects?.includes('weaponAttack') === true;
+
+  function rollParts(a: ActionDef, crit: boolean, att?: Creature, typeOverride?: DamageType): { type: DamageType; amount: number }[] {
     const minDie = a.effects?.includes('greatWeaponFighting') ? 3 : undefined;
-    return (a.damage ?? []).map((p) => ({
-      type: p.type,
-      amount: rollDice(rng, p.dice, { crit, ...(minDie !== undefined ? { minDie } : {}) }).total,
-    }));
+    const roll = (dice: string): number => rollDice(rng, dice, { crit, ...(minDie !== undefined ? { minDie } : {}) }).total;
+    // Savage Attacker: once per turn, roll a weapon's damage dice twice and keep the higher roll.
+    const savage = att !== undefined && hasFlag(att, 'savageAttacker') && isWeaponAttack(a) && savageUsed.get(att.id) !== turnKey();
+    return (a.damage ?? []).map((p, i) => {
+      let amount = roll(p.dice);
+      if (savage && i === 0 && att) {
+        amount = Math.max(amount, roll(p.dice));
+        savageUsed.set(att.id, turnKey());
+      }
+      return { type: i === 0 && typeOverride ? typeOverride : p.type, amount };
+    });
+  }
+
+  // ------------------------------------------------------------- concentration
+
+  function beginConcentration(c: Creature, a: ActionDef, name: string, onEnd: () => void): void {
+    endConcentration(c, 'replaced');
+    const rounds = parseInt(fxVal(a, 'concentration') ?? '10', 10);
+    conc.set(c.id, { name, onEnd });
+    c.resources['_concentration'] = { name, current: rounds, max: 0, refresh: 'longRest' };
+    log(`${c.name} begins concentrating on ${name}.`);
+  }
+
+  function endConcentration(c: Creature, why?: string): void {
+    const l = conc.get(c.id);
+    if (!l) return;
+    conc.delete(c.id);
+    delete c.resources['_concentration'];
+    l.onEnd();
+    log(`${c.name}'s concentration on ${l.name} ends${why ? ` (${why})` : ''}.`);
+  }
+
+  // -------------------------------------------------------------------- spells
+
+  function shieldReady(t: Creature): boolean {
+    const a = t.actions.find((x) => x.effects?.includes('shield'));
+    if (!a?.uses || !isAlive(t) || isIncapacitated(t) || reactionUsed.has(t.id) || shielded.has(t.id)) return false;
+    return (t.resources[a.uses.resource]?.current ?? 0) >= a.uses.amount;
+  }
+
+  function castShield(t: Creature): void {
+    const a = t.actions.find((x) => x.effects?.includes('shield')) as ActionDef;
+    const uses = a.uses as NonNullable<ActionDef['uses']>;
+    (t.resources[uses.resource] as { current: number }).current -= uses.amount;
+    reactionUsed.add(t.id);
+    shielded.add(t.id);
+    t.ac += 5;
+    log(`${t.name} casts Shield! (+5 AC until the start of their next turn)`);
+  }
+
+  function wakeSleeper(t: Creature): void {
+    const sl = sleepers.get(t.id);
+    if (!sl) return;
+    for (const cond of t.conditions.filter((x) => x.sourceId === sl.by && (x.condition === 'incapacitated' || x.condition === 'unconscious'))) removeCondition(t, cond);
+    sleepers.delete(t.id);
+    log(`${t.name} wakes up.`);
+  }
+
+  function nearestHostiles(att: Creature, a: ActionDef, except: Creature[], max: number): Creature[] {
+    return targetsFor(att, a)
+      .map((id) => byId.get(id) as Creature)
+      .filter((o) => !except.includes(o))
+      .sort((x, y) => chebyshev(att.pos, x.pos) - chebyshev(att.pos, y.pos))
+      .slice(0, max);
+  }
+
+  function castMagicMissile(att: Creature, a: ActionDef, tgt: Creature): void {
+    const dice = a.damage?.[0] ?? { dice: '1d4+1', type: 'force' as DamageType };
+    let target = tgt;
+    for (let dart = 0; dart < 3; dart++) {
+      if (!isAlive(target)) {
+        // All remaining darts go to the nearest other enemy in range.
+        const next = nearestHostiles(att, a, [], 1)[0];
+        if (!next) return;
+        target = next;
+      }
+      dealDamage(target, rollDice(rng, dice.dice).total, dice.type, att.id, false);
+    }
+  }
+
+  function castBane(att: Creature, a: ActionDef, tgt: Creature): void {
+    const save = a.save as NonNullable<ActionDef['save']>;
+    const targets = [tgt, ...nearestHostiles(att, a, [tgt], 2)];
+    const hit: Creature[] = [];
+    beginConcentration(att, a, a.name, () => {
+      for (const t of hit) {
+        const m = rollMods.get(t.id);
+        if (m) m.bane = false;
+      }
+    });
+    for (const t of targets) {
+      if (rollSave(t, save.ability, save.dc)) continue;
+      const m = rollMods.get(t.id) ?? { bless: false, bane: false };
+      m.bane = true;
+      rollMods.set(t.id, m);
+      hit.push(t);
+      log(`${t.name} is baned: -1d4 on attack rolls and saving throws.`);
+    }
+  }
+
+  function castCommand(att: Creature, a: ActionDef, tgt: Creature): void {
+    const save = a.save as NonNullable<ActionDef['save']>;
+    if (rollSave(tgt, save.ability, save.dc)) return;
+    commanded.add(tgt.id);
+    log(`${tgt.name} is commanded: Grovel!`);
+  }
+
+  function castSleep(att: Creature, a: ActionDef, targets: Creature[]): void {
+    const save = a.save as NonNullable<ActionDef['save']>;
+    const slept: Creature[] = [];
+    beginConcentration(att, a, a.name, () => {
+      for (const t of slept) if (sleepers.get(t.id)?.by === att.id) wakeSleeper(t);
+    });
+    for (const t of targets) {
+      const type = MONSTERS.find((m) => m.id === t.defId)?.type;
+      // Creatures that cannot be put to sleep (undead and constructs are immune to Exhaustion) pass automatically.
+      if (type === 'undead' || type === 'construct' || t.conditionImmunities.includes('unconscious')) continue;
+      if (rollSave(t, save.ability, save.dc)) continue;
+      addCondition(t, { condition: 'incapacitated' }, att);
+      sleepers.set(t.id, { by: att.id, dc: save.dc, stage: 1 });
+      slept.push(t);
+    }
+  }
+
+  /** Buff and utility spells on one creature (the caster or a friend). Returns true if the action was one. */
+  function applyBuffSpell(att: Creature, a: ActionDef, tgt: Creature): boolean {
+    const fx = a.effects ?? [];
+    if (fx.includes('bless')) {
+      beginConcentration(att, a, a.name, () => {
+        const m = rollMods.get(tgt.id);
+        if (m) m.bless = false;
+      });
+      const m = rollMods.get(tgt.id) ?? { bless: false, bane: false };
+      m.bless = true;
+      rollMods.set(tgt.id, m);
+      return true;
+    }
+    if (fx.includes('shieldOfFaith')) {
+      beginConcentration(att, a, a.name, () => {
+        tgt.ac -= 2;
+      });
+      tgt.ac += 2;
+      return true;
+    }
+    if (fx.includes('resistanceCantrip')) {
+      const type = pickResistanceType(tgt);
+      beginConcentration(att, a, a.name, () => {
+        resistSpell.delete(tgt.id);
+      });
+      resistSpell.set(tgt.id, { type, lastKey: '' });
+      log(`${tgt.name} is warded against ${type} damage.`);
+      return true;
+    }
+    if (fx.includes('falseLife')) {
+      const t = rollDice(rng, fxVal(a, 'tempHp') ?? '2d4+4').total;
+      tgt.tempHp = Math.max(tgt.tempHp, t);
+      log(`${tgt.name} gains ${tgt.tempHp} temporary hit points.`);
+      return true;
+    }
+    if (fx.includes('mageArmor')) {
+      tgt.ac = Math.max(tgt.ac, parseInt(fxVal(a, 'armorAc') ?? '0', 10));
+      tgt.resources['_mageArmor'] = { name: 'Mage Armor', current: 1, max: 0, refresh: 'longRest' };
+      log(`${tgt.name} is shrouded in Mage Armor.`);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Resistance picks its damage type automatically: the type of the last damage
+   * the target took this fight, else the type its enemies deal the most of,
+   * else slashing.
+   */
+  function pickResistanceType(tgt: Creature): DamageType {
+    const last = lastDamageType.get(tgt.id);
+    if (last) return last;
+    const totals = new Map<DamageType, number>();
+    for (const o of all) {
+      if (!isAlive(o) || !areHostile(tgt, o)) continue;
+      for (const act of o.actions) for (const p of act.damage ?? []) totals.set(p.type, (totals.get(p.type) ?? 0) + averageDice(p.dice));
+    }
+    let best: DamageType = 'slashing';
+    let bestV = 0;
+    for (const [t, v] of totals) {
+      if (v > bestV) {
+        best = t;
+        bestV = v;
+      }
+    }
+    return best;
+  }
+
+  function iceKnifeBurst(att: Creature, a: ActionDef, tgt: Creature): void {
+    const dc = parseInt(fxVal(a, 'burstDc') ?? '10', 10);
+    const dice = fxVal(a, 'burstDice') ?? '2d6';
+    const cells = computeAreaCells(nav, att.pos, tgt.pos, 1, { shape: 'sphere', size: 1 });
+    const hit = all.filter((o) => isAlive(o) && cells.some((p) => p.x === o.pos.x && p.y === o.pos.y));
+    const dmg = rollDice(rng, dice).total;
+    for (const t of hit) {
+      if (!rollSave(t, 'dex', dc)) dealDamage(t, dmg, 'cold', att.id, false);
+    }
   }
 
   // ------------------------------------------------------- action resolution
@@ -386,6 +666,11 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
   }
 
   function resolveOn(att: Creature, a: ActionDef, tgt: Creature, reaction = false, name: string = a.name): void {
+    const fx = a.effects ?? [];
+    if (fx.includes('magicMissile')) return castMagicMissile(att, a, tgt);
+    if (fx.includes('bane')) return castBane(att, a, tgt);
+    if (fx.includes('command')) return castCommand(att, a, tgt);
+    if (applyBuffSpell(att, a, tgt)) return;
     if (a.attack) {
       const outcome = rollAttack(att, tgt, a, reaction, name);
       if (outcome === 'miss' || outcome === 'fumble') {
@@ -396,11 +681,14 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
           const mod = parseInt(graze.slice('mastery:graze:'.length), 10);
           if (mod > 0) dealDamage(tgt, mod, first.type, att.id, false);
         }
+        if (fx.includes('iceKnifeBurst')) iceKnifeBurst(att, a, tgt);
         return;
       }
       const crit = outcome === 'crit';
       let dealt = 0;
-      for (const part of rollParts(a, crit)) {
+      const orb = fx.includes('chromaticOrbChoice') ? chromaticOrbType(tgt) : undefined;
+      if (orb) log(`${att.name} shapes a ${orb} orb.`);
+      for (const part of rollParts(a, crit, att, orb)) {
         dealDamage(tgt, part.amount, part.type, att.id, crit);
         dealt += part.amount;
       }
@@ -416,12 +704,16 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
         if (!rollSave(tgt, 'con', dc, 'prone')) addCondition(tgt, { condition: 'prone' }, att);
       }
       if (isAlive(tgt) && a.effects?.includes('mastery:push')) pushTarget(att, tgt);
-      // Weapon Mastery: Slow reduces the target's speed by 10 ft until the start of the attacker's next turn.
-      if (dealt > 0 && isAlive(tgt) && a.effects?.includes('mastery:slow')) {
+      // Weapon Mastery: Slow (and Ray of Frost) reduce the target's speed by 10 ft until the start of the attacker's next turn.
+      if (dealt > 0 && isAlive(tgt) && (fx.includes('mastery:slow') || fx.includes('rayOfFrostSlow'))) {
         slowed.set(tgt.id, { by: att.id, cells: Math.max(slowed.get(tgt.id)?.cells ?? 0, SLOW_CELLS) });
         log(`${tgt.name} is slowed.`);
       }
+      if (isAlive(tgt) && fx.includes('shockingGraspNoReaction')) noOpportunity.add(tgt.id);
+      if (isAlive(tgt) && fx.includes('chillTouchNoHealing')) noHealing.set(tgt.id, att.id);
+      if (isAlive(tgt) && fx.includes('guidingBoltAdvantage')) guided.set(tgt.id, { by: att.id, turnEnds: att.id === turn.creatureId ? 2 : 1 });
       if (a.heal) heal(tgt, a.heal);
+      if (fx.includes('iceKnifeBurst')) iceKnifeBurst(att, a, tgt);
       if (!isAlive(tgt)) return;
       if (a.save) {
         if (!rollSave(tgt, a.save.ability, a.save.dc, a.applies?.condition) && a.applies) addCondition(tgt, a.applies, att);
@@ -446,9 +738,14 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
 
   function resolveArea(att: Creature, a: ActionDef, cells: GridPos[]): void {
     const centeredOnSelf = a.targeting.kind === 'point' && a.targeting.range === 0;
-    const targets = all.filter(
+    const fx = a.effects ?? [];
+    const push = fx.includes('thunderwavePush');
+    let targets = all.filter(
       (o) => isAlive(o) && !(centeredOnSelf && o === att) && cells.some((p) => p.x === o.pos.x && p.y === o.pos.y),
     );
+    if (fx.includes('sleep')) return castSleep(att, a, targets);
+    // Farthest first, so a push is not blocked by the creature behind it.
+    if (push) targets = targets.sort((x, y) => chebyshev(att.pos, y.pos) - chebyshev(att.pos, x.pos));
     const parts = rollParts(a, false);
     for (const t of targets) {
       const ok = a.save ? rollSave(t, a.save.ability, a.save.dc, a.applies?.condition) : false;
@@ -457,6 +754,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
         else if (a.save?.halfOnSave) dealDamage(t, Math.floor(part.amount / 2), part.type, att.id, false);
       }
       if (!ok && isAlive(t) && a.applies) addCondition(t, a.applies, att);
+      if (!ok && push && isAlive(t)) pushTarget(att, t);
     }
   }
 
@@ -489,7 +787,11 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
 
   function pointLegal(att: Creature, a: ActionDef, point: GridPos | undefined): boolean {
     if (a.targeting.kind !== 'point') return false;
-    if (a.targeting.range === 0) return true;
+    if (a.targeting.range === 0) {
+      // A cone or line from the caster needs a direction: any other cell.
+      if (a.targeting.area.shape === 'sphere') return true;
+      return !!point && nav.inBounds(point) && !(point.x === att.pos.x && point.y === att.pos.y);
+    }
     if (!point || !nav.inBounds(point)) return false;
     const d = chebyshev(att.pos, point);
     return d <= a.targeting.range && (d <= 1 || nav.hasLineOfSight(att.pos, point));
@@ -507,13 +809,26 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     if (a.uses) {
       const pool = c.resources[a.uses.resource];
       if (!pool) return { ok: false, reason: 'No uses available' };
-      if (pool.current < a.uses.amount) return { ok: false, reason: `No ${pool.name} left` };
+      if (pool.current < a.uses.amount) {
+        return { ok: false, reason: a.uses.resource.startsWith('spell:') ? 'Already cast — recovers on a long rest' : `No ${pool.name} left` };
+      }
     }
     if (a.recharge !== undefined && spentRecharge.get(c.id)?.has(a.id)) return { ok: false, reason: 'Recharging' };
     if (cost === 'action' && turn.actionUsed) return { ok: false, reason: 'No action left' };
     if (cost === 'bonus' && turn.bonusUsed) return { ok: false, reason: 'No bonus action left' };
     if (a.effects?.includes('actionSurge') && !turn.actionUsed) return { ok: false, reason: 'Use your action first' };
     if (a.multiattack && a.multiattack.every((sid) => !findAction(c, sid))) return { ok: false, reason: 'Nothing to attack with' };
+    if (a.effects?.includes('offhand')) {
+      if (!lightMain.has(c.id)) return { ok: false, reason: 'Attack with your main hand first' };
+      if (offhandDone.has(c.id)) return { ok: false, reason: 'Off-hand attack already made this turn' };
+    }
+    if (isSpellAction(a) && a.targeting.kind === 'creature' && targetsFor(c, a).length === 0) {
+      const t = a.targeting;
+      const sideOk = (o: Creature): boolean => (t.friendly ? isFriendlySide(o) === isFriendlySide(c) : areHostile(c, o));
+      const max = t.melee ? t.range : (t.longRange ?? t.range);
+      const blocked = all.some((o) => isAlive(o) && sideOk(o) && chebyshev(c.pos, o.pos) <= max);
+      return { ok: false, reason: blocked ? 'No line of sight' : 'No target in range' };
+    }
     return { ok: true };
   }
 
@@ -538,6 +853,14 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     reactionUsed.delete(c.id);
     for (const cond of c.conditions.filter((x) => x.condition === 'dodging')) removeCondition(c, cond);
     emit({ type: 'turnStart', creatureId: c.id });
+    noOpportunity.delete(c.id);
+    lightMain.delete(c.id);
+    offhandDone.delete(c.id);
+    for (const [id, by] of [...noHealing]) if (by === c.id) noHealing.delete(id);
+    if (shielded.has(c.id)) {
+      c.ac -= 5;
+      shielded.delete(c.id);
+    }
     const spent = spentRecharge.get(c.id);
     if (spent) {
       for (const aid of [...spent]) {
@@ -553,6 +876,16 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     for (const [id, sl] of [...slowed]) if (sl.by === c.id) slowed.delete(id);
     for (const [id, sl] of [...sapped]) if (sl.by === c.id) sapped.delete(id);
     turn.movementLeft = speedOf(c);
+    if (commanded.delete(c.id)) {
+      // Command (Grovel): the creature falls prone and its turn ends.
+      if (!hasCondition(c, 'prone')) {
+        c.conditions.push(makeCondition('prone', null));
+        emit({ type: 'conditionAdded', creatureId: c.id, condition: 'prone' });
+      }
+      log(`${c.name} grovels and loses the turn.`);
+      turn.movementLeft = 0;
+      return false;
+    }
     // HOUSE RULE: a prone creature stands automatically at the cost of half its speed.
     const prone = c.conditions.find((x) => x.condition === 'prone');
     if (prone && !isIncapacitated(c)) {
@@ -567,12 +900,30 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
   }
 
   function endOfTurn(c: Creature): void {
+    const cp = c.resources['_concentration'];
+    if (cp && conc.has(c.id)) {
+      cp.current -= 1;
+      if (cp.current <= 0) endConcentration(c, 'duration over');
+    }
+    for (const [id, g] of [...guided]) if (g.by === c.id && --g.turnEnds <= 0) guided.delete(id);
     const vx = vexed.get(c.id);
     if (vx && --vx.turnEnds <= 0) vexed.delete(c.id);
     for (const cond of c.conditions.filter((x) => x.condition === 'disengaged')) removeCondition(c, cond);
     for (const cond of [...c.conditions]) {
       if (!cond.saveEnds || !isAlive(c)) continue;
       if (rollSave(c, cond.saveEnds.ability, cond.saveEnds.dc, cond.condition)) removeCondition(c, cond);
+    }
+    // Sleep stage 1 ends with the target's next turn; a second failed save puts it to sleep (the HOUSE RULE repeat save then applies each turn).
+    const sl = sleepers.get(c.id);
+    if (sl && sl.stage === 1 && isAlive(c)) {
+      const inc = c.conditions.find((x) => x.condition === 'incapacitated' && x.sourceId === sl.by);
+      if (inc) removeCondition(c, inc);
+      if (!rollSave(c, 'wis', sl.dc)) {
+        // HOUSE RULE (solo balance): turn-denying effects allow repeated saves, so the sleeper saves again at the end of each of its turns.
+        c.conditions.push(makeCondition('unconscious', null, sl.by, { ability: 'wis', dc: sl.dc }));
+        emit({ type: 'conditionAdded', creatureId: c.id, condition: 'unconscious' });
+        sleepers.set(c.id, { by: sl.by, dc: sl.dc, stage: 2 });
+      }
     }
     // Durations tick at the end of the SOURCE's turn (or the holder's own turn if the source is gone).
     for (const holder of all) {
@@ -641,7 +992,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     let best: ActionDef | undefined;
     let bestAvg = -1;
     for (const a of h.actions) {
-      if (!a.attack || a.targeting.kind !== 'creature' || !a.targeting.melee || a.cost === 'reaction') continue;
+      if (!a.attack || a.targeting.kind !== 'creature' || !a.targeting.melee || a.cost === 'reaction' || isSpellAction(a) || a.effects?.includes('offhand')) continue;
       const avg = (a.damage ?? []).reduce((s, p) => s + averageDice(p.dice), 0);
       if (avg > bestAvg) {
         best = a;
@@ -661,7 +1012,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       if (!hasCondition(c, 'disengaged')) {
         for (const h of all) {
           if (!isAlive(c)) break;
-          if (!isAlive(h) || !areHostile(c, h) || reactionUsed.has(h.id) || isIncapacitated(h)) continue;
+          if (!isAlive(h) || !areHostile(c, h) || reactionUsed.has(h.id) || isIncapacitated(h) || noOpportunity.has(h.id)) continue;
           const oa = opportunityAction(h);
           if (!oa || oa.targeting.kind !== 'creature') continue;
           const reach = oa.targeting.range;
@@ -702,6 +1053,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       set.add(a.id);
     }
     const fx = a.effects ?? [];
+    if (fx.includes('lightAttack')) lightMain.add(c.id);
+    if (fx.includes('offhand')) offhandDone.add(c.id);
     if (fx.includes('dash')) turn.movementLeft += speedOf(c);
     if (fx.includes('aggressive')) {
       turn.movementLeft += speedOf(c);
@@ -724,12 +1077,13 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     }
     const t = a.multiattack ? ({ kind: 'creature', melee: true, range: 1 } as const) : a.targeting;
     if (t.kind === 'self') {
+      if (applyBuffSpell(c, a, c)) return;
       if (a.heal) heal(c, a.heal);
       if (a.applies) addCondition(c, a.applies, c);
       return;
     }
     if (t.kind === 'point') {
-      const origin = t.range === 0 ? c.pos : (point as GridPos);
+      const origin = t.range === 0 && t.area.shape === 'sphere' ? c.pos : (point ?? c.pos);
       resolveArea(c, a, computeAreaCells(nav, c.pos, origin, t.range, t.area));
       return;
     }
@@ -759,13 +1113,15 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     }
     if (a.attack) {
       const s = attackSetup(c, tgt, a);
-      const p = d20Probability(s.mode, singleHitProbability(s.bonus, tgt.ac, s.critMin));
+      const outs = modOutcomes(c);
+      const p = outs.reduce((t, k) => t + d20Probability(s.mode, singleHitProbability(s.bonus + k, tgt.ac, s.critMin)), 0) / outs.length;
       return canInspire(c) ? p + (1 - p) * p : p;
     }
     if (a.save) {
       if (autoFailsSave(tgt, a.save.ability)) return 1;
       const mode = saveMode(tgt, a.save.ability, a.applies?.condition);
-      return 1 - d20Probability(mode, singleSaveProbability(saveBonus(tgt, a.save.ability), a.save.dc));
+      const outs = modOutcomes(tgt);
+      return 1 - outs.reduce((t, k) => t + d20Probability(mode, singleSaveProbability(saveBonus(tgt, a.save!.ability) + k, a.save!.dc)), 0) / outs.length;
     }
     return null;
   }
@@ -798,7 +1154,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       events = [];
       const rolled = all.map((c, i) => {
         const r = rollD20(hasFlag(c, 'initAdv') ? 'advantage' : 'normal');
-        return { c, i, total: r.d20 + abilityMod(c.abilities.dex) };
+        // Alert: add the proficiency bonus to initiative.
+        return { c, i, total: r.d20 + abilityMod(c.abilities.dex) + (hasFlag(c, 'alert') ? c.proficiencyBonus : 0) };
       });
       rolled.sort(
         (a, b) =>

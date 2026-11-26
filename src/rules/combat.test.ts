@@ -85,7 +85,7 @@ describe('initiative and turn order', () => {
 describe('attack rolls', () => {
   it('hits, deals damage and ends the fight on a kill', () => {
     const { combat, rng } = arena([hero(3, 3), spawn('giant_rat', 'rat', 4, 3)]);
-    rng.queue = [7, 5]; // 7+5 = 12 vs AC 12 hits; 5+3 = 8 damage kills a 7 HP rat
+    rng.queue = [7, 5, 1]; // 7+5 = 12 vs AC 12 hits; 5+3 = 8 damage kills a 7 HP rat (Savage Attacker's second damage roll, a 1, is lower)
     const ev = combat.execute({ type: 'action', actionId: 'atk_longsword', targetId: 'rat' });
     const roll = ofType(ev, 'attackRoll')[0]!;
     expect(roll).toMatchObject({ d20: 7, bonus: 5, total: 12, targetAc: 12, outcome: 'hit', mode: 'normal', reaction: false });

@@ -35,9 +35,9 @@ export const SPELLS: SpellDef[] = [
     castingTime: 'action',
     concentration: false,
     description:
-      'A melee spell attack at touch range deals 1d10 necrotic damage, and the target cannot regain hit points until the end of your next turn. The dice grow to 2d10, 3d10 and 4d10 at levels 5, 11 and 17.',
+      'A ranged spell attack out to 120 ft deals 1d10 necrotic damage, and the target cannot regain hit points until the start of your next turn. The dice grow to 2d10, 3d10 and 4d10 at levels 5, 11 and 17.',
     icon: 'spell',
-    targeting: { kind: 'creature', melee: true, range: 1 },
+    targeting: { kind: 'creature', melee: false, range: 24 },
     resolution: 'attack',
     damage: [{ dice: '1d10', type: 'necrotic' }],
     cantripScaling: ['2d10', '3d10', '4d10'],

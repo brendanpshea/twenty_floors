@@ -4,6 +4,8 @@ import type {
   AbilityScores,
   ActionDef,
   CharacterBuild,
+  BackgroundInfo,
+  BuildPreset,
   CreationOptions,
   Creature,
   ItemDef,
@@ -14,9 +16,18 @@ import type {
   ResourcePool,
 } from '../core/types';
 import { standardActions } from './actions';
-import { BACKGROUNDS } from './backgrounds';
+import { BACKGROUNDS, featFlags } from './backgrounds';
+import {
+  MI_ABILITIES,
+  casterFor,
+  knownSpells,
+  spellPools,
+  spellToAction,
+  trueStrikeBonusDice,
+  type Caster,
+} from './spells';
 import { CLASSES, classInfo, getClass, type ClassDef } from './classes';
-import { rollDice } from './dice';
+import { averageDice, rollDice } from './dice';
 import { getItem, itemCatalog, requireItem } from './items';
 import { SPECIES, getSpecies, speciesFlagPools, type SpeciesDef } from './species';
 import { ABILITIES, abilityMod, clone, flagPool, proficiencyForLevel } from './util';
@@ -40,6 +51,55 @@ export function getCreationOptions(): CreationOptions {
     standardArray: [...STANDARD_ARRAY],
     pointBuy: { ...POINT_BUY, costs: { ...POINT_BUY.costs } },
   };
+}
+
+/**
+ * Background increases following a preset's priority: +2 to the first of the background's three abilities in
+ * priority order and +1 to the second (abilities missing from the priority list rank last, in the background's order).
+ */
+export function assignIncreases(bg: BackgroundInfo, priority: Ability[]): Partial<Record<Ability, number>> {
+  const rank = (a: Ability): number => {
+    const i = priority.indexOf(a);
+    return i < 0 ? 99 : i;
+  };
+  const [first, second] = [...bg.abilityOptions].sort((x, y) => rank(x) - rank(y));
+  return { [first as Ability]: 2, [second as Ability]: 1 };
+}
+
+/** A valid CharacterBuild from a class preset and a background (default skills, Magic Initiate picks and casting ability). */
+export function buildFromPreset(
+  preset: BuildPreset,
+  backgroundId: string,
+  opts: { name?: string; speciesId?: string; classId?: string; featChoices?: Record<string, string> } = {},
+): CharacterBuild {
+  const bg = BACKGROUNDS.find((b) => b.id === backgroundId);
+  if (!bg) throw new Error(`Unknown background: ${backgroundId}`);
+  const inc = assignIncreases(bg, preset.abilityPriority);
+  const build: CharacterBuild = {
+    name: opts.name ?? 'Hero',
+    speciesId: opts.speciesId ?? 'human',
+    classId: opts.classId ?? 'fighter',
+    backgroundId,
+    baseAbilities: { ...preset.abilities },
+    abilityIncreases: inc,
+    skills: ['perception', 'survival'],
+    choices: { ...preset.choices },
+  };
+  if (bg.feat && bg.feat.choices.length > 0) {
+    const final = finalAbilities(build);
+    for (const slot of bg.feat.choices) {
+      if (slot.key === 'mi_ability') {
+        build.choices[slot.key] = MI_ABILITIES.reduce((best, a) => (final[a] > final[best] ? a : best), MI_ABILITIES[0] as Ability);
+      } else if (slot.group) {
+        const used = bg.feat.choices.filter((x) => x.group === slot.group && build.choices[x.key] !== undefined).map((x) => build.choices[x.key]);
+        build.choices[slot.key] = (slot.options.find((o) => !used.includes(o.id)) as { id: string }).id;
+      } else {
+        build.choices[slot.key] = (slot.options[0] as { id: string }).id;
+      }
+    }
+    Object.assign(build.choices, opts.featChoices ?? {});
+  }
+  return build;
 }
 
 /** Ability scores after the background's increases. */
@@ -111,8 +171,25 @@ export function validateBuild(build: CharacterBuild): string[] {
       if (picked === undefined) errors.push(`Missing choice: ${slot.name}.`);
       else if (!slot.options.some((o) => o.id === picked)) errors.push(`Invalid ${slot.name}: ${picked}.`);
     }
+    const featSlots = bg?.feat?.choices ?? [];
     for (const key of Object.keys(choices)) {
-      if (key !== 'masteries' && !cls.choices.some((s) => s.key === key)) errors.push(`Unknown choice: ${key}.`);
+      if (key !== 'masteries' && !cls.choices.some((s) => s.key === key) && !featSlots.some((s) => s.key === key)) {
+        errors.push(`Unknown choice: ${key}.`);
+      }
+    }
+  }
+  // Origin feat choices (Magic Initiate: two distinct cantrips, a level 1 spell and a casting ability).
+  if (bg?.feat) {
+    const choices = build.choices ?? {};
+    const byGroup = new Map<string, string[]>();
+    for (const slot of bg.feat.choices) {
+      const picked = choices[slot.key];
+      if (picked === undefined) errors.push(`Missing choice: ${slot.name}.`);
+      else if (!slot.options.some((o) => o.id === picked)) errors.push(`Invalid ${slot.name}: ${picked}.`);
+      else if (slot.group) byGroup.set(slot.group, [...(byGroup.get(slot.group) ?? []), picked]);
+    }
+    for (const [group, picks] of byGroup) {
+      if (new Set(picks).size !== picks.length) errors.push(`Choose different options for each ${group.replace('mi_', '')} slot.`);
     }
   }
   return errors;
@@ -129,6 +206,7 @@ function characterResources(build: CharacterBuild, level: number): Record<string
   return {
     ...clone(classOf(build).resourcesAt(level)),
     ...clone(speciesOf(build).resources),
+    ...spellPools(build),
     // HOUSE RULE "Last Stand": replaces death saves; refreshes on entering a floor, not on a short rest.
     lastStand: { name: 'Last Stand', current: 1, max: 1, refresh: 'floor' as const },
   };
@@ -172,6 +250,8 @@ export function computeAc(pc: PlayerCharacter): number {
   const dex = abilityMod(finalAbilities(pc.build).dex);
   const armor = pc.equipped.armor ? getItem(pc.equipped.armor)?.armor : undefined;
   let ac = 10 + dex;
+  // Mage Armor: an unarmored hero's base AC becomes 13 + Dexterity modifier (until the next long rest).
+  if (!armor && (pc.resources['_mageArmor']?.current ?? 0) > 0) ac = 13 + dex;
   if (armor) {
     const cap = armor.dexCap;
     ac = armor.baseAc + (cap === undefined ? dex : Math.min(dex, cap));
@@ -214,23 +294,61 @@ function fmtMod(n: number): string {
   return n >= 0 ? `+${n}` : String(n);
 }
 
+/**
+ * Equipment slots: `mainHand` + `offHand` are the melee set (weapon + shield, or two Light weapons) and `ranged`
+ * is a bow or crossbow the hero switches to freely when shooting. A character saved before the ranged slot
+ * existed may hold a bow in `mainHand`: this returns a normalized copy (bow to `ranged`, a carried melee weapon
+ * promoted to `mainHand`). The stored character is never changed; the game may persist the result.
+ */
+export function migrateEquipment(pc: PlayerCharacter): PlayerCharacter {
+  const main = pc.equipped.mainHand ? getItem(pc.equipped.mainHand) : undefined;
+  const w = main?.weapon;
+  if (!main || !w || w.melee || w.properties.includes('thrown') || pc.equipped.ranged) return pc;
+  const next = clone(pc);
+  next.equipped.ranged = main.id;
+  delete next.equipped.mainHand;
+  const shieldOn = next.equipped.offHand !== undefined;
+  const carried = next.inventory
+    .map((s) => getItem(s.itemId))
+    .filter((i): i is ItemDef => !!i?.weapon?.melee && !i.weapon.properties.includes('thrown'))
+    .filter((i) => !(shieldOn && i.weapon?.properties.includes('twoHanded')));
+  const best = carried.sort((a, b) => averageDice((b.weapon as NonNullable<ItemDef['weapon']>).damage.dice) - averageDice((a.weapon as NonNullable<ItemDef['weapon']>).damage.dice))[0];
+  if (best) next.equipped.mainHand = best.id;
+  return next;
+}
+
 function weaponAction(
   item: ItemDef,
   mode: 'attack' | 'throw',
-  opts: { abilities: AbilityScores; pb: number; style: string | undefined; twoHands: boolean; mastered?: boolean },
+  opts: {
+    abilities: AbilityScores;
+    pb: number;
+    style: string | undefined;
+    twoHands: boolean;
+    mastered?: boolean;
+    /** Off-hand attack of two-weapon fighting: no modifier on the damage unless negative (or the style). */
+    offhand?: { free: boolean };
+    /** The weapon's attack has a Light off-hand partner. */
+    lightPair?: boolean;
+    /** Spellcasting ability modifier replacing the weapon's own (True Strike). */
+    modOverride?: number;
+  },
 ): ActionDef {
   const w = item.weapon as NonNullable<ItemDef['weapon']>;
   const str = abilityMod(opts.abilities.str);
   const dex = abilityMod(opts.abilities.dex);
   const finesse = w.properties.includes('finesse');
   const ranged = !w.melee && mode === 'attack';
-  const mod = ranged ? dex : finesse ? Math.max(str, dex) : str;
+  const mod = opts.modOverride ?? (ranged ? dex : finesse ? Math.max(str, dex) : str);
   const archery = ranged && opts.style === 'archery' ? 2 : 0;
   const mb = item.magicBonus ?? 0;
   const bonus = mod + opts.pb + archery + mb;
   const dice = opts.twoHands && w.versatileDice ? w.versatileDice : w.damage.dice;
-  const dmgDice = `${dice}${mod + mb === 0 ? '' : fmtMod(mod + mb)}`;
+  const dmgMod = opts.offhand && opts.style !== 'twoWeaponFighting' ? Math.min(0, mod) : mod;
+  const dmgDice = `${dice}${dmgMod + mb === 0 ? '' : fmtMod(dmgMod + mb)}`;
   const masteryFx = opts.mastered ? masteryEffects(w.mastery, mod, opts.pb) : [];
+  // SRD Heavy property: disadvantage with a Heavy weapon if Strength (melee) or Dexterity (ranged) is below 13.
+  const heavyFx = w.properties.includes('heavy') && mode === 'attack' && (ranged ? opts.abilities.dex : opts.abilities.str) < 13 ? ['heavyDisadvantage'] : [];
   const base = { cost: 'action' as const, attack: { bonus }, damage: [{ dice: dmgDice, type: w.damage.type }] };
   if (mode === 'throw') {
     const r = w.range ?? { normal: 4, long: 12 };
@@ -245,12 +363,26 @@ function weaponAction(
     };
   }
   const gwf = !ranged && opts.twoHands && opts.style === 'greatWeaponFighting';
+  const fx = [...(gwf ? ['greatWeaponFighting'] : []), ...masteryFx, ...heavyFx, ...(opts.lightPair ? ['lightAttack'] : [])];
+  if (opts.offhand) {
+    const nick = opts.offhand.free;
+    return {
+      ...base,
+      id: `offhand_${item.id}`,
+      name: `Off-hand: ${item.name}`,
+      description: `${nick ? 'Nick: made as part of your Attack action. ' : 'Bonus action after attacking with your main hand. '}${fmtMod(bonus)} to hit, ${dmgDice} ${w.damage.type}.`,
+      icon: 'melee',
+      cost: nick ? 'free' : 'bonus',
+      effects: ['offhand', ...fx],
+      targeting: { kind: 'creature', melee: true, range: 1 },
+    };
+  }
   const common = {
     ...base,
     id: `atk_${item.id}`,
     name: item.name,
     description: `${fmtMod(bonus)} to hit, ${dmgDice} ${w.damage.type}.`,
-    ...(gwf || masteryFx.length > 0 ? { effects: [...(gwf ? ['greatWeaponFighting'] : []), ...masteryFx] } : {}),
+    ...(fx.length > 0 ? { effects: fx } : {}),
   };
   if (ranged) {
     const r = w.range ?? { normal: 8, long: 24 };
@@ -259,41 +391,51 @@ function weaponAction(
   return { ...common, icon: 'melee', targeting: { kind: 'creature', melee: true, range: w.properties.includes('reach') ? 2 : 1 } };
 }
 
-/** Weapon attack actions derived from the equipped main hand, carried alternatives and thrown weapons. */
-function weaponActions(pc: PlayerCharacter, abilities: AbilityScores, pb: number): ActionDef[] {
+const isLight = (i: ItemDef | undefined): boolean => !!i?.weapon?.melee && i.weapon.properties.includes('light');
+
+/** The off-hand Light weapon that pairs with the main hand for two-weapon fighting, if any. */
+function offhandPartner(pc: PlayerCharacter): ItemDef | undefined {
+  const main = pc.equipped.mainHand ? getItem(pc.equipped.mainHand) : undefined;
+  const off = pc.equipped.offHand ? getItem(pc.equipped.offHand) : undefined;
+  if (!main || !off || !isLight(main) || !isLight(off)) return undefined;
+  const owned = pc.inventory.find((s) => s.itemId === main.id)?.quantity ?? 1;
+  return off.id === main.id && owned < 2 ? undefined : off;
+}
+
+/** Weapon attack actions: main-hand melee, the ranged slot, the off-hand attack, and thrown weapons. */
+function weaponActions(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: number): ActionDef[] {
+  const pc = migrateEquipment(pcRaw);
   const style = fightingStyle(pc);
   const kinds = masteredKinds(pc);
   const mastered = (i: ItemDef): boolean => kinds.includes(i.baseId ?? i.id);
-  const mainId = pc.equipped.mainHand;
-  const main = mainId ? getItem(mainId) : undefined;
-  const out: ActionDef[] = [];
-  const shieldOn = pc.equipped.offHand !== undefined;
   const hasWeapon = (i: ItemDef | undefined): i is ItemDef => !!i?.weapon;
+  const main = pc.equipped.mainHand ? getItem(pc.equipped.mainHand) : undefined;
+  const rangedItem = pc.equipped.ranged ? getItem(pc.equipped.ranged) : undefined;
+  const out: ActionDef[] = [];
+  const shieldOn = pc.equipped.offHand !== undefined && getItem(pc.equipped.offHand)?.kind === 'shield';
+  const partner = offhandPartner(pc);
   if (hasWeapon(main)) {
     const w = main.weapon as NonNullable<ItemDef['weapon']>;
-    const twoHands = w.properties.includes('twoHanded') || (w.properties.includes('versatile') && !shieldOn);
-    out.push(weaponAction(main, 'attack', { abilities, pb, style, twoHands, mastered: mastered(main) }));
+    const twoHands = w.properties.includes('twoHanded') || (w.properties.includes('versatile') && !shieldOn && !partner);
+    out.push(weaponAction(main, 'attack', { abilities, pb, style, twoHands, mastered: mastered(main), lightPair: partner !== undefined }));
+  }
+  if (hasWeapon(rangedItem)) out.push(weaponAction(rangedItem, 'attack', { abilities, pb, style, twoHands: false, mastered: mastered(rangedItem) }));
+  if (hasWeapon(main) && partner) {
+    // Nick: the extra attack of the Light property is made as part of the Attack action (once per turn) instead of a bonus action.
+    const nick = (mastered(main) && main.weapon?.mastery === 'nick') || (mastered(partner) && partner.weapon?.mastery === 'nick');
+    out.push(weaponAction(partner, 'attack', { abilities, pb, style, twoHands: false, mastered: mastered(partner), offhand: { free: nick } }));
   }
   const carried = pc.inventory
     .map((s) => getItem(s.itemId))
     .filter(hasWeapon)
     .filter((i, idx, arr) => arr.findIndex((x) => x.id === i.id) === idx);
-  const mainMelee = hasWeapon(main) ? main.weapon?.melee : undefined;
-  let alt = false;
   for (const item of carried) {
     const w = item.weapon as NonNullable<ItemDef['weapon']>;
-    if (item.id !== main?.id && !alt && mainMelee !== undefined && w.melee !== mainMelee && !w.properties.includes('thrown')) {
-      if (!(w.properties.includes('twoHanded') && shieldOn)) {
-        const twoHands = w.properties.includes('twoHanded') || (w.properties.includes('versatile') && !shieldOn);
-        out.push(weaponAction(item, 'attack', { abilities, pb, style, twoHands, mastered: mastered(item) }));
-        alt = true;
-      }
-    }
     if (w.properties.includes('thrown')) {
       out.push(weaponAction(item, 'throw', { abilities, pb, style, twoHands: false, mastered: mastered(item) }));
     }
   }
-  if (!hasWeapon(main) && out.length === 0) {
+  if (out.length === 0) {
     const mod = abilityMod(abilities.str);
     out.push({
       id: 'unarmed',
@@ -309,6 +451,30 @@ function weaponActions(pc: PlayerCharacter, abilities: AbilityScores, pb: number
   return out;
 }
 
+/** True Strike: one attack with the main-hand (else ranged) weapon using the spellcasting ability, plus radiant dice from level 5. */
+function trueStrikeAction(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: number, caster: Caster): ActionDef | undefined {
+  const pc = migrateEquipment(pcRaw);
+  const id = pc.equipped.mainHand ?? pc.equipped.ranged;
+  const item = id ? getItem(id) : undefined;
+  if (!item?.weapon) return undefined;
+  const w = item.weapon;
+  const shieldOn = pc.equipped.offHand !== undefined && getItem(pc.equipped.offHand)?.kind === 'shield';
+  const twoHands = w.properties.includes('twoHanded') || (w.properties.includes('versatile') && !shieldOn);
+  const base = weaponAction(item, 'attack', { abilities, pb, style: fightingStyle(pc), twoHands, modOverride: caster.mod });
+  const extra = trueStrikeBonusDice(caster.level);
+  const damage = [...(base.damage ?? []), ...(extra ? [{ dice: extra, type: 'radiant' as const }] : [])];
+  const fx = (base.effects ?? []).filter((e) => !e.startsWith('mastery:') && e !== 'lightAttack');
+  return {
+    ...base,
+    id: 'spell_true_strike',
+    name: 'True Strike',
+    icon: 'spell',
+    description: `${fmtMod(base.attack?.bonus ?? 0)} to hit, ${damage.map((d) => `${d.dice} ${d.type}`).join(' + ')}. One attack with ${item.name} using your spellcasting ability${extra ? `, plus ${extra} radiant` : ''}.`,
+    damage,
+    effects: ['spell', 'weaponAttack', 'trueStrike', ...fx],
+  };
+}
+
 export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): Creature {
   const cls = classOf(pc.build);
   const sp = speciesOf(pc.build);
@@ -317,7 +483,7 @@ export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): 
   const actions: ActionDef[] = [...weaponActions(pc, abilities, pb)];
 
   const resources: Record<string, ResourcePool> = clone(pc.resources);
-  for (const f of [...sp.flags, ...cls.flagsAt(pc.level)]) resources['_' + f] = flagPool(f);
+  for (const f of [...sp.flags, ...cls.flagsAt(pc.level), ...featFlags(pc.build.backgroundId)]) resources['_' + f] = flagPool(f);
 
   if (resources['secondWind']) {
     actions.push({
@@ -362,6 +528,25 @@ export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): 
     });
   }
 
+  // Spells from the origin feat (Magic Initiate): cantrips at will, the level 1 spell once per long rest.
+  const known = knownSpells(pc.build);
+  if (known.length > 0) {
+    const ability = MI_ABILITIES.includes(pc.build.choices['mi_ability'] as Ability) ? (pc.build.choices['mi_ability'] as Ability) : 'int';
+    const caster = casterFor(ability, abilities, pc.level);
+    const armored = pc.equipped.armor !== undefined;
+    for (const spell of known) {
+      let action: ActionDef | undefined;
+      if (spell.id === 'true_strike') action = trueStrikeAction(pc, abilities, pb, caster);
+      else if (spell.id === 'mage_armor' && armored) action = undefined;
+      else action = spellToAction(spell, caster);
+      if (!action) continue;
+      actions.push(action);
+      if (action.uses && !resources[action.uses.resource]) {
+        resources[action.uses.resource] = { name: spell.name, current: 1, max: 1, refresh: 'longRest' };
+      }
+    }
+  }
+
   const armor = pc.equipped.armor ? getItem(pc.equipped.armor)?.armor : undefined;
   const tooWeak = armor?.strRequirement !== undefined && abilities.str < armor.strRequirement;
   return {
@@ -378,7 +563,8 @@ export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): 
     ac: computeAc(pc),
     maxHp: pc.maxHp,
     hp: pc.hp,
-    tempHp: 0,
+    // Temporary hit points from False Life cast between fights last until the next long rest.
+    tempHp: pc.resources['_tempHp']?.current ?? 0,
     // Armor without enough Strength costs 10 ft of speed (SRD 5.2).
     speed: Math.max(0, sp.speed - (tooWeak ? 2 : 0)),
     resistances: [...sp.resistances],
@@ -402,6 +588,10 @@ export function syncFromCreature(pc: PlayerCharacter, creature: Creature): Playe
     const c = creature.resources[key];
     if (c) pool.current = Math.max(0, Math.min(pool.max, c.current));
   }
+  // Hidden state that outlives a fight until the next long rest (max 0, so a long rest clears it): False Life's temporary HP and Mage Armor.
+  const temp = Math.max(0, creature.tempHp);
+  if (temp > 0 || next.resources['_tempHp']) next.resources['_tempHp'] = { name: 'Temporary HP', current: temp, max: 0, refresh: 'longRest' };
+  if ((creature.resources['_mageArmor']?.current ?? 0) > 0) next.resources['_mageArmor'] = { name: 'Mage Armor', current: 1, max: 0, refresh: 'longRest' };
   for (const [key, pool] of Object.entries(creature.resources)) {
     if (!key.startsWith('item:')) continue;
     const id = key.slice('item:'.length);
@@ -609,34 +799,66 @@ export function buyItem(pc: PlayerCharacter, itemId: string): PlayerCharacter {
  * Whether an item can be equipped, with a reason when equipping it will put
  * something away (a Two-Handed weapon and a shield cannot be used together).
  */
+interface EquipPlan {
+  slot: 'armor' | 'mainHand' | 'offHand' | 'ranged';
+  /** Item ids put away from their slots by this change. */
+  clears: ('mainHand' | 'offHand')[];
+  reason?: string;
+}
+
+/** Where an item goes and what it displaces; shared by canEquip and equipItem. */
+function planEquip(pc: PlayerCharacter, item: ItemDef): EquipPlan {
+  if (item.kind === 'armor') return { slot: 'armor', clears: [] };
+  const main = pc.equipped.mainHand ? getItem(pc.equipped.mainHand) : undefined;
+  const off = pc.equipped.offHand ? getItem(pc.equipped.offHand) : undefined;
+  if (item.kind === 'shield') {
+    if (main?.weapon?.properties.includes('twoHanded')) {
+      return { slot: 'offHand', clears: ['mainHand'], reason: `${main.name} needs both hands: it is put away to carry the shield.` };
+    }
+    return { slot: 'offHand', clears: [] };
+  }
+  const w = item.weapon as NonNullable<ItemDef['weapon']>;
+  // Bows and crossbows have their own slot and are switched to freely. HOUSE RULE: a shield stays on while shooting
+  // (we do not model stowing it for a two-handed bow), so it keeps its AC bonus at all times.
+  if (!w.melee && !w.properties.includes('thrown')) return { slot: 'ranged', clears: [] };
+  if (w.properties.includes('twoHanded')) {
+    if (!off) return { slot: 'mainHand', clears: [] };
+    const what = off.kind === 'shield' ? 'the shield' : 'the off-hand weapon';
+    return { slot: 'mainHand', clears: ['offHand'], reason: `${item.name} needs both hands: ${what} is put away.` };
+  }
+  const light = isLight(item);
+  // A second Light weapon goes to the off hand for two-weapon fighting when the main hand holds a Light weapon and there is no shield.
+  if (light && isLight(main) && !off && (main?.id !== item.id || (pc.inventory.find((s) => s.itemId === item.id)?.quantity ?? 0) >= 2)) {
+    return { slot: 'offHand', clears: [], reason: `${item.name} goes in your off hand for two-weapon fighting.` };
+  }
+  // A new main-hand weapon that is not Light cannot pair with an off-hand weapon.
+  if (off && off.kind !== 'shield' && !light) {
+    return { slot: 'mainHand', clears: ['offHand'], reason: `${item.name} is not Light: the off-hand weapon is put away.` };
+  }
+  return { slot: 'mainHand', clears: [] };
+}
+
 export function canEquip(pc: PlayerCharacter, itemId: string): { ok: boolean; reason?: string; unequips?: string } {
   const item = getItem(itemId);
   if (!item) return { ok: false, reason: 'Unknown item' };
   if (!pc.inventory.some((s) => s.itemId === itemId && s.quantity > 0)) return { ok: false, reason: `You do not own ${item.name}` };
   if (item.kind === 'consumable') return { ok: false, reason: `${item.name} cannot be equipped` };
-  const main = pc.equipped.mainHand ? getItem(pc.equipped.mainHand) : undefined;
-  if (item.kind === 'weapon' && item.weapon?.properties.includes('twoHanded') && pc.equipped.offHand) {
-    return { ok: true, unequips: pc.equipped.offHand, reason: `${item.name} needs both hands: the shield is put away.` };
-  }
-  if (item.kind === 'shield' && main?.weapon?.properties.includes('twoHanded')) {
-    return { ok: true, unequips: main.id, reason: `${main.name} needs both hands: it is put away to carry the shield.` };
-  }
-  return { ok: true };
+  const plan = planEquip(pc, item);
+  const out: { ok: boolean; reason?: string; unequips?: string } = { ok: true };
+  const gone = plan.clears[0] ? pc.equipped[plan.clears[0]] : undefined;
+  if (gone) out.unequips = gone;
+  if (plan.reason) out.reason = plan.reason;
+  return out;
 }
 
 export function equipItem(pc: PlayerCharacter, itemId: string): PlayerCharacter {
   const item = requireItem(itemId);
   if (!pc.inventory.some((s) => s.itemId === itemId && s.quantity > 0)) throw new Error(`You do not own ${item.name}`);
-  const next = clone(pc);
-  if (item.kind === 'armor') next.equipped.armor = itemId;
-  else if (item.kind === 'shield') {
-    const main = next.equipped.mainHand ? getItem(next.equipped.mainHand) : undefined;
-    if (main?.weapon?.properties.includes('twoHanded')) delete next.equipped.mainHand;
-    next.equipped.offHand = itemId;
-  } else if (item.kind === 'weapon') {
-    next.equipped.mainHand = itemId;
-    if (item.weapon?.properties.includes('twoHanded')) delete next.equipped.offHand;
-  } else throw new Error(`${item.name} cannot be equipped`);
+  if (item.kind === 'consumable') throw new Error(`${item.name} cannot be equipped`);
+  const next = clone(migrateEquipment(pc));
+  const plan = planEquip(next, item);
+  for (const c of plan.clears) delete next.equipped[c];
+  next.equipped[plan.slot] = itemId;
   return next;
 }
 

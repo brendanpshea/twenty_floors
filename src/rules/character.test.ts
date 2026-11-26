@@ -87,7 +87,7 @@ describe('character creation', () => {
     expect(b.equipped).toEqual({ armor: 'chain_mail', mainHand: 'greatsword' });
     expect(b.inventory.find((s) => s.itemId === 'javelin')?.quantity).toBe(4);
     const c = hero({ choices: { fightingStyle: 'archery', startingKit: 'c' } });
-    expect(c.equipped).toEqual({ armor: 'scale_mail', mainHand: 'longbow' });
+    expect(c.equipped).toEqual({ armor: 'scale_mail', mainHand: 'shortsword', offHand: 'scimitar', ranged: 'longbow' });
     expect(c.inventory.map((s) => s.itemId)).toContain('shortsword');
   });
 

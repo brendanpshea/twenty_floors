@@ -132,7 +132,7 @@ describe('weapon masteries (keyed to weapon data and the hero\'s mastered kinds)
     const hero = toCreature(withMasteries(['maul'], { mainHand: 'maul' }), { x: 3, y: 3 });
     const foe = dummy(4, 3);
     const { combat, rng } = duel(hero, foe);
-    rng.queue = [15, 3, 3, 1]; // hit, 2d6, CON save of 1 fails
+    rng.queue = [15, 3, 3, 1, 1, 1]; // hit, 2d6, Savage Attacker's lower second 2d6, CON save of 1 fails
     const ev = combat.execute({ type: 'action', actionId: 'atk_maul', targetId: 'dummy' });
     expect(ofType(ev, 'saveRoll')[0]).toMatchObject({ ability: 'con', dc: 13, success: false });
     expect(ofType(ev, 'conditionAdded')[0]).toMatchObject({ creatureId: 'dummy', condition: 'prone' });
@@ -140,7 +140,7 @@ describe('weapon masteries (keyed to weapon data and the hero\'s mastered kinds)
     const h2 = toCreature(withMasteries(['maul'], { mainHand: 'maul' }), { x: 3, y: 3 });
     const f2 = dummy(4, 3);
     const d2 = duel(h2, f2);
-    d2.rng.queue = [15, 3, 3, 20];
+    d2.rng.queue = [15, 3, 3, 1, 1, 20];
     expect(ofType(d2.combat.execute({ type: 'action', actionId: 'atk_maul', targetId: 'dummy' }), 'conditionAdded')).toHaveLength(0);
   });
 

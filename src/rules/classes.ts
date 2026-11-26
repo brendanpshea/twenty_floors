@@ -1,4 +1,4 @@
-import type { Ability, AbilityScores, ChoiceSlot, ClassInfo, ItemStack, ResourcePool, Skill } from '../core/types';
+import type { Ability, AbilityScores, BuildPreset, ChoiceSlot, ClassInfo, ItemStack, ResourcePool, Skill } from '../core/types';
 
 export interface ClassFeature {
   level: number;
@@ -11,7 +11,7 @@ export interface StartingKit {
   name: string;
   description: string;
   items: ItemStack[];
-  equipped: { mainHand?: string; offHand?: string; armor?: string };
+  equipped: { mainHand?: string; offHand?: string; ranged?: string; armor?: string };
   /** Weapon kinds (base item ids) the hero knows masteries for (SRD 5.2: three at level 1). */
   masteredKinds: string[];
 }
@@ -26,6 +26,8 @@ export interface ClassDef {
   saves: Ability[];
   skillChoices: { count: number; from: Skill[] };
   recommendedAbilities: AbilityScores;
+  /** Coherent starting builds; the first is the default (Quick start) and matches `recommendedAbilities`. */
+  presets: BuildPreset[];
   maxLevel: number;
   /** Choices made at level 1, including the kit choice (options mirror `kits`). */
   choices: ChoiceSlot[];
@@ -76,14 +78,15 @@ const KITS: StartingKit[] = [
   {
     id: 'c',
     name: 'Archer',
-    description: 'Scale mail, longbow and shortsword.',
+    description: 'Scale mail, a longbow, and a shortsword and scimitar to fight with when enemies close in.',
     items: [
       { itemId: 'scale_mail', quantity: 1 },
       { itemId: 'longbow', quantity: 1 },
       { itemId: 'shortsword', quantity: 1 },
+      { itemId: 'scimitar', quantity: 1 },
     ],
-    equipped: { armor: 'scale_mail', mainHand: 'longbow' },
-    masteredKinds: ['longbow', 'shortsword', 'javelin'],
+    equipped: { armor: 'scale_mail', mainHand: 'shortsword', offHand: 'scimitar', ranged: 'longbow' },
+    masteredKinds: ['longbow', 'shortsword', 'scimitar'],
   },
 ];
 
@@ -98,19 +101,50 @@ export const FIGHTER: ClassDef = {
     count: 2,
     from: ['acrobatics', 'animalHandling', 'athletics', 'history', 'insight', 'intimidation', 'persuasion', 'perception', 'survival'],
   },
-  recommendedAbilities: { str: 15, dex: 12, con: 14, int: 8, wis: 10, cha: 13 },
+  recommendedAbilities: { str: 15, con: 14, dex: 13, cha: 12, wis: 10, int: 8 },
+  presets: [
+    {
+      id: 'defender',
+      name: 'Defender',
+      description: 'Sword and shield in chain mail: the sturdiest start, with javelins for the approach.',
+      abilities: { str: 15, con: 14, dex: 13, cha: 12, wis: 10, int: 8 },
+      choices: { fightingStyle: 'defense', startingKit: 'a' },
+      abilityPriority: ['str', 'con', 'dex'],
+    },
+    {
+      id: 'great_weapon',
+      name: 'Great Weapon',
+      description: 'A greatsword in chain mail: hit hard, with Great Weapon Fighting smoothing the dice.',
+      abilities: { str: 15, con: 14, dex: 13, cha: 12, wis: 10, int: 8 },
+      choices: { fightingStyle: 'greatWeaponFighting', startingKit: 'b' },
+      abilityPriority: ['str', 'con', 'dex'],
+    },
+    {
+      id: 'archer',
+      name: 'Archer',
+      description: 'Dexterity first: shoot with a longbow while foes approach, then fight with a shortsword and scimitar.',
+      abilities: { dex: 15, con: 14, str: 13, cha: 12, wis: 10, int: 8 },
+      choices: { fightingStyle: 'archery', startingKit: 'c' },
+      abilityPriority: ['dex', 'con', 'str'],
+    },
+  ],
   maxLevel: 3,
   choices: [
     {
       key: 'fightingStyle',
       name: 'Fighting Style',
       options: [
-        { id: 'archery', name: 'Archery', description: '+2 to attack rolls with ranged weapons.' },
         { id: 'defense', name: 'Defense', description: '+1 AC while wearing armor.' },
+        { id: 'archery', name: 'Archery', description: '+2 to attack rolls with ranged weapons.' },
         {
           id: 'greatWeaponFighting',
           name: 'Great Weapon Fighting',
           description: 'Treat a 1 or 2 on a damage die as a 3 when wielding a melee weapon with two hands.',
+        },
+        {
+          id: 'twoWeaponFighting',
+          name: 'Two-Weapon Fighting',
+          description: 'When you make the extra Light-weapon attack with your off hand, you add your ability modifier to its damage.',
         },
       ],
     },
@@ -168,5 +202,6 @@ export function classInfo(def: ClassDef): ClassInfo {
     skillChoices: def.skillChoices,
     choices: def.choices,
     recommendedAbilities: def.recommendedAbilities,
+    presets: def.presets.map((p) => ({ ...p, abilities: { ...p.abilities }, choices: { ...p.choices }, abilityPriority: [...p.abilityPriority] })),
   };
 }
