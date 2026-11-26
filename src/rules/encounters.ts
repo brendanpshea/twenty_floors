@@ -30,6 +30,13 @@ export interface EncounterTuning {
   roleWeight: { minion: number; standard: number; elite: number; boss: number };
   /** Extra selection weight multiplier per monster id (default 1). */
   monsterWeight: Record<string, number>;
+  /**
+   * The hero gains a level per floor, so a monster far below the floor's level is not a threat
+   * worth a turn: ordinary monsters need a CR of at least floor(depth x this). 0.25 lets a
+   * CR 1 monster appear up to floor 7 and a CR 2 monster up to floor 11. If no monster of the
+   * theme is that strong, the rule is waived for the floor rather than leaving rooms empty.
+   */
+  minCrPerDepth: number;
   /** Monsters that only appear in ordinary rooms from this depth on (default: always). */
   monsterMinDepth: Record<string, number>;
   /** Monsters that stop appearing in ordinary rooms after this depth (default: never). */
@@ -71,12 +78,13 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   bossMinionChance: [0.25, 0.5, 0.2, 0.5],
   /** Selection weight by role. */
   roleWeight: { minion: 1, standard: 1, elite: 0.5, boss: 0 },
-  // The sewers span floors 4 and 5 with a different cast and boss on each (docs/research/roster-options.md).
-  // The fungal caverns do the same on floors 6 and 7, the bandit hold on 8 and 9.
-  monsterMinDepth: { wererat: 5, giant_constrictor_snake: 5, gelatinous_cube: 5, ettercap: 7, darkmantle: 7, priest: 9, hobgoblin_captain: 9 },
-  monsterMaxDepth: { giant_frog: 4, gray_ooze: 4, giant_rat: 4, violet_fungus: 6, gibbering_mouther: 6, scout: 8, bandit_captain: 8 },
+  minCrPerDepth: 0.25,
+  // Each two-floor theme has a boss per floor and shifts its cast a little between the two
+  // (docs/research/roster-options.md, minus the monsters minCrPerDepth rules out).
+  monsterMinDepth: { giant_constrictor_snake: 5, priest: 9, hobgoblin_captain: 9 },
+  monsterMaxDepth: { gibbering_mouther: 6, bandit_captain: 8 },
   bossByDepth: { 4: 'ochre_jelly', 5: 'green_hag', 6: 'chuul', 7: 'shambling_mound', 8: 'tough_boss', 9: 'gladiator' },
-  monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5, violet_fungus: 0.35, darkmantle: 0.35 },
+  monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5 },
 };
 
 export function minMonstersAt(depth: number): number {
@@ -148,13 +156,17 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
   const forcedBossId = ENCOUNTER_TUNING.bossByDepth[plan.depth];
   const forcedBoss = forcedBossId ? themed.find((m) => m.id === forcedBossId) : undefined;
   const isBoss = (m: MonsterDef): boolean => (forcedBoss ? m.id === forcedBoss.id : m.role === 'boss');
-  const regular = themed.filter(
+  const eligible = themed.filter(
     (m) =>
       !isBoss(m) &&
       m.role !== 'boss' &&
       plan.depth >= (ENCOUNTER_TUNING.monsterMinDepth[m.id] ?? 1) &&
       plan.depth <= (ENCOUNTER_TUNING.monsterMaxDepth[m.id] ?? Infinity),
   );
+  // Drop the monsters this floor has outgrown, unless the theme has nothing stronger to offer.
+  const minCr = Math.floor(plan.depth * ENCOUNTER_TUNING.minCrPerDepth);
+  const strong = eligible.filter((m) => m.cr >= minCr);
+  const regular = strong.length > 0 ? strong : eligible;
   const bosses = themed.filter(isBoss);
   const out: PlacedMonster[] = [];
   const t = ENCOUNTER_TUNING;

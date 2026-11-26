@@ -37,7 +37,7 @@ Three themes exist end to end except for play:
 - **Bandit Hold, floors 8 and 9.** Generator `src/gen/themes/hold.ts` (a fort
   of furnished rooms: barracks, mess, stores, armoury; set pieces training
   yard, great hall, stockade), look, six props (bunk, table, weapon rack,
-  banner, palisade, dummy), ambience, eight SRD humanoids on tinted hero
+  banner, palisade, dummy), ambience, seven SRD humanoids on tinted hero
   rigs. Bosses: Tough Boss, Gladiator.
 
 Per-floor casts and bosses are in `ENCOUNTER_TUNING`. See the floors at
@@ -52,10 +52,15 @@ What is missing before `MILESTONE_FLOORS` can go past 3:
   naming the intended free model). Fetching needs `tools/assets/fetch.mjs`
   on a machine that can reach poly.pizza. The hold's humanoids are tinted
   hero rigs as planned; three still want a weapon or shield prop.
-- **Balance.** Encounter budgets from level 4 are the untuned SRD figures.
-  Rooms on floors 5 to 9 come out over budget and are padded with the
-  cheapest monster of the floor (toads, violet fungi, darkmantles). Tune with
-  `src/balance` once the hero can reach those levels.
+- **Balance.** Encounter budgets from level 4 are the untuned SRD figures and
+  rooms on floors 5 to 9 come out over them. Tune with `src/balance` once the
+  hero can reach those levels.
+- **Casts are thin.** The hero gains a level per floor, so ordinary monsters
+  now need a CR of at least floor(depth / 4) (`minCrPerDepth`). That rules
+  out Giant Frog, Gray Ooze and Giant Rat on floor 4, Violet Fungus on 6 and
+  Darkmantle on 7 (still in the data, never placed), and the Scout was
+  removed. Floor 4 is left with Giant Toads only and wants two or three
+  more CR 1 to 2 sewer monsters; floors 6 to 8 have three regulars each.
 - Monster features the engine cannot express yet were dropped or simplified
   (grapple and swallow, Split, Engulf, shape-shifting, auras, flying, Parry
   and other reactions, most spell lists); each is noted in a comment above the monster.

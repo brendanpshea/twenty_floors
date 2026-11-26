@@ -44,7 +44,6 @@ const MONSTER_IDS = [
   'ettercap',
   'darkmantle',
   'shambling_mound',
-  'scout',
   'bandit_captain',
   'berserker',
   'warrior_veteran',
