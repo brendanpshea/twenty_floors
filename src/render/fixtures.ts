@@ -95,7 +95,7 @@ class Draft {
     ];
     return {
       seed,
-      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : 3,
+      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : 3,
       theme,
       width: this.w,
       height: this.h,
@@ -126,17 +126,20 @@ function autoLights(d: Draft, theme: ThemeId): void {
     switch (p.type) {
       case 'torch': {
         const warm = theme === 'warrens' || (theme === 'crypt' && (x + y) % 4 === 0);
-        d.light(x, y, warm || theme === 'sewers' ? 0xffa050 : theme === 'crypt' ? 0x60d8f0 : 0xa070ff, 1.1, theme === 'depths' ? 5 : 6.5);
+        d.light(x, y, warm || theme === 'sewers' ? 0xffa050 : theme === 'fungal' ? 0x60f0c0 : theme === 'crypt' ? 0x60d8f0 : 0xa070ff, 1.1, theme === 'depths' ? 5 : 6.5);
         break;
       }
       case 'brazier':
-        d.light(x, y, theme === 'warrens' || theme === 'sewers' ? 0xff8a30 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
+        d.light(x, y, theme === 'warrens' || theme === 'sewers' ? 0xff8a30 : theme === 'fungal' ? 0x58e8b8 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
         break;
       case 'campfire':
         d.light(x, y, 0xff8030, 1.7, 8);
         break;
       case 'crystal':
         d.light(x, y, (x + y) % 2 ? 0xa070ff : 0x40e0ff, 1.1, 5);
+        break;
+      case 'giant_mushroom':
+        d.light(x, y, 0x50f0c0, 1.2, 6.5);
         break;
       case 'mushrooms':
         d.light(x, y, 0x60ff98, 0.8, 4.5);
@@ -254,6 +257,34 @@ function warrens(): FloorPlan {
   return d.toPlan('warrens', { x: 4, y: 6 }, { x: 21, y: 18 }, 1001, [{ x: 5, y: 8 }, { x: 17, y: 6 }]);
 }
 
+function fungal(): FloorPlan {
+  const d = new Draft(24, 24);
+  d.ellipse(7, 7, 5.2, 4.6); // cavern 1
+  d.ellipse(7, 7, 1.8, 1.4, WATER);
+  d.rect(11, 8, 14, 9); // passage
+  d.ellipse(17, 10, 4.6, 4.6); // cavern 2
+  d.rect(7, 12, 8, 15); // passage south
+  d.ellipse(8, 18, 5.6, 4.2); // cavern 3
+  d.ellipse(7, 18, 2.2, 1.6, FLOOR, 1);
+  d.rect(13, 18, 15, 18);
+  d.ellipse(18, 18, 4.2, 3.8); // cavern 4
+  d.ellipse(19, 18, 1.8, 1.4, WATER);
+  d.rect(17, 14, 17, 15);
+  d.wallsAround();
+  const P = d.prop.bind(d);
+  P('giant_mushroom', 4, 5); P('giant_mushroom', 9, 9); P('giant_mushroom', 16, 7); P('giant_mushroom', 19, 12);
+  P('giant_mushroom', 5, 20); P('giant_mushroom', 11, 17); P('giant_mushroom', 21, 17);
+  P('mushrooms', 5, 9); P('mushrooms', 8, 5); P('mushrooms', 14, 12); P('mushrooms', 20, 8); P('mushrooms', 6, 16);
+  P('mushrooms', 13, 20); P('mushrooms', 16, 20); P('mushrooms', 22, 15);
+  P('cobweb', 3, 7, 0); P('cobweb', 14, 6, 1); P('cobweb', 21, 11, 1); P('cobweb', 4, 20, 3); P('cobweb', 22, 20, 2);
+  P('stalagmite', 9, 4); P('stalagmite', 3, 8); P('stalagmite', 18, 7); P('stalagmite', 12, 20); P('stalagmite', 8, 22);
+  P('stalagmite', 20, 20);
+  P('rubble', 10, 7); P('rubble', 15, 12); P('rubble', 6, 21); P('bones', 7, 10); P('bones', 17, 20);
+  P('torch', 7, 3, 0); P('torch', 17, 6, 0); P('torch', 8, 22, 2); P('torch', 18, 22, 2);
+  autoLights(d, 'fungal');
+  return d.toPlan('fungal', { x: 5, y: 7 }, { x: 19, y: 18 }, 1005, [{ x: 7, y: 5 }, { x: 17, y: 12 }]);
+}
+
 function depths(): FloorPlan {
   const d = new Draft(24, 24, CHASM);
   // platforms
@@ -299,7 +330,7 @@ function depths(): FloorPlan {
   return d.toPlan('depths', { x: 4, y: 4 }, { x: 19, y: 21 }, 1003, [{ x: 5, y: 5 }, { x: 13, y: 7 }]);
 }
 
-export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, depths };
+export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, depths };
 
 export function makeFixture(theme: ThemeId): FloorPlan {
   return FIXTURES[theme]();

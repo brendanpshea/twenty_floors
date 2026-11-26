@@ -22,27 +22,39 @@ The creation screen and hub already contain UI for three features whose rules
 are not on `main` yet, so these parts are inert there: background feat choices
 (Magic Initiate), play-style presets, and the ranged weapon slot.
 
-## Floors 4 and 5: the Flooded Sewers (content only, not reachable yet)
+## Floors 4 to 7: Flooded Sewers and Fungal Caverns (content only, not reachable yet)
 
-The theme exists end to end except for play: generator (`src/gen/themes/sewers.ts`,
-three set pieces), look and two new props (grate, pipe), ambience, and eight
-SRD monsters with their floor-4 and floor-5 casts and bosses (Ochre Jelly,
-Green Hag) in `ENCOUNTER_TUNING`. See it at
-`/dev/render-preview.html?gen=1&theme=sewers&depth=4`.
+Two themes exist end to end except for play:
+
+- **Flooded Sewers, floors 4 and 5.** Generator `src/gen/themes/sewers.ts`
+  (channel tunnels, wet and dry chambers; set pieces sluice, flooded hall,
+  grand cistern), look, grate and pipe props, ambience, eight SRD monsters.
+  Bosses: Ochre Jelly, Green Hag.
+- **Fungal Caverns, floors 6 and 7.** Generator `src/gen/themes/fungal.ts`
+  (the warrens cave recipe with its own dressing and a grove set piece),
+  look, giant mushroom prop, ambience, seven SRD monsters. Bosses: Chuul,
+  Shambling Mound.
+
+Per-floor casts and bosses are in `ENCOUNTER_TUNING`. See the floors at
+`/dev/render-preview.html?gen=1&theme=sewers&depth=4` and `...theme=fungal&depth=6`.
 
 What is missing before `MILESTONE_FLOORS` can go past 3:
 
-- **Fighter levels 4 and 5** (in `src/rules`, after the spell-engine branch).
-- **Models.** The eight monsters use tinted stand-ins from rigs we already
-  ship (each has a `TODO model:` comment in `src/data/monsters.ts` naming the
-  intended free model). Fetching needs `tools/assets/fetch.mjs` on a machine
-  that can reach poly.pizza.
-- **Balance.** Encounter budgets for levels 4 and 5 are the untuned SRD
-  figures; floor 5 rooms currently come out well over budget. Tune with
-  `src/balance` once the hero can reach level 5.
+- **Fighter levels 4 to 7** (in `src/rules`, after the spell-engine branch).
+- **Models.** The fifteen new monsters use tinted stand-ins from rigs we
+  already ship (each has a `TODO model:` comment in `src/data/monsters.ts`
+  naming the intended free model). Fetching needs `tools/assets/fetch.mjs`
+  on a machine that can reach poly.pizza.
+- **Balance.** Encounter budgets from level 4 are the untuned SRD figures.
+  Rooms on floors 5 to 7 come out over budget and are padded with the
+  cheapest monster of the floor (toads, violet fungi, darkmantles). Tune with
+  `src/balance` once the hero can reach those levels.
 - Monster features the engine cannot express yet were dropped or simplified
-  (grapple and swallow, Split, Engulf, shape-shifting, most of the hag's
-  spells); each is noted in a comment above the monster.
+  (grapple and swallow, Split, Engulf, shape-shifting, auras, flying, most of
+  the hag's spells); each is noted in a comment above the monster.
+
+Stat blocks were transcribed from the SRD 5.2.1 text; a clean plain-text copy
+is in the owner's `dnd_combat` repository (`SRD_CC_v5.2.1.txt`).
 
 ## Unfinished work: branch `wip/spell-engine`
 

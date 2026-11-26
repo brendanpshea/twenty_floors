@@ -8,8 +8,8 @@ const mem = () => {
 };
 
 describe('themes', () => {
-  it('lists sewers alongside the original themes', () => {
-    expect([...THEMES]).toEqual(['warrens', 'crypt', 'depths', 'sewers']);
+  it('lists every theme including the original themes', () => {
+    expect([...THEMES]).toEqual(['warrens', 'crypt', 'depths', 'sewers', 'fungal']);
   });
 });
 

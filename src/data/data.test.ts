@@ -14,7 +14,7 @@ const TRAIT_IDS: TraitId[] = [
   'keenSenses',
 ];
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers'];
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal'];
 
 const MONSTER_IDS = [
   'giant_rat',
@@ -37,6 +37,13 @@ const MONSTER_IDS = [
   'giant_constrictor_snake',
   'gelatinous_cube',
   'green_hag',
+  'violet_fungus',
+  'grick',
+  'gibbering_mouther',
+  'chuul',
+  'ettercap',
+  'darkmantle',
+  'shambling_mound',
 ];
 
 const ORIGINAL_ITEM_IDS = [
@@ -145,7 +152,7 @@ const VARIANT_RARITY = {
   shield: { 1: 'uncommon', 2: 'rare', 3: 'veryRare' },
 } as const;
 
-const XP_BY_CR: Record<number, number> = { 0.125: 25, 0.25: 50, 0.5: 100, 1: 200, 2: 450, 3: 700 };
+const XP_BY_CR: Record<number, number> = { 0.125: 25, 0.25: 50, 0.5: 100, 1: 200, 2: 450, 3: 700, 4: 1100, 5: 1800 };
 
 const DICE_RE = /^\d+(d\d+)?([+-]\d+)?$/;
 
@@ -221,16 +228,18 @@ describe('monster data', () => {
       const inTheme = MONSTERS.filter((m) => m.themes.includes(theme));
       const bosses = inTheme.filter((m) => m.role === 'boss');
       const others = inTheme.filter((m) => m.role !== 'boss');
-      // The sewers span two floors (4 and 5), each with its own boss; every other theme has one.
-      expect(bosses.length, `${theme} bosses`).toBe(theme === 'sewers' ? 2 : 1);
+      // The sewers (floors 4 and 5) and the fungal caverns (floors 6 and 7) span two floors, each with
+      // its own boss; every other theme has one.
+      expect(bosses.length, `${theme} bosses`).toBe(theme === 'sewers' || theme === 'fungal' ? 2 : 1);
       expect(others.length, `${theme} non-bosses`).toBeGreaterThanOrEqual(2);
     }
   });
 
-  it('matches the CR to XP table and proficiency bonus 2', () => {
+  it('matches the CR to XP table and the SRD proficiency bonus', () => {
     for (const m of MONSTERS) {
       expect(m.xp, `${m.id} xp`).toBe(XP_BY_CR[m.cr]);
-      expect(m.proficiencyBonus, `${m.id} proficiencyBonus`).toBe(2);
+      // SRD proficiency bonus: +2 up to CR 4, +3 for CR 5 to 8.
+      expect(m.proficiencyBonus, `${m.id} proficiencyBonus`).toBe(m.cr >= 5 ? 3 : 2);
     }
   });
 

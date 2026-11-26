@@ -25,6 +25,7 @@ export const PROP_BLOCKING: Record<string, boolean> = {
   chain: false,
   grate: false,
   pipe: false,
+  giant_mushroom: true,
 };
 
 const THEME_PROPS: Record<string, string[]> = {
@@ -32,6 +33,7 @@ const THEME_PROPS: Record<string, string[]> = {
   crypt: ['sarcophagus', 'brazier', 'statue', 'urn', 'cobweb'],
   depths: ['crystal', 'broken_pillar', 'chain'],
   sewers: ['grate', 'pipe', 'mushrooms', 'brazier', 'cobweb'],
+  fungal: ['giant_mushroom', 'mushrooms', 'stalagmite', 'cobweb'],
 };
 const COMMON_PROPS = ['torch', 'rubble', 'pillar', 'crate', 'barrel', 'bones'];
 

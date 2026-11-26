@@ -6,6 +6,7 @@ import type { Layout } from './layout';
 import { finalize, type FinalizeReport } from './post';
 import { genCrypt } from './themes/crypt';
 import { genDepths } from './themes/depths';
+import { genFungal } from './themes/fungal';
 import { genSewers } from './themes/sewers';
 import { genWarrens } from './themes/warrens';
 import { validateFloor } from './validate';
@@ -61,6 +62,9 @@ export function generateFloorReport(opts: GenerateOptions): GenerateReport {
           break;
         case 'depths':
           layout = genDepths(graph, layoutRng, depth);
+          break;
+        case 'fungal':
+          layout = genFungal(graph, layoutRng, depth);
           break;
         case 'sewers':
           layout = genSewers(graph, layoutRng);

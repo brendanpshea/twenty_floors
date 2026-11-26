@@ -26,9 +26,9 @@ export function buildRestSite(theme: ThemeId): Figure {
   const lit = new GeoBuilder();
   const flame = new GeoBuilder();
   const ember = new GeoBuilder();
-  const stoneC = theme === 'depths' ? 0x6f7482 : theme === 'crypt' ? 0x9aa2b2 : theme === 'sewers' ? 0x8a8468 : 0x8a8070;
-  const stoneD = theme === 'depths' ? 0x4a4e5c : theme === 'crypt' ? 0x6a7282 : theme === 'sewers' ? 0x5a5640 : 0x5c5246;
-  const flameColor = theme === 'warrens' ? 0xffa040 : theme === 'crypt' || theme === 'sewers' ? 0xffc468 : 0xffd890;
+  const stoneC = theme === 'depths' ? 0x6f7482 : theme === 'crypt' ? 0x9aa2b2 : theme === 'sewers' ? 0x8a8468 : theme === 'fungal' ? 0x7a7494 : 0x8a8070;
+  const stoneD = theme === 'depths' ? 0x4a4e5c : theme === 'crypt' ? 0x6a7282 : theme === 'sewers' ? 0x5a5640 : theme === 'fungal' ? 0x4c4868 : 0x5c5246;
+  const flameColor = theme === 'fungal' ? 0x70f0c8 : theme === 'warrens' ? 0xffa040 : theme === 'crypt' || theme === 'sewers' ? 0xffc468 : 0xffd890;
   const flameAt = (x: number, y: number, z: number, s: number): void => {
     flame.cone(0.13 * s, 0.4 * s, 6, 0xffffff, { x, y: y + 0.2 * s, z });
     flame.cone(0.08 * s, 0.28 * s, 5, 0xffffff, { x: x + 0.02, y: y + 0.16 * s, z, shade: 1.8 });
@@ -38,7 +38,7 @@ export function buildRestSite(theme: ThemeId): Figure {
   };
   let flameTop = 0.2;
 
-  if (theme === 'warrens') {
+  if (theme === 'warrens' || theme === 'fungal') {
     for (let i = 0; i < 9; i++) {
       const a = (i / 9) * Math.PI * 2;
       lit.ico(0.16, 0, i % 2 ? stoneC : stoneD, { x: Math.cos(a) * 0.5, z: Math.sin(a) * 0.5, y: 0.09, sy: 0.7, ry: i });
@@ -177,7 +177,7 @@ export function buildRestSite(theme: ThemeId): Figure {
     root,
     parts: {},
     materials: [bodyMat],
-    height: theme === 'warrens' ? 0.9 : 1.6,
+    height: theme === 'warrens' || theme === 'fungal' ? 0.9 : 1.6,
     kind: 'rest',
     tick,
     dispose() {

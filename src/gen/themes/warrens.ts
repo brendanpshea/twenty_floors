@@ -41,7 +41,23 @@ interface Blob {
   role: RoomRole;
 }
 
-export function genWarrens(graph: MissionGraph, rng: Rng, depth: number): Layout {
+export type CavePiece = 'lake' | 'tiers' | 'crack' | 'columns' | 'stream' | 'grove';
+
+/** What a sibling cave theme changes about the warrens recipe. Omitted fields keep the warrens values. */
+export interface CaveOptions {
+  /** Set pieces to choose from. 'grove' carves nothing: it is dressing only, done by `decorate`. */
+  pieces?: readonly CavePiece[];
+  /** Chance of a water pool per eligible chamber. */
+  poolChance?: number;
+  /** Chance of a chasm pit per eligible chamber. */
+  pitChance?: number;
+  /** Replaces the goblin-camp decoration. */
+  decorate?: (ctx: DecorCtx, piece: { name: string; room: number }) => void;
+}
+
+const WARRENS_PIECES: readonly CavePiece[] = ['crack', 'lake', 'tiers', 'columns', 'stream'];
+
+export function genWarrens(graph: MissionGraph, rng: Rng, depth: number, opts: CaveOptions = {}): Layout {
   void depth;
   const n = graph.roles.length;
   const W = clampInt(34 + Math.round(n * 2.8) + rng.int(-3, 3), 40, 62);
@@ -73,8 +89,7 @@ export function genWarrens(graph: MissionGraph, rng: Rng, depth: number): Layout
   // Set piece: pick a big chamber and a feature that suits it.
   const bigRooms = graph.roles.map((r, i) => i).filter((i) => (graph.roles[i] === 'combat' || graph.roles[i] === 'boss') && roomArea(g, i) >= 50);
   let pieceRoom = bigRooms.length ? rng.pick(bigRooms) : -1;
-  const pieceName: 'lake' | 'tiers' | 'crack' | 'columns' | 'stream' | 'none' =
-    pieceRoom < 0 ? 'none' : rng.pick(['crack', 'lake', 'tiers', 'columns', 'stream'] as const);
+  const pieceName: CavePiece | 'none' = pieceRoom < 0 ? 'none' : rng.pick(opts.pieces ?? WARRENS_PIECES);
   // Columns want all the floor they can get: they go in the biggest chamber.
   if (pieceName === 'columns') pieceRoom = bigRooms.reduce((best, i) => (roomArea(g, i) > roomArea(g, best) ? i : best), pieceRoom);
   // The tiered chamber rises toward one side.
@@ -109,8 +124,8 @@ export function genWarrens(graph: MissionGraph, rng: Rng, depth: number): Layout
   }
   if (!solveElevation(g, fixed, () => 'mid')) throw new GenFail('warrens elevation unsolved');
 
-  carvePools(g, rng, blobs);
-  carvePits(g, rng, blobs);
+  carvePools(g, rng, blobs, opts.poolChance ?? 0.45);
+  carvePits(g, rng, blobs, opts.pitChance ?? 0.5);
   let applied: string = pieceName;
   if (pieceName === 'lake') applied = carveLake(g, rng, pieceRoom) ? 'lake' : 'none';
   else if (pieceName === 'crack') applied = carveCrack(g, rng, pieceRoom, blobs[pieceRoom] as Blob) ? 'crack' : 'none';
@@ -126,7 +141,7 @@ export function genWarrens(graph: MissionGraph, rng: Rng, depth: number): Layout
   }
   if (applied === 'none') throw new GenFail('no set piece could be built');
   const piece = { name: applied, room: pieceRoom };
-  return { grid: g, roles: graph.roles, edges, decorate: (ctx) => decorate(ctx, piece), setPiece: applied };
+  return { grid: g, roles: graph.roles, edges, decorate: (ctx) => (opts.decorate ?? decorate)(ctx, piece), setPiece: applied };
 }
 
 function clampInt(v: number, lo: number, hi: number): number {
@@ -375,11 +390,11 @@ function walkTunnel(g: Grid, rng: Rng, a: Blob, b: Blob): Array<[number, number]
 
 // ---------------------------------------------------------------------------
 
-function carvePools(g: Grid, rng: Rng, blobs: Blob[]): void {
+function carvePools(g: Grid, rng: Rng, blobs: Blob[], chance: number): void {
   const seed = rng.int(1, 1e9);
   for (const b of blobs) {
     if (b.role === 'entrance' || b.role === 'treasure') continue;
-    if (!rng.chance(0.45)) continue;
+    if (!rng.chance(chance)) continue;
     const cells: number[] = [];
     for (let i = 0; i < g.w * g.h; i++) if (g.room[i] === b.id && g.kinds[i] === K.Floor) cells.push(i);
     const c = rng.pick(cells);
@@ -396,12 +411,12 @@ function carvePools(g: Grid, rng: Rng, blobs: Blob[]): void {
   }
 }
 
-function carvePits(g: Grid, rng: Rng, blobs: Blob[]): void {
+function carvePits(g: Grid, rng: Rng, blobs: Blob[], chance: number): void {
   const seed = rng.int(1, 1e9);
   for (const b of blobs) {
     if (b.role === 'entrance' || b.role === 'treasure') continue;
     if (b.role !== 'boss' && !(b.ext > 6.2)) continue;
-    if (!rng.chance(0.5)) continue;
+    if (!rng.chance(chance)) continue;
     const cand: number[] = [];
     for (let i = 0; i < g.w * g.h; i++) {
       if (g.room[i] !== b.id || g.kinds[i] !== K.Floor) continue;

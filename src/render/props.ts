@@ -121,6 +121,22 @@ const BUILDERS: Record<string, Builder> = {
     }
     return { lit: g.build(), glow: glow.build(), glowKind: 'steady' };
   },
+  // Tall glowing mushroom: thick pale stalk, broad domed cap (glow), pale gills underneath.
+  giant_mushroom: () => {
+    const g = new GeoBuilder();
+    const glow = new GeoBuilder();
+    g.cyl(0.2, 0.3, 0.5, 7, 0xe8e0d0, { y: 0.25, shade: 1.3 }); // swollen foot
+    g.cyl(0.17, 0.22, 1.2, 7, 0xf2ece0, { y: 1.0, shade: 1.4 }); // stalk
+    g.cyl(0.24, 0.17, 0.3, 7, 0xf2ece0, { y: 1.75, shade: 1.4 }); // flare under the cap
+    g.cyl(0.62, 0.3, 0.1, 10, 0xb8b0b8, { y: 1.9, shade: 0.7 }); // gills
+    glow.sphere(0.88, 10, 5, 0xffffff, { y: 1.9, sy: 0.55, shade: 1.0, top: 0xffffff }); // cap
+    glow.sphere(0.35, 6, 3, 0xffffff, { y: 2.3, sy: 0.5, shade: 1.6 }); // bright crown
+    for (const [x, z, h, r] of [[0.55, 0.3, 0.3, 0.13], [-0.4, 0.45, 0.22, 0.1], [-0.35, -0.5, 0.26, 0.12]] as const) {
+      g.cyl(0.03, 0.05, h, 5, 0xd8d0b8, { x, z, y: h / 2 });
+      glow.sphere(r, 6, 3, 0xffffff, { x, z, y: h + 0.02, sy: 0.55 });
+    }
+    return { lit: g.build(), glow: glow.build(), glowKind: 'steady' };
+  },
   campfire: (look) => {
     const p = look.prop;
     const g = new GeoBuilder();
@@ -293,8 +309,8 @@ const ROCK: Builder = (look) => {
   return { lit: g.build(), glow: null };
 };
 
-const JITTER_YAW = new Set(['rubble', 'bones', 'stalagmite', 'mushrooms', 'urn', 'crystal', 'barrel', 'crate', 'campfire', 'brazier']);
-const SCALE_JITTER = new Set(['rubble', 'stalagmite', 'mushrooms', 'crystal', 'urn']);
+const JITTER_YAW = new Set(['rubble', 'bones', 'stalagmite', 'mushrooms', 'giant_mushroom', 'urn', 'crystal', 'barrel', 'crate', 'campfire', 'brazier']);
+const SCALE_JITTER = new Set(['rubble', 'stalagmite', 'mushrooms', 'giant_mushroom', 'crystal', 'urn']);
 
 export interface PropField {
   group: Group | null;
@@ -395,7 +411,7 @@ export function buildProps(
         const idx = Math.floor(h1 * 1000);
         if (built.glowKind === 'flame') {
           _col.setHex(look.altShare > 0 && hash2(p.pos.x, p.pos.y, 43) < look.altShare ? look.flameAlt : look.flame);
-        } else if (type === 'mushrooms') _col.setHex(look.mushroom);
+        } else if (type === 'mushrooms' || type === 'giant_mushroom') _col.setHex(look.mushroom);
         else _col.setHex(look.crystal[idx % look.crystal.length]!);
         glow.setColorAt(i, _col);
       }

@@ -44,7 +44,7 @@ export const CellKind = {
 } as const;
 export type CellKind = (typeof CellKind)[keyof typeof CellKind];
 
-export type ThemeId = 'warrens' | 'crypt' | 'depths' | 'sewers';
+export type ThemeId = 'warrens' | 'crypt' | 'depths' | 'sewers' | 'fungal';
 
 export type RoomRole = 'entrance' | 'combat' | 'treasure' | 'boss' | 'passage';
 

@@ -264,9 +264,72 @@ const BEDS: Record<ThemeId, BedDef> = {
       ];
     },
   },
+  fungal: {
+    verb: 0.6,
+    build(rig, out) {
+      // Breath through gills: very quiet, high, soft filtered noise, slowly swelling.
+      const air = rig.gain(0.5, out);
+      rig.lfo(0.05, 0.3, air.gain);
+      const bp = rig.filter('bandpass', 3200, 0.6, air);
+      rig.lfo(0.037, 700, bp.frequency);
+      rig.noiseLoop(rig.filter('lowpass', 5000, 0.5, bp));
+      // Slow low drone with a gentle detuned shimmer.
+      const drone = rig.gain(0.2, rig.filter('lowpass', 420, 0.5, out));
+      rig.lfo(0.06, 0.07, drone.gain);
+      rig.osc('sine', 55, drone);
+      rig.osc('sine', 55.4, drone);
+      rig.osc('triangle', 110.3, rig.gain(0.4, drone), 5);
+      rig.osc('triangle', 110.3, rig.gain(0.4, drone), -6);
+      const shim = rig.gain(0.012, out);
+      rig.lfo(0.09, 0.008, shim.gain);
+      rig.osc('sine', 659.3, shim);
+      rig.osc('sine', 660.9, shim);
+    },
+    events(emit, rng) {
+      return [
+        {
+          // Glassy spore chimes on a pentatonic, long tails.
+          minGap: 3.5, maxGap: 11, firstDelay: [1.5, 5],
+          fire: (t) => {
+            const f = hz(79 + PENTA[Math.floor(rng() * PENTA.length)]! + (rng() < 0.35 ? 12 : 0));
+            const pan = between(rng, -0.7, 0.7);
+            emit([ping('sine', f, 0, 3.5, 0.3), ping('sine', f * 2.76, 0, 1.2, 0.06), ping('sine', f * 1.002, 0, 3, 0.15)], 0.8, t, pan);
+            if (rng() < 0.3) emit([ping('sine', f * 1.5, 0, 2.5, 0.18)], 0.7, t + between(rng, 0.25, 0.6), -pan);
+          },
+        },
+        {
+          // Occasional wet squelch or pop.
+          minGap: 12, maxGap: 32, firstDelay: [6, 14],
+          fire: (t) => {
+            const f = between(rng, 180, 360);
+            const pan = between(rng, -0.6, 0.6);
+            if (rng() < 0.5) {
+              emit([ping('sine', f, 0, 0.12, 0.6, { freqEnd: f * 2.2 }), puff('bandpass', 900, 0, 0.05, 0.25, { q: 2 })], 0.6, t, pan);
+            } else {
+              emit([noise('bandpass', 700, 0, 0.18, 0.4, { a: 0.02, r: 0.12, freqEnd: 300, q: 1.2 }), ping('sine', f * 1.5, 0.08, 0.1, 0.35, { freqEnd: f * 0.8 })], 0.6, t, pan);
+            }
+          },
+        },
+        {
+          // Rare distant skitter: a few fast tiny ticks.
+          minGap: 25, maxGap: 60, firstDelay: [10, 22],
+          fire: (t) => {
+            const n = 3 + Math.floor(rng() * 4);
+            const layers: Layer[] = [];
+            let at = 0;
+            for (let i = 0; i < n; i++) {
+              layers.push(puff('bandpass', between(rng, 4000, 6500), at, 0.01, 0.5, { q: 3 }));
+              at += between(rng, 0.025, 0.06);
+            }
+            emit(layers, 0.15, t, rng() < 0.5 ? -0.7 : 0.7);
+          },
+        },
+      ];
+    },
+  },
 };
 
-export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers'];
+export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal'];
 
 const LOOKAHEAD = 1.5;
 const TICK_MS = 400;
