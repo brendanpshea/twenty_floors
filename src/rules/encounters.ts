@@ -87,6 +87,7 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
    * 4 the SRD 5.2 "Low" per-character budgets (250, 500, 600 ...) are scaled
    * by 0.65 until those floors are tuned the same way.
    */
+  // Floors 1 to 3 on their fixed themes use these two; every other pairing has a themeTuning entry.
   budgetByLevel: [36, 130, 140, 320, 1625, 2535, 3185, 4100, 4900, 5930, 9500, 12870, 14030, 15100, 21450, 13585, 16965, 27300, 32175, 22460],
   /** Global multiplier on every budget. */
   soloFactor: 1,

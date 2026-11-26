@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { THEME_RANGE, planRunThemes } from '../core/themes';
 import type { ThemeId } from '../core/types';
 import { MONSTERS } from '../data/monsters';
-import { ENCOUNTER_TUNING } from '../rules';
+import { ENCOUNTER_TUNING, levelBudgetAt } from '../rules';
 import type { ThemeTuning } from '../rules/encounterTable';
 import { bossFor, formatTable, tunePair, tunePairs } from './tune';
 
@@ -19,6 +19,25 @@ describe('theme tuning table', () => {
     }
   });
 
+  it('a tuned pairing replaces the per-depth budget and boss', () => {
+    const e = ENCOUNTER_TUNING.themeTuning.hold?.[9];
+    expect(levelBudgetAt(9, 'hold')).toBe(e?.budget);
+    expect(levelBudgetAt(2, 'crypt')).toBe(ENCOUNTER_TUNING.budgetByLevel[1]);
+  });
+
+  it('randomized runs never repeat a theme, keep it at most two floors, and end in the lair', () => {
+    for (let seed = 0; seed < 300; seed++) {
+      const run = planRunThemes(seed, { fixedFloors: seed % 2 ? 0 : 3 });
+      expect(run).toHaveLength(20);
+      expect(run[19]).toBe('lair');
+      const blocks = run.filter((t, i) => run[i - 1] !== t);
+      expect(new Set(blocks).size).toBe(blocks.length);
+      for (let i = 2; i < 20; i++) expect(run[i] === run[i - 1] && run[i] === run[i - 2]).toBe(false);
+      expect(planRunThemes(seed, { fixedFloors: seed % 2 ? 0 : 3 })).toEqual(run);
+    }
+    expect(planRunThemes(5).slice(0, 3)).toEqual(['warrens', 'crypt', 'depths']);
+  });
+
   it('randomized runs only use tuned pairings', () => {
     for (let seed = 0; seed < 300; seed++) {
       planRunThemes(seed, { fixedFloors: seed % 2 ? 0 : 3 }).forEach((theme, i) => {
@@ -31,7 +50,8 @@ describe('theme tuning table', () => {
   it('bosses are never far above the party', () => {
     for (const [theme, depth] of tunePairs()) {
       const boss = bossFor(theme, depth);
-      if (boss && depth >= 5) expect(boss.cr, `${theme} at ${depth}`).toBeLessThanOrEqual(depth);
+      // One over is allowed where the theme has no boss at or below the floor (ice on floor 10).
+      if (boss && depth >= 5) expect(boss.cr, `${theme} at ${depth}`).toBeLessThanOrEqual(depth + 1);
     }
   });
 

@@ -134,7 +134,10 @@ describe('buildEncounters', () => {
 describe('encounter tuning levers', () => {
   it('bossByDepth forces a specific boss and keeps it out of ordinary rooms', () => {
     const saved = { ...ENCOUNTER_TUNING.bossByDepth };
+    const savedTable = ENCOUNTER_TUNING.themeTuning;
     try {
+      // A theme's own entry would win over bossByDepth, so test without the table.
+      ENCOUNTER_TUNING.themeTuning = {};
       ENCOUNTER_TUNING.bossByDepth = { 2: 'giant_spider' };
       for (let seed = 1; seed <= 20; seed++) {
         const placed = buildEncounters(plan(2, 'depths'), FIXTURE_MONSTERS, new Rng(seed));
@@ -144,6 +147,7 @@ describe('encounter tuning levers', () => {
       }
     } finally {
       ENCOUNTER_TUNING.bossByDepth = saved;
+      ENCOUNTER_TUNING.themeTuning = savedTable;
     }
   });
 
@@ -180,8 +184,10 @@ describe('encounter tuning levers', () => {
 
   it('picks casts and bosses by CR for the floor when nothing is scripted', () => {
     const saved = ENCOUNTER_TUNING.bossByDepth;
+    const savedTable = ENCOUNTER_TUNING.themeTuning;
     try {
       ENCOUNTER_TUNING.bossByDepth = {};
+      ENCOUNTER_TUNING.themeTuning = {};
       const bossAt = (depth: number, theme: ThemeId, seed: number): string => {
         const placed = buildEncounters(plan(depth, theme), MONSTERS, new Rng(seed));
         return placed.filter((m) => m.roomId === 5).map((m) => m.creature.defId).find((id) => MONSTERS.find((d) => d.id === id)?.role === 'boss') as string;
@@ -203,6 +209,7 @@ describe('encounter tuning levers', () => {
       expect(seen.size).toBe(2);
     } finally {
       ENCOUNTER_TUNING.bossByDepth = saved;
+      ENCOUNTER_TUNING.themeTuning = savedTable;
     }
   });
 });

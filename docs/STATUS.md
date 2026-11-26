@@ -155,21 +155,27 @@ Floors 4 to 20 were re-tuned on 26 November 2026 for a hero with an ally two
 levels lower (they had been 93 to 100% clears even solo). In
 `ENCOUNTER_TUNING` (`src/rules/encounters.ts`), from floor 4 on:
 
-- room budgets are 2 to 10 times the old figures, set floor by floor;
 - rooms hold up to 5 monsters (6 from floor 10) and at least 3;
 - a theme's lesser bosses join the regular cast as elites
   (`eliteBossFromDepth`, `eliteBossCr`);
 - monsters worth under 12% of the floor's budget drop out of the cast
   (`castFloorFactor`);
-- bosses bring escorts (always, and up to 3, from floor 6; 4 from floor 10),
-  and several floors have a stronger boss (`bossByDepth`).
+- bosses bring escorts (always, and up to 3, from floor 6; 4 from floor 10);
+- the room budget and the boss come from a generated table, per theme and
+  per floor (next section).
+
+Twenty more SRD monsters (CR 4 to 21: metallic dragons, genies, golems,
+devils, Lich, Mummy Lord, Rakshasa and others, in
+`src/data/monsters/deepDragons.ts` and `deepRegulars.ts`) and wider theme
+tags on existing ones give the thin themes (hold, library, foundry, ice,
+fungal) regular monsters near the hero's level.
 
 Floors 1 to 3 are untouched: same casts, same real-engine clear rates.
 
-Model table after the change, hero plus ally, 300 runs per floor
-(first-attempt clears): 4: 64%, 5: 74%, 6: 79%, 7: 73%, 8: 63%, 9: 71%,
-10: 65%, 11: 76%, 12: 60%, 13: 92%, 14: about 55%, 15: 94%, 16: 68%,
-17: 63%, 18: 75%, 19: 63%, 20: 76%.
+Model table for the fixed run, hero plus ally, 300 runs per floor
+(first-attempt clears): 4: 75%, 5: 64%, 6: 73%, 7: 73%, 8: 70%, 9: 72%,
+10: 76%, 11: 61%, 12: 65%, 13: 74%, 14: 64%, 15: 83%, 16: 68%, 17: 62%,
+18: 88%, 19: 65%, 20: 77%.
 
 Read these with care:
 
@@ -177,30 +183,53 @@ Read these with care:
   steps, not smoothly: a small budget change can drop a whole CR tier from
   the cast and swing a floor by 30 to 50 points. Re-tune against the real
   engine once the Fighter can reach these floors.
-- Floors 13 (foundry) and 15 (ice) stay easy. Their casts top out at CR 5 to
-  8; they need stronger regular monsters, not more budget.
-- Deaths now come from the rooms, almost never the boss: two fighters
-  arriving rested kill a single boss in about three rounds, escorts or not.
-  Making bosses the main danger needs boss mechanics (legendary actions,
-  lair effects), which the engine does not have.
+- Deaths come mostly from the rooms, not the boss: two fighters arriving
+  rested kill a single boss in about three rounds, escorts or not. Making
+  bosses the main danger needs boss mechanics (legendary actions, lair
+  effects), which the engine does not have.
 - These floors assume the ally; they were not measured for a solo hero.
 
-## Planned: randomized runs
+## Randomized runs: built, not yet used by the game
 
-The owner wants runs to vary eventually: not the same themes on the same
-floors every time. Nothing implements this yet, and today three things pin a
-theme to its depth. Keep them in mind when adding content so the change stays
-small:
+The owner wants runs to vary: not the same themes on the same floors every
+time. The pieces exist; the game itself still plays the fixed run.
 
-- `themeForDepth(depth)` is a fixed table. It would become a function of the
-  run seed too, choosing among the themes allowed at that depth.
-- `bossByDepth` scripts which boss each floor of the fixed run gets. Casts
-  and bosses are otherwise already chosen by CR for the floor, and every
-  theme has monsters across a wide CR range, so a theme placed at another
-  depth populates itself. What is missing is knowing whether a floor is the
-  first or second of its theme, so two floors do not get the same boss.
-- Generators do not depend on depth except through room count, so they
-  already work at any depth.
+- **Which theme goes where.** `planRunThemes(runSeed, { fixedFloors })` in
+  `src/core/themes.ts` returns the 20 themes of a run. A theme stays one or
+  two floors, is never used twice, only lands on floors inside its
+  `THEME_RANGE`, and floor 20 is always the lair. `fixedFloors` (default 3)
+  keeps the first floors on the fixed themes, because floors 1 to 3 are
+  tuned against the real engine on those themes.
+- **How a theme populates at any depth.** `THEME_TUNING` in
+  `src/rules/encounterTable.ts` holds a room budget and a boss for all 109
+  theme-and-floor pairings a run can produce. `buildEncounters` uses the
+  entry for the plan's theme and depth, and falls back to `budgetByLevel`
+  and `bossByDepth` only where there is none (floors 1 to 3 on their fixed
+  themes). From floor 4 on those two fallbacks are no longer used.
+- **Where the table comes from.** `src/balance/tune.ts` picks each boss by
+  rule (`bossFor`: the theme's strongest boss with CR at most the floor,
+  taking turns with the runner-up on even floors so two floors of a theme
+  differ) and searches budgets with the party model for about 68% clears
+  (75% solo on floors 1 to 3). Regenerate after changing monsters or
+  encounter rules; it prints the table to paste into `encounterTable.ts`:
+
+      BALANCE_TUNE=1 npx vitest run src/balance/tune.test.ts --disableConsoleIntercept
+
+  (`BALANCE_TUNE=hold,ice` re-tunes only those themes. The whole table takes
+  about 20 minutes on four cores when split into four runs by theme.)
+  95 of the 109 entries land between 55% and 82% in the model; each entry
+  records its figure as `modelClear`. The outliers are where rates jump in
+  steps.
+- **Seeing one.** The preview takes `?run=<seed>`: `,` and `.` then walk
+  that run's floors.
+- **To switch the game over** (in `src/game`, the laptop's territory):
+  replace `themeForDepth(depth)` in `floorSession.ts` and `hubFlow.ts` with
+  `planRunThemes(run.runSeed)[depth - 1]`. Nothing else needs to change;
+  saves keep working because the plan is a pure function of the run seed.
+- Alternates on floors 1 to 3 (forest on 1 to 3, sewers or marsh on 3, and
+  the fixed themes swapped around, all only with `fixedFloors: 0`) are tuned
+  with the model's solo hero, which is the model at its least reliable.
+  Check them on the real engine before letting runs randomize those floors.
 
 ## Unfinished work: branch `wip/spell-engine`
 
@@ -236,11 +265,6 @@ the Archery style with the sword-and-shield kit).
   another blocker (`PropLayer.can` refuses a blocker that splits its ring of
   open neighbours). The depths' combat colonnade is lopsided for a related
   reason. Fixing these changes floors 2 and 3, so re-run the balance tests.
-- **A theme placed far below its natural depth gets a boss that is too
-  strong** (the lair on floor 1 would field the Adult Red Dragon). Only the
-  outdoor alternates have depth ranges; the fixed-run themes need them too
-  before runs are randomized.
-
 - **Archer kit is far behind**: about 31% first-attempt clears on floor 3
   against about 69% for the melee kits. Items 2 and 3 above are the intended fix.
 - **Players who rarely rest do badly** on floors 2 and 3 in the simulation.
