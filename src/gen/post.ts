@@ -485,6 +485,7 @@ const LIGHT_DEFS: Record<string, { color: number; intensity: [number, number]; r
   brazier: { color: 0xffa040, intensity: [1.1, 1.4], radius: [5.5, 6.5] },
   mushrooms: { color: 0x55ff99, intensity: [0.6, 0.8], radius: [4, 4.5] },
   giant_mushroom: { color: 0x58f0d0, intensity: [1, 1.3], radius: [5.5, 6.5] },
+  candelabra: { color: 0xa8b8ff, intensity: [1, 1.3], radius: [5, 6] },
   crystal: { color: 0x55d8ff, intensity: [1, 1.4], radius: [5, 6.5] },
 };
 

@@ -38,7 +38,7 @@ for (const id of SFX_IDS) {
 
 const ambBox = $('amb');
 const ambButtons: HTMLButtonElement[] = [];
-const options: [string, ThemeId | null][] = [['off', null], ['warrens', 'warrens'], ['crypt', 'crypt'], ['depths', 'depths'], ['sewers', 'sewers'], ['fungal', 'fungal'], ['hold', 'hold']];
+const options: [string, ThemeId | null][] = [['off', null], ['warrens', 'warrens'], ['crypt', 'crypt'], ['depths', 'depths'], ['sewers', 'sewers'], ['fungal', 'fungal'], ['hold', 'hold'], ['library', 'library']];
 for (const [label, theme] of options) {
   const b = document.createElement('button');
   b.textContent = label;

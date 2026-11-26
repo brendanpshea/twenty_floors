@@ -32,6 +32,11 @@ export const PROP_BLOCKING: Record<string, boolean> = {
   banner: false,
   palisade: true,
   dummy: true,
+  bookshelf: true,
+  desk: true,
+  lectern: true,
+  book_pile: false,
+  candelabra: true,
 };
 
 const THEME_PROPS: Record<string, string[]> = {
@@ -41,6 +46,7 @@ const THEME_PROPS: Record<string, string[]> = {
   sewers: ['grate', 'pipe', 'mushrooms', 'brazier', 'cobweb'],
   fungal: ['giant_mushroom', 'mushrooms', 'stalagmite', 'cobweb'],
   hold: ['bunk', 'table', 'weapon_rack', 'banner', 'palisade', 'dummy', 'brazier', 'campfire'],
+  library: ['bookshelf', 'desk', 'lectern', 'book_pile', 'candelabra', 'statue', 'cobweb'],
 };
 const COMMON_PROPS = ['torch', 'rubble', 'pillar', 'crate', 'barrel', 'bones'];
 

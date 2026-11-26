@@ -340,6 +340,129 @@ const BUILDERS: Record<string, Builder> = {
     g.cyl(0.06, 0.06, 0.04, 8, 0xa82a22, { y: 1.35, z: 0.3, rx: Math.PI / 2 });
     return { lit: g.build(), glow: null };
   },
+  // Tall double-sided bookcase (long axis along X, ~1.9 x 0.7 x 2.4): panelled frame, 4 shelves of book spines.
+  bookshelf: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    const L = 1.9;
+    const D = 0.7;
+    g.box(L, 0.14, D, p.woodDark, { y: 0.07 }); // plinth
+    g.box(L, 0.1, D, p.woodDark, { y: 2.35 }); // cornice
+    g.box(L + 0.06, 0.05, D + 0.06, p.wood, { y: 2.42, shade: 1.1 }); // cap
+    for (const x of [-L / 2 + 0.05, L / 2 - 0.05]) g.box(0.1, 2.3, D, p.wood, { x, y: 1.25 }); // end panels
+    g.box(L - 0.2, 2.2, 0.05, p.woodDark, { y: 1.25 }); // central back panel
+    const spine = [0x7a3a3a, 0x3a5272, 0x3e6050, 0x86703c, 0x5e4268, 0x8c7c5c, 0x4a4a58];
+    const bottoms = [0.14, 0.67, 1.2, 1.73];
+    const x0 = -L / 2 + 0.1;
+    const x1 = L / 2 - 0.1;
+    for (let sh = 0; sh < 4; sh++) {
+      const yb = bottoms[sh]!;
+      g.box(L - 0.2, 0.05, D - 0.04, p.wood, { y: yb + 0.025, shade: 1.1 }); // board
+      for (const side of [-1, 1]) {
+        let x = x0 + 0.04;
+        let i = sh * 7 + (side > 0 ? 3 : 0);
+        while (x < x1 - 0.12) {
+          const hv = (i * 37 + 11) % 17;
+          const w = 0.14 + (hv % 4) * 0.055;
+          if (x + w > x1 - 0.03) break;
+          i++;
+          if (hv === 5 || hv === 11) {
+            x += 0.2; // gap
+            continue;
+          }
+          const h = 0.34 + (hv % 5) * 0.026;
+          const lean = hv === 7 ? 0.22 : 0;
+          g.box(w, h, 0.27, spine[(hv + sh * 2 + (side > 0 ? 1 : 0)) % spine.length]!, {
+            x: x + w / 2,
+            z: side * 0.17,
+            y: yb + 0.05 + h / 2,
+            rz: lean,
+            shade: 0.85 + (hv % 3) * 0.12,
+          });
+          x += w + 0.005;
+        }
+      }
+    }
+    return { lit: g.build(), glow: null };
+  },
+  // Reading desk (long axis along X, ~1.6 x 1.0 x 0.85): slanted top, open book, inkwell and quill, side panels.
+  desk: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    for (const x of [-0.7, 0.7]) {
+      g.box(0.09, 0.78, 0.86, p.woodDark, { x, y: 0.39 }); // trestle ends
+      g.box(0.14, 0.06, 0.96, p.woodDark, { x, y: 0.03 });
+    }
+    g.box(1.3, 0.08, 0.08, p.woodDark, { y: 0.25 }); // stretcher
+    g.box(1.5, 0.3, 0.05, p.wood, { y: 0.5, z: 0.4, shade: 0.9 }); // modesty panel
+    g.box(1.6, 0.07, 1.0, p.wood, { y: 0.84, rx: -0.08, shade: 1.05 }); // top, slightly sloped
+    g.box(1.6, 0.05, 0.06, p.woodDark, { y: 0.88, z: 0.48 }); // lip
+    g.box(0.52, 0.03, 0.4, 0xe4dcc0, { x: -0.18, y: 0.9, z: -0.02, ry: 0.15, shade: 1.0 }); // open book pages
+    g.box(0.57, 0.02, 0.44, 0x5e2e2e, { x: -0.18, y: 0.89, z: -0.02, ry: 0.15 }); // cover
+    g.box(0.03, 0.04, 0.4, 0x2a1c14, { x: -0.18, y: 0.915, z: -0.02, ry: 0.15 }); // spine fold
+    g.cyl(0.06, 0.07, 0.1, 6, p.iron, { x: 0.45, y: 0.94, z: -0.2, shade: 1.3 }); // inkwell
+    g.box(0.03, 0.03, 0.34, 0xe8e4d8, { x: 0.52, y: 1.0, z: -0.12, rx: 0.4, ry: 0.3 }); // quill
+    g.box(0.3, 0.05, 0.22, 0x3a5272, { x: 0.5, y: 0.93, z: 0.22, ry: -0.3 }); // closed book
+    return { lit: g.build(), glow: null };
+  },
+  // Standing lectern (authored facing -Z): base, single column, slanted top with an open book.
+  lectern: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    g.box(0.7, 0.1, 0.6, p.woodDark, { y: 0.05 });
+    g.cyl(0.18, 0.26, 0.2, 6, p.wood, { y: 0.2 });
+    g.cyl(0.13, 0.16, 0.8, 6, p.wood, { y: 0.7, shade: 1.1 }); // column
+    g.cyl(0.2, 0.14, 0.14, 6, p.woodDark, { y: 1.15 });
+    g.box(0.85, 0.07, 0.62, p.wood, { y: 1.26, z: 0.0, rx: -0.5, shade: 1.1 }); // slanted desk
+    g.box(0.85, 0.07, 0.08, p.woodDark, { y: 1.13, z: -0.26 }); // lip
+    g.box(0.58, 0.03, 0.4, 0xe4dcc0, { y: 1.325, z: 0.02, rx: -0.5 }); // pages
+    g.box(0.64, 0.025, 0.45, 0x2e4a64, { y: 1.31, z: 0.02, rx: -0.5 }); // cover
+    g.box(0.03, 0.04, 0.4, 0x1c1c26, { y: 1.345, z: 0.02, rx: -0.5 }); // spine fold
+    return { lit: g.build(), glow: null };
+  },
+  // Small heap of books on the floor: a few flat, a stack, a couple open, one leaning.
+  book_pile: () => {
+    const g = new GeoBuilder();
+    const cols = [0x7a3a3a, 0x3a5272, 0x3e6050, 0x86703c, 0x5e4268, 0x8c7c5c];
+    const book = (x: number, y: number, z: number, w: number, d: number, ry: number, c: number, o: { rz?: number } = {}): void => {
+      g.box(w, 0.09, d, c, { x, y: y + 0.045, z, ry, rz: o.rz });
+      g.box(w - 0.02, 0.06, d - 0.02, 0xe4dcc0, { x: x + Math.sin(ry) * 0.01, y: y + 0.045, z: z + Math.cos(ry) * 0.01, ry, rz: o.rz, shade: 0.9 });
+    };
+    book(0.0, 0.0, 0.0, 0.5, 0.36, 0.2, cols[0]!);
+    book(0.02, 0.09, 0.0, 0.44, 0.32, -0.15, cols[1]!);
+    book(0.0, 0.18, 0.01, 0.36, 0.28, 0.5, cols[3]!);
+    book(0.55, 0.0, -0.25, 0.42, 0.3, 1.1, cols[2]!);
+    book(-0.5, 0.0, 0.3, 0.4, 0.3, -0.7, cols[4]!);
+    // open book: cover plus two page fans in a shallow V
+    g.box(0.5, 0.03, 0.34, 0x5e2e2e, { x: 0.3, y: 0.015, z: 0.45, ry: 0.4 });
+    g.box(0.24, 0.03, 0.3, 0xe4dcc0, { x: 0.3 - 0.12 * Math.cos(0.4), y: 0.045, z: 0.45 + 0.12 * Math.sin(0.4), ry: 0.4, rz: 0.12 });
+    g.box(0.24, 0.03, 0.3, 0xe4dcc0, { x: 0.3 + 0.12 * Math.cos(0.4), y: 0.045, z: 0.45 - 0.12 * Math.sin(0.4), ry: 0.4, rz: -0.12 });
+    g.box(0.34, 0.07, 0.24, cols[5]!, { x: -0.35, y: 0.035, z: -0.4, ry: 0.9 });
+    g.box(0.3, 0.07, 0.04, cols[0]!, { x: -0.1, y: 0.16, z: -0.55, ry: 0.2, rz: 0.9 }); // leaning
+    return { lit: g.build(), glow: null };
+  },
+  // Tall iron floor candelabra (~1.9 high): tripod foot, shaft, three arms with candles and cold arcane flames.
+  candelabra: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    const glow = new GeoBuilder();
+    g.cyl(0.3, 0.38, 0.1, 6, p.iron, { y: 0.05 });
+    g.cyl(0.12, 0.2, 0.25, 6, p.iron, { y: 0.22, shade: 1.15 });
+    g.cyl(0.05, 0.07, 1.15, 6, p.iron, { y: 0.95, shade: 1.1 }); // shaft
+    g.sphere(0.1, 6, 4, p.iron, { y: 0.8, shade: 1.2 }); // knop
+    g.sphere(0.09, 6, 4, p.iron, { y: 1.45, shade: 1.2 });
+    g.box(0.8, 0.05, 0.05, p.iron, { y: 1.5 }); // cross arm
+    g.box(0.05, 0.05, 0.05, p.iron, { y: 1.58 });
+    for (const x of [-0.4, 0, 0.4]) {
+      const yb = x === 0 ? 1.62 : 1.55;
+      g.cyl(0.09, 0.05, 0.07, 6, p.iron, { x, y: yb, shade: 1.2 }); // cup
+      g.cyl(0.045, 0.05, 0.26, 6, 0xd8d4c4, { x, y: yb + 0.16 }); // candle
+      flameParts(glow, x, yb + 0.28, 0, 1.0);
+    }
+    g.box(0.05, 0.12, 0.05, p.iron, { x: -0.4, y: 1.5 });
+    g.box(0.05, 0.12, 0.05, p.iron, { x: 0.4, y: 1.5 });
+    return { lit: g.build(), glow: glow.build(), glowKind: 'flame' };
+  },
   cobweb: () => {
     const g = new GeoBuilder();
     const c = 0xe8e8ec;
@@ -418,7 +541,7 @@ const ROCK: Builder = (look) => {
   return { lit: g.build(), glow: null };
 };
 
-const JITTER_YAW = new Set(['rubble', 'bones', 'stalagmite', 'mushrooms', 'giant_mushroom', 'urn', 'crystal', 'barrel', 'crate', 'campfire', 'brazier']);
+const JITTER_YAW = new Set(['rubble', 'bones', 'book_pile', 'stalagmite', 'mushrooms', 'giant_mushroom', 'urn', 'crystal', 'barrel', 'crate', 'campfire', 'brazier']);
 const SCALE_JITTER = new Set(['rubble', 'stalagmite', 'mushrooms', 'giant_mushroom', 'crystal', 'urn']);
 
 export interface PropField {
@@ -492,7 +615,7 @@ export function buildProps(
     const glow = built.glow ? new InstancedMesh(built.glow, built.glowKind === 'flame' ? flameMat : steadyMat, n) : null;
     if (built.lit) geos.push(built.lit);
     if (built.glow) geos.push(built.glow);
-    const wallMounted = type === 'torch' || type === 'pipe' || type === 'banner' || type === 'weapon_rack';
+    const wallMounted = type === 'torch' || type === 'pipe' || type === 'banner' || type === 'weapon_rack' || type === 'lectern';
     list.forEach((p, i) => {
       const gi = p.pos.y * plan.width + p.pos.x;
       let gy = groundY[gi]!;

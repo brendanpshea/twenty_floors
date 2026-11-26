@@ -6,7 +6,7 @@ import { createNavGrid, floorToAscii, generateFloor, validateFloor } from './ind
 
 const isWalk = (k: number): boolean => k === CellKind.Floor || k === CellKind.Water || k === CellKind.Door;
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold'];
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library'];
 
 function fingerprint(plan: FloorPlan): string {
   let h = 2166136261;
@@ -383,6 +383,7 @@ describe('rest spots and set pieces', () => {
       sewers: ['sluice', 'floodedHall', 'grandCistern'],
       fungal: ['grove', 'lake', 'stream', 'columns', 'crack'],
       hold: ['trainingYard', 'greatHall', 'stockade'],
+      library: ['rotunda', 'grandStacks', 'drownedWing'],
     };
     for (const theme of THEMES) {
       const seen = new Set<string>();

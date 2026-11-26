@@ -81,9 +81,9 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   minCrPerDepth: 0.25,
   // Each two-floor theme has a boss per floor and shifts its cast a little between the two
   // (docs/research/roster-options.md, minus the monsters minCrPerDepth rules out).
-  monsterMinDepth: { giant_constrictor_snake: 5, priest: 9, hobgoblin_captain: 9 },
-  monsterMaxDepth: { gibbering_mouther: 6, bandit_captain: 8 },
-  bossByDepth: { 4: 'ochre_jelly', 5: 'green_hag', 6: 'chuul', 7: 'shambling_mound', 8: 'tough_boss', 9: 'gladiator' },
+  monsterMinDepth: { giant_constrictor_snake: 5, ghast: 5, priest: 9, hobgoblin_captain: 9, mummy: 11, ghost: 11 },
+  monsterMaxDepth: { pirate: 4, death_dog: 4, gibbering_mouther: 6, bandit_captain: 8, rug_of_smothering: 10, doppelganger: 10 },
+  bossByDepth: { 4: 'ochre_jelly', 5: 'green_hag', 6: 'chuul', 7: 'shambling_mound', 8: 'tough_boss', 9: 'gladiator', 10: 'mage', 11: 'shield_guardian' },
   monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5 },
 };
 

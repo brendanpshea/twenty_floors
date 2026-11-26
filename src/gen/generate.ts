@@ -8,6 +8,7 @@ import { genCrypt } from './themes/crypt';
 import { genDepths } from './themes/depths';
 import { genFungal } from './themes/fungal';
 import { genHold } from './themes/hold';
+import { genLibrary } from './themes/library';
 import { genSewers } from './themes/sewers';
 import { genWarrens } from './themes/warrens';
 import { validateFloor } from './validate';
@@ -69,6 +70,9 @@ export function generateFloorReport(opts: GenerateOptions): GenerateReport {
           break;
         case 'hold':
           layout = genHold(graph, layoutRng);
+          break;
+        case 'library':
+          layout = genLibrary(graph, layoutRng);
           break;
         case 'sewers':
           layout = genSewers(graph, layoutRng);

@@ -22,9 +22,9 @@ The creation screen and hub already contain UI for three features whose rules
 are not on `main` yet, so these parts are inert there: background feat choices
 (Magic Initiate), play-style presets, and the ranged weapon slot.
 
-## Floors 4 to 9: Flooded Sewers, Fungal Caverns, Bandit Hold (content only, not reachable yet)
+## Floors 4 to 11: Sewers, Fungal Caverns, Bandit Hold, Sunken Library (content only, not reachable yet)
 
-Three themes exist end to end except for play:
+Four themes exist end to end except for play:
 
 - **Flooded Sewers, floors 4 and 5.** Generator `src/gen/themes/sewers.ts`
   (channel tunnels, wet and dry chambers; set pieces sluice, flooded hall,
@@ -39,28 +39,32 @@ Three themes exist end to end except for play:
   yard, great hall, stockade), look, six props (bunk, table, weapon rack,
   banner, palisade, dummy), ambience, seven SRD humanoids on tinted hero
   rigs. Bosses: Tough Boss, Gladiator.
+- **Sunken Library, floors 10 and 11.** Generator `src/gen/themes/library.ts`
+  (bookshelf rows that make aisles and block sight, flooded rooms; set
+  pieces rotunda, grand stacks, drowned wing), look, five props (bookshelf,
+  desk, lectern, book pile, candelabra), ambience, eight SRD monsters.
+  Bosses: Mage, Shield Guardian.
 
 Per-floor casts and bosses are in `ENCOUNTER_TUNING`. See the floors at
 `/dev/render-preview.html?gen=1&theme=sewers&depth=4`, `...theme=fungal&depth=6`
-and `...theme=hold&depth=8`.
+`...theme=hold&depth=8` and `...theme=library&depth=10`.
 
 What is missing before `MILESTONE_FLOORS` can go past 3:
 
-- **Fighter levels 4 to 9** (in `src/rules`, after the spell-engine branch).
-- **Models.** The fifteen sewer and cavern monsters use tinted stand-ins from rigs we
+- **Fighter levels 4 to 11** (in `src/rules`, after the spell-engine branch).
+- **Models.** The sewer, cavern and library monsters use tinted stand-ins from rigs we
   already ship (each has a `TODO model:` comment in `src/data/monsters.ts`
   naming the intended free model). Fetching needs `tools/assets/fetch.mjs`
   on a machine that can reach poly.pizza. The hold's humanoids are tinted
   hero rigs as planned; three still want a weapon or shield prop.
 - **Balance.** Encounter budgets from level 4 are the untuned SRD figures and
-  rooms on floors 5 to 9 come out over them. Tune with `src/balance` once the
+  rooms on floors 5 to 11 come out over them. Tune with `src/balance` once the
   hero can reach those levels.
-- **Casts are thin.** The hero gains a level per floor, so ordinary monsters
-  now need a CR of at least floor(depth / 4) (`minCrPerDepth`). That rules
-  out Giant Frog, Gray Ooze and Giant Rat on floor 4, Violet Fungus on 6 and
-  Darkmantle on 7 (still in the data, never placed), and the Scout was
-  removed. Floor 4 is left with Giant Toads only and wants two or three
-  more CR 1 to 2 sewer monsters; floors 6 to 8 have three regulars each.
+- **Casts follow the hero's level.** The hero gains a level per floor, so
+  ordinary monsters need a CR of at least floor(depth / 4) (`minCrPerDepth`
+  in `ENCOUNTER_TUNING`). Pick casts for new themes with that in mind.
+  Giant Frog, Gray Ooze, Violet Fungus and Darkmantle are in the data but
+  fall under the rule on their floors and are never placed.
 - Monster features the engine cannot express yet were dropped or simplified
   (grapple and swallow, Split, Engulf, shape-shifting, auras, flying, Parry
   and other reactions, most spell lists); each is noted in a comment above the monster.

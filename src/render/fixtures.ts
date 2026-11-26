@@ -95,7 +95,7 @@ class Draft {
     ];
     return {
       seed,
-      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : 3,
+      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : theme === 'library' ? 10 : 3,
       theme,
       width: this.w,
       height: this.h,
@@ -126,11 +126,14 @@ function autoLights(d: Draft, theme: ThemeId): void {
     switch (p.type) {
       case 'torch': {
         const warm = theme === 'warrens' || theme === 'hold' || (theme === 'crypt' && (x + y) % 4 === 0);
-        d.light(x, y, warm || theme === 'sewers' ? 0xffa050 : theme === 'fungal' ? 0x60f0c0 : theme === 'crypt' ? 0x60d8f0 : 0xa070ff, 1.1, theme === 'depths' ? 5 : 6.5);
+        d.light(x, y, theme === 'library' ? 0x90c8ff : warm || theme === 'sewers' ? 0xffa050 : theme === 'fungal' ? 0x60f0c0 : theme === 'crypt' ? 0x60d8f0 : 0xa070ff, 1.1, theme === 'depths' ? 5 : 6.5);
         break;
       }
       case 'brazier':
-        d.light(x, y, theme === 'warrens' || theme === 'sewers' || theme === 'hold' ? 0xff8a30 : theme === 'fungal' ? 0x58e8b8 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
+        d.light(x, y, theme === 'library' ? 0x90c8ff : theme === 'warrens' || theme === 'sewers' || theme === 'hold' ? 0xff8a30 : theme === 'fungal' ? 0x58e8b8 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
+        break;
+      case 'candelabra':
+        d.light(x, y, 0x90c8ff, 1.2, 6);
         break;
       case 'campfire':
         d.light(x, y, 0xff8030, 1.7, 8);
@@ -321,6 +324,40 @@ function hold(): FloorPlan {
   return d.toPlan('hold', { x: 3, y: 4 }, { x: 18, y: 19 }, 1006, [{ x: 17, y: 16 }, { x: 5, y: 7 }]);
 }
 
+function library(): FloorPlan {
+  const d = new Draft(24, 24);
+  d.rect(1, 1, 14, 10); // A: stacks
+  d.rect(15, 5, 16, 6); // corridor
+  d.set(15, 5, DOOR); d.set(15, 6, DOOR);
+  d.rect(17, 1, 22, 10); // B: reading room
+  d.rect(1, 12, 22, 22); // C: flooded wing
+  d.set(7, 11, DOOR); d.set(8, 11, DOOR); d.set(19, 11, DOOR); d.set(20, 11, DOOR);
+  d.rect(14, 16, 22, 22, WATER);
+  d.wallsAround();
+  const P = d.prop.bind(d);
+  // stacks: three parallel rows (rotation 0 = long axis along x) forming aisles
+  for (const y of [3, 6, 9]) for (let x = 2; x <= 13; x++) if (!(y === 6 && (x === 7 || x === 8))) P('bookshelf', x, y, 0);
+  P('torch', 3, 1, 0); P('torch', 12, 1, 0); P('torch', 1, 6, 3);
+  P('candelabra', 1, 4); P('candelabra', 14, 8); P('candelabra', 7, 1);
+  P('book_pile', 7, 6); P('book_pile', 4, 4); P('book_pile', 11, 7); P('book_pile', 9, 2);
+  P('bones', 13, 4); P('cobweb', 1, 1, 0); P('cobweb', 14, 1, 1);
+  // reading room
+  P('desk', 18, 3, 0); P('desk', 21, 3, 0); P('desk', 18, 6, 0); P('desk', 21, 6, 0);
+  P('lectern', 20, 8, 0); P('bookshelf', 18, 1, 0); P('bookshelf', 19, 1, 0); P('bookshelf', 20, 1, 0);
+  for (const y of [3, 4, 5]) P('bookshelf', 22, y, 1);
+  P('candelabra', 17, 9); P('candelabra', 22, 9); P('book_pile', 19, 5); P('book_pile', 21, 9);
+  P('torch', 22, 7, 1); P('torch', 17, 2, 3);
+  // flooded wing
+  for (let x = 2; x <= 12; x++) if (x !== 7 && x !== 8) P('bookshelf', x, 14, 0);
+  for (let x = 3; x <= 11; x++) if (x !== 7 && x !== 8) P('bookshelf', x, 17, 0);
+  P('pillar', 4, 20); P('pillar', 9, 20); P('pillar', 13, 13); P('statue', 1, 20, 1); P('statue', 12, 21, 0);
+  P('rubble', 6, 19); P('rubble', 16, 14); P('bones', 10, 15); P('book_pile', 8, 19); P('book_pile', 3, 16);
+  P('desk', 5, 21, 0); P('candelabra', 13, 18); P('candelabra', 1, 13); P('cobweb', 22, 12, 1);
+  P('torch', 5, 12, 0); P('torch', 18, 12, 0); P('torch', 2, 22, 2); P('torch', 21, 22, 2);
+  autoLights(d, 'library');
+  return d.toPlan('library', { x: 4, y: 4 }, { x: 20, y: 14 }, 1007, [{ x: 7, y: 7 }, { x: 19, y: 7 }]);
+}
+
 function depths(): FloorPlan {
   const d = new Draft(24, 24, CHASM);
   // platforms
@@ -366,7 +403,7 @@ function depths(): FloorPlan {
   return d.toPlan('depths', { x: 4, y: 4 }, { x: 19, y: 21 }, 1003, [{ x: 5, y: 5 }, { x: 13, y: 7 }]);
 }
 
-export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, depths };
+export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, library, depths };
 
 export function makeFixture(theme: ThemeId): FloorPlan {
   return FIXTURES[theme]();

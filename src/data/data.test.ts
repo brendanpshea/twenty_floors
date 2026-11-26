@@ -14,7 +14,7 @@ const TRAIT_IDS: TraitId[] = [
   'keenSenses',
 ];
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold'];
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library'];
 
 const MONSTER_IDS = [
   'giant_rat',
@@ -51,6 +51,17 @@ const MONSTER_IDS = [
   'priest',
   'hobgoblin_captain',
   'gladiator',
+  'pirate',
+  'death_dog',
+  'ghast',
+  'gargoyle',
+  'rug_of_smothering',
+  'wight',
+  'doppelganger',
+  'mage',
+  'mummy',
+  'ghost',
+  'shield_guardian',
 ];
 
 const ORIGINAL_ITEM_IDS = [
@@ -159,7 +170,7 @@ const VARIANT_RARITY = {
   shield: { 1: 'uncommon', 2: 'rare', 3: 'veryRare' },
 } as const;
 
-const XP_BY_CR: Record<number, number> = { 0.125: 25, 0.25: 50, 0.5: 100, 1: 200, 2: 450, 3: 700, 4: 1100, 5: 1800 };
+const XP_BY_CR: Record<number, number> = { 0.125: 25, 0.25: 50, 0.5: 100, 1: 200, 2: 450, 3: 700, 4: 1100, 5: 1800, 6: 2300, 7: 2900 };
 
 const DICE_RE = /^\d+(d\d+)?([+-]\d+)?$/;
 
@@ -235,9 +246,10 @@ describe('monster data', () => {
       const inTheme = MONSTERS.filter((m) => m.themes.includes(theme));
       const bosses = inTheme.filter((m) => m.role === 'boss');
       const others = inTheme.filter((m) => m.role !== 'boss');
-      // The sewers (floors 4 and 5), the fungal caverns (floors 6 and 7) and the bandit hold (floors 8
-      // and 9) span two floors, each with its own boss; every other theme has one.
-      expect(bosses.length, `${theme} bosses`).toBe(theme === 'sewers' || theme === 'fungal' || theme === 'hold' ? 2 : 1);
+      // The sewers (floors 4 and 5), the fungal caverns (floors 6 and 7), the bandit hold (floors 8 and 9)
+      // and the Sunken Library (floors 10 and 11) span two floors, each with its own boss; every other theme
+      // has one.
+      expect(bosses.length, `${theme} bosses`).toBe(theme === 'sewers' || theme === 'fungal' || theme === 'hold' || theme === 'library' ? 2 : 1);
       expect(others.length, `${theme} non-bosses`).toBeGreaterThanOrEqual(2);
     }
   });

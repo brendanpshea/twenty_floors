@@ -38,7 +38,7 @@ export interface DecorCtx {
   exit: GridPos;
 }
 
-export const LIGHT_TYPES = new Set(['torch', 'campfire', 'brazier', 'mushrooms', 'crystal', 'giant_mushroom']);
+export const LIGHT_TYPES = new Set(['torch', 'campfire', 'brazier', 'mushrooms', 'crystal', 'giant_mushroom', 'candelabra']);
 
 /**
  * Prop bookkeeping with safety rules: blocking props never land on reserved cells

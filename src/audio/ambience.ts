@@ -388,9 +388,78 @@ const BEDS: Record<ThemeId, BedDef> = {
       ];
     },
   },
+  library: {
+    verb: 0.7,
+    build(rig, out) {
+      // Wide hushed room tone: soft low-passed noise, almost still.
+      const room = rig.gain(0.65, out);
+      rig.lfo(0.03, 0.08, room.gain);
+      rig.noiseLoop(rig.filter('lowpass', 500, 0.4, room));
+      // Faint arcane hum: detuned sines, slowly beating, kept soft with a low-pass.
+      const hum = rig.gain(0.02, rig.filter('lowpass', 1800, 0.4, out));
+      rig.lfo(0.05, 0.008, hum.gain);
+      rig.osc('sine', 880, hum);
+      rig.osc('sine', 881.6, hum);
+      rig.osc('sine', 1318.5, rig.gain(0.5, hum));
+    },
+    events(emit, rng) {
+      return [
+        {
+          // Slow distant drip with a long echo.
+          minGap: 6, maxGap: 18, firstDelay: [2, 7],
+          fire: (t) => {
+            const f = between(rng, 600, 1000);
+            const pan = between(rng, -0.7, 0.7);
+            emit([ping('sine', f, 0, 0.16, 0.32, { freqEnd: f * 1.8 }), ping('sine', f * 2.4, 0, 0.05, 0.07)], 1, t, pan);
+            emit([ping('sine', f * 0.97, 0, 0.18, 0.22, { freqEnd: f * 1.7 })], 1, t + between(rng, 0.45, 0.7), -pan * 0.6);
+            emit([ping('sine', f * 0.95, 0, 0.18, 0.1, { freqEnd: f * 1.6 })], 1, t + between(rng, 1.1, 1.5), pan * 0.4);
+          },
+        },
+        {
+          // Dry paper: a page turning or rustle, a soft band-passed swish.
+          minGap: 8, maxGap: 22, firstDelay: [3, 9],
+          fire: (t) => {
+            const pan = between(rng, -0.6, 0.6);
+            if (rng() < 0.5) {
+              emit([noise('bandpass', between(rng, 3000, 4500), 0, 0.28, 0.5, { a: 0.08, r: 0.15, freqEnd: 2000, q: 0.9 })], 0.4, t, pan);
+            } else {
+              const layers: Layer[] = [];
+              let at = 0;
+              const n = 3 + Math.floor(rng() * 3);
+              for (let i = 0; i < n; i++) {
+                layers.push(noise('bandpass', between(rng, 2500, 5000), at, 0.09, between(rng, 0.25, 0.5), { a: 0.03, r: 0.05, q: 1 }));
+                at += between(rng, 0.07, 0.17);
+              }
+              emit(layers, 0.4, t, pan);
+            }
+          },
+        },
+        {
+          // Occasional soft wooden knock or shelf creak.
+          minGap: 16, maxGap: 40, firstDelay: [8, 18],
+          fire: (t) => {
+            const pan = between(rng, -0.6, 0.6);
+            const f = between(rng, 120, 220);
+            if (rng() < 0.5) {
+              emit([ping('sine', f, 0, 0.12, 0.4, { freqEnd: f * 0.75 }), puff('lowpass', 700, 0, 0.04, 0.3), ping('sine', f * 2.3, 0, 0.1, 0.12)], 0.6, t, pan);
+            } else {
+              emit([tone('triangle', f, 0, 0.6, 0.25, { freqEnd: f * (rng() < 0.5 ? 1.1 : 0.9), lp: 500, a: 0.12, r: 0.3 })], 0.5, t, pan);
+            }
+          },
+        },
+        {
+          // Rare low whispered breath: a slow filtered noise swell, no pitch.
+          minGap: 30, maxGap: 70, firstDelay: [14, 28],
+          fire: (t) => {
+            emit([noise('bandpass', between(rng, 900, 1500), 0, 2.2, 0.35, { a: 0.9, r: 1.1, q: 0.7 })], 0.8, t, between(rng, -0.6, 0.6));
+          },
+        },
+      ];
+    },
+  },
 };
 
-export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold'];
+export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library'];
 
 const LOOKAHEAD = 1.5;
 const TICK_MS = 400;

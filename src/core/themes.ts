@@ -37,6 +37,11 @@ export const THEMES: Record<ThemeId, ThemeInfo> = {
     name: 'The Bandit Hold',
     tagline: 'Timber halls, stolen banners, and a garrison that was expecting someone.',
   },
+  library: {
+    id: 'library',
+    name: 'The Sunken Library',
+    tagline: 'Drowned stacks, cold lamplight, and readers who never left.',
+  },
 };
 
 export const TOTAL_FLOORS = 20;
@@ -48,9 +53,10 @@ const THEME_ORDER: ThemeId[] = ['warrens', 'crypt', 'depths'];
 
 /** Which theme a floor uses. Deterministic; more themes slot in here as they are built. */
 export function themeForDepth(depth: number): ThemeId {
-  // Floors 4 and 5 are the sewers, 6 and 7 the fungal caverns, 8 and 9 the bandit hold; deeper floors reuse the first three until their themes are built.
+  // Floors 4 and 5 are the sewers, 6 and 7 the fungal caverns, 8 and 9 the bandit hold, 10 and 11 the sunken library; deeper floors reuse the first three until their themes are built.
   if (depth === 4 || depth === 5) return 'sewers';
   if (depth === 6 || depth === 7) return 'fungal';
   if (depth === 8 || depth === 9) return 'hold';
+  if (depth === 10 || depth === 11) return 'library';
   return THEME_ORDER[(depth - 1) % THEME_ORDER.length] as ThemeId;
 }
