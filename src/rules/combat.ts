@@ -157,6 +157,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
   const spentRecharge = new Map<string, Set<string>>();
   const slowed = new Map<string, { by: string; cells: number }>();
   /** Weapon Mastery Vex: attacker id -> target it has advantage against, and attacker turn-ends left. */
+  /** Weapon Mastery Sap: sapped creature id -> attacker; its next attack roll has disadvantage until that attacker's next turn. */
+  const sapped = new Map<string, { by: string }>();
   const vexed = new Map<string, { targetId: string; turnEnds: number }>();
   const speedOf = (c: Creature): number => Math.max(0, effectiveSpeed(c) - (slowed.get(c.id)?.cells ?? 0));
   let events: GameEvent[] = [];
@@ -210,6 +212,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     }
     if (packTacticsActive(att, tgt)) adv = true;
     if (vexed.get(att.id)?.targetId === tgt.id) adv = true;
+    if (sapped.has(att.id)) dis = true;
     return { bonus, mode: mergeMode(adv, dis), critMin: hasFlag(att, 'crit19') ? 19 : 20 };
   }
 
@@ -226,6 +229,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     let r = rollD20(s.mode);
     let outcome = classify(r.d20, s.bonus, tgt.ac, s.critMin);
     if (vexed.get(att.id)?.targetId === tgt.id) vexed.delete(att.id);
+    sapped.delete(att.id);
     if ((outcome === 'miss' || outcome === 'fumble') && canInspire(att)) {
       (att.resources['inspiration'] as { current: number }).current -= 1;
       log(`${att.name} spends Heroic Inspiration to reroll (was ${r.d20}).`);
@@ -361,6 +365,26 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
   // ------------------------------------------------------- action resolution
 
   /** Resolve one action against one target (not area, not multiattack). */
+  /** Push a Large-or-smaller target up to 10 ft straight away, stopping at walls, drops and creatures. */
+  function pushTarget(att: Creature, tgt: Creature): void {
+    if (tgt.size === 'huge') return;
+    const dx = Math.sign(tgt.pos.x - att.pos.x);
+    const dy = Math.sign(tgt.pos.y - att.pos.y);
+    if (dx === 0 && dy === 0) return;
+    const path: GridPos[] = [];
+    let cur = tgt.pos;
+    for (let i = 0; i < 2; i++) {
+      const next = { x: cur.x + dx, y: cur.y + dy };
+      if (!nav.inBounds(next) || !nav.isWalkable(next) || occupiedBy(next) || !Number.isFinite(nav.stepCost(cur, next))) break;
+      path.push(next);
+      cur = next;
+    }
+    if (path.length === 0) return;
+    tgt.pos = { x: cur.x, y: cur.y };
+    emit({ type: 'move', creatureId: tgt.id, path });
+    log(`${tgt.name} is pushed back.`);
+  }
+
   function resolveOn(att: Creature, a: ActionDef, tgt: Creature, reaction = false, name: string = a.name): void {
     if (a.attack) {
       const outcome = rollAttack(att, tgt, a, reaction, name);
@@ -384,6 +408,14 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       if (dealt > 0 && isAlive(tgt) && a.effects?.includes('mastery:vex')) {
         vexed.set(att.id, { targetId: tgt.id, turnEnds: att.id === turn.creatureId ? 2 : 1 });
       }
+      // Weapon Mastery: Sap (disadvantage on its next attack), Topple (CON save or prone), Push (up to 10 ft away).
+      if (isAlive(tgt) && a.effects?.includes('mastery:sap')) sapped.set(tgt.id, { by: att.id });
+      const topple = a.effects?.find((e) => e.startsWith('mastery:topple:'));
+      if (topple && isAlive(tgt)) {
+        const dc = parseInt(topple.slice('mastery:topple:'.length), 10);
+        if (!rollSave(tgt, 'con', dc, 'prone')) addCondition(tgt, { condition: 'prone' }, att);
+      }
+      if (isAlive(tgt) && a.effects?.includes('mastery:push')) pushTarget(att, tgt);
       // Weapon Mastery: Slow reduces the target's speed by 10 ft until the start of the attacker's next turn.
       if (dealt > 0 && isAlive(tgt) && a.effects?.includes('mastery:slow')) {
         slowed.set(tgt.id, { by: att.id, cells: Math.max(slowed.get(tgt.id)?.cells ?? 0, SLOW_CELLS) });
@@ -519,6 +551,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       }
     }
     for (const [id, sl] of [...slowed]) if (sl.by === c.id) slowed.delete(id);
+    for (const [id, sl] of [...sapped]) if (sl.by === c.id) sapped.delete(id);
     turn.movementLeft = speedOf(c);
     // HOUSE RULE: a prone creature stands automatically at the cost of half its speed.
     const prone = c.conditions.find((x) => x.condition === 'prone');

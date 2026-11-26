@@ -1,10 +1,92 @@
 /** Mock data for the UI preview page (dev/ui-preview.html). Not used by the game. */
 import type {
+  ChoiceSlot,
   CreationOptions,
+  FeatInfo,
   HubModel,
   HudModel,
   ItemDef,
 } from '../core/types';
+
+type Opt = [id: string, name: string, description: string];
+const opts = (list: Opt[]) => list.map(([id, name, description]) => ({ id, name, description }));
+
+const wizardCantrips = opts([
+  ['fire_bolt', 'Fire Bolt', 'Hurl a mote of fire at a creature: a ranged spell attack for 1d10 fire damage.'],
+  ['ray_of_frost', 'Ray of Frost', 'A frigid beam: ranged spell attack for 1d8 cold damage that slows the target.'],
+  ['shocking_grasp', 'Shocking Grasp', 'Lightning springs from your hand: melee spell attack for 1d8 lightning damage; the target cannot react.'],
+  ['acid_splash', 'Acid Splash', 'Hurl a bubble of acid at a creature: it must succeed on a Dexterity save or take 1d6 acid damage.'],
+  ['mage_hand', 'Mage Hand', 'A spectral hand appears and can carry out simple tasks at a distance.'],
+  ['light', 'Light', 'Make an object shed bright light for an hour.'],
+  ['prestidigitation', 'Prestidigitation', 'A minor magical trick: sparks, a faint odor, a clean coat, a warm drink.'],
+]);
+const wizardSpells = opts([
+  ['magic_missile', 'Magic Missile', 'Three darts of force that always hit, 1d4+1 force damage each.'],
+  ['burning_hands', 'Burning Hands', 'A sheet of flame in a 15-foot cone: Dexterity save, 3d6 fire damage, half on a success.'],
+  ['sleep', 'Sleep', 'Send creatures into a magical slumber if they are weak enough.'],
+  ['shield', 'Shield', 'A reaction that grants +5 AC until the start of your next turn.'],
+  ['mage_armor', 'Mage Armor', 'Wrap yourself in a protective field: your AC becomes 13 + Dexterity modifier.'],
+  ['charm_person', 'Charm Person', 'A humanoid regards you as a friendly acquaintance on a failed Wisdom save.'],
+  ['thunderwave', 'Thunderwave', 'A wave of thunder: Constitution save, 2d8 thunder damage, and creatures are pushed away.'],
+  ['detect_magic', 'Detect Magic', 'Sense the presence of magic nearby and see its aura.'],
+]);
+const clericCantrips = opts([
+  ['sacred_flame', 'Sacred Flame', 'Radiance descends on a creature: Dexterity save or take 1d8 radiant damage.'],
+  ['guidance', 'Guidance', 'Touch a creature: it adds 1d4 to one ability check.'],
+  ['spare_the_dying', 'Spare the Dying', 'Stabilize a creature that has 0 hit points.'],
+  ['thaumaturgy', 'Thaumaturgy', 'A minor wonder: a booming voice, a flickering flame, a tremor.'],
+  ['light', 'Light', 'Make an object shed bright light for an hour.'],
+  ['mending', 'Mending', 'Repair a single break or tear in an object.'],
+  ['resistance', 'Resistance', 'Touch a creature: it adds 1d4 to one saving throw.'],
+]);
+const clericSpells = opts([
+  ['cure_wounds', 'Cure Wounds', 'Touch a creature and restore 2d8 + your spellcasting modifier hit points.'],
+  ['healing_word', 'Healing Word', 'A bonus action that restores 2d4 + your modifier hit points at range.'],
+  ['guiding_bolt', 'Guiding Bolt', 'A flash of light: ranged spell attack for 4d6 radiant damage, and the next attack against the target has advantage.'],
+  ['bless', 'Bless', 'Up to three creatures add 1d4 to attack rolls and saving throws.'],
+  ['shield_of_faith', 'Shield of Faith', 'A shimmering field grants +2 AC to a creature.'],
+  ['sanctuary', 'Sanctuary', 'Ward a creature so attackers must make a Wisdom save to strike it.'],
+  ['inflict_wounds', 'Inflict Wounds', 'Melee spell attack for 2d10 necrotic damage.'],
+  ['command', 'Command', 'Speak a one-word command to a creature: Wisdom save or obey.'],
+]);
+const castingAbility = opts([
+  ['int', 'Intelligence', 'Use Intelligence for your spell attacks and save DCs.'],
+  ['wis', 'Wisdom', 'Use Wisdom for your spell attacks and save DCs.'],
+  ['cha', 'Charisma', 'Use Charisma for your spell attacks and save DCs.'],
+]);
+
+function magicInitiate(list: 'Wizard' | 'Cleric'): FeatInfo {
+  const wiz = list === 'Wizard';
+  const cantrips = wiz ? wizardCantrips : clericCantrips;
+  const slots: ChoiceSlot[] = [
+    { key: 'mi_cantrip1', name: 'First cantrip', group: 'mi_cantrip', options: cantrips },
+    { key: 'mi_cantrip2', name: 'Second cantrip', group: 'mi_cantrip', options: cantrips },
+    { key: 'mi_spell', name: 'Level 1 spell', options: wiz ? wizardSpells : clericSpells },
+    { key: 'mi_ability', name: 'Spellcasting ability', options: castingAbility },
+  ];
+  return {
+    id: wiz ? 'magic_initiate_wizard' : 'magic_initiate_cleric',
+    name: `Magic Initiate (${list})`,
+    description: `You learn two cantrips and one level 1 spell from the ${list} spell list, and can cast the spell once per long rest.`,
+    summaries: ['Two cantrips and one level 1 spell.', 'Choose Intelligence, Wisdom or Charisma to cast them.'],
+    choices: slots,
+  };
+}
+
+const savageAttacker: FeatInfo = {
+  id: 'savage_attacker',
+  name: 'Savage Attacker',
+  description: 'Once per turn when you hit with a weapon, you can roll its damage dice twice and use either result.',
+  summaries: ['Roll weapon damage twice and keep the better result, once per turn.'],
+  choices: [],
+};
+const alertFeat: FeatInfo = {
+  id: 'alert',
+  name: 'Alert',
+  description: 'You add your proficiency bonus to your initiative rolls.',
+  summaries: ['Add your proficiency bonus to initiative.'],
+  choices: [],
+};
 
 export const creationOptions: CreationOptions = {
   species: [
@@ -96,6 +178,7 @@ export const creationOptions: CreationOptions = {
       description: 'You began training for war as soon as you were old enough to hold a blade, and the discipline never left you.',
       abilityOptions: ['str', 'dex', 'con'],
       skills: ['athletics', 'intimidation'],
+      feat: savageAttacker,
     },
     {
       id: 'criminal',
@@ -103,6 +186,7 @@ export const creationOptions: CreationOptions = {
       description: 'You earned your living in the shadows, relying on quick hands, quicker wits and a talent for staying unseen.',
       abilityOptions: ['dex', 'con', 'int'],
       skills: ['sleightOfHand', 'stealth'],
+      feat: alertFeat,
     },
     {
       id: 'sage',
@@ -110,6 +194,7 @@ export const creationOptions: CreationOptions = {
       description: 'You spent your years among libraries and scholars, chasing answers to questions few others thought to ask.',
       abilityOptions: ['con', 'int', 'wis'],
       skills: ['arcana', 'history'],
+      feat: magicInitiate('Wizard'),
     },
     {
       id: 'acolyte',
@@ -117,6 +202,7 @@ export const creationOptions: CreationOptions = {
       description: 'You devoted yourself to service in a temple, tending its rites and learning what the faithful believe.',
       abilityOptions: ['int', 'wis', 'cha'],
       skills: ['insight', 'religion'],
+      feat: magicInitiate('Cleric'),
     },
   ],
   standardArray: [15, 14, 13, 12, 10, 8],

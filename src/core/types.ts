@@ -515,6 +515,23 @@ export interface ChoiceSlot {
   key: string;
   name: string;
   options: ChoiceOption[];
+  /**
+   * Slots sharing a group draw from the same pool: an option picked in one
+   * slot cannot be picked in another slot of the same group (e.g. the two
+   * cantrips of Magic Initiate).
+   */
+  group?: string;
+}
+
+/** A feat granted at character creation (an SRD 5.2 origin feat). */
+export interface FeatInfo {
+  id: string;
+  name: string;
+  description: string;
+  /** Short bullet lines describing what it does in this game. */
+  summaries: string[];
+  /** Choices the feat asks for (e.g. Magic Initiate: two cantrips, one spell, a casting ability). */
+  choices: ChoiceSlot[];
 }
 
 export interface SpeciesInfo {
@@ -549,6 +566,68 @@ export interface BackgroundInfo {
   /** The three abilities this background can raise (+2/+1 or +1/+1/+1). */
   abilityOptions: Ability[];
   skills: Skill[];
+  /** The origin feat this background grants. Its choices are stored in CharacterBuild.choices. */
+  feat?: FeatInfo;
+}
+
+// ---------------------------------------------------------------------------
+// Rules: spells
+// ---------------------------------------------------------------------------
+
+export type SpellList = 'cleric' | 'druid' | 'wizard';
+
+export type SpellSchool =
+  | 'abjuration'
+  | 'conjuration'
+  | 'divination'
+  | 'enchantment'
+  | 'evocation'
+  | 'illusion'
+  | 'necromancy'
+  | 'transmutation';
+
+/**
+ * A spell, transcribed from SRD 5.2 into game units. Caster-dependent numbers
+ * (attack bonus, save DC, the modifier added to healing) are not stored here:
+ * the rules engine derives them when it turns a known spell into an ActionDef.
+ */
+export interface SpellDef {
+  id: string;
+  name: string;
+  /** 0 for a cantrip. */
+  level: number;
+  school: SpellSchool;
+  lists: SpellList[];
+  castingTime: ActionCost;
+  concentration: boolean;
+  /** Duration in rounds (1 minute = 10); omitted for instantaneous spells. */
+  durationRounds?: number;
+  /** One or two original sentences for the tooltip. */
+  description: string;
+  icon?: string;
+  /** Ranges and areas in cells (5 ft = 1). */
+  targeting: Targeting;
+  /**
+   * How the spell resolves: a spell attack roll, a saving throw by each
+   * target, automatically (no roll), as healing, or as a lasting buff.
+   */
+  resolution: 'attack' | 'save' | 'auto' | 'heal' | 'buff';
+  /** For 'save' spells: which save, and whether a success halves the damage. */
+  save?: { ability: Ability; halfOnSave: boolean };
+  /** Damage at character level 1 (cantrips) or when cast at spell level 1. */
+  damage?: DamagePart[];
+  /** Cantrips only: the damage dice at character levels 5, 11 and 17. */
+  cantripScaling?: [Dice, Dice, Dice];
+  /** Healing dice; the engine adds the spellcasting modifier when `addsModifier` is true. */
+  heal?: Dice;
+  addsModifier?: boolean;
+  /** Condition applied on a hit or failed save. `saveEnds` names the save repeated each turn. */
+  applies?: { condition: Condition; rounds?: number; saveEnds?: Ability };
+  /**
+   * Ids of effects the rules engine implements in code, for everything the
+   * fields above cannot express (e.g. 'magicMissile', 'shield', 'bless').
+   */
+  effects?: string[];
 }
 
 /** Everything the creation screen needs. Produced by the rules engine. */

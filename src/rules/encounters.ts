@@ -49,7 +49,7 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
    * 4 the SRD 5.2 "Low" per-character budgets (250, 500, 600 ...) are scaled
    * by 0.65 until those floors are tuned the same way.
    */
-  budgetByLevel: [32, 110, 125, 160, 325, 390, 490, 650, 845, 1040, 1235, 1430, 1690, 1885, 2145, 2470, 2925, 3250, 3575, 4160],
+  budgetByLevel: [36, 130, 140, 160, 325, 390, 490, 650, 845, 1040, 1235, 1430, 1690, 1885, 2145, 2470, 2925, 3250, 3575, 4160],
   /** Global multiplier on every budget. */
   soloFactor: 1,
   /** Budget multiplier by room role. 0 = never spawn. */
@@ -66,9 +66,9 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   /** At most this many monsters with CR above the hero's level per room. */
   maxOverLevel: 1,
   maxBossMinions: [1, 2, 2, 2],
-  minMonstersPerRoom: [1.7, 2.0, 2.1],
+  minMonstersPerRoom: [1.8, 2.1, 2.3],
   topUpLimit: 1.8,
-  bossMinionChance: [0.15, 0.4, 0, 0.5],
+  bossMinionChance: [0.25, 0.5, 0.2, 0.5],
   /** Selection weight by role. */
   roleWeight: { minion: 1, standard: 1, elite: 0.5, boss: 0 },
   monsterMinDepth: {},

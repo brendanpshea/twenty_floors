@@ -49,22 +49,29 @@ Clearing a floor grants a level, so clearing floor 20 means reaching level 20.
   spend its action on a Strength check to break free.
 - A ranged attacker at least two elevation steps above its target gets +1 to hit.
 - Encounters are budgeted for one hero: one to four monsters per combat room
-  (about 1.5 to 1.7 on average on floors 1 to 3), with at most one monster
-  above the hero's level in CR.
+  (about 1.8, 2.2 and 2.5 on average on floors 1 to 3), with at most one
+  monster above the hero's level in CR.
 - A fight starts when the hero steps into a room with living monsters, or
   comes within 7 cells of walking distance of one with line of sight. All
   living monsters of that room join.
-- Bosses for the first three floors: Goblin Boss, Ghoul, Bugbear Warrior. The
-  Ogre proved too deadly for a level 3 hero alone and is held for later floors.
+- Bosses for the first three floors: Goblin Boss, Ghoul, Ogre. The Ogre fights
+  without an escort; the Bugbear Warrior is an elite.
 
 Numbers are tuned by simulating whole floors headlessly (`src/balance`), not
 by feel. Targets for a first attempt by a player who rests and shops
-sensibly: about 80% on floor 1, 75% on floor 2, 70% on floor 3. The archer
-starting kit currently runs about 14 points behind on floor 3 and is the
-harder choice.
+sensibly: 80 to 90% on floor 1, 70 to 80% on floor 2, 60 to 75% on floor 3.
+The archer starting kit is well behind on floors 2 and 3 and is the harder
+choice.
 
-Weapon Mastery is implemented only for Slow (longbow, javelin) and Vex
-(shortsword).
+Weapon Mastery follows each weapon's SRD mastery property. Slow, Vex, Sap,
+Topple, Push and Graze are implemented; Cleave and Nick need a second attack
+and wait for Extra Attack. The hero has mastery with three weapon kinds,
+filled from the starting kit.
+
+Magic weapons, armor and shields (+1 to +3) add their bonus to attack and
+damage or to Armor Class. They do not appear on floors 1 to 3; +1 items enter
+shops and chests from floor 4, +2 from about floor 9, +3 from about floor 15.
+Their prices are placeholders.
 
 ## Milestone 1 (vertical slice)
 

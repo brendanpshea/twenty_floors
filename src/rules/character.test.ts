@@ -153,7 +153,7 @@ describe('toCreature', () => {
     expect(sword.damage?.[0]?.dice).toBe('1d10+3');
     expect(sword.effects).toContain('greatWeaponFighting');
     const withShield = toCreature(hero({ choices: { fightingStyle: 'greatWeaponFighting', startingKit: 'a' } }), { x: 0, y: 0 });
-    expect(withShield.actions.find((a) => a.id === 'atk_longsword')?.effects).toBeUndefined();
+    expect(withShield.actions.find((a) => a.id === 'atk_longsword')?.effects ?? []).not.toContain('greatWeaponFighting');
   });
 
   it('uses DEX and Archery for ranged weapons and offers a melee alternative', () => {
@@ -324,13 +324,24 @@ describe('hub helpers', () => {
     expect(floorReward(2)).toBeGreaterThan(floorReward(1));
   });
 
-  it('stocks more as depth grows and sorts by price', () => {
+  it('offers a curated, deterministic selection: potions, weapons, armor, a shield, nothing magic early', () => {
     const s1 = shopStock(1);
-    const s3 = shopStock(3);
-    expect(s3.length).toBeGreaterThanOrEqual(s1.length);
+    expect(shopStock(1).map((i) => i.id)).toEqual(s1.map((i) => i.id));
+    expect(s1.some((i) => i.id === 'potion_healing')).toBe(true);
     expect(s1.some((i) => i.id === 'potion_greater_healing')).toBe(false);
-    expect(s3.some((i) => i.id === 'potion_greater_healing')).toBe(true);
-    for (let i = 1; i < s3.length; i++) expect(s3[i]!.cost).toBeGreaterThanOrEqual(s3[i - 1]!.cost);
+    expect(shopStock(3).some((i) => i.id === 'potion_greater_healing')).toBe(true);
+    expect(s1.some((i) => i.kind === 'armor')).toBe(true);
+    expect(s1.some((i) => i.kind === 'shield')).toBe(true);
+    expect(s1.filter((i) => i.kind === 'weapon').length).toBeLessThanOrEqual(4);
+    for (const d of [1, 2, 3]) expect(shopStock(d).some((i) => i.magicBonus)).toBe(false);
+    for (let i = 1; i < s1.length; i++) expect(s1[i]!.cost).toBeGreaterThanOrEqual(s1[i - 1]!.cost);
+  });
+
+  it('unlocks magic stock by bonus at the gated depths', () => {
+    expect(shopStock(4).some((i) => i.magicBonus === 1)).toBe(true);
+    expect(shopStock(8).some((i) => (i.magicBonus ?? 0) >= 2)).toBe(false);
+    expect(shopStock(9).some((i) => (i.magicBonus ?? 0) <= 2 && i.magicBonus)).toBe(true);
+    for (const d of [4, 5, 6, 7, 8]) expect(shopStock(d).every((i) => (i.magicBonus ?? 0) <= 1)).toBe(true);
   });
 
   it('buys items without mutating and refuses when poor', () => {
@@ -393,5 +404,19 @@ describe('chestLoot', () => {
       }
     }
     expect(seconds).toBeGreaterThan(100);
+  });
+});
+
+describe('chest magic finds', () => {
+  it('never on floors 1-3, rare from depth 4', async () => {
+    const { chestLoot } = await import('./character');
+    const { Rng } = await import('../core/rng');
+    let finds = 0;
+    for (let i = 0; i < 600; i++) {
+      for (const depth of [1, 2, 3]) expect(chestLoot(depth, new Rng(i)).items.every((s) => s.itemId === 'potion_healing')).toBe(true);
+      if (chestLoot(5, new Rng(i)).items.some((s) => s.itemId !== 'potion_healing')) finds++;
+    }
+    expect(finds).toBeGreaterThan(30);
+    expect(finds).toBeLessThan(150);
   });
 });

@@ -12,8 +12,8 @@ export interface StartingKit {
   description: string;
   items: ItemStack[];
   equipped: { mainHand?: string; offHand?: string; armor?: string };
-  /** Weapon Mastery properties the kit's weapons have (only the implemented ones: slow, graze). */
-  masteries: Record<string, 'slow' | 'graze' | 'vex'>;
+  /** Weapon kinds (base item ids) the hero knows masteries for (SRD 5.2: three at level 1). */
+  masteredKinds: string[];
 }
 
 /** Data-driven class. Adding a class means adding an entry to CLASSES. */
@@ -59,7 +59,7 @@ const KITS: StartingKit[] = [
       { itemId: 'javelin', quantity: 4 },
     ],
     equipped: { armor: 'chain_mail', mainHand: 'longsword', offHand: 'shield' },
-    masteries: { javelin: 'slow' },
+    masteredKinds: ['longsword', 'javelin', 'shortsword'],
   },
   {
     id: 'b',
@@ -71,7 +71,7 @@ const KITS: StartingKit[] = [
       { itemId: 'javelin', quantity: 4 },
     ],
     equipped: { armor: 'chain_mail', mainHand: 'greatsword' },
-    masteries: { javelin: 'slow' },
+    masteredKinds: ['greatsword', 'javelin', 'longsword'],
   },
   {
     id: 'c',
@@ -83,7 +83,7 @@ const KITS: StartingKit[] = [
       { itemId: 'shortsword', quantity: 1 },
     ],
     equipped: { armor: 'scale_mail', mainHand: 'longbow' },
-    masteries: { longbow: 'slow', shortsword: 'vex' },
+    masteredKinds: ['longbow', 'shortsword', 'javelin'],
   },
 ];
 
@@ -132,7 +132,7 @@ export const FIGHTER: ClassDef = {
     {
       level: 1,
       name: 'Weapon Mastery',
-      summary: 'Slow (longbow, javelins): a damaging hit cuts the target speed by 10 ft until your next turn. Vex (shortsword): a damaging hit gives you advantage on your next attack against that target. Other masteries are not in this version.',
+      summary: 'You know the masteries of three weapon kinds (your starting kit, plus a fill): Slow, Vex, Sap, Topple, Push and Graze are implemented; Cleave and Nick are not.',
     },
     { level: 2, name: 'Action Surge', summary: 'Once per rest, take one additional action on your turn.' },
     { level: 3, name: 'Champion: Improved Critical', summary: 'Your attacks score a critical hit on a roll of 19 or 20.' },

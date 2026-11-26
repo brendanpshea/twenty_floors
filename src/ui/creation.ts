@@ -21,6 +21,7 @@ import {
   rebuildPreserving,
 } from './dom';
 import { createIcon } from './icons';
+import type { Tooltip } from './tooltip';
 
 const STEP_LABELS = ['Species', 'Class', 'Background', 'Abilities', 'Skills', 'Name'] as const;
 const LAST = STEP_LABELS.length - 1;
@@ -58,13 +59,23 @@ interface CardSpec {
   meta?: string;
   selected: boolean;
   onPick: () => void;
+  /** One-line feat summary shown under the title. */
+  feat?: string;
+  /** Compact card for long option lists: description clamps to two lines (full text in the tooltip). */
+  compact?: boolean;
+  /** When set the card cannot be picked, and this note says why. */
+  disabled?: string;
 }
 
 function skillName(s: Skill): string {
   return prettifyId(s);
 }
 
-export function buildCreation(options: CreationOptions, done: (build: CharacterBuild) => void): HTMLElement {
+export function buildCreation(
+  options: CreationOptions,
+  done: (build: CharacterBuild) => void,
+  tip?: Tooltip,
+): HTMLElement {
   // ---------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------
@@ -148,7 +159,7 @@ export function buildCreation(options: CreationOptions, done: (build: CharacterB
   function choicesValid(): boolean {
     const c = klass();
     if (!c) return false;
-    return c.choices.every((slot) => slot.options.some((o) => o.id === choices[slot.key]));
+    return slotsValid(c.choices);
   }
 
   function nameValid(): boolean {
@@ -162,7 +173,7 @@ export function buildCreation(options: CreationOptions, done: (build: CharacterB
       case 1:
         return !!klass();
       case 2:
-        return !!background() && increasesValid();
+        return !!background() && increasesValid() && slotsValid(featSlots());
       case 3:
         return abMode === 'standard' ? true : pointsLeft() >= 0;
       case 4:
@@ -183,6 +194,7 @@ export function buildCreation(options: CreationOptions, done: (build: CharacterB
   // State mutators
   // ---------------------------------------------------------------------
   function pickBackground(id: string): void {
+    if (backgroundId !== id) for (const slot of featSlots()) delete choices[slot.key];
     backgroundId = id;
     const bg = background();
     if (bg) {
@@ -200,10 +212,40 @@ export function buildCreation(options: CreationOptions, done: (build: CharacterB
 
   function pickClass(id: string): void {
     if (classId !== id) {
+      for (const slot of klass()?.choices ?? []) delete choices[slot.key];
       classId = id;
       skills.clear();
-      for (const k of Object.keys(choices)) delete choices[k];
     }
+  }
+
+  function featSlots(): ChoiceSlot[] {
+    return background()?.feat?.choices ?? [];
+  }
+
+  /** Where else in the same group this option is already chosen, if anywhere. */
+  function takenElsewhere(slots: ChoiceSlot[], slot: ChoiceSlot, optionId: string): 'above' | 'below' | null {
+    if (!slot.group) return null;
+    const idx = slots.indexOf(slot);
+    for (let i = 0; i < slots.length; i++) {
+      const o = slots[i];
+      if (!o || o === slot || o.group !== slot.group) continue;
+      if (choices[o.key] === optionId) return i < idx ? 'above' : 'below';
+    }
+    return null;
+  }
+
+  /** Fill every unset slot with the first option not already taken in its group. */
+  function fillSlots(slots: ChoiceSlot[]): void {
+    for (const slot of slots) {
+      const first = slot.options.find((o) => !takenElsewhere(slots, slot, o.id));
+      if (first) choices[slot.key] = first.id;
+    }
+  }
+
+  function slotsValid(slots: ChoiceSlot[]): boolean {
+    return slots.every(
+      (slot) => slot.options.some((o) => o.id === choices[slot.key]) && !takenElsewhere(slots, slot, choices[slot.key] ?? ''),
+    );
   }
 
   function applyRecommended(): void {
@@ -253,10 +295,8 @@ export function buildCreation(options: CreationOptions, done: (build: CharacterB
     abMode = 'standard';
     applyRecommended();
     for (const sk of skillPool().slice(0, skillNeed())) skills.add(sk);
-    for (const slot of c.choices) {
-      const first = slot.options[0];
-      if (first) choices[slot.key] = first.id;
-    }
+    fillSlots(c.choices);
+    fillSlots(featSlots());
     if (!name.trim()) name = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)] ?? 'Hero';
     step = LAST;
     refresh();
@@ -285,7 +325,7 @@ export function buildCreation(options: CreationOptions, done: (build: CharacterB
   // Shared DOM builders
   // ---------------------------------------------------------------------
   function card(spec: CardSpec): HTMLButtonElement {
-    const b = h('button', `tf-card${spec.selected ? ' is-selected' : ''}`);
+    const b = h('button', `tf-card${spec.selected ? ' is-selected' : ''}${spec.compact ? ' tf-card--compact' : ''}${spec.disabled ? ' is-taken' : ''}`);
     b.type = 'button';
     b.setAttribute('role', 'radio');
     b.setAttribute('aria-checked', String(spec.selected));
@@ -297,13 +337,25 @@ export function buildCreation(options: CreationOptions, done: (build: CharacterB
     head.append(tick);
     b.append(head);
     if (spec.meta) b.append(h('div', 'tf-card-meta', spec.meta));
+    if (spec.feat) b.append(h('div', 'tf-card-feat', spec.feat));
     b.append(h('p', 'tf-card-desc', spec.description));
+    if (spec.disabled) {
+      b.append(h('div', 'tf-card-note', spec.disabled));
+      b.setAttribute('aria-disabled', 'true');
+    }
     if (spec.bullets && spec.bullets.length) {
       const ul = h('ul', 'tf-card-list');
       for (const t of spec.bullets) ul.append(h('li', undefined, t));
       b.append(ul);
     }
-    b.addEventListener('click', spec.onPick);
+    if (spec.compact && tip) {
+      tip.attach(b, () => ({ title: spec.title, sub: spec.disabled, body: spec.description }));
+    } else if (spec.compact) {
+      b.title = spec.description;
+    }
+    b.addEventListener('click', () => {
+      if (!spec.disabled) spec.onPick();
+    });
     return b;
   }
 
@@ -410,6 +462,7 @@ export function buildCreation(options: CreationOptions, done: (build: CharacterB
         meta: `Skills: ${b.skills.map(skillName).join(', ')}`,
         description: b.description,
         bullets: [`Can raise ${b.abilityOptions.map((a) => ABILITY_NAMES[a]).join(', ')}`],
+        feat: b.feat ? `${b.feat.name}: ${b.feat.summaries[0] ?? b.feat.description}` : undefined,
         selected: b.id === backgroundId,
         onPick: () => {
           pickBackground(b.id);
@@ -423,6 +476,7 @@ export function buildCreation(options: CreationOptions, done: (build: CharacterB
     ];
     const bg = background();
     if (bg) out.push(increasePanel(bg));
+    if (bg?.feat && bg.feat.choices.length) out.push(featPanel(bg));
     return out;
   }
 
@@ -624,26 +678,48 @@ export function buildCreation(options: CreationOptions, done: (build: CharacterB
     }
     out.push(sk);
 
-    for (const slot of c.choices) out.push(choicePanel(slot));
+    for (const slot of c.choices) out.push(choicePanel(c.choices, slot));
     return out;
   }
 
-  function choicePanel(slot: ChoiceSlot): HTMLElement {
-    const panel = h('section', 'tf-panel');
-    panel.append(h('h3', 'tf-panel-title', slot.name));
-    const cards = slot.options.map((o) =>
-      card({
+  function slotCards(slots: ChoiceSlot[], slot: ChoiceSlot, compact: boolean): HTMLElement {
+    const cards = slot.options.map((o) => {
+      const where = takenElsewhere(slots, slot, o.id);
+      return card({
         key: `choice-${slot.key}-${o.id}`,
         title: o.name,
         description: o.description,
+        compact,
         selected: choices[slot.key] === o.id,
+        disabled: where ? `Chosen ${where}` : undefined,
         onPick: () => {
           choices[slot.key] = o.id;
           refresh();
         },
-      }),
-    );
-    panel.append(cardGrid(slot.name, cards));
+      });
+    });
+    const g = cardGrid(slot.name, cards);
+    if (compact) g.classList.add('tf-cards--compact');
+    return g;
+  }
+
+  function choicePanel(slots: ChoiceSlot[], slot: ChoiceSlot): HTMLElement {
+    const panel = h('section', 'tf-panel');
+    panel.append(h('h3', 'tf-panel-title', slot.name));
+    panel.append(slotCards(slots, slot, slot.options.length > 5));
+    return panel;
+  }
+
+  function featPanel(bg: BackgroundInfo): HTMLElement {
+    const feat = bg.feat;
+    const panel = h('section', 'tf-panel tf-feat');
+    if (!feat) return panel;
+    const casting = feat.choices.some((s) => /spell|cantrip/i.test(s.name));
+    panel.append(h('h3', 'tf-panel-title', `${feat.name} \u2014 ${casting ? 'choose your spells' : 'make your choices'}`));
+    panel.append(h('p', 'tf-hint', feat.description));
+    for (const slot of feat.choices) {
+      panel.append(h('h4', 'tf-sub-title', slot.name), slotCards(feat.choices, slot, slot.options.length > 4));
+    }
     return panel;
   }
 
@@ -708,6 +784,17 @@ export function buildCreation(options: CreationOptions, done: (build: CharacterB
         const o = slot.options.find((x) => x.id === choices[slot.key]);
         left.append(kv(slot.name, o?.name ?? '–'));
       }
+    }
+    const feat = bg?.feat;
+    if (feat) {
+      const names = feat.choices.map((slot) => slot.options.find((x) => x.id === choices[slot.key])?.name ?? '–');
+      const text =
+        names.length > 1
+          ? `${feat.name}: ${names.slice(0, -1).join(', ')} \u2014 ${names[names.length - 1] ?? ''}`
+          : names.length === 1
+            ? `${feat.name}: ${names[0] ?? ''}`
+            : feat.name;
+      left.append(kv('Feat', text));
     }
     const right = h('div', 'tf-sheet-col');
     const final = finalScores();

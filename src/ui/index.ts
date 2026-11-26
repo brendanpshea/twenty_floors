@@ -101,7 +101,7 @@ export function createUi(root: HTMLElement): GameUi {
     showTitle: (opts) => modal<'new' | 'continue'>((done) => buildTitle(opts.hasSave, done)),
 
     showCreation: (options: CreationOptions) =>
-      modal<CharacterBuild>((done) => buildCreation(options, done)),
+      modal<CharacterBuild>((done) => buildCreation(options, done, tooltip)),
 
     setHud: (model: HudModel) => hud.setHud(model),
     hideHud: () => hud.hide(),

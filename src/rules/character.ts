@@ -1,4 +1,4 @@
-import type { Rng } from '../core/rng';
+import { Rng, hashSeed } from '../core/rng';
 import type {
   Ability,
   AbilityScores,
@@ -7,6 +7,7 @@ import type {
   CreationOptions,
   Creature,
   ItemDef,
+  WeaponMastery,
   ItemStack,
   LevelUpPreview,
   PlayerCharacter,
@@ -111,7 +112,7 @@ export function validateBuild(build: CharacterBuild): string[] {
       else if (!slot.options.some((o) => o.id === picked)) errors.push(`Invalid ${slot.name}: ${picked}.`);
     }
     for (const key of Object.keys(choices)) {
-      if (!cls.choices.some((s) => s.key === key)) errors.push(`Unknown choice: ${key}.`);
+      if (key !== 'masteries' && !cls.choices.some((s) => s.key === key)) errors.push(`Unknown choice: ${key}.`);
     }
   }
   return errors;
@@ -143,7 +144,7 @@ export function createCharacter(build: CharacterBuild): PlayerCharacter {
   addToStack(inventory, 'potion_healing', STARTING_POTIONS);
   const maxHp = hpPerLevel(build);
   return {
-    build: clone({ ...build, name: build.name.trim() }),
+    build: clone({ ...build, name: build.name.trim(), choices: { ...build.choices, masteries: build.choices['masteries'] ?? kit.masteredKinds.join(',') } }),
     level: 1,
     maxHp,
     hp: maxHp,
@@ -175,10 +176,38 @@ export function computeAc(pc: PlayerCharacter): number {
     const cap = armor.dexCap;
     ac = armor.baseAc + (cap === undefined ? dex : Math.min(dex, cap));
     if (fightingStyle(pc) === 'defense') ac += 1;
+    ac += (pc.equipped.armor ? getItem(pc.equipped.armor)?.magicBonus : 0) ?? 0;
   }
   const shield = pc.equipped.offHand ? getItem(pc.equipped.offHand) : undefined;
-  if (shield?.kind === 'shield') ac += shield.shieldBonus ?? 2;
+  if (shield?.kind === 'shield') ac += (shield.shieldBonus ?? 2) + (shield.magicBonus ?? 0);
   return ac;
+}
+
+/** Engine effect ids for a weapon mastery property. Cleave and Nick need a second attack and are not implemented. */
+function masteryEffects(mastery: WeaponMastery | undefined, mod: number, pb: number): string[] {
+  switch (mastery) {
+    case 'slow':
+      return ['mastery:slow'];
+    case 'vex':
+      return ['mastery:vex'];
+    case 'sap':
+      return ['mastery:sap'];
+    case 'push':
+      return ['mastery:push'];
+    case 'graze':
+      return [`mastery:graze:${Math.max(0, mod)}`];
+    case 'topple':
+      return [`mastery:topple:${8 + mod + pb}`];
+    default:
+      return [];
+  }
+}
+
+/** Weapon kinds (base item ids) whose mastery the hero can use: build.choices.masteries, else the starting kit's. */
+export function masteredKinds(pc: PlayerCharacter): string[] {
+  const raw = pc.build.choices['masteries'];
+  if (raw !== undefined) return raw.split(',').filter((x) => x.length > 0);
+  return classOf(pc.build).kits.find((k) => k.id === pc.build.choices['startingKit'])?.masteredKinds ?? [];
 }
 
 function fmtMod(n: number): string {
@@ -188,7 +217,7 @@ function fmtMod(n: number): string {
 function weaponAction(
   item: ItemDef,
   mode: 'attack' | 'throw',
-  opts: { abilities: AbilityScores; pb: number; style: string | undefined; twoHands: boolean; mastery?: 'slow' | 'graze' | 'vex' },
+  opts: { abilities: AbilityScores; pb: number; style: string | undefined; twoHands: boolean; mastered?: boolean },
 ): ActionDef {
   const w = item.weapon as NonNullable<ItemDef['weapon']>;
   const str = abilityMod(opts.abilities.str);
@@ -197,10 +226,11 @@ function weaponAction(
   const ranged = !w.melee && mode === 'attack';
   const mod = ranged ? dex : finesse ? Math.max(str, dex) : str;
   const archery = ranged && opts.style === 'archery' ? 2 : 0;
-  const bonus = mod + opts.pb + archery;
+  const mb = item.magicBonus ?? 0;
+  const bonus = mod + opts.pb + archery + mb;
   const dice = opts.twoHands && w.versatileDice ? w.versatileDice : w.damage.dice;
-  const dmgDice = `${dice}${mod === 0 ? '' : fmtMod(mod)}`;
-  const masteryFx = opts.mastery === 'slow' ? ['mastery:slow'] : opts.mastery === 'vex' ? ['mastery:vex'] : opts.mastery === 'graze' ? [`mastery:graze:${Math.max(0, mod)}`] : [];
+  const dmgDice = `${dice}${mod + mb === 0 ? '' : fmtMod(mod + mb)}`;
+  const masteryFx = opts.mastered ? masteryEffects(w.mastery, mod, opts.pb) : [];
   const base = { cost: 'action' as const, attack: { bonus }, damage: [{ dice: dmgDice, type: w.damage.type }] };
   if (mode === 'throw') {
     const r = w.range ?? { normal: 4, long: 12 };
@@ -210,7 +240,7 @@ function weaponAction(
       name: `Throw ${item.name}`,
       description: `${fmtMod(bonus)} to hit, ${dmgDice} ${w.damage.type}. Range ${r.normal * 5} ft.`,
       icon: 'thrown',
-      ...(opts.mastery === 'slow' ? { effects: ['mastery:slow'] } : {}),
+      ...(masteryFx.length > 0 ? { effects: masteryFx } : {}),
       targeting: { kind: 'creature', melee: false, range: r.normal, longRange: r.long },
     };
   }
@@ -232,7 +262,8 @@ function weaponAction(
 /** Weapon attack actions derived from the equipped main hand, carried alternatives and thrown weapons. */
 function weaponActions(pc: PlayerCharacter, abilities: AbilityScores, pb: number): ActionDef[] {
   const style = fightingStyle(pc);
-  const masteries = classOf(pc.build).kits.find((k) => k.id === pc.build.choices['startingKit'])?.masteries ?? {};
+  const kinds = masteredKinds(pc);
+  const mastered = (i: ItemDef): boolean => kinds.includes(i.baseId ?? i.id);
   const mainId = pc.equipped.mainHand;
   const main = mainId ? getItem(mainId) : undefined;
   const out: ActionDef[] = [];
@@ -241,7 +272,7 @@ function weaponActions(pc: PlayerCharacter, abilities: AbilityScores, pb: number
   if (hasWeapon(main)) {
     const w = main.weapon as NonNullable<ItemDef['weapon']>;
     const twoHands = w.properties.includes('twoHanded') || (w.properties.includes('versatile') && !shieldOn);
-    out.push(weaponAction(main, 'attack', { abilities, pb, style, twoHands, mastery: masteries[main.id] }));
+    out.push(weaponAction(main, 'attack', { abilities, pb, style, twoHands, mastered: mastered(main) }));
   }
   const carried = pc.inventory
     .map((s) => getItem(s.itemId))
@@ -254,12 +285,12 @@ function weaponActions(pc: PlayerCharacter, abilities: AbilityScores, pb: number
     if (item.id !== main?.id && !alt && mainMelee !== undefined && w.melee !== mainMelee && !w.properties.includes('thrown')) {
       if (!(w.properties.includes('twoHanded') && shieldOn)) {
         const twoHands = w.properties.includes('twoHanded') || (w.properties.includes('versatile') && !shieldOn);
-        out.push(weaponAction(item, 'attack', { abilities, pb, style, twoHands, mastery: masteries[item.id] }));
+        out.push(weaponAction(item, 'attack', { abilities, pb, style, twoHands, mastered: mastered(item) }));
         alt = true;
       }
     }
     if (w.properties.includes('thrown')) {
-      out.push(weaponAction(item, 'throw', { abilities, pb, style, twoHands: false, mastery: masteries[item.id] }));
+      out.push(weaponAction(item, 'throw', { abilities, pb, style, twoHands: false, mastered: mastered(item) }));
     }
   }
   if (!hasWeapon(main) && out.length === 0) {
@@ -509,11 +540,59 @@ export function floorReward(depth: number): number {
   return ECONOMY.rewardBase + ECONOMY.rewardPerDepth * depth;
 }
 
-/** Items on sale when about to enter `depth`: pricier gear unlocks deeper. */
+/**
+ * Gating for shops and loot, in one place. Magic bonuses unlock at these depths.
+ * Nothing magic is sold or found on floors 1-3.
+ */
+export const ITEM_GATING = {
+  /** First depth at which a +N item may be in the shop. */
+  shopMagicMinDepth: { 1: 4, 2: 9, 3: 15 } as Record<number, number>,
+  /** Magic items offered per shop once unlocked (rare stock). */
+  shopMagicSlots: 1,
+  /** First depth at which a chest may hold a +1 weapon or shield, and the chance per chest. */
+  chestMagicMinDepth: 4,
+  chestMagicChance: 0.12,
+  /** Mundane gear on sale: price cap = base + perDepth * depth, and slots. */
+  shopCostCapBase: 40,
+  shopCostCapPerDepth: 40,
+  weaponSlots: 4,
+  armorSlots: 3,
+  /** First depth that sells Greater Healing. */
+  greaterPotionMinDepth: 3,
+};
+
+const isMundane = (i: ItemDef): boolean => !i.magicBonus && i.baseId === undefined;
+
+function pickSome<T>(items: T[], n: number, rng: Rng): T[] {
+  return rng.shuffle([...items]).slice(0, n);
+}
+
+/**
+ * Items on sale when about to enter `depth`: a curated, deterministic-per-depth
+ * selection (potions, a few weapons, a few armor upgrades and a shield), plus
+ * rare magic stock from the depths listed in ITEM_GATING.
+ */
 export function shopStock(depth: number): ItemDef[] {
-  return itemCatalog()
-    .filter((i) => i.cost > 0 && Math.max(1, Math.ceil(i.cost / 60)) <= depth + 1)
-    .sort((a, b) => a.cost - b.cost || a.name.localeCompare(b.name));
+  const g = ITEM_GATING;
+  const rng = new Rng(hashSeed(depth, 'shop'));
+  const cap = g.shopCostCapBase + g.shopCostCapPerDepth * depth;
+  const all = [...itemCatalog()].sort((x, y) => x.id.localeCompare(y.id));
+  const mundane = all.filter((i) => i.cost > 0 && isMundane(i) && i.cost <= cap);
+  const out: ItemDef[] = [];
+  out.push(...mundane.filter((i) => i.id === 'potion_healing'));
+  if (depth >= g.greaterPotionMinDepth) out.push(...all.filter((i) => i.id === 'potion_greater_healing'));
+  out.push(...pickSome(mundane.filter((i) => i.kind === 'weapon'), g.weaponSlots, rng));
+  const armors = mundane.filter((i) => i.kind === 'armor').sort((x, y) => (y.armor?.baseAc ?? 0) - (x.armor?.baseAc ?? 0));
+  // The best affordable armors are always offered, so upgrades exist at every tier.
+  out.push(...armors.slice(0, g.armorSlots));
+  out.push(...mundane.filter((i) => i.kind === 'shield').slice(0, 1));
+  const magicOk = (i: ItemDef): boolean => {
+    const bonus = i.magicBonus ?? 0;
+    const min = g.shopMagicMinDepth[bonus];
+    return bonus > 0 && min !== undefined && depth >= min && i.cost > 0 && i.kind !== 'consumable';
+  };
+  out.push(...pickSome(all.filter(magicOk), g.shopMagicSlots, rng));
+  return [...new Map(out.map((i) => [i.id, i])).values()].sort((x, y) => x.cost - y.cost || x.name.localeCompare(y.name));
 }
 
 export function buyItem(pc: PlayerCharacter, itemId: string): PlayerCharacter {
@@ -524,6 +603,25 @@ export function buyItem(pc: PlayerCharacter, itemId: string): PlayerCharacter {
   next.gold = Math.round((next.gold - item.cost) * 100) / 100;
   addToStack(next.inventory, itemId, 1);
   return next;
+}
+
+/**
+ * Whether an item can be equipped, with a reason when equipping it will put
+ * something away (a Two-Handed weapon and a shield cannot be used together).
+ */
+export function canEquip(pc: PlayerCharacter, itemId: string): { ok: boolean; reason?: string; unequips?: string } {
+  const item = getItem(itemId);
+  if (!item) return { ok: false, reason: 'Unknown item' };
+  if (!pc.inventory.some((s) => s.itemId === itemId && s.quantity > 0)) return { ok: false, reason: `You do not own ${item.name}` };
+  if (item.kind === 'consumable') return { ok: false, reason: `${item.name} cannot be equipped` };
+  const main = pc.equipped.mainHand ? getItem(pc.equipped.mainHand) : undefined;
+  if (item.kind === 'weapon' && item.weapon?.properties.includes('twoHanded') && pc.equipped.offHand) {
+    return { ok: true, unequips: pc.equipped.offHand, reason: `${item.name} needs both hands: the shield is put away.` };
+  }
+  if (item.kind === 'shield' && main?.weapon?.properties.includes('twoHanded')) {
+    return { ok: true, unequips: main.id, reason: `${main.name} needs both hands: it is put away to carry the shield.` };
+  }
+  return { ok: true };
 }
 
 export function equipItem(pc: PlayerCharacter, itemId: string): PlayerCharacter {
@@ -574,5 +672,11 @@ export function chestLoot(depth: number, rng: Rng): { gold: number; items: ItemS
   const c = CHEST_RULE;
   const gold = rng.int(c.goldMin + c.goldPerDepthMin * depth, c.goldMax + c.goldPerDepthMax * depth);
   const potions = 1 + (rng.chance(c.extraPotionChance) ? 1 : 0);
-  return { gold, items: [{ itemId: 'potion_healing', quantity: potions }] };
+  const items: ItemStack[] = [{ itemId: 'potion_healing', quantity: potions }];
+  // Rare magic find from the gated depth on (never on floors 1-3).
+  if (depth >= ITEM_GATING.chestMagicMinDepth && rng.chance(ITEM_GATING.chestMagicChance)) {
+    const finds = [...itemCatalog()].filter((i) => i.magicBonus === 1 && (i.kind === 'weapon' || i.kind === 'shield')).sort((x, y) => x.id.localeCompare(y.id));
+    if (finds.length > 0) items.push({ itemId: rng.pick(finds).id, quantity: 1 });
+  }
+  return { gold, items };
 }

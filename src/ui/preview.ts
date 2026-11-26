@@ -7,6 +7,8 @@ const rootEl = document.getElementById('ui-root');
 if (!rootEl) throw new Error('#ui-root missing');
 const ui = createUi(rootEl);
 const params = new URLSearchParams(location.search);
+const bgFirst = params.get('bgfirst');
+if (bgFirst) creationOptions.backgrounds.sort((a, b) => Number(b.id === bgFirst) - Number(a.id === bgFirst));
 
 // ---------------------------------------------------------------------------
 // Status line and toolbar
@@ -308,9 +310,11 @@ const dispatchAll = async (): Promise<void> => {
     el.click();
     await wait(120);
   }
+  const scrollTo = params.get('scrollto');
+  if (scrollTo) document.querySelector(scrollTo)?.scrollIntoView({ block: 'start' });
   if (hover) {
     const el = document.querySelector<HTMLElement>(hover);
     el?.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
   }
 };
-if (clicks.length || hover) void dispatchAll();
+if (clicks.length || hover || params.get("scrollto")) void dispatchAll();

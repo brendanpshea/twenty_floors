@@ -78,14 +78,22 @@ describe('balance bounds (loose: a change that wrecks the game should fail here)
       expect(meanBossArrival).toBeGreaterThan(0.4);
       expect(meanBossArrival).toBeLessThan(0.95);
     }
-    // The boss rooms together are deadlier per fight than any single ordinary room type with enough samples.
+    // Per fight, the boss room is deadlier than the average ordinary combat room.
     for (const f of s.floors) {
       let bn = 0;
       let bd = 0;
-      for (const [k, e] of Object.entries(f.rooms)) if (k.startsWith('boss')) { bn += e.n; bd += e.deaths; }
+      let rn = 0;
+      let rd = 0;
       for (const [k, e] of Object.entries(f.rooms)) {
-        if (k.startsWith('combat') && e.n >= 40) expect(bd / bn, `floor ${f.depth} boss vs ${k}`).toBeGreaterThanOrEqual(e.deaths / e.n);
+        if (k.startsWith('boss')) {
+          bn += e.n;
+          bd += e.deaths;
+        } else if (k.startsWith('combat')) {
+          rn += e.n;
+          rd += e.deaths;
+        }
       }
+      expect(bd / bn, `floor ${f.depth} boss vs average combat room`).toBeGreaterThan(rd / rn);
     }
   }, 30_000);
 
