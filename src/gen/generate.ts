@@ -6,6 +6,7 @@ import type { Layout } from './layout';
 import { finalize, type FinalizeReport } from './post';
 import { genCrypt } from './themes/crypt';
 import { genDepths } from './themes/depths';
+import { genForest, genMarsh, genPeaks } from './themes/outdoor';
 import { genFoundry } from './themes/foundry';
 import { genFungal } from './themes/fungal';
 import { genHell } from './themes/hell';
@@ -78,6 +79,15 @@ export function generateFloorReport(opts: GenerateOptions): GenerateReport {
           break;
         case 'ice':
           layout = genIce(graph, layoutRng, depth);
+          break;
+        case 'forest':
+          layout = genForest(graph, layoutRng, depth);
+          break;
+        case 'marsh':
+          layout = genMarsh(graph, layoutRng, depth);
+          break;
+        case 'peaks':
+          layout = genPeaks(graph, layoutRng, depth);
           break;
         case 'hell':
           layout = genHell(graph, layoutRng);

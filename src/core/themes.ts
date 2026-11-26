@@ -67,9 +67,44 @@ export const THEMES: Record<ThemeId, ThemeInfo> = {
     name: "The Dragon's Lair",
     tagline: 'Scorched rock, old bones, and gold enough to be worth all twenty floors.',
   },
+  forest: {
+    id: 'forest',
+    name: 'The Wildwood',
+    tagline: 'Clearings between old trees, and paths that were not made by people.',
+  },
+  marsh: {
+    id: 'marsh',
+    name: 'The Drowned Fen',
+    tagline: 'Islands of mud in standing water, reeds higher than your head, lights that move.',
+  },
+  peaks: {
+    id: 'peaks',
+    name: 'The Windswept Heights',
+    tagline: 'Ledges and rope bridges over a long drop, and a wind that wants you off them.',
+  },
 };
 
 export const TOTAL_FLOORS = 20;
+
+/**
+ * Outdoor themes that are not on the fixed run: each can stand in for a floor in the depth range
+ * given (inclusive) once runs are randomized. Until then they are reachable only from the dev
+ * preview pages. Their monsters span that range.
+ */
+export const ALTERNATE_THEMES: Partial<Record<ThemeId, [minDepth: number, maxDepth: number]>> = {
+  forest: [1, 10],
+  marsh: [3, 14],
+  peaks: [5, 18],
+};
+
+/** Every theme that may be used for a floor: the fixed run's theme first, then any alternates. */
+export function themesForDepth(depth: number): ThemeId[] {
+  const out: ThemeId[] = [themeForDepth(depth)];
+  for (const [id, range] of Object.entries(ALTERNATE_THEMES) as Array<[ThemeId, [number, number]]>) {
+    if (depth >= range[0] && depth <= range[1] && !out.includes(id)) out.push(id);
+  }
+  return out;
+}
 
 /** Floors playable in the current milestone. */
 export const MILESTONE_FLOORS = 3;

@@ -837,9 +837,214 @@ const BEDS: Record<ThemeId, BedDef> = {
       ];
     },
   },
+  forest: {
+    verb: 0.3,
+    build(rig, out) {
+      // Soft wind in leaves: band-passed noise with gentle overlapping swells.
+      const wind = rig.gain(0.5, out);
+      rig.lfo(0.05, 0.12, wind.gain);
+      rig.lfo(0.15, 0.08, wind.gain);
+      const bp = rig.filter('bandpass', 1700, 0.5, wind);
+      rig.lfo(0.05, 500, bp.frequency);
+      rig.lfo(0.1, 300, bp.frequency);
+      rig.noiseLoop(rig.filter('lowpass', 3200, 0.5, bp));
+    },
+    events(emit, rng) {
+      return [
+        {
+          // Frequent quiet birdsong: a chirp or a two or three note phrase of quick pings.
+          minGap: 1.2, maxGap: 5, firstDelay: [0.5, 2],
+          fire: (t) => {
+            const pan = between(rng, -0.8, 0.8);
+            const n = rng() < 0.4 ? 1 : 2 + Math.floor(rng() * 2);
+            const wave = rng() < 0.5 ? 'sine' : 'triangle';
+            let at = 0;
+            for (let i = 0; i < n; i++) {
+              const f = between(rng, 1800, 4500);
+              const up = rng() < 0.5;
+              emit([ping(wave, f, 0, between(rng, 0.05, 0.1), 0.35, { freqEnd: f * (up ? 1.25 : 0.8) })], 0.3, t + at, pan);
+              at += between(rng, 0.09, 0.2);
+            }
+          },
+        },
+        {
+          // Woodpecker: a fast even run of very short low clicks.
+          minGap: 18, maxGap: 45, firstDelay: [8, 18],
+          fire: (t) => {
+            const n = 6 + Math.floor(rng() * 5);
+            const gap = between(rng, 0.045, 0.07);
+            const f = between(rng, 500, 800);
+            const layers: Layer[] = [];
+            for (let i = 0; i < n; i++) layers.push(puff('bandpass', f, i * gap, 0.012, 0.6, { q: 2 }));
+            emit(layers, 0.3, t, between(rng, -0.7, 0.7));
+          },
+        },
+        {
+          // Rustle in the undergrowth.
+          minGap: 9, maxGap: 26, firstDelay: [4, 10],
+          fire: (t) => {
+            const layers: Layer[] = [];
+            const n = 3 + Math.floor(rng() * 4);
+            let at = 0;
+            for (let i = 0; i < n; i++) {
+              layers.push(noise('bandpass', between(rng, 1800, 3800), at, 0.08, between(rng, 0.25, 0.5), { a: 0.02, r: 0.05, q: 0.9 }));
+              at += between(rng, 0.05, 0.14);
+            }
+            emit(layers, 0.3, t, between(rng, -0.7, 0.7));
+          },
+        },
+        {
+          // Distant single low hoot or call.
+          minGap: 22, maxGap: 55, firstDelay: [10, 22],
+          fire: (t) => {
+            const f = between(rng, 380, 520);
+            emit([tone('sine', f, 0, 0.5, 0.2, { freqEnd: f * 0.9, a: 0.08, r: 0.3 })], 0.9, t, between(rng, -0.7, 0.7));
+          },
+        },
+      ];
+    },
+  },
+  marsh: {
+    verb: 0.45,
+    build(rig, out) {
+      // Still heavy air: very quiet low-passed noise, almost no wind.
+      const air = rig.gain(1.2, out);
+      rig.lfo(0.05, 0.2, air.gain);
+      rig.noiseLoop(rig.filter('lowpass', 300, 0.5, air));
+    },
+    events(emit, rng) {
+      return [
+        {
+          // Frog croaks: two to four short buzzy low-mid pulses in a row.
+          minGap: 0.8, maxGap: 3.2, firstDelay: [0.3, 1.5],
+          fire: (t) => {
+            const pan = between(rng, -0.8, 0.8);
+            const n = 2 + Math.floor(rng() * 3);
+            const f = between(rng, 150, 400);
+            let at = 0;
+            for (let i = 0; i < n; i++) {
+              emit([
+                tone('sawtooth', f, 0, 0.1, 0.35, { freqEnd: f * 0.85, lp: 900, a: 0.01, r: 0.04 }),
+                tone('square', f * 2.03, 0, 0.08, 0.06, { lp: 1200, a: 0.01, r: 0.03 }),
+              ], 0.35, t + at, pan);
+              at += between(rng, 0.13, 0.22);
+            }
+          },
+        },
+        {
+          // Peeper or insect trill: a fast pulsed sine for half a second.
+          minGap: 4, maxGap: 14, firstDelay: [2, 6],
+          fire: (t) => {
+            const f = between(rng, 2500, 3500);
+            const pan = between(rng, -0.8, 0.8);
+            const layers: Layer[] = [];
+            for (let i = 0; i < 12; i++) layers.push(tone('sine', f, i * 0.042, 0.022, 0.12, { a: 0.004, r: 0.012 }));
+            emit(layers, 0.3, t, pan);
+          },
+        },
+        {
+          // Slow bubbles rising through mud: low blips with an upward bend.
+          minGap: 2, maxGap: 7, firstDelay: [1, 4],
+          fire: (t) => {
+            const f = between(rng, 90, 220);
+            emit([ping('sine', f, 0, 0.15, 0.6, { freqEnd: f * 2 })], 0.5, t, between(rng, -0.6, 0.6));
+          },
+        },
+        {
+          // A wet plop.
+          minGap: 10, maxGap: 28, firstDelay: [5, 12],
+          fire: (t) => {
+            const f = between(rng, 250, 420);
+            emit([ping('sine', f, 0, 0.1, 0.5, { freqEnd: f * 0.5 }), puff('bandpass', 900, 0, 0.04, 0.25, { q: 1.5 })], 0.6, t, between(rng, -0.6, 0.6));
+          },
+        },
+        {
+          // Rare far-off long low moan or bittern boom.
+          minGap: 40, maxGap: 90, firstDelay: [16, 32],
+          fire: (t) => {
+            const f = between(rng, 70, 110);
+            emit([
+              tone('sine', f, 0, 1.4, 0.45, { freqEnd: f * 0.85, a: 0.5, r: 0.7 }),
+              tone('triangle', f * 2, 0, 1.4, 0.1, { freqEnd: f * 1.7, lp: 400, a: 0.5, r: 0.7 }),
+            ], 0.9, t, between(rng, -0.6, 0.6));
+          },
+        },
+      ];
+    },
+  },
+  peaks: {
+    verb: 0.5,
+    build(rig, out) {
+      // Strong wind: broad band-passed noise sweeping in long gusts, with lulls.
+      const wind = rig.gain(0.5, out);
+      rig.lfo(0.05, 0.2, wind.gain);
+      rig.lfo(0.1, 0.05, wind.gain);
+      const bp = rig.filter('bandpass', 900, 0.4, wind);
+      rig.lfo(0.05, 400, bp.frequency);
+      rig.lfo(0.15, 150, bp.frequency);
+      rig.noiseLoop(bp);
+      // Faint high whistle over rock, following the gusts.
+      const whistle = rig.gain(0.004, out);
+      rig.lfo(0.05, 0.003, whistle.gain);
+      const wf = rig.filter('bandpass', 2200, 8, whistle);
+      rig.lfo(0.1, 250, wf.frequency);
+      rig.noiseLoop(wf);
+      rig.osc('sine', 2150, rig.gain(0.5, whistle));
+    },
+    events(emit, rng) {
+      return [
+        {
+          // Distant bird of prey: a descending, slightly rough glide.
+          minGap: 18, maxGap: 50, firstDelay: [8, 18],
+          fire: (t) => {
+            const f = between(rng, 2200, 3000);
+            emit([
+              tone('sine', f, 0, 0.7, 0.18, { freqEnd: f * 0.7, a: 0.05, r: 0.2 }),
+              tone('sine', f * 1.01, 0, 0.7, 0.1, { freqEnd: f * 0.7, a: 0.05, r: 0.2, detune: 25 }),
+              noise('bandpass', f, 0, 0.7, 0.05, { a: 0.05, r: 0.2, freqEnd: f * 0.7, q: 4 }),
+            ], 0.9, t, between(rng, -0.7, 0.7));
+          },
+        },
+        {
+          // Loose stones clattering down: dry clicks slowing and falling in pitch.
+          minGap: 25, maxGap: 65, firstDelay: [10, 24],
+          fire: (t) => {
+            const n = 4 + Math.floor(rng() * 5);
+            const layers: Layer[] = [];
+            let at = 0;
+            let gap = 0.04;
+            let f = between(rng, 2800, 4000);
+            for (let i = 0; i < n; i++) {
+              layers.push(puff('bandpass', f, at, 0.014, between(rng, 0.3, 0.6), { q: 2.5 }));
+              at += gap;
+              gap *= between(rng, 1.15, 1.5);
+              f *= 0.88;
+            }
+            emit(layers, 0.5, t, between(rng, -0.7, 0.7));
+          },
+        },
+        {
+          // Creak of rope or wood from a bridge.
+          minGap: 15, maxGap: 40, firstDelay: [6, 14],
+          fire: (t) => {
+            const f = between(rng, 130, 240);
+            const up = rng() < 0.5;
+            emit([tone('triangle', f, 0, 0.8, 0.22, { freqEnd: f * (up ? 1.15 : 0.87), lp: 700, a: 0.2, r: 0.35 })], 0.5, t, between(rng, -0.6, 0.6));
+          },
+        },
+        {
+          // Deep buffet of wind: a short low swell.
+          minGap: 12, maxGap: 35, firstDelay: [5, 12],
+          fire: (t) => {
+            emit([noise('lowpass', between(rng, 200, 350), 0, 1.2, 0.5, { a: 0.4, r: 0.6, q: 0.7 })], 0.4, t, between(rng, -0.5, 0.5));
+          },
+        },
+      ];
+    },
+  },
 };
 
-export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin', 'hell', 'lair'];
+export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin', 'hell', 'lair', 'forest', 'marsh', 'peaks'];
 
 const LOOKAHEAD = 1.5;
 const TICK_MS = 400;

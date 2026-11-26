@@ -61,4 +61,7 @@ export const AMB_LEVEL: Record<ThemeId, number> = {
   ruin: 0.15,
   hell: 0.125,
   lair: 0.15,
+  forest: 0.15,
+  marsh: 0.15,
+  peaks: 0.14,
 };

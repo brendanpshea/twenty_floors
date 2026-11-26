@@ -385,8 +385,8 @@ export function dressNook(g: Grid, props: PropLayer, nook: { cells: number[]; re
     const dir = props.wallDir(x, y, rng);
     if (dir >= 0 && props.place('torch', x, y, dir, false)) torches++;
   }
-  const deco = theme === 'library' ? 'candelabra' : theme === 'crypt' || theme === 'sewers' || theme === 'foundry' || theme === 'hell' || theme === 'lair' ? 'brazier' : theme === 'warrens' || theme === 'hold' || theme === 'ice' || theme === 'ruin' ? 'campfire' : theme === 'fungal' ? 'giant_mushroom' : 'crystal';
-  const small = theme === 'library' ? 'book_pile' : theme === 'warrens' || theme === 'fungal' || theme === 'ice' || theme === 'hell' || theme === 'lair' ? 'bones' : theme === 'crypt' || theme === 'sewers' || theme === 'hold' || theme === 'foundry' || theme === 'ruin' ? 'rubble' : 'chain';
+  const deco = theme === 'library' ? 'candelabra' : theme === 'crypt' || theme === 'sewers' || theme === 'foundry' || theme === 'hell' || theme === 'lair' ? 'brazier' : theme === 'warrens' || theme === 'hold' || theme === 'ice' || theme === 'ruin' || theme === 'forest' || theme === 'marsh' || theme === 'peaks' ? 'campfire' : theme === 'fungal' ? 'giant_mushroom' : 'crystal';
+  const small = theme === 'library' ? 'book_pile' : theme === 'warrens' || theme === 'fungal' || theme === 'ice' || theme === 'hell' || theme === 'lair' || theme === 'forest' || theme === 'marsh' || theme === 'peaks' ? 'bones' : theme === 'crypt' || theme === 'sewers' || theme === 'hold' || theme === 'foundry' || theme === 'ruin' ? 'rubble' : 'chain';
   if (nook.cells.length >= 6) {
     // A themed light beside the rest cell (never on it).
     const rx = nook.rest % w;

@@ -692,6 +692,66 @@ const BUILDERS: Record<string, Builder> = {
     g.ico(0.25, 0, leafL, { x: tips[2]![0], y: tips[2]![1] + 0.1, z: tips[2]![2], sy: 0.6, shade: 0.9 });
     return { lit: g.build(), glow: null };
   },
+  // Fallen tree trunk (~1.9 long, 0.55 thick) lying along X: bark with a paler cut end, a splintered break, a branch stub, moss.
+  log: () => {
+    const g = new GeoBuilder();
+    const bark = 0x6e4e30;
+    const bark2 = 0x543a24;
+    const R = 0.275;
+    g.cyl(R, R * 1.08, 1.7, 8, bark, { x: 0.05, y: R, rz: Math.PI / 2, shade: 0.95 });
+    g.cyl(R * 1.02, R * 1.02, 0.12, 8, bark2, { x: 0.2, y: R, rz: Math.PI / 2, shade: 0.85 }); // bark ridge
+    g.cyl(R * 0.96, R * 0.96, 0.05, 8, 0xd2b27c, { x: 0.915, y: R, rz: Math.PI / 2 }); // pale cut end
+    g.cyl(R * 0.55, R * 0.55, 0.06, 8, 0xb8935c, { x: 0.94, y: R, rz: Math.PI / 2 }); // growth rings
+    g.cone(R * 0.95, 0.4, 7, bark2, { x: -1.0, y: R, rz: Math.PI / 2, shade: 0.9 }); // splintered break
+    g.cyl(0.05, 0.1, 0.42, 5, bark2, { x: -0.3, y: R + 0.3, z: 0.18, rx: 0.65, shade: 1.0 }); // branch stub
+    g.cyl(0.04, 0.07, 0.3, 5, bark, { x: 0.35, y: R + 0.22, z: -0.2, rx: -0.8, shade: 0.9 });
+    g.ico(0.2, 0, 0x5c8a38, { x: 0.15, y: R * 1.85, z: 0.04, sy: 0.32, sx: 1.3, top: 0x86b04a }); // moss
+    g.ico(0.14, 0, 0x4e7a30, { x: -0.5, y: R * 1.7, z: -0.1, sy: 0.35, sx: 1.2 });
+    return { lit: g.build(), glow: null };
+  },
+  // Weathered menhir (~0.8 x 0.5 base, ~2.3 tall), leaning slightly, flaking lichen patches.
+  standing_stone: () => {
+    const g = new GeoBuilder();
+    const base = 0x85878a;
+    g.cyl(0.3, 0.52, 2.3, 4, base, { y: 1.15, ry: Math.PI / 4 + 0.15, sx: 1.0, sz: 0.62, rz: -0.05, top: 0xa6a8a4 });
+    g.cone(0.3, 0.36, 4, 0xaaaca8, { x: -0.1, y: 2.4, ry: Math.PI / 4 + 0.15, sx: 1.0, sz: 0.62, rz: -0.05, shade: 1.05 }); // worn crown
+    g.box(0.9, 0.18, 0.62, 0x6c6e70, { y: 0.09, ry: 0.15, shade: 0.9 }); // footing
+    g.ico(0.13, 0, 0xb8c070, { x: 0.2, y: 0.9, z: 0.2, sy: 0.4, sx: 1.2, sz: 0.5, ry: 0.15 });
+    g.ico(0.1, 0, 0xa0b058, { x: -0.18, y: 1.5, z: 0.18, sy: 0.4, sx: 1.2, sz: 0.5, ry: 0.15 });
+    g.ico(0.15, 0, 0xc8c890, { x: 0.05, y: 0.45, z: -0.2, sy: 0.4, sz: 0.5, sx: 1.3 });
+    g.ico(0.09, 0, 0xb8c070, { x: -0.12, y: 1.9, z: -0.17, sy: 0.4, sz: 0.5, sx: 1.2 });
+    return { lit: g.build(), glow: null };
+  },
+  // Clump of tall thin reeds (~1.2 across, ~1.5 high), yellow-green, a few brown seed heads; sparse enough to see through.
+  reeds: () => {
+    const g = new GeoBuilder();
+    const cols = [0xa6b03e, 0x8a9a30, 0xc0c058, 0x98a838];
+    const N = 22;
+    for (let i = 0; i < N; i++) {
+      const a = i * 2.399 + hash2(i, 1, 90);
+      const r = 0.1 + 0.5 * Math.sqrt((i + 0.5) / N);
+      const h = 1.1 + 0.55 * hash2(i, 2, 91) + (r < 0.3 ? 0.1 : 0);
+      const tz = 0.06 + 0.2 * (r / 0.6) + 0.08 * hash2(i, 3, 92);
+      const dx = Math.sin(tz) * Math.cos(a);
+      const dz = -Math.sin(tz) * Math.sin(a);
+      const bx = Math.cos(a) * r;
+      const bz = Math.sin(a) * r;
+      g.cone(0.05, h, 3, cols[i % 4]!, { x: bx + (dx * h) / 2, y: (Math.cos(tz) * h) / 2, z: bz + (dz * h) / 2, rz: -tz, ry: a, shade: 0.85 + 0.2 * hash2(i, 4, 93), top: 0xd0d070 });
+      if (i % 5 === 1) g.cyl(0.04, 0.04, 0.17, 4, 0x6a4424, { x: bx + dx * h, y: Math.cos(tz) * h, z: bz + dz * h, rz: -tz, ry: a, shade: 0.9 }); // seed head
+    }
+    return { lit: g.build(), glow: null };
+  },
+  // Big rough rock filling most of a cell (~1.5 across, ~1.2 high), faceted, grey with a lighter top.
+  boulder: () => {
+    const g = new GeoBuilder();
+    g.ico(0.8, 0, 0x76787a, { y: 0.48, sx: 1.0, sy: 0.8, sz: 0.88, ry: 0.4, top: 0xb4b6b4 });
+    g.ico(0.5, 0, 0x808284, { x: 0.45, y: 0.3, z: 0.3, sy: 0.75, ry: 1.1, top: 0xa4a6a4, shade: 0.95 });
+    g.ico(0.42, 0, 0x6c6e70, { x: -0.5, y: 0.26, z: -0.25, sy: 0.7, ry: 2.0, top: 0x9c9e9c });
+    g.ico(0.34, 0, 0xc2c4c2, { x: -0.1, y: 0.95, z: 0.05, sy: 0.55, ry: 0.7, top: 0xe2e4e2 });
+    g.ico(0.2, 0, 0x7a7c7e, { x: 0.3, y: 0.12, z: -0.6, sy: 0.7, ry: 0.3 });
+    g.ico(0.14, 0, 0x7e8082, { x: -0.2, y: 0.1, z: 0.7, sy: 0.7, ry: 1.3 });
+    return { lit: g.build(), glow: null };
+  },
   // Low clump of ferns and undergrowth (~1.2 across, 0.5 high).
   bush: (look) => {
     const leaf = look.prop.leaf ?? 0x3f6e32;
@@ -905,8 +965,8 @@ const ROCK: Builder = (look) => {
   return { lit: g.build(), glow: null };
 };
 
-const JITTER_YAW = new Set(['rubble', 'bones', 'book_pile', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'urn', 'crystal', 'barrel', 'crate', 'campfire', 'brazier', 'gnarled_tree', 'bush', 'gold_pile']);
-const SCALE_JITTER = new Set(['gnarled_tree', 'bush', 'rubble', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'crystal', 'urn', 'gold_pile']);
+const JITTER_YAW = new Set(['rubble', 'bones', 'book_pile', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'urn', 'crystal', 'barrel', 'crate', 'campfire', 'brazier', 'gnarled_tree', 'bush', 'gold_pile', 'standing_stone', 'reeds', 'boulder']);
+const SCALE_JITTER = new Set(['standing_stone', 'reeds', 'boulder', 'gnarled_tree', 'bush', 'rubble', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'crystal', 'urn', 'gold_pile']);
 
 export interface PropField {
   group: Group | null;

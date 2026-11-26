@@ -14,7 +14,7 @@ const TRAIT_IDS: TraitId[] = [
   'keenSenses',
 ];
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin', 'hell', 'lair'];
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin', 'hell', 'lair', 'forest', 'marsh', 'peaks'];
 
 const MONSTER_IDS = [
   'giant_rat',
@@ -164,6 +164,27 @@ const MONSTER_IDS = [
   'adult_blue_dragon',
   'adult_red_dragon',
   'ancient_red_dragon',
+  'satyr',
+  'brown_bear',
+  'tiger',
+  'giant_boar',
+  'centaur_trooper',
+  'werewolf',
+  'weretiger',
+  'wereboar',
+  'werebear',
+  'stirge',
+  'crocodile',
+  'swarm_of_venomous_snakes',
+  'will_o_wisp',
+  'black_dragon_wyrmling',
+  'night_hag',
+  'giant_goat',
+  'giant_eagle',
+  'harpy',
+  'hippogriff',
+  'giant_vulture',
+  'air_elemental',
 ];
 
 const ORIGINAL_ITEM_IDS = [

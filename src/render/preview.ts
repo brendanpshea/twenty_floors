@@ -12,8 +12,8 @@ const statsEl = document.getElementById('stats') as HTMLPreElement;
 const barEl = document.getElementById('bar') as HTMLDivElement;
 if (params.get('shot') === '1') document.body.classList.add('shot');
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin', 'hell', 'lair'];
-const THEME_DEPTH: Record<ThemeId, number> = { warrens: 1, crypt: 2, depths: 3, sewers: 4, fungal: 6, hold: 8, library: 10, foundry: 12, ice: 14, ruin: 16, hell: 18, lair: 20 };
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin', 'hell', 'lair', 'forest', 'marsh', 'peaks'];
+const THEME_DEPTH: Record<ThemeId, number> = { warrens: 1, crypt: 2, depths: 3, sewers: 4, fungal: 6, hold: 8, library: 10, foundry: 12, ice: 14, ruin: 16, hell: 18, lair: 20, forest: 3, marsh: 6, peaks: 9 };
 const QUALITIES: QualityLevel[] = ['low', 'medium', 'high'];
 let theme: ThemeId = (THEMES.includes(params.get('theme') as ThemeId) ? params.get('theme') : 'crypt') as ThemeId;
 let quality: QualityLevel = (QUALITIES.includes(params.get('quality') as QualityLevel) ? params.get('quality') : 'medium') as QualityLevel;
@@ -420,7 +420,7 @@ setInterval(() => {
     (useGen && setPiece ? `set piece: ${setPiece}\n` : '') +
     `geo ${s.geometries}  tex ${s.textures}  fog-update ${lastRevealMs.toFixed(1)}ms\n` +
     `click: walk / attack. drag: pan, right-drag: rotate,\nwheel: zoom. WASD pan, Q/E rotate, +/- zoom.\n` +
-    `1-9, 0 theme (hell, lair: buttons only), Z/X/C quality, F fog, P follow, O overview, R reset
+    `1-9, 0 theme (hell, lair, forest, marsh, peaks: buttons only), Z/X/C quality, F fog, P follow, O overview, R reset
 G gen/fixture, [ ] seed, , . depth`;
 }, 500);
 

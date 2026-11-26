@@ -95,7 +95,7 @@ class Draft {
     ];
     return {
       seed,
-      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : theme === 'library' ? 10 : theme === 'foundry' ? 12 : theme === 'ice' ? 14 : theme === 'ruin' ? 16 : theme === 'hell' ? 18 : theme === 'lair' ? 20 : 3,
+      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : theme === 'library' ? 10 : theme === 'foundry' ? 12 : theme === 'ice' ? 14 : theme === 'ruin' ? 16 : theme === 'hell' ? 18 : theme === 'lair' ? 20 : theme === 'forest' ? 3 : theme === 'marsh' ? 6 : theme === 'peaks' ? 9 : 3,
       theme,
       width: this.w,
       height: this.h,
@@ -591,7 +591,101 @@ function lair(): FloorPlan {
   return d.toPlan('lair', { x: 5, y: 6 }, { x: 18, y: 8 }, 1012, [{ x: 8, y: 6 }, { x: 21, y: 16 }]);
 }
 
-export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, library, depths, foundry, ice, ruin, hell, lair };
+function forest(): FloorPlan {
+  const d = new Draft(30, 22);
+  d.ellipse(7, 8, 5.8, 5.0); // clearing 1
+  d.ellipse(6, 10, 2.2, 1.5, WATER); // pond
+  d.rect(12, 7, 14, 8); // winding path east...
+  d.rect(14, 8, 15, 12);
+  d.rect(15, 12, 17, 13);
+  d.ellipse(22, 13, 6.2, 5.6); // clearing 2: the stone ring
+  d.rect(6, 13, 7, 17); // a side path south
+  d.ellipse(8, 18, 3.2, 2.4); // a small glade
+  d.wallsAround();
+  const P = d.prop.bind(d);
+  // clearing 1: old trees on the rim, ferns, a fallen log
+  P('gnarled_tree', 3, 5); P('gnarled_tree', 10, 4); P('gnarled_tree', 11, 10); P('gnarled_tree', 3, 10);
+  P('log', 7, 5, 0); P('log', 9, 11, 1); P('campfire', 7, 8);
+  for (const [x, y] of [[4, 7], [9, 7], [5, 4], [8, 12], [11, 8], [2, 8], [6, 12]] as const) P('bush', x, y, 0, false);
+  P('mushrooms', 5, 6, 0, false); P('mushrooms', 10, 8, 0, false); P('rubble', 8, 4, 0, true);
+  // path
+  P('bush', 13, 7, 0, false); P('bush', 15, 10, 0, false); P('log', 16, 13, 0); P('mushrooms', 14, 9, 0, false);
+  // clearing 2: a ring of standing stones round a campfire, trees behind
+  const ring: [number, number][] = [[22, 9], [25, 10], [26, 13], [24, 16], [20, 16], [18, 13], [19, 10]];
+  for (const [x, y] of ring) P('standing_stone', x, y, (x + y) % 4);
+  P('campfire', 22, 13); P('bones', 23, 14, 0, false);
+  P('gnarled_tree', 17, 9); P('gnarled_tree', 27, 15); P('gnarled_tree', 21, 18); P('gnarled_tree', 26, 9);
+  for (const [x, y] of [[18, 16], [27, 12], [23, 10], [20, 11], [25, 17]] as const) P('bush', x, y, 0, false);
+  P('log', 24, 12, 1); P('log', 19, 14, 0);
+  // glade
+  P('gnarled_tree', 5, 19); P('bush', 7, 17, 0, false); P('bush', 9, 19, 0, false); P('boulder', 10, 17); P('mushrooms', 6, 18, 0, false);
+  autoLights(d, 'forest');
+  return d.toPlan('forest', { x: 4, y: 7 }, { x: 22, y: 12 }, 1013, [{ x: 7, y: 9 }, { x: 22, y: 14 }]);
+}
+
+function marsh(): FloorPlan {
+  const d = new Draft(30, 22);
+  d.rect(1, 1, 28, 20, WATER); // the standing water
+  d.ellipse(6, 6, 4.4, 3.6); // islands
+  d.ellipse(16, 5, 3.6, 3.0);
+  d.ellipse(24, 7, 3.8, 3.6);
+  d.ellipse(8, 15, 4.2, 3.4);
+  d.ellipse(19, 15, 4.6, 3.6);
+  d.rect(9, 6, 12, 6); // mud causeways
+  d.rect(19, 5, 21, 6);
+  d.rect(8, 9, 8, 12);
+  d.rect(12, 15, 15, 15);
+  d.rect(24, 10, 24, 12);
+  d.rect(14, 8, 14, 11);
+  d.wallsAround();
+  const P = d.prop.bind(d);
+  // island 1: a dead tree, logs, reeds
+  P('gnarled_tree', 5, 5); P('log', 7, 8, 0); P('log', 3, 6, 1);
+  for (const [x, y] of [[4, 8], [8, 4], [3, 4], [7, 6], [6, 8], [9, 5]] as const) P('reeds', x, y, x % 4, false);
+  // island 2
+  P('log', 16, 6, 0); P('bush', 15, 4, 0, false); P('bush', 18, 5, 0, false); P('mushrooms', 17, 7, 0, false);
+  for (const [x, y] of [[14, 4], [18, 3], [16, 3]] as const) P('reeds', x, y, x % 4, false);
+  // island 3: a boulder and a fallen tree
+  P('gnarled_tree', 25, 6); P('boulder', 22, 8); P('log', 26, 9, 1); P('bones', 24, 8, 0, false);
+  for (const [x, y] of [[23, 5], [27, 6], [22, 6], [26, 4]] as const) P('reeds', x, y, x % 4, false);
+  // island 4 (south-west) and 5 (the camp)
+  P('gnarled_tree', 5, 14); P('log', 9, 16, 0); P('campfire', 8, 15); P('rubble', 6, 17);
+  P('campfire', 19, 15); P('log', 21, 17, 0); P('bush', 17, 13, 0, false); P('gnarled_tree', 22, 14);
+  for (const [x, y] of [[5, 17], [10, 13], [17, 17], [21, 13], [20, 18]] as const) P('reeds', x, y, x % 4, false);
+  // reeds standing in the water itself
+  for (const [x, y] of [[3, 10], [4, 11], [11, 9], [12, 11], [13, 3], [20, 9], [22, 11], [26, 14], [27, 11], [11, 18], [15, 18], [25, 17], [2, 13], [13, 13], [18, 9]] as const) P('reeds', x, y, (x + y) % 4, false);
+  autoLights(d, 'marsh');
+  return d.toPlan('marsh', { x: 5, y: 6 }, { x: 19, y: 15 }, 1014, [{ x: 7, y: 6 }, { x: 8, y: 14 }]);
+}
+
+function peaks(): FloorPlan {
+  const d = new Draft(26, 22, CHASM);
+  d.ellipse(5, 5, 4.4, 3.8, FLOOR, 0); // start ledge
+  d.rect(9, 4, 10, 4, FLOOR, 0); // bridge east
+  d.rect(11, 2, 17, 8, FLOOR, 1); // upper ledge
+  d.rect(18, 5, 20, 5, FLOOR, 1); // bridge
+  d.ellipse(22, 6, 2.6, 3.0, FLOOR, 2); // summit shelf
+  d.rect(4, 9, 4, 12, FLOOR, 0); // bridge south
+  d.ellipse(6, 15, 4.4, 3.6, FLOOR, 0); // low ledge
+  d.rect(10, 15, 12, 15, FLOOR, 0);
+  d.ellipse(16, 15, 3.6, 3.4, FLOOR, 1); // far ledge
+  d.rect(14, 9, 14, 11, FLOOR, 1); // bridge north to the upper ledge
+  d.rect(19, 15, 21, 15, FLOOR, 1);
+  d.rect(21, 14, 23, 17, FLOOR, 1);
+  d.rect(7, 19, 7, 20, FLOOR, 0);
+  d.set(5, 17, WATER, 0); d.set(6, 17, WATER, 0); // meltwater pool
+  const P = d.prop.bind(d);
+  P('boulder', 3, 3); P('boulder', 8, 6, 0); P('boulder', 12, 7); P('boulder', 15, 3); P('boulder', 4, 17); P('boulder', 22, 16);
+  P('standing_stone', 14, 5, 1); P('standing_stone', 22, 5, 0); P('standing_stone', 7, 14, 2); P('standing_stone', 16, 14, 0);
+  const drift = (x: number, y: number): void => P('snow_drift', x, y, (x + y) % 4, false);
+  drift(6, 3); drift(2, 6); drift(5, 6); drift(12, 3); drift(17, 6); drift(21, 7); drift(23, 4); drift(3, 15); drift(8, 16); drift(15, 16); drift(22, 15); drift(11, 6);
+  P('crystal', 16, 2); P('crystal', 2, 16); P('crystal', 23, 7);
+  P('campfire', 6, 6); P('bones', 13, 4, 0, false); P('rubble', 18, 7);
+  autoLights(d, 'peaks');
+  return d.toPlan('peaks', { x: 4, y: 4 }, { x: 22, y: 6 }, 1015, [{ x: 7, y: 5 }, { x: 13, y: 5 }]);
+}
+
+export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, library, depths, foundry, ice, ruin, hell, lair, forest, marsh, peaks };
 
 export function makeFixture(theme: ThemeId): FloorPlan {
   return FIXTURES[theme]();

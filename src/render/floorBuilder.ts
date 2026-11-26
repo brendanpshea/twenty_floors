@@ -140,7 +140,8 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
   };
 
   const style = look.wallStyle;
-  const wallH = style === 'rough' ? WALL_HEIGHT_ROUGH : WALL_HEIGHT;
+  const fol = style === 'foliage' ? look.foliage : undefined;
+  const wallH = fol ? (fol.hMin + fol.hMax) / 2 : style === 'rough' ? WALL_HEIGHT_ROUGH : WALL_HEIGHT;
   const cornerDY = (cx: number, cy: number): number => {
     if (style === 'rough') return (hash2(cx, cy, 7) - 0.5) * 0.12;
     if (style === 'jagged') return Math.pow(hash2(cx, cy, 9), 2.2) * 0.85 - 0.12;
@@ -203,7 +204,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       extra = 0.8 + hash2(x, y, 17) * 1.2;
     }
     wallBase[i] = m;
-    v = m + wallH + extra + (hash2(x, y, 5) - 0.5) * varAmt;
+    v = fol ? m + fol.hMin + hash2(x, y, 5) * (fol.hMax - fol.hMin) : m + wallH + extra + (hash2(x, y, 5) - 0.5) * varAmt;
     wallTops[i] = v;
     return v;
   };
@@ -337,6 +338,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
     lavaY = low - lava.depth;
   }
   const lavaTint = rgbOf(lava ? lava.color : 0);
+  const skyC = rgbOf(look.chasmGlow);
 
   /** A cliff/void-facing face from the top edge down to botY, fading by depth below fadeTop. */
   const fadeFace = (
@@ -378,6 +380,14 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
           sh = Math.max(sh, k * 0.9);
         }
         setV(v, p[0] + (g[0] - p[0]) * t, yy, p[2] + (g[1] - p[2]) * t, col, sh);
+        if (look.sky) {
+          // Open air: the rock fades into haze, not into darkness.
+          const hz = clamp(1 - fadeAt(fadeTop - yy) / FADE_S[0]!, 0, 1);
+          const hh = hz * hz * (3 - 2 * hz);
+          v[3] = v[3]! + (skyC[0]! * 1.05 - v[3]!) * hh;
+          v[4] = v[4]! + (skyC[1]! * 1.05 - v[4]!) * hh;
+          v[5] = v[5]! + (skyC[2]! * 1.05 - v[5]!) * hh;
+        }
       };
       rowPt(0, y0, k === 0, va);
       rowPt(1, y0, k === 0, vb);
@@ -447,6 +457,120 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
     return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
   };
 
+  // Foliage themes: the unseen mass behind the tree line is filled in two cells deep, so the wall reads as a thick wood, not a hedge on blank sky.
+  const massTop = new Float32Array(W * H).fill(NaN);
+  const massBase = new Float32Array(W * H).fill(NaN);
+  const massDist = new Uint8Array(W * H).fill(9);
+  if (fol) {
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (kindAt(x, y) !== CellKind.Wall) continue;
+        const wt = wallTop(x, y);
+        for (let dy = -2; dy <= 2; dy++) {
+          for (let dx = -2; dx <= 2; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (kindAt(nx, ny) !== CellKind.Void) continue;
+            const ni = ny * W + nx;
+            const dd = Math.max(Math.abs(dx), Math.abs(dy));
+            if (dd < massDist[ni]! || (dd === massDist[ni]! && wt > massTop[ni]! + 0.2 * dd)) {
+              massDist[ni] = dd;
+              massTop[ni] = wt - 0.2 * dd;
+              massBase[ni] = wallBase[y * W + x]!;
+            }
+          }
+        }
+      }
+    }
+  }
+  const isMass = (x: number, y: number): boolean => kindAt(x, y) === CellKind.Wall || (fol !== undefined && kindAt(x, y) === CellKind.Void && massTop[y * W + x]! === massTop[y * W + x]!);
+  const massTopOf = (x: number, y: number): number => (kindAt(x, y) === CellKind.Wall ? wallTop(x, y) : massTop[y * W + x]!);
+
+  /** A tree-line / reed-bed cell: lumpy canopy top, shadowed trunk skirt on the sides that face open ground. */
+  const foliageCell = (
+    buf: Buf,
+    idx: number,
+    cx: number,
+    cy: number,
+    top: number,
+    f: NonNullable<ThemeLook['foliage']>,
+  ): void => {
+    const greens = f.greens.map(rgbOf);
+    const trunk = rgbOf(f.trunk);
+    const gAt = (h: number): number[] => greens[Math.min(2, Math.floor(h * 3))]!;
+    const lump = f.lumpy ?? 1;
+    const cp = (i: number, j: number): Pt3 => [
+      i * CELL + (hash2(i, j, 71) - 0.5) * 0.45,
+      top + (hash2(i, j, 72) - 0.5) * 0.55 * lump,
+      j * CELL + (hash2(i, j, 73) - 0.5) * 0.45,
+    ];
+    const cs = [cp(cx, cy), cp(cx + 1, cy), cp(cx + 1, cy + 1), cp(cx, cy + 1)];
+    const ground: [number, number][] = [
+      [cx * CELL, cy * CELL],
+      [(cx + 1) * CELL, cy * CELL],
+      [(cx + 1) * CELL, (cy + 1) * CELL],
+      [cx * CELL, (cy + 1) * CELL],
+    ];
+    // Per edge: neighbour kind, mid-point of the top edge (bumped, and pushed out over open ground), bottom heights.
+    const ring: Pt3[] = [];
+    const edgeInfo: { open: boolean; step: boolean; nt: number; nx: number; ny: number }[] = [];
+    for (let d = 0; d < 4; d++) {
+      const a = cs[d]!;
+      const b = cs[(d + 1) % 4]!;
+      const nx = cx + DIRS[d]![0];
+      const ny = cy + DIRS[d]![1];
+      const nk = kindAt(nx, ny);
+      const open = isWalkKind(nk);
+      const wallN = isMass(nx, ny);
+      const nt = wallN ? massTopOf(nx, ny) : 0;
+      edgeInfo.push({ open, step: wallN && top - nt > 0.01, nt, nx, ny });
+      const si = cx * 2 + (d === 1 ? 2 : d === 3 ? 0 : 1);
+      const sj = cy * 2 + (d === 2 ? 2 : d === 0 ? 0 : 1);
+      const hh = hash2(si, sj, 74);
+      const push = open ? 0.18 + 0.3 * hash2(si, sj, 77) : 0;
+      ring.push(a);
+      ring.push([
+        (a[0] + b[0]) / 2 + DIRS[d]![0] * push,
+        (a[1] + b[1]) / 2 + 0.05 + 0.4 * hh * lump,
+        (a[2] + b[2]) / 2 + DIRS[d]![1] * push,
+      ]);
+    }
+    const cyTop = (cs[0]![1] + cs[1]![1] + cs[2]![1] + cs[3]![1]) / 4 + 0.25 + 0.55 * lump * hash2(cx, cy, 75);
+    const ctr: Pt3 = [(cx + 0.5) * CELL + (hash2(cx, cy, 78) - 0.5) * 0.4, cyTop, (cy + 0.5) * CELL + (hash2(cx, cy, 79) - 0.5) * 0.4];
+    for (let k = 0; k < 8; k++) {
+      const p = ring[k]!;
+      const q = ring[(k + 1) % 8]!;
+      const alb = gAt(hash2(cx * 8 + k, cy, 76));
+      const lift = clamp((p[1] + q[1] - 2 * top + 0.8) / 1.6, 0, 1);
+      const sh = 0.82 + 0.32 * lift + 0.12 * hash2(cx * 8 + k, cy, 80);
+      setV(va, ctr[0], ctr[1], ctr[2], alb, sh * 1.08);
+      setV(vb, p[0], p[1], p[2], alb, sh);
+      setV(vc, q[0], q[1], q[2], alb, sh);
+      tri(buf, va, vb, vc, idx, 0, 1, 0);
+    }
+    // Skirts: leafy upper part, dark trunks / shadow at the foot.
+    for (let d = 0; d < 4; d++) {
+      const e = edgeInfo[d]!;
+      if (!e.open && !e.step) continue;
+      const g0 = ground[d]!;
+      const g1 = ground[(d + 1) % 4]!;
+      const gm: [number, number] = [(g0[0] + g1[0]) / 2, (g0[1] + g1[1]) / 2];
+      const pts: Pt3[] = [ring[d * 2]!, ring[d * 2 + 1]!, ring[(d * 2 + 2) % 8]!];
+      // Over open ground the skirt runs out to the cell edge; against a lower neighbour it drops straight down onto that cap.
+      const gs: [number, number][] = e.open ? [g0, gm, g1] : pts.map((q): [number, number] => [q[0], q[2]]);
+      const bot = (p: Pt3): number => (e.open ? surface(e.nx, e.ny) : e.nt + (p[1] - top));
+      for (let s = 0; s < 2; s++) {
+        const pa = pts[s]!;
+        const pb = pts[s + 1]!;
+        const canopy = gAt(hash2(cx * 4 + d, cy * 2 + s, 81));
+        const nxn = DIRS[d]![0];
+        const nzn = DIRS[d]![1];
+        side(buf, idx, pa, pb, gs[s]!, gs[s + 1]!, bot(pa), bot(pb), e.open ? [[0, 0.34, 1.0, 0.9], [0.34, 0.62, 0.8, 0.62]] : [[0, 1, 0.9, 0.7]], canopy, nxn, nzn, 0.2);
+        if (e.open) side(buf, idx, pa, pb, gs[s]!, gs[s + 1]!, bot(pa), bot(pb), [[0.62, 1, 0.5 + 0.1 * hash2(cx * 4 + d, s, 82), 0.26]], trunk, nxn, nzn, 0.3);
+      }
+    }
+  };
+
   // ---- main pass ---------------------------------------------------------
   const chunks = new Map<number, Buf>();
   const cw = Math.ceil(W / CHUNK);
@@ -473,7 +597,14 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       const z0 = cy * CELL;
       const x1 = x0 + CELL;
       const z1 = z0 + CELL;
-      if (k === CellKind.Void) continue;
+      if (k === CellKind.Void) {
+        if (fol && massTop[idx]! === massTop[idx]!) {
+          curBase = massBase[idx]!;
+          foliageCell(chunkOf(cx, cy), idx, cx, cy, massTop[idx]!, fol);
+          curBase = -999;
+        }
+        continue;
+      }
       if (k === CellKind.Chasm) {
         chasmCells.push(idx);
         continue;
@@ -484,6 +615,11 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       if (k === CellKind.Wall) {
         const top = wallTop(cx, cy);
         curBase = wallBase[idx]!;
+        if (fol) {
+          foliageCell(buf, idx, cx, cy, top, fol);
+          curBase = -999;
+          continue;
+        }
         const alb = mix3(wA, wB, hash2(cx, cy, 2));
         const corner = (i: number, j: number): Pt3 => [
           i * CELL + cornerDXZ(i, j, 0),
@@ -567,6 +703,11 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
           if (patch > 0.58) alb = mix3(alb, stoneGrey, Math.min(1, (patch - 0.58) * 5) * 0.8);
           alb = scale3(alb, 0.84 + 0.3 * hB);
           if (nearWall) alb = scale3(alb, 0.8);
+        } else if (fol) {
+          // Grass and leaf litter: soft drifting patches, no tile cracks.
+          alb = mix3(fA, fB, clamp(vnoise(cx * 0.35 + 17, cy * 0.35 + 3) * 0.8 + hA * 0.35 - 0.1, 0, 1));
+          alb = scale3(alb, 0.9 + 0.2 * hB);
+          if (nearWall) alb = scale3(alb, 0.86);
         } else {
           alb = scale3(mix3(fA, fB, hA), 0.88 + 0.24 * hB);
           cracked = hash2(cx, cy, 51) < 0.07;
@@ -771,7 +912,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
     const cy = (idx / W) | 0;
     const x0 = cx * CELL;
     const z0 = cy * CELL;
-    const a = scale3(glowC, 0.35 + 0.65 * hash2(cx, cy, 8));
+    const a = look.sky ? scale3(glowC, 0.9 + 0.2 * vnoise(cx * 0.23 + 3, cy * 0.23 + 9)) : scale3(glowC, 0.35 + 0.65 * hash2(cx, cy, 8));
     for (const v of [va, vb, vc, vd]) {
       v[3] = a[0]!;
       v[4] = a[1]!;
@@ -877,7 +1018,9 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
     // Motes hang over the chasm; in ice themes (usually no chasm) snow flakes drift over the walkable floor instead.
     const moteCells: number[] = chasmCells.length ? chasmCells : [];
     if (!moteCells.length && look.ice) for (let i = 0; i < W * H; i++) if (isWalkKind(kinds[i]!)) moteCells.push(i);
+    if (!moteCells.length && fol) for (let i = 0; i < W * H; i++) if (isWalkKind(kinds[i]!)) moteCells.push(i);
     const iceFlakes = !chasmCells.length && !!look.ice;
+    const groundMotes = !chasmCells.length && !!fol; // pollen, insects: hang low over the clearing
     const n = moteCells.length ? look.moteCount : 0;
     if (n > 0) {
       const pos = new Float32Array(n * 3);
@@ -889,7 +1032,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
         const cx = idx % W;
         const cy = (idx / W) | 0;
         pos[i * 3] = (cx + hash2(i, 2, 32)) * CELL;
-        pos[i * 3 + 1] = iceFlakes ? surface(cx, cy) + 0.3 + hash2(i, 3, 33) * 3.2 : lava ? lavaY + 0.4 + hash2(i, 3, 33) * 7 : depthY + 2 + hash2(i, 3, 33) * (CLIFF_DROP + 1);
+        pos[i * 3 + 1] = iceFlakes ? surface(cx, cy) + 0.3 + hash2(i, 3, 33) * 3.2 : groundMotes ? surface(cx, cy) + 0.2 + hash2(i, 3, 33) * 2.2 : look.sky ? depthY + 3 + hash2(i, 3, 33) * (CLIFF_DROP + 8) : lava ? lavaY + 0.4 + hash2(i, 3, 33) * 7 : depthY + 2 + hash2(i, 3, 33) * (CLIFF_DROP + 1);
         pos[i * 3 + 2] = (cy + hash2(i, 4, 34)) * CELL;
         const k = 0.4 + 0.6 * hash2(i, 5, 35);
         col[i * 3] = mc.r * k;

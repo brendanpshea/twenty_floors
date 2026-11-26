@@ -51,6 +51,8 @@ export interface CaveOptions {
   poolChance?: number;
   /** Chance of a chasm pit per eligible chamber. */
   pitChance?: number;
+  /** Share of tunnel cells that lie under water (a fen's channels). Default 0. */
+  floodTunnels?: number;
   /** Replaces the goblin-camp decoration. */
   decorate?: (ctx: DecorCtx, piece: { name: string; room: number }) => void;
 }
@@ -140,6 +142,13 @@ export function genWarrens(graph: MissionGraph, rng: Rng, depth: number, opts: C
     else applied = carveLake(g, rng, pieceRoom) ? 'lake' : 'none';
   }
   if (applied === 'none') throw new GenFail('no set piece could be built');
+  if (opts.floodTunnels) {
+    // Low-frequency noise, so a channel is wet for a stretch and dry for a stretch.
+    const wet = rng.int(1, 1e9);
+    for (let i = 0; i < W * H; i++) {
+      if (g.room[i] === -1 && g.kinds[i] === K.Floor && fbm2(wet, (i % W) * 0.21, ((i / W) | 0) * 0.21) < opts.floodTunnels) g.kinds[i] = K.Water;
+    }
+  }
   const piece = { name: applied, room: pieceRoom };
   return { grid: g, roles: graph.roles, edges, decorate: (ctx) => (opts.decorate ?? decorate)(ctx, piece), setPiece: applied };
 }

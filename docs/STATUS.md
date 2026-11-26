@@ -78,6 +78,20 @@ Per-floor casts and bosses are in `ENCOUNTER_TUNING`. See the floors at
 `...theme=foundry&depth=12`, `...theme=ice&depth=14`,
 `...theme=ruin&depth=16`, `...theme=hell&depth=18` and `...theme=lair&depth=20`.
 
+Three **outdoor themes** are not on the fixed run. Each can stand in for a
+floor in a depth range (`ALTERNATE_THEMES` and `themesForDepth` in
+`src/core/themes.ts`) once runs are randomized, and each has monsters and
+bosses across that range. Generators are in `src/gen/themes/outdoor.ts`;
+the renderer draws their walls as vegetation (`wallStyle: 'foliage'`) or
+their chasm as open sky (`look.sky`).
+
+- **The Wildwood** (`forest`, floors 1 to 10): clearings joined by paths,
+  with trees, logs and standing stones. `...theme=forest&depth=3`.
+- **The Drowned Fen** (`marsh`, floors 3 to 14): islands in standing water,
+  half of every channel flooded, reeds on every shore. `...theme=marsh&depth=6`.
+- **The Windswept Heights** (`peaks`, floors 5 to 18): the platform recipe
+  as mountain ledges over open air. `...theme=peaks&depth=9`.
+
 What is missing before `MILESTONE_FLOORS` can go past 3:
 
 - **Fighter levels 4 to 20** (in `src/rules`, after the spell-engine branch).
