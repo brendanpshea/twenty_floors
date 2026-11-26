@@ -95,7 +95,7 @@ class Draft {
     ];
     return {
       seed,
-      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : 3,
+      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : 3,
       theme,
       width: this.w,
       height: this.h,
@@ -126,11 +126,11 @@ function autoLights(d: Draft, theme: ThemeId): void {
     switch (p.type) {
       case 'torch': {
         const warm = theme === 'warrens' || (theme === 'crypt' && (x + y) % 4 === 0);
-        d.light(x, y, warm ? 0xffa050 : theme === 'crypt' ? 0x60d8f0 : 0xa070ff, 1.1, theme === 'depths' ? 5 : 6.5);
+        d.light(x, y, warm || theme === 'sewers' ? 0xffa050 : theme === 'crypt' ? 0x60d8f0 : 0xa070ff, 1.1, theme === 'depths' ? 5 : 6.5);
         break;
       }
       case 'brazier':
-        d.light(x, y, theme === 'warrens' ? 0xff8a30 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
+        d.light(x, y, theme === 'warrens' || theme === 'sewers' ? 0xff8a30 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
         break;
       case 'campfire':
         d.light(x, y, 0xff8030, 1.7, 8);
@@ -187,6 +187,40 @@ function crypt(): FloorPlan {
   P('cobweb', 1, 1, 0); P('bones', 8, 3); P('stalagmite', 20, 21);
   autoLights(d, 'crypt');
   return d.toPlan('crypt', { x: 3, y: 3 }, { x: 22, y: 11 }, 1002, [{ x: 7, y: 4 }, { x: 11, y: 13 }]);
+}
+
+function sewers(): FloorPlan {
+  const d = new Draft(24, 24);
+  d.rect(1, 1, 9, 7); // A: entrance chamber
+  d.rect(3, 4, 7, 5, WATER);
+  d.rect(10, 4, 14, 4); // corridor
+  d.set(10, 4, DOOR);
+  d.rect(15, 1, 22, 8); // B: junction hall with a water channel
+  d.rect(15, 4, 22, 5, WATER);
+  d.rect(4, 8, 4, 12); // corridor south
+  d.rect(1, 13, 14, 22); // C: big flooded hall
+  d.rect(2, 15, 13, 17, WATER); // main channel
+  d.rect(7, 18, 8, 22, WATER); // side channel
+  d.rect(17, 9, 17, 17); // corridor
+  d.rect(16, 18, 22, 22); // D: small room
+  d.rect(15, 20, 15, 20); // link
+  d.set(15, 20, DOOR);
+  d.rect(18, 19, 20, 21, WATER);
+  d.wallsAround();
+  const P = d.prop.bind(d);
+  P('torch', 2, 1, 0); P('torch', 8, 1, 0); P('torch', 1, 6, 3); P('torch', 9, 6, 1);
+  P('torch', 16, 1, 0); P('torch', 21, 1, 0); P('torch', 2, 13, 0); P('torch', 13, 13, 0); P('torch', 17, 18, 0);
+  P('pipe', 5, 1, 0, false); P('pipe', 3, 7, 2, false); P('pipe', 18, 1, 0, false); P('pipe', 22, 7, 1, false);
+  P('pipe', 6, 13, 0, false); P('pipe', 1, 19, 3, false); P('pipe', 22, 20, 1, false);
+  P('grate', 6, 3, 0, false); P('grate', 3, 6, 0, false); P('grate', 17, 7, 0, false); P('grate', 20, 2, 0, false);
+  P('grate', 5, 20, 0, false); P('grate', 12, 20, 0, false); P('grate', 17, 12, 0, false);
+  P('barrel', 8, 7, 0); P('barrel', 9, 7, 1); P('crate', 22, 8, 1); P('crate', 2, 21, 0); P('barrel', 1, 21, 0);
+  P('mushrooms', 1, 2); P('mushrooms', 21, 7); P('mushrooms', 13, 21); P('mushrooms', 22, 22);
+  P('rubble', 14, 18); P('rubble', 11, 8, 0); P('bones', 10, 19); P('bones', 19, 7);
+  P('pillar', 4, 14); P('pillar', 10, 14); P('pillar', 4, 18); P('pillar', 11, 18);
+  P('brazier', 20, 18); P('cobweb', 1, 1, 0); P('cobweb', 22, 1, 1); P('cobweb', 1, 22, 3);
+  autoLights(d, 'sewers');
+  return d.toPlan('sewers', { x: 3, y: 2 }, { x: 21, y: 6 }, 1004, [{ x: 8, y: 3 }, { x: 12, y: 20 }]);
 }
 
 function warrens(): FloorPlan {
@@ -265,7 +299,7 @@ function depths(): FloorPlan {
   return d.toPlan('depths', { x: 4, y: 4 }, { x: 19, y: 21 }, 1003, [{ x: 5, y: 5 }, { x: 13, y: 7 }]);
 }
 
-export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, depths };
+export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, depths };
 
 export function makeFixture(theme: ThemeId): FloorPlan {
   return FIXTURES[theme]();

@@ -14,7 +14,7 @@ const TRAIT_IDS: TraitId[] = [
   'keenSenses',
 ];
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths'];
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers'];
 
 const MONSTER_IDS = [
   'giant_rat',
@@ -29,6 +29,14 @@ const MONSTER_IDS = [
   'giant_spider',
   'bugbear_warrior',
   'ogre',
+  'giant_frog',
+  'gray_ooze',
+  'giant_toad',
+  'ochre_jelly',
+  'wererat',
+  'giant_constrictor_snake',
+  'gelatinous_cube',
+  'green_hag',
 ];
 
 const ORIGINAL_ITEM_IDS = [
@@ -137,7 +145,7 @@ const VARIANT_RARITY = {
   shield: { 1: 'uncommon', 2: 'rare', 3: 'veryRare' },
 } as const;
 
-const XP_BY_CR: Record<number, number> = { 0.125: 25, 0.25: 50, 0.5: 100, 1: 200, 2: 450 };
+const XP_BY_CR: Record<number, number> = { 0.125: 25, 0.25: 50, 0.5: 100, 1: 200, 2: 450, 3: 700 };
 
 const DICE_RE = /^\d+(d\d+)?([+-]\d+)?$/;
 
@@ -154,7 +162,7 @@ function averageOf(dice: string): number {
 }
 
 describe('monster data', () => {
-  it('has exactly the 12 expected ids, each unique', () => {
+  it('has exactly the expected ids, each unique', () => {
     const ids = MONSTERS.map((m) => m.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect([...ids].sort()).toEqual([...MONSTER_IDS].sort());
@@ -208,12 +216,13 @@ describe('monster data', () => {
     }
   });
 
-  it('gives each theme exactly one boss and at least two non-boss monsters', () => {
+  it('gives each theme its boss(es) and at least two non-boss monsters', () => {
     for (const theme of THEMES) {
       const inTheme = MONSTERS.filter((m) => m.themes.includes(theme));
       const bosses = inTheme.filter((m) => m.role === 'boss');
       const others = inTheme.filter((m) => m.role !== 'boss');
-      expect(bosses.length, `${theme} bosses`).toBe(1);
+      // The sewers span two floors (4 and 5), each with its own boss; every other theme has one.
+      expect(bosses.length, `${theme} bosses`).toBe(theme === 'sewers' ? 2 : 1);
       expect(others.length, `${theme} non-bosses`).toBeGreaterThanOrEqual(2);
     }
   });

@@ -5,7 +5,7 @@
  */
 import { AMB_LEVEL } from './calibration';
 import { between, hz, type Rng } from './helpers';
-import { bell, makeRecipe, ping, puff } from './recipes';
+import { bell, makeRecipe, noise, ping, puff, tone } from './recipes';
 import { EventScheduler, type EventGen } from './scheduler';
 import { playRecipe, type Graph } from './synth';
 import type { ThemeId } from '../core/types';
@@ -195,9 +195,78 @@ const BEDS: Record<ThemeId, BedDef> = {
       ];
     },
   },
+  sewers: {
+    verb: 0.4,
+    build(rig, out) {
+      // Slowly flowing water: band-passed noise, cutoff and level drifting.
+      const flow = rig.gain(0.55, out);
+      rig.lfo(0.08, 0.2, flow.gain);
+      const bp = rig.filter('bandpass', 650, 0.8, flow);
+      rig.lfo(0.047, 220, bp.frequency);
+      rig.lfo(0.13, 100, bp.frequency);
+      rig.noiseLoop(bp);
+      // Thin trickle sheen above the flow.
+      const trickle = rig.gain(0.07, out);
+      rig.lfo(0.11, 0.04, trickle.gain);
+      rig.noiseLoop(rig.filter('bandpass', 2400, 1.1, trickle));
+      // Hollow tunnel resonance: a narrow low band of noise plus a faint tone.
+      const hollow = rig.gain(1.1, out);
+      rig.lfo(0.04, 0.35, hollow.gain);
+      rig.noiseLoop(rig.filter('bandpass', 90, 6, hollow));
+      rig.osc('sine', 55, rig.gain(0.1, out));
+    },
+    events(emit, rng) {
+      return [
+        {
+          // Frequent wet echoing drips: a plink with a rising tail, then an echo.
+          minGap: 0.6, maxGap: 2.8, firstDelay: [0.4, 1.5],
+          fire: (t) => {
+            const f = between(rng, 500, 1100);
+            const pan = between(rng, -0.7, 0.7);
+            emit([ping('sine', f, 0, 0.14, 0.5, { freqEnd: f * 2 }), ping('sine', f * 2.4, 0, 0.06, 0.12), puff('bandpass', 2500, 0, 0.03, 0.1, { q: 2 })], 0.8, t, pan);
+            const e = between(rng, 0.22, 0.4);
+            emit([ping('sine', f * 0.97, 0, 0.18, 0.2, { freqEnd: f * 1.9 })], 0.9, t + e, -pan * 0.5);
+          },
+        },
+        {
+          // Occasional deep pipe groan or knock.
+          minGap: 14, maxGap: 34, firstDelay: [7, 16],
+          fire: (t) => {
+            const f = between(rng, 55, 95);
+            const pan = between(rng, -0.5, 0.5);
+            if (rng() < 0.5) {
+              emit([tone('triangle', f, 0, 1.1, 0.5, { freqEnd: f * 0.8, lp: 320, a: 0.25, r: 0.6 }), ping('sine', f * 2, 0.1, 0.6, 0.15, { freqEnd: f * 1.7 })], 0.7, t, pan);
+            } else {
+              emit([ping('sine', f * 1.5, 0, 0.35, 0.8, { freqEnd: f }), puff('lowpass', 500, 0, 0.05, 0.4), ping('sine', f * 3.1, 0, 0.5, 0.1)], 0.8, t, pan);
+            }
+          },
+        },
+        {
+          // Rare distant splash or gurgle.
+          minGap: 22, maxGap: 55, firstDelay: [10, 24],
+          fire: (t) => {
+            const pan = rng() < 0.5 ? -0.6 : 0.6;
+            if (rng() < 0.5) {
+              emit([noise('bandpass', 1200, 0, 0.12, 0.5, { a: 0.02, r: 0.25, freqEnd: 600, q: 0.8 }), puff('lowpass', 500, 0, 0.2, 0.3)], 0.6, t, pan);
+            } else {
+              const layers: Layer[] = [];
+              let at = 0;
+              const n = 3 + Math.floor(rng() * 3);
+              for (let i = 0; i < n; i++) {
+                const f = between(rng, 250, 450);
+                layers.push(ping('sine', f, at, 0.08, 0.35, { freqEnd: f * 1.6 }));
+                at += between(rng, 0.07, 0.16);
+              }
+              emit(layers, 0.6, t, pan);
+            }
+          },
+        },
+      ];
+    },
+  },
 };
 
-export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths'];
+export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers'];
 
 const LOOKAHEAD = 1.5;
 const TICK_MS = 400;

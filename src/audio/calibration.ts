@@ -4,6 +4,7 @@
  * A missing entry means 1. Re-run `/dev/audio-preview.html?selftest=1` after
  * editing a recipe and paste the "suggested cal" column.
  */
+import type { ThemeId } from '../core/types';
 import type { SfxId } from './types';
 
 export const CAL: Partial<Record<SfxId, number>> = {
@@ -47,8 +48,9 @@ export const CAL: Partial<Record<SfxId, number>> = {
 };
 
 /** Overall bed level per theme (linear), calibrated so the 20 s render sits near -38 dBFS RMS. */
-export const AMB_LEVEL: Record<'warrens' | 'crypt' | 'depths', number> = {
+export const AMB_LEVEL: Record<ThemeId, number> = {
   warrens: 0.057,
   crypt: 0.1,
   depths: 0.073,
+  sewers: 0.125,
 };

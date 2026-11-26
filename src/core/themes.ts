@@ -22,6 +22,11 @@ export const THEMES: Record<ThemeId, ThemeInfo> = {
     name: 'The Sundered Depths',
     tagline: 'Broken stone platforms and narrow bridges over a bottomless dark.',
   },
+  sewers: {
+    id: 'sewers',
+    name: 'The Flooded Sewers',
+    tagline: 'Brick tunnels, black water to the knee, and things that like it that way.',
+  },
 };
 
 export const TOTAL_FLOORS = 20;
@@ -33,5 +38,7 @@ const THEME_ORDER: ThemeId[] = ['warrens', 'crypt', 'depths'];
 
 /** Which theme a floor uses. Deterministic; more themes slot in here as they are built. */
 export function themeForDepth(depth: number): ThemeId {
+  // Floors 4 and 5 are the sewers; deeper floors reuse the first three until their themes are built.
+  if (depth === 4 || depth === 5) return 'sewers';
   return THEME_ORDER[(depth - 1) % THEME_ORDER.length] as ThemeId;
 }

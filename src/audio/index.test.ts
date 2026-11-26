@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { THEMES } from './ambience';
 import { createAudio, SFX_IDS } from './index';
 
 const mem = () => {
   const m = new Map<string, string>();
   return { m, get: (k: string) => m.get(k) ?? null, set: (k: string, v: string) => void m.set(k, v) };
 };
+
+describe('themes', () => {
+  it('lists sewers alongside the original themes', () => {
+    expect([...THEMES]).toEqual(['warrens', 'crypt', 'depths', 'sewers']);
+  });
+});
 
 describe('createAudio without AudioContext', () => {
   it('is a silent no-op and never throws', () => {
@@ -14,7 +21,7 @@ describe('createAudio without AudioContext', () => {
       a.unlock();
       a.unlock();
       for (const id of SFX_IDS) a.play(id, { volume: 0.5, pan: -2, pitch: NaN, delay: 1 });
-      a.setAmbience('crypt');
+      for (const t of THEMES) a.setAmbience(t);
       a.setAmbience(null);
       a.setCombat(true);
       a.setVolume(NaN);

@@ -63,7 +63,7 @@ export interface CryptOptions {
 
 export function genCrypt(graph: MissionGraph, rng: Rng, opts: CryptOptions = {}): Layout {
   const n = graph.roles.length;
-  const pos = opts.forced ?? embed(graph, rng);
+  const pos = opts.forced ?? embedLattice(graph, rng);
 
   // Keep shortcut edges only when the two rooms are lattice-neighbours.
   const edges = graph.edges.slice();
@@ -157,26 +157,14 @@ export function genCrypt(graph: MissionGraph, rng: Rng, opts: CryptOptions = {})
     }
   }
 
-  // Lattice spacing: each gap between neighbouring columns/rows is at least 4 cells of corridor, plus
-  // a random extra while the floor still fits in 62 cells, so corridors differ in length.
+  // Lattice spacing follows the actual room sizes (see spaceAxis).
   const axisPositions = (count: number, minIdx: number, idxOf: (i: number) => number, half: (s: Spec) => number): { at: number[]; size: number } => {
     const maxHalf = new Array<number>(count).fill(3);
     for (let i = 0; i < n; i++) {
       const k = idxOf(i) - minIdx;
       maxHalf[k] = Math.max(maxHalf[k] as number, half(specs[i] as Spec));
     }
-    const gaps: number[] = [];
-    for (let k = 0; k + 1 < count; k++) gaps.push(Math.max(PITCH, (maxHalf[k] as number) + (maxHalf[k + 1] as number) + 4));
-    const total = (): number => (maxHalf[0] as number) + 3 + gaps.reduce((s, v) => s + v, 0) + (maxHalf[count - 1] as number) + 4;
-    if (!opts.forced) {
-      for (let k = 0; k < gaps.length; k++) {
-        const extra = rng.pick([0, 0, 2, 4, 6]);
-        if (total() + extra <= 62) gaps[k] = (gaps[k] as number) + extra;
-      }
-    }
-    const at: number[] = [(maxHalf[0] as number) + 3];
-    for (let k = 0; k + 1 < count; k++) at.push((at[k] as number) + (gaps[k] as number));
-    return { at, size: Math.max(40, total()) };
+    return spaceAxis(maxHalf, opts.forced ? null : rng);
   };
   const xs = axisPositions(cols, cmin, (i) => (pos[i] as [number, number])[0], (s) => s.w / 2);
   const ys = axisPositions(rows, rmin, (i) => (pos[i] as [number, number])[1], (s) => s.h / 2);
@@ -235,7 +223,29 @@ export function genCrypt(graph: MissionGraph, rng: Rng, opts: CryptOptions = {})
 // ---------------------------------------------------------------------------
 // Lattice embedding
 
-function embed(graph: MissionGraph, rng: Rng): Array<[number, number]> {
+/**
+ * Positions along one lattice axis. `maxHalf[k]` is the largest room half-size in column (or row) k.
+ * Each gap between neighbours leaves at least 4 cells of corridor, plus a random extra (when `rng`
+ * is given) while the floor still fits in 62 cells, so corridors differ in length.
+ */
+export function spaceAxis(maxHalf: number[], rng: Rng | null): { at: number[]; size: number } {
+  const count = maxHalf.length;
+  const gaps: number[] = [];
+  for (let k = 0; k + 1 < count; k++) gaps.push(Math.max(PITCH, (maxHalf[k] as number) + (maxHalf[k + 1] as number) + 4));
+  const total = (): number => (maxHalf[0] as number) + 3 + gaps.reduce((s, v) => s + v, 0) + (maxHalf[count - 1] as number) + 4;
+  if (rng) {
+    for (let k = 0; k < gaps.length; k++) {
+      const extra = rng.pick([0, 0, 2, 4, 6]);
+      if (total() + extra <= 62) gaps[k] = (gaps[k] as number) + extra;
+    }
+  }
+  const at: number[] = [(maxHalf[0] as number) + 3];
+  for (let k = 0; k + 1 < count; k++) at.push((at[k] as number) + (gaps[k] as number));
+  return { at, size: Math.max(40, total()) };
+}
+
+/** Embed the mission graph on a small lattice so every tree edge joins two lattice-neighbours. */
+export function embedLattice(graph: MissionGraph, rng: Rng): Array<[number, number]> {
   const n = graph.roles.length;
   let C = n <= 6 ? 3 : 4;
   let R = n <= 9 ? 3 : 4;

@@ -23,12 +23,15 @@ export const PROP_BLOCKING: Record<string, boolean> = {
   crystal: true,
   broken_pillar: true,
   chain: false,
+  grate: false,
+  pipe: false,
 };
 
 const THEME_PROPS: Record<string, string[]> = {
   warrens: ['stalagmite', 'mushrooms', 'campfire'],
   crypt: ['sarcophagus', 'brazier', 'statue', 'urn', 'cobweb'],
   depths: ['crystal', 'broken_pillar', 'chain'],
+  sewers: ['grate', 'pipe', 'mushrooms', 'brazier', 'cobweb'],
 };
 const COMMON_PROPS = ['torch', 'rubble', 'pillar', 'crate', 'barrel', 'bones'];
 

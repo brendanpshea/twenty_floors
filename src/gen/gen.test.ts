@@ -6,7 +6,7 @@ import { createNavGrid, floorToAscii, generateFloor, validateFloor } from './ind
 
 const isWalk = (k: number): boolean => k === CellKind.Floor || k === CellKind.Water || k === CellKind.Door;
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths'];
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers'];
 
 function fingerprint(plan: FloorPlan): string {
   let h = 2166136261;
@@ -181,8 +181,9 @@ describe('generateFloor', () => {
           if (d < 3) near++;
         }
       }
-      // Small organic caves cannot always keep everyone 3 cells from every tunnel mouth.
-      expect(near / total).toBeLessThan(theme === 'warrens' ? 0.25 : 0.1);
+      // Small organic caves cannot always keep everyone 3 cells from every tunnel mouth, and a
+      // sewer chamber with four-cell-wide mouths on several sides has few cells that far from all of them.
+      expect(near / total).toBeLessThan(theme === 'warrens' ? 0.25 : theme === 'sewers' ? 0.15 : 0.1);
     }
   });
 
@@ -379,6 +380,7 @@ describe('rest spots and set pieces', () => {
       warrens: ['lake', 'tiers', 'crack', 'columns', 'stream'],
       crypt: ['ambulatory', 'grandNave', 'collapsed', 'moat', 'pitHall'],
       depths: ['amphitheatre', 'twinBridge', 'landing', 'well', 'mesa'],
+      sewers: ['sluice', 'floodedHall', 'grandCistern'],
     };
     for (const theme of THEMES) {
       const seen = new Set<string>();

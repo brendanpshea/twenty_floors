@@ -187,6 +187,34 @@ const BUILDERS: Record<string, Builder> = {
     g.cyl(0.37, 0.37, 0.06, 8, 0xffffff, { y: 0.5, shade: 0.55, top: 0xffffff });
     return { lit: g.build(), glow: null };
   },
+  // Flat drain grate: frame plus bars, nearly flush with the floor.
+  grate: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    const s = 1.4;
+    const t = 0.1;
+    g.box(0.9, 0.012, 0.9, 0x0a0c06, { y: 0.004, shade: 0.6 }); // dark drain beneath
+    g.box(s, 0.045, t, p.iron, { z: -(s - t) / 2, y: 0.026 });
+    g.box(s, 0.045, t, p.iron, { z: (s - t) / 2, y: 0.026 });
+    g.box(t, 0.045, s - 2 * t, p.iron, { x: -(s - t) / 2, y: 0.026 });
+    g.box(t, 0.045, s - 2 * t, p.iron, { x: (s - t) / 2, y: 0.026 });
+    for (let i = 0; i < 5; i++) g.box(0.07, 0.05, s - 2 * t, p.iron, { x: -0.5 + i * 0.25, y: 0.026, shade: 1.15 });
+    return { lit: g.build(), glow: null };
+  },
+  // Wall-mounted outflow pipe (authored for a wall on the -Z side, like torch).
+  pipe: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    g.box(0.5, 0.5, 0.08, p.iron, { y: 0.9, z: -0.96, shade: 0.9 }); // wall flange
+    g.cyl(0.19, 0.19, 0.5, 8, p.iron, { y: 0.9, z: -0.7, rx: Math.PI / 2 });
+    g.cyl(0.23, 0.23, 0.07, 8, p.stoneDark, { y: 0.9, z: -0.45, rx: Math.PI / 2, shade: 1.1 }); // lip
+    g.cyl(0.14, 0.14, 0.02, 8, 0x0a0c06, { y: 0.9, z: -0.41, rx: Math.PI / 2 }); // dark mouth
+    // green stain and dribble
+    g.box(0.2, 0.55, 0.02, 0x5c7a2c, { y: 0.55, z: -0.99, shade: 0.8 });
+    g.box(0.08, 0.35, 0.02, 0x7a9a3a, { x: 0.1, y: 0.3, z: -0.99, shade: 0.9 });
+    g.box(0.3, 0.012, 0.3, 0x5c7a2c, { y: 0.02, z: -0.5, shade: 0.8 }); // puddle
+    return { lit: g.build(), glow: null };
+  },
   cobweb: () => {
     const g = new GeoBuilder();
     const c = 0xe8e8ec;
@@ -339,7 +367,7 @@ export function buildProps(
     const glow = built.glow ? new InstancedMesh(built.glow, built.glowKind === 'flame' ? flameMat : steadyMat, n) : null;
     if (built.lit) geos.push(built.lit);
     if (built.glow) geos.push(built.glow);
-    const wallMounted = type === 'torch';
+    const wallMounted = type === 'torch' || type === 'pipe';
     list.forEach((p, i) => {
       const gi = p.pos.y * plan.width + p.pos.x;
       let gy = groundY[gi]!;

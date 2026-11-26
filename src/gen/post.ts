@@ -352,11 +352,14 @@ function placeSpawns(
       const want = clamp(3 + rng.int(0, 1) + (r.cells.length >= 60 ? 1 : 0) + (depth >= 6 ? 1 : 0), 3, 6);
       let picks: number[] = [];
       // Prefer cells far from doorways; relax the margin if the room cannot host enough slots.
-      for (const minD of [3, 2, 1, 0]) {
-        const cand = (floorCells.length >= 2 * want ? floorCells : all).filter((i) => (doorDist[i] as number) >= minD);
-        const got = spread(rng, cand, want, g.w, []);
-        if (got.length > picks.length) picks = got;
-        if (picks.length >= Math.min(want, 4)) break;
+      // Where dry floor that far in is too scarce (flooded rooms), standing in water beats standing at the door.
+      search: for (const minD of [3, 2, 1, 0]) {
+        for (const src of floorCells.length >= 2 * want ? [floorCells, all] : [all]) {
+          const cand = src.filter((i) => (doorDist[i] as number) >= minD);
+          const got = spread(rng, cand, want, g.w, []);
+          if (got.length > picks.length) picks = got;
+          if (picks.length >= Math.min(want, 4)) break search;
+        }
       }
       if (picks.length < 3) throw new GenFail(`combat room ${r.id} has too few slots`);
       for (const i of picks) slot(i, r.id, 'monster');

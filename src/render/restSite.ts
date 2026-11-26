@@ -18,7 +18,7 @@ import type { Figure } from './standins';
 
 /**
  * A safe place to rest, themed by floor: campfire ring with bedroll and pack (warrens),
- * candle shrine (crypt), lantern on a cairn (depths). Idle = gentle flicker and a slow
+ * candle shrine (crypt, sewers), lantern on a cairn (depths). Idle = gentle flicker and a slow
  * pulsing pool of warm light with rising motes; cast = flare and an expanding ring of
  * light; spent (dead) = fire out, embers only, glow off, still fully visible.
  */
@@ -26,9 +26,9 @@ export function buildRestSite(theme: ThemeId): Figure {
   const lit = new GeoBuilder();
   const flame = new GeoBuilder();
   const ember = new GeoBuilder();
-  const stoneC = theme === 'depths' ? 0x6f7482 : theme === 'crypt' ? 0x9aa2b2 : 0x8a8070;
-  const stoneD = theme === 'depths' ? 0x4a4e5c : theme === 'crypt' ? 0x6a7282 : 0x5c5246;
-  const flameColor = theme === 'warrens' ? 0xffa040 : theme === 'crypt' ? 0xffc468 : 0xffd890;
+  const stoneC = theme === 'depths' ? 0x6f7482 : theme === 'crypt' ? 0x9aa2b2 : theme === 'sewers' ? 0x8a8468 : 0x8a8070;
+  const stoneD = theme === 'depths' ? 0x4a4e5c : theme === 'crypt' ? 0x6a7282 : theme === 'sewers' ? 0x5a5640 : 0x5c5246;
+  const flameColor = theme === 'warrens' ? 0xffa040 : theme === 'crypt' || theme === 'sewers' ? 0xffc468 : 0xffd890;
   const flameAt = (x: number, y: number, z: number, s: number): void => {
     flame.cone(0.13 * s, 0.4 * s, 6, 0xffffff, { x, y: y + 0.2 * s, z });
     flame.cone(0.08 * s, 0.28 * s, 5, 0xffffff, { x: x + 0.02, y: y + 0.16 * s, z, shade: 1.8 });
@@ -56,7 +56,7 @@ export function buildRestSite(theme: ThemeId): Figure {
     emberAt(-0.12, 0.09, -0.08, 0.06);
     emberAt(0.0, 0.1, 0.18, 0.05);
     flameTop = 0.5;
-  } else if (theme === 'crypt') {
+  } else if (theme === 'crypt' || theme === 'sewers') {
     lit.box(1.3, 0.2, 0.8, stoneD, { y: 0.1 });
     lit.box(1.15, 0.5, 0.65, stoneC, { y: 0.45 });
     lit.box(1.3, 0.1, 0.8, stoneC, { y: 0.74, shade: 1.1 });

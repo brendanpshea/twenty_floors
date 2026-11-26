@@ -71,9 +71,10 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   bossMinionChance: [0.25, 0.5, 0.2, 0.5],
   /** Selection weight by role. */
   roleWeight: { minion: 1, standard: 1, elite: 0.5, boss: 0 },
-  monsterMinDepth: {},
-  monsterMaxDepth: {},
-  bossByDepth: {},
+  // The sewers span floors 4 and 5 with a different cast and boss on each (docs/research/roster-options.md).
+  monsterMinDepth: { wererat: 5, giant_constrictor_snake: 5, gelatinous_cube: 5 },
+  monsterMaxDepth: { giant_frog: 4, gray_ooze: 4, giant_rat: 4 },
+  bossByDepth: { 4: 'ochre_jelly', 5: 'green_hag' },
   monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5 },
 };
 

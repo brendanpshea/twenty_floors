@@ -385,8 +385,8 @@ export function dressNook(g: Grid, props: PropLayer, nook: { cells: number[]; re
     const dir = props.wallDir(x, y, rng);
     if (dir >= 0 && props.place('torch', x, y, dir, false)) torches++;
   }
-  const deco = theme === 'crypt' ? 'brazier' : theme === 'warrens' ? 'campfire' : 'crystal';
-  const small = theme === 'warrens' ? 'bones' : theme === 'crypt' ? 'rubble' : 'chain';
+  const deco = theme === 'crypt' || theme === 'sewers' ? 'brazier' : theme === 'warrens' ? 'campfire' : 'crystal';
+  const small = theme === 'warrens' ? 'bones' : theme === 'crypt' || theme === 'sewers' ? 'rubble' : 'chain';
   if (nook.cells.length >= 6) {
     // A themed light beside the rest cell (never on it).
     const rx = nook.rest % w;
