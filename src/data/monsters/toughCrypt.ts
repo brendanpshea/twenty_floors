@@ -582,7 +582,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
       },
     ],
     visual: { model: 'ogre', tint: 0xb0c8a0, scale: 1.55 },
-    themes: ['library'],
+    themes: ['library', 'foundry'],
     role: 'boss',
     description: 'A carved guardian built to protect the library\'s deepest vault, patient, pitiless and nearly impossible to stop.',
   },

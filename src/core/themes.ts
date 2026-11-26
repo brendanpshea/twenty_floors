@@ -1,3 +1,4 @@
+import { Rng, hashSeed } from './rng';
 import type { ThemeId } from './types';
 
 export interface ThemeInfo {
@@ -125,4 +126,73 @@ export function themeForDepth(depth: number): ThemeId {
   if (d <= 17) return 'ruin';
   if (d <= 19) return 'hell';
   return 'lair';
+}
+
+/**
+ * The floors each theme may turn up on in a randomized run: the depths its monsters and bosses
+ * can carry. The fixed run's own floors are always inside the range.
+ */
+export const THEME_RANGE: Record<ThemeId, [minDepth: number, maxDepth: number]> = {
+  warrens: [1, 4],
+  forest: [1, 8],
+  crypt: [1, 7],
+  depths: [2, 9],
+  sewers: [3, 9],
+  marsh: [3, 11],
+  fungal: [4, 10],
+  hold: [5, 13],
+  peaks: [5, 16],
+  library: [7, 15],
+  foundry: [9, 17],
+  ice: [10, 18],
+  ruin: [12, 19],
+  hell: [15, 19],
+  lair: [20, 20],
+};
+
+export interface RunPlanOptions {
+  /**
+   * Floors from 1 that keep the fixed run's themes. Floors 1 to 3 are tuned against the real
+   * engine on those themes, so the default leaves them alone; 0 randomizes the whole run.
+   */
+  fixedFloors?: number;
+}
+
+/**
+ * The themes of a randomized run, one per floor (index 0 is floor 1). Deterministic in the run
+ * seed. A theme stays for one or two floors, is never used twice, only turns up on floors inside
+ * its THEME_RANGE, and the last floor is always the lair.
+ */
+export function planRunThemes(runSeed: number, opts: RunPlanOptions = {}): ThemeId[] {
+  const fixed = Math.max(0, Math.min(TOTAL_FLOORS, opts.fixedFloors ?? MILESTONE_FLOORS));
+  const ids = (Object.keys(THEME_RANGE) as ThemeId[]).filter((id) => id !== 'lair');
+  const fits = (id: ThemeId, d: number): boolean => THEME_RANGE[id][0] <= d && THEME_RANGE[id][1] >= d;
+  // Draw a run floor by floor; a draw that paints itself into a corner is thrown away and redrawn.
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const rng = new Rng(hashSeed(runSeed, `themes:${attempt}`));
+    const out: ThemeId[] = [];
+    for (let d = 1; d <= fixed; d++) out.push(themeForDepth(d));
+    const used = new Set<ThemeId>(out);
+    let stuck = false;
+    while (out.length < TOTAL_FLOORS - 1) {
+      const d = out.length + 1;
+      const open = ids.filter((id) => !used.has(id) && fits(id, d));
+      if (open.length === 0) {
+        stuck = true;
+        break;
+      }
+      // Themes about to run out of floors are favoured, so the deep floors keep their choices.
+      const soonest = Math.min(...open.map((id) => THEME_RANGE[id][1]));
+      const urgent = open.filter((id) => THEME_RANGE[id][1] <= soonest + 3);
+      const id = urgent[rng.int(0, urgent.length - 1)] as ThemeId;
+      used.add(id);
+      out.push(id);
+      if (d + 1 < TOTAL_FLOORS && fits(id, d + 1) && rng.chance(0.6)) out.push(id);
+    }
+    if (stuck) continue;
+    out.push('lair');
+    return out;
+  }
+  // No draw worked (not seen in practice): the fixed run.
+  return Array.from({ length: TOTAL_FLOORS }, (_, k) => themeForDepth(k + 1));
 }

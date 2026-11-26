@@ -392,7 +392,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
       },
     ],
     visual: { model: 'ogre', tint: 0xb8a850, scale: 1.35 },
-    themes: ['sewers'],
+    themes: ['sewers', 'fungal'],
     role: 'boss',
     description: 'A bloated heap of tentacles and teeth that feeds on the waste of the whole city and anything that wanders in.',
   },

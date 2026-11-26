@@ -1,6 +1,6 @@
 import { Rng, floorSeed, hashSeed } from '../core/rng';
 import { themeForDepth } from '../core/themes';
-import type { Ability, ActionDef, Condition, DamageType, FloorPlan, MonsterDef } from '../core/types';
+import type { Ability, ActionDef, Condition, DamageType, FloorPlan, MonsterDef, ThemeId } from '../core/types';
 import { fighterImprovementsUpTo, fighterLevel } from '../data/fighter';
 import { MONSTERS } from '../data/monsters';
 import { generateFloor } from '../gen';
@@ -427,6 +427,8 @@ export interface ModelOptions {
   levelOffset?: number;
   /** Reuse generated floors between calls (tuning sweeps re-populate the same floors many times). */
   cachePlans?: boolean;
+  /** Theme to generate the floor with; defaults to the fixed run's theme for the depth. */
+  theme?: ThemeId;
 }
 
 const planCache = new Map<string, FloorPlan>();
@@ -446,10 +448,11 @@ export interface FloorOutcome {
 
 export function modelFloor(runSeed: number, depth: number, opts: ModelOptions = {}): FloorOutcome {
   const seed = floorSeed(runSeed, depth);
-  const key = `${seed}:${depth}`;
+  const theme = opts.theme ?? themeForDepth(depth);
+  const key = `${seed}:${depth}:${theme}`;
   let plan = opts.cachePlans ? planCache.get(key) : undefined;
   if (!plan) {
-    plan = generateFloor({ seed, depth, theme: themeForDepth(depth) });
+    plan = generateFloor({ seed, depth, theme });
     if (opts.cachePlans) planCache.set(key, plan);
   }
   const placed = buildEncounters(plan, MONSTERS, new Rng(hashSeed(seed, 'encounters')));
@@ -551,7 +554,7 @@ export function modelDepth(depth: number, runSeeds: number[], opts: ModelOptions
   const n = runSeeds.length;
   return {
     depth,
-    theme: themeForDepth(depth),
+    theme: opts.theme ?? themeForDepth(depth),
     runs: n,
     clearRate: clears / n,
     bossShare: n - clears > 0 ? bossDeaths / (n - clears) : 0,
