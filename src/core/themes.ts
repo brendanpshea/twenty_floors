@@ -113,15 +113,16 @@ const THEME_ORDER: ThemeId[] = ['warrens', 'crypt', 'depths'];
 
 /** Which theme a floor uses. Deterministic; more themes slot in here as they are built. */
 export function themeForDepth(depth: number): ThemeId {
-  // Floors 4 and 5 are the sewers, 6 and 7 the fungal caverns, 8 and 9 the bandit hold, 10 and 11 the sunken library, 12 and 13 the foundry, 14 and 15 the ice caves, 16 and 17 the overgrown ruin; deeper floors reuse the first three until their themes are built.
-  if (depth === 4 || depth === 5) return 'sewers';
-  if (depth === 6 || depth === 7) return 'fungal';
-  if (depth === 8 || depth === 9) return 'hold';
-  if (depth === 10 || depth === 11) return 'library';
-  if (depth === 12 || depth === 13) return 'foundry';
-  if (depth === 14 || depth === 15) return 'ice';
-  if (depth === 16 || depth === 17) return 'ruin';
-  if (depth === 18 || depth === 19) return 'hell';
-  if (depth === 20) return 'lair';
-  return THEME_ORDER[(depth - 1) % THEME_ORDER.length] as ThemeId;
+  // Every floor from 1 to 20 has its own theme; anything outside that range is clamped into it.
+  const d = Math.max(1, Math.min(TOTAL_FLOORS, Math.floor(depth) || 1));
+  if (d <= 3) return THEME_ORDER[d - 1] as ThemeId;
+  if (d <= 5) return 'sewers';
+  if (d <= 7) return 'fungal';
+  if (d <= 9) return 'hold';
+  if (d <= 11) return 'library';
+  if (d <= 13) return 'foundry';
+  if (d <= 15) return 'ice';
+  if (d <= 17) return 'ruin';
+  if (d <= 19) return 'hell';
+  return 'lair';
 }

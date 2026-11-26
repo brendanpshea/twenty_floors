@@ -539,7 +539,7 @@ const BEDS: Record<ThemeId, BedDef> = {
     build(rig, out) {
       // Thin cold wind beyond the cave: high band-passed noise, centre wandering, long gusts and lulls.
       const wind = rig.gain(0.45, out);
-      rig.lfo(0.05, 0.3, wind.gain);
+      rig.lfo(0.05, 0.26, wind.gain); // the three depths sum to less than the base, so the gain never crosses zero
       rig.lfo(0.025, 0.1, wind.gain);
       rig.lfo(0.1, 0.08, wind.gain);
       const bp = rig.filter('bandpass', 2000, 1.2, wind);

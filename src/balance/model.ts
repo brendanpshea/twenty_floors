@@ -22,9 +22,11 @@ import { routeToBoss } from './floor';
  *   and a monster with no ranged or area action spends the first round
  *   closing in. After that everyone can reach everyone; area effects catch
  *   each party member three times in four.
- * - Monsters use their most damaging available action each turn. Conditions
+ * - Monsters use their most damaging available action each turn and, like the
+ *   real monster AI today, never their bonus actions (some gazes, charms and
+ *   heals are bonus actions, so those monsters are understated). Conditions
  *   are reduced to three effects: cannot act, attacks at disadvantage, is
- *   attacked at advantage.
+ *   attacked at advantage; being grappled does nothing here.
  * - The party walks the main route to the boss, rests by a simple rule (two
  *   short rests per long rest, two long-rest sites per floor) and starts every
  *   floor fresh.
@@ -179,7 +181,7 @@ interface Foe {
 
 const mod = (score: number): number => Math.floor((score - 10) / 2);
 
-const NO_ACT: ReadonlySet<Condition> = new Set<Condition>(['paralyzed', 'stunned', 'charmed', 'unconscious'] as Condition[]);
+const NO_ACT: ReadonlySet<Condition> = new Set<Condition>(['paralyzed', 'stunned', 'charmed', 'unconscious', 'incapacitated'] as Condition[]);
 const HAMPER: ReadonlySet<Condition> = new Set<Condition>(['restrained', 'blinded', 'prone', 'poisoned', 'frightened'] as Condition[]);
 const EXPOSE: ReadonlySet<Condition> = new Set<Condition>(['paralyzed', 'stunned', 'unconscious', 'restrained', 'blinded', 'prone'] as Condition[]);
 
@@ -452,11 +454,15 @@ export function modelFloor(runSeed: number, depth: number, opts: ModelOptions = 
   const out: FloorOutcome = { cleared: false, fights: 0, rounds: 0, allyDowned: false, xp: 0 };
   let shortRests = 2;
   let sites = 0;
+  let sitesFound = 0;
   for (let i = 0; i < route.length; i++) {
     const roomId = route[i] as number;
     const boss = plan.rooms.find((r) => r.id === roomId)?.role === 'boss';
     // Rest sites: one becomes available about midway, the other at the boss's door.
-    if (i === Math.floor(route.length / 2) || boss) sites++;
+    // On a very short route both are met by the time the boss's door is.
+    const found = boss ? 2 : i >= Math.floor(route.length / 2) ? 1 : 0;
+    sites += Math.max(0, found - sitesFound);
+    sitesFound = Math.max(sitesFound, found);
     // Rest the way the scripted hero of the real simulation does: a short rest when hurt or when
     // Second Wind or Action Surge is spent, a long rest at a site when that was not enough.
     const hurtBelow = (f: number): boolean => party.some((m) => m.hp < m.stats.maxHp * f);
