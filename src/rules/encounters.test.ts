@@ -182,10 +182,10 @@ describe('encounter tuning levers', () => {
         return placed.filter((m) => m.roomId === 5).map((m) => m.creature.defId).find((id) => MONSTERS.find((d) => d.id === id)?.role === 'boss') as string;
       };
       for (let seed = 1; seed <= 20; seed++) {
-        // Sewers bosses are CR 2 and CR 3. Floor 5 (band 2.5 to 3.75) takes the CR 3 one, a deep
-        // floor the nearer of the two, and floor 4 (band 2 to 3) may take either.
+        // Sewers bosses are CR 2, 3, 5 and 10. Floor 5 (band 2.5 to 3.75) takes the CR 3 one,
+        // floor 14 (band 7 to 10.5) the CR 10 one, and floor 4 (band 2 to 3) either of the first two.
         expect(bossAt(5, 'sewers', seed)).toBe('green_hag');
-        expect(bossAt(14, 'sewers', seed)).toBe('green_hag');
+        expect(bossAt(14, 'sewers', seed)).toBe('aboleth');
         expect(['ochre_jelly', 'green_hag']).toContain(bossAt(4, 'sewers', seed));
         // No monster the floor has outgrown, and never more kinds than the cast size.
         const placed = buildEncounters(plan(8, 'hold'), MONSTERS, new Rng(seed));

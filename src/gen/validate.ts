@@ -37,6 +37,10 @@ export const PROP_BLOCKING: Record<string, boolean> = {
   lectern: true,
   book_pile: false,
   candelabra: true,
+  forge: true,
+  anvil: true,
+  crucible: true,
+  ingots: true,
 };
 
 const THEME_PROPS: Record<string, string[]> = {
@@ -47,6 +51,7 @@ const THEME_PROPS: Record<string, string[]> = {
   fungal: ['giant_mushroom', 'mushrooms', 'stalagmite', 'cobweb'],
   hold: ['bunk', 'table', 'weapon_rack', 'banner', 'palisade', 'dummy', 'brazier', 'campfire'],
   library: ['bookshelf', 'desk', 'lectern', 'book_pile', 'candelabra', 'statue', 'cobweb'],
+  foundry: ['forge', 'anvil', 'crucible', 'ingots', 'chain', 'brazier', 'broken_pillar'],
 };
 const COMMON_PROPS = ['torch', 'rubble', 'pillar', 'crate', 'barrel', 'bones'];
 

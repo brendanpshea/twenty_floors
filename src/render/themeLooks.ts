@@ -34,6 +34,11 @@ export interface ThemeLook {
   heroColor: number;
   /** Chasm glow far below. */
   chasmGlow: number;
+  /**
+   * If set, the chasm is a river of molten slag: a glowing animated surface `depth` units below
+   * the lowest floor (replacing the far-below glow), with `color` as the hot slag and `crust` the cooled patches.
+   */
+  lava?: { color: number; crust: number; depth: number };
   moteColor: number;
   moteCount: number;
   /** Flame colour pairs for torch/brazier/campfire (outer, core). */
@@ -300,5 +305,41 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
     crystal: [0xb070ff, 0x40e0ff],
     mushroom: 0x66ffe0,
     prop: { stone: 0x5e5a78, stoneDark: 0x3a3750, wood: 0x4a3a52, woodDark: 0x2e2438, iron: 0x34364a, bone: 0xc8c4d8, clay: 0x584468 },
+  },
+  foundry: {
+    id: 'foundry',
+    wallStyle: 'jagged',
+    floorA: 0x62636e,
+    floorB: 0x72737e,
+    groove: 0.5,
+    wall: 0x3c3638,
+    wall2: 0x4a4244,
+    cap: 0x2a2426,
+    water: 0x6a4a3a,
+    waterBed: 0x2a1c18,
+    waterOpacity: 0.7,
+    fog: 0x2a0e08,
+    fogDensity: 0.016,
+    hemiSky: 0xe8d0c0,
+    hemiGround: 0x4a2a24,
+    hemiIntensity: 1.4,
+    keyColor: 0xffd2b4,
+    keyIntensity: 1.25,
+    baseLight: 0.86,
+    lightGain: 1.0,
+    pointGain: 1.0,
+    heroGain: 0.38,
+    heroColor: 0xffd2a8,
+    chasmGlow: 0xff5a14,
+    lava: { color: 0xff6a12, crust: 0x3a1408, depth: 2.0 },
+    moteColor: 0xff8a30,
+    moteCount: 90,
+    flame: 0xff7a1a,
+    flameCore: 0xffd070,
+    flameAlt: 0xff7a1a,
+    altShare: 0,
+    crystal: [0xff9a40, 0xffd060],
+    mushroom: 0xffa050,
+    prop: { stone: 0x7a7478, stoneDark: 0x4c4648, wood: 0x6a4a30, woodDark: 0x40291a, iron: 0x3e3e46, bone: 0xd8ccb4, clay: 0x8a5a40 },
   },
 };

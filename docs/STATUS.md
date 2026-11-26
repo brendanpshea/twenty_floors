@@ -22,9 +22,9 @@ The creation screen and hub already contain UI for three features whose rules
 are not on `main` yet, so these parts are inert there: background feat choices
 (Magic Initiate), play-style presets, and the ranged weapon slot.
 
-## Floors 4 to 11: Sewers, Fungal Caverns, Bandit Hold, Sunken Library (content only, not reachable yet)
+## Floors 4 to 13: Sewers, Fungal Caverns, Bandit Hold, Sunken Library, Foundry (content only, not reachable yet)
 
-Four themes exist end to end except for play:
+Five themes exist end to end except for play:
 
 - **Flooded Sewers, floors 4 and 5.** Generator `src/gen/themes/sewers.ts`
   (channel tunnels, wet and dry chambers; set pieces sluice, flooded hall,
@@ -44,28 +44,39 @@ Four themes exist end to end except for play:
   pieces rotunda, grand stacks, drowned wing), look, five props (bookshelf,
   desk, lectern, book pile, candelabra), ambience, eight SRD monsters.
   Bosses: Mage, Shield Guardian.
+- **Foundry, floors 12 and 13.** Generator `src/gen/themes/foundry.ts` (the
+  depths' platforms and bridges with workshop dressing), look with a lava
+  surface in place of the chasm, four props (forge, anvil, crucible,
+  ingots), ambience, thirteen SRD monsters from CR 1/2 to CR 9. Bosses:
+  Fire Giant, Clay Golem.
 
 Per-floor casts and bosses are in `ENCOUNTER_TUNING`. See the floors at
 `/dev/render-preview.html?gen=1&theme=sewers&depth=4`, `...theme=fungal&depth=6`
-`...theme=hold&depth=8` and `...theme=library&depth=10`.
+`...theme=hold&depth=8`, `...theme=library&depth=10` and
+`...theme=foundry&depth=12`.
 
 What is missing before `MILESTONE_FLOORS` can go past 3:
 
-- **Fighter levels 4 to 11** (in `src/rules`, after the spell-engine branch).
+- **Fighter levels 4 to 13** (in `src/rules`, after the spell-engine branch).
 - **Models.** The sewer, cavern and library monsters use tinted stand-ins from rigs we
   already ship (each has a `TODO model:` comment in `src/data/monsters.ts`
   naming the intended free model). Fetching needs `tools/assets/fetch.mjs`
   on a machine that can reach poly.pizza. The hold's humanoids are tinted
   hero rigs as planned; three still want a weapon or shield prop.
 - **Balance.** Encounter budgets from level 4 are the untuned SRD figures and
-  rooms on floors 5 to 11 come out over them. Tune with `src/balance` once the
+  rooms on floors 5 to 13 come out over them. Tune with `src/balance` once the
   hero can reach those levels.
-- **Casts follow the hero's level.** The hero gains a level per floor, so
-  ordinary monsters need a CR of at least floor(depth / 4) (`minCrPerDepth`
-  in `ENCOUNTER_TUNING`). Pick casts for new themes with that in mind.
-  Giant Frog, Gray Ooze, Violet Fungus, Darkmantle and Scout are in the data
-  but fall under the rule on their floors and are never placed. They are
-  kept on purpose: see "Randomized runs" below.
+- **Casts follow the hero's level.** Nothing is listed per floor. A floor
+  fields up to four kinds (`maxCastSize`, sampled per floor) of its theme's
+  ordinary monsters that it can afford (XP at most `castBudgetFactor` times
+  the level's room budget) and has not outgrown (CR at least
+  floor(depth / 4), `minCrPerDepth`). Its boss is a boss-role monster of
+  the theme whose CR fits the depth (`bossCrBand`); `bossByDepth` scripts
+  the fixed run's order. All in `ENCOUNTER_TUNING`.
+- **Every theme has monsters for other depths.** 42 tougher SRD monsters
+  for the first seven themes live in `src/data/monsters/tough*.ts`, and
+  each newer theme is given a wide CR range from the start. On the fixed
+  run most of them are never placed; they are there for randomized runs.
 - Monster features the engine cannot express yet were dropped or simplified
   (grapple and swallow, Split, Engulf, shape-shifting, auras, flying, Parry
   and other reactions, most spell lists); each is noted in a comment above the monster.
@@ -85,13 +96,11 @@ small:
 
 - `themeForDepth(depth)` is a fixed table. It would become a function of the
   run seed too, choosing among the themes allowed at that depth.
-- Bosses and casts are listed per depth (`bossByDepth`, `monsterMinDepth`,
-  `monsterMaxDepth`). For a theme to work at several depths, monsters and
-  bosses should be chosen by CR band for the floor instead (`minCrPerDepth`
-  is the lower edge of that band already), and each theme needs monsters
-  across a wider CR range. The low-CR monsters now unplaced (Giant Frog,
-  Gray Ooze, Violet Fungus, Darkmantle, Scout, Giant Rat in the sewers)
-  become that theme's cast when it turns up early.
+- `bossByDepth` scripts which boss each floor of the fixed run gets. Casts
+  and bosses are otherwise already chosen by CR for the floor, and every
+  theme has monsters across a wide CR range, so a theme placed at another
+  depth populates itself. What is missing is knowing whether a floor is the
+  first or second of its theme, so two floors do not get the same boss.
 - Generators do not depend on depth except through room count, so they
   already work at any depth.
 

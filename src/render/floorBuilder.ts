@@ -11,12 +11,13 @@ import {
   Points,
   PointsMaterial,
 } from 'three';
+import type { WebGLProgramParametersWithUniforms } from 'three';
 import type { FloorPlan } from '../core/types';
 import { CellKind } from '../core/types';
 import { Bake } from './bake';
 import type { Fow } from './fow';
 import type { ThemeLook } from './themeLooks';
-import { CELL, STEP, hash2 } from './util';
+import { CELL, STEP, clamp, hash2 } from './util';
 
 export const WALL_HEIGHT = 1.6;
 /** Warrens walls are lower and flatter so tunnels stay readable. */
@@ -93,6 +94,32 @@ const BANDS_CLIFF: Band[] = [
   [0.5, 1, 0.12, 0],
 ];
 const BANDS_RISER: Band[] = [[0, 1, 0.95, 0.7]];
+
+const LAVA_FRAG_HEAD = `#include <common>
+uniform float uTime;
+uniform vec3 uLavaHot;
+uniform vec3 uLavaCrust;
+varying vec2 vLavaP;
+float lvH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float lvN(vec2 p) {
+  vec2 i = floor(p); vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(lvH(i), lvH(i + vec2(1.0, 0.0)), f.x), mix(lvH(i + vec2(0.0, 1.0)), lvH(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float lvF(vec2 p) { return lvN(p) * 0.55 + lvN(p * 2.1 + 5.3) * 0.3 + lvN(p * 4.3 + 11.7) * 0.15; }`;
+const LAVA_FRAG_BODY = `{
+  vec2 q = vLavaP * 0.5 + vec2(uTime * 0.05, uTime * 0.018);
+  vec2 w = vec2(lvF(q + uTime * 0.03), lvF(q.yx + 7.7 - uTime * 0.025));
+  float n = lvF(q * 1.3 + w * 1.6);
+  float crust = smoothstep(0.47, 0.58, n);
+  float edge = smoothstep(0.0, 0.08, abs(n - 0.5));
+  float pulse = 0.9 + 0.1 * sin(uTime * 0.9 + vLavaP.x * 0.6 + vLavaP.y * 0.8);
+  vec3 hot = mix(uLavaHot, vec3(1.0, 0.62, 0.16), smoothstep(0.2, 0.0, n));
+  vec3 lv = hot * (0.72 * pulse);
+  lv += vec3(0.5, 0.25, 0.04) * (1.0 - edge) * (1.0 - crust);
+  lv = mix(lv, uLavaCrust, crust * (0.7 + 0.3 * edge));
+  diffuseColor.rgb *= lv;
+}`;
 
 export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBuild {
   const W = plan.width;
@@ -299,6 +326,18 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
     }
     return 0;
   };
+  // Lava themes: the chasm is a river of slag a short way below the lowest floor.
+  const lava = look.lava;
+  let lavaY = -Infinity;
+  if (lava) {
+    let low = 0;
+    for (let i = 0; i < W * H; i++) {
+      if (isWalkKind(kinds[i]!)) low = Math.min(low, surface(i % W, (i / W) | 0));
+    }
+    lavaY = low - lava.depth;
+  }
+  const lavaTint = rgbOf(lava ? lava.color : 0);
+
   /** A cliff/void-facing face from the top edge down to botY, fading by depth below fadeTop. */
   const fadeFace = (
     buf: Buf,
@@ -313,6 +352,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
     nx: number,
     nz: number,
   ): void => {
+    if (lava) botY = Math.max(botY, lavaY);
     const yTop = Math.max(pa[1], pb[1]);
     const ys: number[] = [yTop];
     for (const d of FADE_D) {
@@ -328,7 +368,16 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
         const g = end ? gb : ga;
         const yy = first ? (end ? pb[1] : pa[1]) : y;
         const t = (p[1] - yy) / Math.max(0.001, p[1] - botY);
-        setV(v, p[0] + (g[0] - p[0]) * t, yy, p[2] + (g[1] - p[2]) * t, alb, fadeAt(fadeTop - yy));
+        let sh = fadeAt(fadeTop - yy);
+        let col = alb;
+        if (lava) {
+          // Lit from below: the rock near the molten surface picks up its glow.
+          const lt = clamp(1 - (yy - lavaY) / 2.6, 0, 1);
+          const k = lt * lt * 0.85;
+          col = mix3(alb, lavaTint, k);
+          sh = Math.max(sh, k * 0.9);
+        }
+        setV(v, p[0] + (g[0] - p[0]) * t, yy, p[2] + (g[1] - p[2]) * t, col, sh);
       };
       rowPt(0, y0, k === 0, va);
       rowPt(1, y0, k === 0, vb);
@@ -412,6 +461,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
   };
   const waterBuf = new Buf();
   const glowBuf = new Buf();
+  const lavaBuf = new Buf();
   let minElev = 0;
   const chasmCells: number[] = [];
 
@@ -690,8 +740,8 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
     }
   }
 
-  // Chasm glow far below.
-  const depthY = minElev - CLIFF_DROP - 2;
+  // Chasm glow far below (or, in lava themes, the molten surface a little below the floors).
+  const depthY = lava ? lavaY : minElev - CLIFF_DROP - 2;
   for (const idx of chasmCells) {
     const cx = idx % W;
     const cy = (idx / W) | 0;
@@ -707,7 +757,14 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
     vb[0] = x0 + CELL; vb[1] = depthY; vb[2] = z0;
     vc[0] = x0 + CELL; vc[1] = depthY; vc[2] = z0 + CELL;
     vd[0] = x0; vd[1] = depthY; vd[2] = z0 + CELL;
-    quad(glowBuf, va, vb, vc, vd, idx, 0, 1, 0);
+    if (lava) {
+      for (const v of [va, vb, vc, vd]) {
+        v[3] = 1;
+        v[4] = 1;
+        v[5] = 1;
+      }
+      quad(lavaBuf, va, vb, vc, vd, idx, 0, 1, 0);
+    } else quad(glowBuf, va, vb, vc, vd, idx, 0, 1, 0);
   }
 
   // ---- build meshes ------------------------------------------------------
@@ -755,13 +812,38 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
     group.add(mesh);
   }
 
-  if (glowBuf.pos.length) {
-    const gm = new MeshBasicMaterial({ vertexColors: true, fog: false });
-    fow.patch(gm);
-    disposables.push(gm);
-    const mesh = new Mesh(toGeo(glowBuf), gm);
-    mesh.frustumCulled = false;
-    group.add(mesh);
+  if (glowBuf.pos.length || lavaBuf.pos.length) {
+    if (lava && lavaBuf.pos.length) {
+      // One extra draw call: a flat animated slag surface over every chasm cell.
+      const lm = new MeshBasicMaterial({ vertexColors: true, fog: false });
+      fow.patch(lm);
+      const fowCompile = lm.onBeforeCompile;
+      const fowKey = lm.customProgramCacheKey();
+      lm.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms, r) => {
+        fowCompile(shader, r);
+        shader.uniforms.uLavaHot = { value: new Color(lava.color) };
+        shader.uniforms.uLavaCrust = { value: new Color(lava.crust) };
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', '#include <common>\nvarying vec2 vLavaP;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvLavaP = position.xz;');
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', LAVA_FRAG_HEAD)
+          .replace('#include <color_fragment>', `#include <color_fragment>\n${LAVA_FRAG_BODY}`);
+      };
+      lm.customProgramCacheKey = () => `${fowKey}-lava`;
+      disposables.push(lm);
+      const lmesh = new Mesh(toGeo(lavaBuf), lm);
+      lmesh.frustumCulled = false;
+      group.add(lmesh);
+    }
+    if (glowBuf.pos.length) {
+      const gm = new MeshBasicMaterial({ vertexColors: true, fog: false });
+      fow.patch(gm);
+      disposables.push(gm);
+      const mesh = new Mesh(toGeo(glowBuf), gm);
+      mesh.frustumCulled = false;
+      group.add(mesh);
+    }
 
     const n = look.moteCount;
     if (n > 0) {
@@ -774,7 +856,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
         const cx = idx % W;
         const cy = (idx / W) | 0;
         pos[i * 3] = (cx + hash2(i, 2, 32)) * CELL;
-        pos[i * 3 + 1] = depthY + 2 + hash2(i, 3, 33) * (CLIFF_DROP + 1);
+        pos[i * 3 + 1] = lava ? lavaY + 0.4 + hash2(i, 3, 33) * 7 : depthY + 2 + hash2(i, 3, 33) * (CLIFF_DROP + 1);
         pos[i * 3 + 2] = (cy + hash2(i, 4, 34)) * CELL;
         const k = 0.4 + 0.6 * hash2(i, 5, 35);
         col[i * 3] = mc.r * k;

@@ -56,4 +56,5 @@ export const AMB_LEVEL: Record<ThemeId, number> = {
   fungal: 0.065,
   hold: 0.2,
   library: 0.23,
+  foundry: 0.115,
 };

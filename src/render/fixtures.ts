@@ -95,7 +95,7 @@ class Draft {
     ];
     return {
       seed,
-      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : theme === 'library' ? 10 : 3,
+      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : theme === 'library' ? 10 : theme === 'foundry' ? 12 : 3,
       theme,
       width: this.w,
       height: this.h,
@@ -125,15 +125,21 @@ function autoLights(d: Draft, theme: ThemeId): void {
     const { x, y } = p.pos;
     switch (p.type) {
       case 'torch': {
-        const warm = theme === 'warrens' || theme === 'hold' || (theme === 'crypt' && (x + y) % 4 === 0);
+        const warm = theme === 'warrens' || theme === 'hold' || theme === 'foundry' || (theme === 'crypt' && (x + y) % 4 === 0);
         d.light(x, y, theme === 'library' ? 0x90c8ff : warm || theme === 'sewers' ? 0xffa050 : theme === 'fungal' ? 0x60f0c0 : theme === 'crypt' ? 0x60d8f0 : 0xa070ff, 1.1, theme === 'depths' ? 5 : 6.5);
         break;
       }
       case 'brazier':
-        d.light(x, y, theme === 'library' ? 0x90c8ff : theme === 'warrens' || theme === 'sewers' || theme === 'hold' ? 0xff8a30 : theme === 'fungal' ? 0x58e8b8 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
+        d.light(x, y, theme === 'library' ? 0x90c8ff : theme === 'warrens' || theme === 'sewers' || theme === 'hold' || theme === 'foundry' ? 0xff8a30 : theme === 'fungal' ? 0x58e8b8 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
         break;
       case 'candelabra':
         d.light(x, y, 0x90c8ff, 1.2, 6);
+        break;
+      case 'forge':
+        d.light(x, y, 0xff7a28, 1.8, 7.5);
+        break;
+      case 'crucible':
+        d.light(x, y, 0xffa030, 1.4, 6);
         break;
       case 'campfire':
         d.light(x, y, 0xff8030, 1.7, 8);
@@ -403,7 +409,48 @@ function depths(): FloorPlan {
   return d.toPlan('depths', { x: 4, y: 4 }, { x: 19, y: 21 }, 1003, [{ x: 5, y: 5 }, { x: 13, y: 7 }]);
 }
 
-export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, library, depths };
+function foundry(): FloorPlan {
+  const d = new Draft(24, 24, CHASM);
+  d.rect(0, 0, 23, 0, WALL); d.rect(0, 23, 23, 23, WALL); d.rect(0, 0, 0, 23, WALL); d.rect(23, 0, 23, 23, WALL);
+  // forge platforms
+  d.rect(2, 2, 8, 8, FLOOR, 0); // start
+  d.rect(11, 3, 16, 9, FLOOR, 1); // forge floor
+  d.rect(18, 2, 21, 6, FLOOR, 2);
+  d.rect(2, 12, 7, 17, FLOOR, 0); // lower left
+  d.rect(10, 13, 15, 18, FLOOR, 1);
+  d.rect(17, 11, 21, 15, FLOOR, 2);
+  d.rect(14, 20, 21, 22, FLOOR, 0);
+  // bridges
+  d.rect(9, 5, 10, 5, FLOOR, 0);
+  d.rect(17, 4, 17, 4, FLOOR, 1);
+  d.rect(4, 9, 4, 11, FLOOR, 0);
+  d.rect(8, 15, 9, 15, FLOOR, 0);
+  d.rect(16, 14, 16, 14, FLOOR, 1);
+  d.rect(19, 7, 19, 10, FLOOR, 2);
+  d.rect(12, 10, 12, 12, FLOOR, 1);
+  d.rect(15, 19, 15, 19, FLOOR, 0);
+  d.rect(20, 16, 20, 19, FLOOR, 1);
+  const P = d.prop.bind(d);
+  // the forge hall: hearth on the north edge, anvils before it, crucibles by the lip
+  P('forge', 13, 3, 2); P('forge', 15, 3, 2);
+  P('anvil', 12, 5, 0); P('anvil', 15, 6, 1);
+  P('crucible', 12, 8); P('crucible', 16, 8);
+  P('ingots', 14, 8, 0); P('ingots', 11, 4, 1);
+  P('brazier', 11, 9); P('torch', 14, 2, 0, false);
+  // start platform
+  P('brazier', 7, 3); P('rubble', 3, 7); P('bones', 6, 7); P('torch', 3, 1, 0, false);
+  P('ingots', 3, 3, 1); P('anvil', 6, 4, 3); P('chain', 8, 8); P('chain', 2, 4);
+  // others
+  P('crucible', 19, 3); P('forge', 20, 5, 3); P('ingots', 18, 2, 2); P('broken_pillar', 21, 3);
+  P('crucible', 3, 14); P('anvil', 5, 14, 2); P('ingots', 3, 16, 0); P('rubble', 6, 16); P('brazier', 6, 12);
+  P('ingots', 13, 15, 1); P('crucible', 11, 17); P('chain', 14, 17); P('bones', 14, 14); P('broken_pillar', 11, 14);
+  P('brazier', 18, 12); P('anvil', 19, 13, 0); P('crucible', 21, 12); P('chain', 17, 14);
+  P('ingots', 16, 21, 0); P('crucible', 20, 21); P('rubble', 18, 21); P('brazier', 14, 22);
+  autoLights(d, 'foundry');
+  return d.toPlan('foundry', { x: 4, y: 4 }, { x: 19, y: 21 }, 1008, [{ x: 5, y: 6 }, { x: 14, y: 6 }]);
+}
+
+export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, library, depths, foundry };
 
 export function makeFixture(theme: ThemeId): FloorPlan {
   return FIXTURES[theme]();

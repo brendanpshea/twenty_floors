@@ -6,6 +6,7 @@ import type { Layout } from './layout';
 import { finalize, type FinalizeReport } from './post';
 import { genCrypt } from './themes/crypt';
 import { genDepths } from './themes/depths';
+import { genFoundry } from './themes/foundry';
 import { genFungal } from './themes/fungal';
 import { genHold } from './themes/hold';
 import { genLibrary } from './themes/library';
@@ -64,6 +65,9 @@ export function generateFloorReport(opts: GenerateOptions): GenerateReport {
           break;
         case 'depths':
           layout = genDepths(graph, layoutRng, depth);
+          break;
+        case 'foundry':
+          layout = genFoundry(graph, layoutRng, depth);
           break;
         case 'fungal':
           layout = genFungal(graph, layoutRng, depth);

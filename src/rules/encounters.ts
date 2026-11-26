@@ -45,6 +45,11 @@ export interface EncounterTuning {
   bossCrBand: [number, number];
   /** At most this many kinds of ordinary monster per floor; a larger cast is sampled per floor. */
   maxCastSize: number;
+  /**
+   * The upper edge of a floor's cast: an ordinary monster may cost at most this many times the
+   * floor's room budget (budgetByLevel), so a theme's tougher monsters wait for deeper floors.
+   */
+  castBudgetFactor: number;
   /** Monsters that only appear in ordinary rooms from this depth on (default: always). */
   monsterMinDepth: Record<string, number>;
   /** Monsters that stop appearing in ordinary rooms after this depth (default: never). */
@@ -89,13 +94,14 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   minCrPerDepth: 0.25,
   bossCrBand: [0.5, 0.75],
   maxCastSize: 4,
+  castBudgetFactor: 1.5,
   // Casts are chosen by CR for the floor, not listed per depth, so a theme can appear anywhere.
   monsterMinDepth: {},
   monsterMaxDepth: {},
   // The fixed run's boss order: on the second floor of a two-floor theme both bosses can fit the
   // band, and the same boss twice running would be a let-down. Randomized runs will replace this
   // table together with themeForDepth.
-  bossByDepth: { 4: 'ochre_jelly', 5: 'green_hag', 6: 'chuul', 7: 'shambling_mound', 8: 'tough_boss', 9: 'gladiator', 10: 'mage', 11: 'shield_guardian' },
+  bossByDepth: { 4: 'ochre_jelly', 5: 'green_hag', 6: 'chuul', 7: 'shambling_mound', 8: 'tough_boss', 9: 'gladiator', 10: 'mage', 11: 'shield_guardian', 12: 'fire_giant', 13: 'clay_golem' },
   monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5 },
 };
 
@@ -176,10 +182,15 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
       plan.depth >= (ENCOUNTER_TUNING.monsterMinDepth[m.id] ?? 1) &&
       plan.depth <= (ENCOUNTER_TUNING.monsterMaxDepth[m.id] ?? Infinity),
   );
-  // Drop the monsters this floor has outgrown, unless the theme has nothing stronger to offer.
-  const minCr = Math.floor(plan.depth * ENCOUNTER_TUNING.minCrPerDepth);
-  const strong = eligible.filter((m) => m.cr >= minCr);
-  let regular = strong.length > 0 ? strong : eligible;
+  // Leave out what the floor cannot afford yet, unless the theme has nothing cheaper...
+  const levelBudget = t.budgetByLevel[Math.min(Math.max(plan.depth, 1), t.budgetByLevel.length) - 1] as number;
+  const affordable = eligible.filter((m) => m.xp <= levelBudget * t.soloFactor * t.castBudgetFactor);
+  const cheapest = Math.min(...eligible.map((m) => m.xp));
+  const inReach = affordable.length > 0 ? affordable : eligible.filter((m) => m.xp === cheapest);
+  // ...and what the floor has outgrown, unless it has nothing stronger.
+  const minCr = Math.floor(plan.depth * t.minCrPerDepth);
+  const strong = inReach.filter((m) => m.cr >= minCr);
+  let regular = strong.length > 0 ? strong : inReach;
   // A big cast is sampled, so two floors of one theme (or two runs) do not field the same monsters.
   if (regular.length > t.maxCastSize) regular = rng.shuffle(regular.slice()).slice(0, t.maxCastSize);
   // Bosses that fit this depth; failing that, the one nearest to fitting.

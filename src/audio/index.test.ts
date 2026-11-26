@@ -9,7 +9,7 @@ const mem = () => {
 
 describe('themes', () => {
   it('lists every theme including the original themes', () => {
-    expect([...THEMES]).toEqual(['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library']);
+    expect([...THEMES]).toEqual(['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry']);
   });
 });
 

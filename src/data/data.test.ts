@@ -14,7 +14,7 @@ const TRAIT_IDS: TraitId[] = [
   'keenSenses',
 ];
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library'];
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry'];
 
 const MONSTER_IDS = [
   'giant_rat',
@@ -63,6 +63,61 @@ const MONSTER_IDS = [
   'mummy',
   'ghost',
   'shield_guardian',
+  'magma_mephit',
+  'animated_armor',
+  'azer_sentinel',
+  'hell_hound',
+  'red_dragon_wyrmling',
+  'gorgon',
+  'salamander',
+  'fire_elemental',
+  'earth_elemental',
+  'flesh_golem',
+  'stone_giant',
+  'fire_giant',
+  'clay_golem',
+  'hobgoblin_warrior',
+  'worg',
+  'dire_wolf',
+  'bugbear_stalker',
+  'ettin',
+  'troll',
+  'hill_giant',
+  'oni',
+  'phase_spider',
+  'basilisk',
+  'manticore',
+  'roper',
+  'xorn',
+  'bulette',
+  'drider',
+  'chimera',
+  'cloaker',
+  'behir',
+  'specter',
+  'minotaur_skeleton',
+  'ogre_zombie',
+  'swarm_of_crawling_claws',
+  'vampire_familiar',
+  'wraith',
+  'vampire_spawn',
+  'vampire',
+  'invisible_stalker',
+  'stone_golem',
+  'archmage',
+  'sea_hag',
+  'merrow',
+  'black_pudding',
+  'giant_crocodile',
+  'water_elemental',
+  'otyugh',
+  'aboleth',
+  'treant',
+  'cultist_fanatic',
+  'knight',
+  'guard_captain',
+  'pirate_captain',
+  'assassin',
 ];
 
 const ORIGINAL_ITEM_IDS = [
@@ -171,7 +226,12 @@ const VARIANT_RARITY = {
   shield: { 1: 'uncommon', 2: 'rare', 3: 'veryRare' },
 } as const;
 
-const XP_BY_CR: Record<number, number> = { 0.125: 25, 0.25: 50, 0.5: 100, 1: 200, 2: 450, 3: 700, 4: 1100, 5: 1800, 6: 2300, 7: 2900 };
+const XP_BY_CR: Record<number, number> = {
+  0.125: 25, 0.25: 50, 0.5: 100, 1: 200, 2: 450, 3: 700, 4: 1100, 5: 1800, 6: 2300, 7: 2900,
+  8: 3900, 9: 5000, 10: 5900, 11: 7200, 12: 8400, 13: 10000,
+};
+/** Where the SRD 5.2.1 stat block prints a different figure from the table, the stat block wins. */
+const XP_AS_PRINTED: Record<string, number> = { archmage: 8000 };
 
 const DICE_RE = /^\d+(d\d+)?([+-]\d+)?$/;
 
@@ -242,24 +302,22 @@ describe('monster data', () => {
     }
   });
 
-  it('gives each theme its boss(es) and at least two non-boss monsters', () => {
+  it('gives each theme at least one boss and at least two non-boss monsters', () => {
     for (const theme of THEMES) {
       const inTheme = MONSTERS.filter((m) => m.themes.includes(theme));
       const bosses = inTheme.filter((m) => m.role === 'boss');
       const others = inTheme.filter((m) => m.role !== 'boss');
-      // The sewers (floors 4 and 5), the fungal caverns (floors 6 and 7), the bandit hold (floors 8 and 9)
-      // and the Sunken Library (floors 10 and 11) span two floors, each with its own boss; every other theme
-      // has one.
-      expect(bosses.length, `${theme} bosses`).toBe(theme === 'sewers' || theme === 'fungal' || theme === 'hold' || theme === 'library' ? 2 : 1);
+      // A theme has a boss for every depth it may appear at; which one a floor gets is chosen by CR.
+      expect(bosses.length, `${theme} bosses`).toBeGreaterThanOrEqual(1);
       expect(others.length, `${theme} non-bosses`).toBeGreaterThanOrEqual(2);
     }
   });
 
   it('matches the CR to XP table and the SRD proficiency bonus', () => {
     for (const m of MONSTERS) {
-      expect(m.xp, `${m.id} xp`).toBe(XP_BY_CR[m.cr]);
-      // SRD proficiency bonus: +2 up to CR 4, +3 for CR 5 to 8.
-      expect(m.proficiencyBonus, `${m.id} proficiencyBonus`).toBe(m.cr >= 5 ? 3 : 2);
+      expect(m.xp, `${m.id} xp`).toBe(XP_AS_PRINTED[m.id] ?? XP_BY_CR[m.cr]);
+      // SRD proficiency bonus: +2 up to CR 4, +3 for CR 5 to 8, +4 for CR 9 to 12, +5 for CR 13 to 16.
+      expect(m.proficiencyBonus, `${m.id} proficiencyBonus`).toBe(m.cr >= 13 ? 5 : m.cr >= 9 ? 4 : m.cr >= 5 ? 3 : 2);
     }
   });
 

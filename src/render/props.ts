@@ -517,6 +517,103 @@ const BUILDERS: Record<string, Builder> = {
     g.ico(0.1, 0, p.stone, { x: -0.25, z: 0.65, y: 0.07 });
     return { lit: g.build(), glow: null };
   },
+  // Squat hearth (authored with its opening on -Z): brick cheeks, stone cap, hooded chimney stub, glowing coals inside.
+  forge: (look) => {
+    const p = look.prop;
+    const brick = 0x7a4a3c;
+    const g = new GeoBuilder();
+    const glow = new GeoBuilder();
+    g.box(1.76, 0.12, 1.76, p.stoneDark, { y: 0.06 }); // plinth
+    // back wall and cheeks in alternating brick courses
+    for (let i = 0; i < 4; i++) {
+      const y = 0.12 + 0.22 * i + 0.11;
+      const sh = i % 2 ? 1.08 : 0.9;
+      const c = i % 2 ? brick : p.stone;
+      g.box(1.7, 0.21, 0.5, c, { y, z: 0.6, shade: sh });
+      g.box(0.46, 0.21, 1.22, c, { x: -0.62, y, z: -0.25, shade: sh * 0.95 });
+      g.box(0.46, 0.21, 1.22, c, { x: 0.62, y, z: -0.25, shade: sh * 0.95 });
+    }
+    g.box(0.82, 0.28, 1.2, p.stoneDark, { y: 0.26, z: -0.25, shade: 0.8 }); // hearth floor
+    g.box(0.84, 0.16, 1.22, p.stone, { y: 0.98, z: -0.25 }); // lintel over the opening
+    g.box(0.9, 0.06, 0.1, p.iron, { y: 0.88, z: -0.82, shade: 1.3 }); // iron lintel bar
+    g.box(1.78, 0.18, 1.78, p.stone, { y: 1.13, shade: 1.1 }); // cap slab
+    // hood and chimney stub
+    g.cyl(0.3, 0.62, 0.32, 4, p.stoneDark, { y: 1.38, z: 0.25, ry: Math.PI / 4 });
+    g.cyl(0.2, 0.22, 0.5, 6, p.stone, { y: 1.78, z: 0.25, shade: 1.0 });
+    g.box(0.5, 0.07, 0.5, p.stoneDark, { y: 2.05, z: 0.25 });
+    // poker leaning on the cheek
+    g.box(0.04, 0.9, 0.04, p.iron, { x: 0.98, y: 0.5, z: -0.7, rz: -0.15, shade: 1.2 });
+    // interior is dark; the glow is coals, a back wall of heat and a little flame
+    g.box(0.8, 0.4, 0.04, 0x1a1010, { y: 0.68, z: 0.35 });
+    glow.box(0.8, 0.07, 1.15, 0xffffff, { y: 0.43, z: -0.22, shade: 0.9 }); // coal bed
+    glow.box(0.7, 0.3, 0.04, 0xffffff, { y: 0.62, z: 0.32, shade: 0.8 });
+    const coals: [number, number, number][] = [[-0.25, -0.5, 0.11], [0.2, -0.3, 0.13], [-0.1, 0.0, 0.12], [0.25, 0.15, 0.1], [-0.28, 0.2, 0.09], [0.0, -0.65, 0.09]];
+    for (const [x, z, r] of coals) glow.ico(r, 0, 0xffffff, { x, y: 0.5, z, sy: 0.6, shade: 1.5 });
+    flameParts(glow, 0.0, 0.46, -0.15, 0.85);
+    return { lit: g.build(), glow: glow.build(), glowKind: 'flame' };
+  },
+  // Iron anvil on a wooden block, ~0.9 high (authored with the horn toward -Z), hammer resting on the face.
+  anvil: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    g.cyl(0.3, 0.34, 0.42, 8, p.wood, { y: 0.21 }); // block
+    g.cyl(0.33, 0.33, 0.04, 8, p.woodDark, { y: 0.4, shade: 0.9 });
+    g.box(0.3, 0.07, 0.52, p.iron, { y: 0.45, shade: 1.5 }); // foot
+    g.box(0.2, 0.2, 0.3, p.iron, { y: 0.58, shade: 1.7 }); // waist
+    g.box(0.3, 0.12, 0.62, p.iron, { y: 0.72, z: 0.02, shade: 2.1 }); // face
+    g.box(0.3, 0.1, 0.12, p.iron, { y: 0.7, z: 0.4, shade: 1.7 }); // heel
+    g.cone(0.15, 0.4, 4, p.iron, { y: 0.72, z: -0.5, rx: -Math.PI / 2, ry: Math.PI / 4, shade: 1.9 }); // horn
+    g.box(0.05, 0.02, 0.05, 0x14141a, { y: 0.785, z: 0.18 }); // hardy hole
+    g.box(0.42, 0.04, 0.04, p.wood, { x: 0.02, y: 0.8, z: 0.08, ry: 0.25 }); // hammer shaft
+    g.box(0.1, 0.1, 0.18, p.iron, { x: 0.22, y: 0.82, z: 0.03, ry: 0.25, shade: 1.5 }); // hammer head
+    return { lit: g.build(), glow: null };
+  },
+  // Fat iron pot (~1.1 across, 1.0 high) on three stubby legs, filled to the brim with molten metal.
+  crucible: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    const glow = new GeoBuilder();
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + 0.4;
+      g.cyl(0.08, 0.1, 0.36, 5, p.iron, { x: Math.cos(a) * 0.36, z: Math.sin(a) * 0.36, y: 0.16, shade: 0.9 });
+      g.box(0.2, 0.05, 0.2, p.iron, { x: Math.cos(a) * 0.4, z: Math.sin(a) * 0.4, y: 0.03, shade: 0.8 });
+    }
+    g.cyl(0.5, 0.36, 0.2, 10, p.iron, { y: 0.35, shade: 1.4 });
+    g.cyl(0.58, 0.5, 0.45, 10, p.iron, { y: 0.67, shade: 1.7 }); // belly
+    g.cyl(0.54, 0.58, 0.18, 10, p.iron, { y: 0.9, shade: 1.5 });
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      g.box(0.22, 0.09, 0.12, p.iron, { x: Math.cos(a) * 0.52, z: Math.sin(a) * 0.52, y: 0.99, ry: -a + Math.PI / 2, shade: 1.35 }); // rim
+    }
+    g.box(0.26, 0.08, 0.1, p.iron, { x: 0.68, y: 0.8, shade: 1.2 }); // lugs
+    g.box(0.26, 0.08, 0.1, p.iron, { x: -0.68, y: 0.8, shade: 1.2 });
+    glow.cyl(0.48, 0.48, 0.04, 10, 0xffffff, { y: 0.96, shade: 0.7 }); // molten surface
+    glow.cyl(0.26, 0.26, 0.04, 8, 0xffffff, { x: 0.05, y: 0.975, z: -0.05, shade: 1.0, top: 0xffffff });
+    glow.ico(0.1, 0, 0xffffff, { x: -0.2, y: 0.97, z: 0.18, sy: 0.4, shade: 1.2 });
+    glow.ico(0.08, 0, 0xffffff, { x: 0.25, y: 0.97, z: 0.2, sy: 0.4, shade: 1.2 });
+    return { lit: g.build(), glow: glow.build(), glowKind: 'flame' };
+  },
+  // Neat stack of nine iron bars on a low pallet (~1.3 x 0.9 x 0.6), a couple of them bright.
+  ingots: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    g.box(1.3, 0.07, 0.1, p.woodDark, { y: 0.035, z: -0.32 });
+    g.box(1.3, 0.07, 0.1, p.woodDark, { y: 0.035, z: 0.32 });
+    g.box(1.3, 0.07, 0.1, p.woodDark, { y: 0.035 });
+    for (let i = 0; i < 7; i++) g.box(0.12, 0.04, 0.88, p.wood, { x: -0.6 + i * 0.2, y: 0.09, shade: 0.9 + 0.1 * (i % 2) });
+    const dull = [0x56565f, 0x4c4c55, 0x5e5e68];
+    const put = (x: number, y: number, z: number, along: 'x' | 'z', c: number): void => {
+      const [w, d] = along === 'x' ? [0.6, 0.2] : [0.2, 0.6];
+      g.box(w, 0.12, d, c, { x, y: y + 0.06, z });
+      g.box(along === 'x' ? 0.54 : 0.14, 0.04, along === 'x' ? 0.14 : 0.54, c, { x, y: y + 0.14, z, shade: 1.2 });
+    };
+    let n = 0;
+    for (const x of [-0.31, 0.31]) for (const z of [-0.23, 0.23]) put(x, 0.11, z, 'x', dull[n++ % 3]!);
+    [-0.4, 0, 0.4].forEach((x, i) => put(x, 0.27, 0, 'z', i === 1 ? 0xb4b4be : dull[i % 3]!));
+    put(0, 0.43, -0.12, 'x', dull[0]!);
+    put(0.0, 0.43, 0.12, 'x', 0xc4c4ce);
+    return { lit: g.build(), glow: null };
+  },
   // Authored for a chasm edge on the north (-Z) side: an iron stake and a chain hanging over the lip.
   chain: (look) => {
     const p = look.prop;
@@ -626,6 +723,7 @@ export function buildProps(
       const q = ((p.rotation % 4) + 4) % 4;
       let yaw = wallMounted ? -q * (Math.PI / 2) : q * (Math.PI / 2);
       if (type === 'cobweb') yaw = -cornerOf(p.pos.x, p.pos.y, h1) * (Math.PI / 2);
+      else if (type === 'forge' || type === 'anvil' || type === 'ingots') yaw = -q * (Math.PI / 2);
       else if (type === 'chain') yaw = -edgeOf(p.pos.x, p.pos.y, CellKind.Chasm, q) * (Math.PI / 2);
       if (JITTER_YAW.has(type)) yaw += (h1 - 0.5) * 0.6;
       _o.rotation.set(0, yaw, 0);

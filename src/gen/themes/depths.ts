@@ -62,7 +62,13 @@ const x1 = (p: Plat): number => p.cx + p.hx;
 const y0 = (p: Plat): number => p.cy - p.hy;
 const y1 = (p: Plat): number => p.cy + p.hy;
 
-export function genDepths(graph: MissionGraph, rng: Rng, depth: number): Layout {
+/** What a sibling platform theme changes about the depths recipe. Omitted fields keep the depths values. */
+export interface PlatformOptions {
+  /** Replaces the crystal-and-colonnade decoration. */
+  decorate?: (ctx: DecorCtx) => void;
+}
+
+export function genDepths(graph: MissionGraph, rng: Rng, depth: number, opts: PlatformOptions = {}): Layout {
   void depth;
   const n = graph.roles.length;
   const elevs = planHeights(graph, rng);
@@ -119,7 +125,7 @@ export function genDepths(graph: MissionGraph, rng: Rng, depth: number): Layout 
   fillChasm(g, plats, seed, rng);
 
   const accent = rng.pick([0x55d8ff, 0xa070ff, 0x55d8ff]);
-  return { grid: g, roles: graph.roles, edges, decorate: (ctx) => decorate(ctx, accent), setPiece: piece };
+  return { grid: g, roles: graph.roles, edges, decorate: opts.decorate ?? ((ctx) => decorate(ctx, accent)), setPiece: piece };
 }
 
 // ---------------------------------------------------------------------------

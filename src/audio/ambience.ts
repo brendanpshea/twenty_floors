@@ -457,9 +457,86 @@ const BEDS: Record<ThemeId, BedDef> = {
       ];
     },
   },
+  foundry: {
+    verb: 0.35,
+    build(rig, out) {
+      // Furnace roar: low-passed noise with slow surges.
+      const roar = rig.gain(0.7, out);
+      rig.lfo(0.07, 0.3, roar.gain);
+      rig.lfo(0.031, 0.2, roar.gain);
+      const lp = rig.filter('lowpass', 260, 0.6, roar);
+      rig.lfo(0.053, 90, lp.frequency);
+      rig.noiseLoop(lp);
+      // Sub drone far below.
+      const sub = rig.gain(0.14, out);
+      rig.lfo(0.045, 0.05, sub.gain);
+      rig.osc('sine', 41, sub);
+      rig.osc('sine', 41.6, rig.gain(0.6, sub));
+      // Steam hiss that comes and goes.
+      const hiss = rig.gain(0.08, out);
+      rig.lfo(0.06, 0.07, hiss.gain);
+      const hbp = rig.filter('bandpass', 4200, 0.7, hiss);
+      rig.lfo(0.04, 900, hbp.frequency);
+      rig.noiseLoop(hbp);
+    },
+    events(emit, rng) {
+      return [
+        {
+          // Heavy distant hammer strike on metal, sometimes two or three in a slow group.
+          minGap: 9, maxGap: 24, firstDelay: [4, 10],
+          fire: (t) => {
+            const pan = between(rng, -0.7, 0.7);
+            const r = rng();
+            const n = r < 0.5 ? 1 : r < 0.8 ? 2 : 3;
+            let at = 0;
+            for (let i = 0; i < n; i++) {
+              const f = between(rng, 300, 520);
+              const k = 1 - i * 0.2;
+              emit([
+                ping('sine', 70, 0, 0.25, 0.9 * k, { freqEnd: 40 }),
+                puff('lowpass', 500, 0, 0.06, 0.5 * k),
+                ping('sine', f, 0, 0.9, 0.22 * k),
+                ping('sine', f * 2.76, 0, 0.5, 0.12 * k),
+                ping('sine', f * 5.15, 0, 0.22, 0.06 * k),
+              ], 0.6, t + at, pan);
+              at += between(rng, 0.9, 1.6);
+            }
+          },
+        },
+        {
+          // Burst of steam: noise swell rising then falling.
+          minGap: 10, maxGap: 28, firstDelay: [3, 9],
+          fire: (t) => {
+            const f = between(rng, 2200, 3800);
+            emit([noise('bandpass', f, 0, 1.6, 0.5, { a: 0.5, r: 1.0, freqEnd: f * 0.6, q: 0.8 })], 0.5, t, between(rng, -0.7, 0.7));
+          },
+        },
+        {
+          // Gloopy lava bubble: low blip with a quick upward bend.
+          minGap: 1.5, maxGap: 6, firstDelay: [1, 4],
+          fire: (t) => {
+            const f = between(rng, 70, 150);
+            emit([ping('sine', f, 0, 0.14, 0.7, { freqEnd: f * 1.9 }), puff('lowpass', 400, 0, 0.05, 0.15)], 0.4, t, between(rng, -0.6, 0.6));
+          },
+        },
+        {
+          // Rare long metallic groan: slow low tone with a pitch bend.
+          minGap: 30, maxGap: 70, firstDelay: [14, 28],
+          fire: (t) => {
+            const f = between(rng, 60, 100);
+            const up = rng() < 0.5;
+            emit([
+              tone('sawtooth', f, 0, 2.2, 0.3, { freqEnd: f * (up ? 1.25 : 0.75), lp: 380, a: 0.8, r: 1.0 }),
+              tone('sine', f * 2.4, 0, 2.2, 0.06, { freqEnd: f * 2.4 * (up ? 1.25 : 0.75), a: 0.8, r: 1.0 }),
+            ], 0.6, t, between(rng, -0.5, 0.5));
+          },
+        },
+      ];
+    },
+  },
 };
 
-export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library'];
+export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry'];
 
 const LOOKAHEAD = 1.5;
 const TICK_MS = 400;
