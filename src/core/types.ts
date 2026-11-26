@@ -555,8 +555,28 @@ export interface ClassInfo {
   skillChoices: { count: number; from: Skill[] };
   /** Choices made at level 1. */
   choices: ChoiceSlot[];
-  /** Suggested standard-array assignment, used by the "Quick build" button. */
+  /** Suggested standard-array assignment for the class's default play style. */
   recommendedAbilities: AbilityScores;
+  /**
+   * Ready-made play styles (e.g. Defender, Great Weapon, Archer). Choosing one
+   * pre-fills coherent abilities and class choices; everything stays editable.
+   * The first preset is the default used by Quick start.
+   */
+  presets?: BuildPreset[];
+}
+
+/** A coherent starting build for a class: abilities and class choices that fit together. */
+export interface BuildPreset {
+  id: string;
+  name: string;
+  /** One sentence on how it plays. */
+  description: string;
+  /** Standard-array assignment suited to this style (e.g. Dexterity first for an archer). */
+  abilities: AbilityScores;
+  /** ChoiceSlot.key -> ChoiceOption.id for the class's level-1 choices (fighting style, starting kit…). */
+  choices: Record<string, string>;
+  /** Abilities to favour, in order, when assigning a background's increases. */
+  abilityPriority: Ability[];
 }
 
 export interface BackgroundInfo {
@@ -669,7 +689,12 @@ export interface PlayerCharacter {
   hitDiceLeft: number;
   resources: Record<string, ResourcePool>;
   inventory: ItemStack[];
-  equipped: { mainHand?: string; offHand?: string; armor?: string };
+  /**
+   * `mainHand` and `offHand` are the melee set: a weapon, plus a shield or a
+   * second Light weapon (two-weapon fighting). `ranged` is a separate ranged
+   * weapon (bow, crossbow) the hero switches to freely when shooting.
+   */
+  equipped: { mainHand?: string; offHand?: string; ranged?: string; armor?: string };
   gold: number;
 }
 

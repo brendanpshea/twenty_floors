@@ -126,6 +126,7 @@ function hubHandler(model: { current: HubModel }): (i: HubIntent) => HubModel {
         const kind = m.items[i.itemId]?.kind;
         if (kind === 'armor') ch.equipped.armor = i.itemId;
         else if (kind === 'shield') ch.equipped.offHand = i.itemId;
+        else if (m.items[i.itemId]?.weapon?.melee === false) ch.equipped.ranged = i.itemId;
         else ch.equipped.mainHand = i.itemId;
         break;
       }

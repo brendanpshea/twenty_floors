@@ -48,6 +48,11 @@ Clearing a floor grants a level, so clearing floor 20 means reaching level 20.
   speed, and a creature held by an indefinite restraint (a spider's web) can
   spend its action on a Strength check to break free.
 - A ranged attacker at least two elevation steps above its target gets +1 to hit.
+- **Weapon slots.** Every character has a main hand, an off hand and a
+  separate ranged weapon slot, all equipped at once, and switches between
+  melee and ranged for free. An off-hand shield keeps its AC bonus even while
+  a two-handed bow is being shot. This is a deliberate departure from the
+  tabletop rules.
 - Encounters are budgeted for one hero: one to four monsters per combat room
   (about 1.8, 2.2 and 2.5 on average on floors 1 to 3), with at most one
   monster above the hero's level in CR.

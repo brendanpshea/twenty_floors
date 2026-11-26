@@ -158,6 +158,15 @@ export const creationOptions: CreationOptions = {
       },
       choices: [
         {
+          key: 'startingKit',
+          name: 'Starting kit',
+          options: [
+            { id: 'a', name: 'Sword and shield kit', description: 'Longsword, shield, chain mail and javelins.' },
+            { id: 'b', name: 'Greatsword kit', description: 'Greatsword, chain mail and handaxes.' },
+            { id: 'c', name: 'Longbow kit', description: 'Longbow, arrows, studded leather and a shortsword.' },
+          ],
+        },
+        {
           key: 'fightingStyle',
           name: 'Fighting Style',
           options: [
@@ -169,6 +178,32 @@ export const creationOptions: CreationOptions = {
         },
       ],
       recommendedAbilities: { str: 15, dex: 14, con: 13, int: 8, wis: 10, cha: 12 },
+      presets: [
+        {
+          id: 'defender',
+          name: 'Defender',
+          description: 'Sword, shield and heavy armor: hard to hit and harder to move.',
+          abilities: { str: 15, dex: 10, con: 14, int: 8, wis: 13, cha: 12 },
+          choices: { startingKit: 'a', fightingStyle: 'defense' },
+          abilityPriority: ['str', 'con', 'wis'],
+        },
+        {
+          id: 'great_weapon',
+          name: 'Great Weapon',
+          description: 'A two-handed blade swung with brutal force.',
+          abilities: { str: 15, dex: 12, con: 14, int: 8, wis: 13, cha: 10 },
+          choices: { startingKit: 'b', fightingStyle: 'great_weapon' },
+          abilityPriority: ['str', 'con', 'dex'],
+        },
+        {
+          id: 'archer',
+          name: 'Archer',
+          description: 'A longbow and a steady eye: strike from a distance.',
+          abilities: { str: 10, dex: 15, con: 14, int: 8, wis: 13, cha: 12 },
+          choices: { startingKit: 'c', fightingStyle: 'archery' },
+          abilityPriority: ['dex', 'con', 'wis'],
+        },
+      ],
     },
   ],
   backgrounds: [
@@ -344,6 +379,16 @@ const item = (d: Omit<ItemDef, 'description'> & { description: string }): ItemDe
 
 export const shopItems: ItemDef[] = [
   item({
+    id: 'longsword_1',
+    name: 'Longsword +1',
+    kind: 'weapon',
+    description: 'A finely balanced blade, magically keen. +1 to attack and damage rolls.',
+    cost: 100,
+    magicBonus: 1,
+    rarity: 'uncommon',
+    weapon: { category: 'martial', melee: true, damage: { dice: '1d8', type: 'slashing' }, versatileDice: '1d10', properties: ['versatile'] },
+  }),
+  item({
     id: 'dagger',
     name: 'Dagger',
     kind: 'weapon',
@@ -411,6 +456,40 @@ export const shopItems: ItemDef[] = [
 
 const ownedItems: ItemDef[] = [
   item({
+    id: 'shortsword',
+    name: 'Shortsword',
+    kind: 'weapon',
+    description: 'A light, quick blade for close work.',
+    cost: 10,
+    weapon: { category: 'martial', melee: true, damage: { dice: '1d6', type: 'piercing' }, properties: ['finesse', 'light'] },
+  }),
+  item({
+    id: 'scimitar_1',
+    name: 'Scimitar +1',
+    kind: 'weapon',
+    description: 'A curved blade that hums faintly when drawn.',
+    cost: 100,
+    magicBonus: 1,
+    rarity: 'uncommon',
+    weapon: { category: 'martial', melee: true, damage: { dice: '1d6', type: 'slashing' }, properties: ['finesse', 'light'] },
+  }),
+  item({
+    id: 'longbow',
+    name: 'Longbow',
+    kind: 'weapon',
+    description: 'A tall bow with a long reach.',
+    cost: 50,
+    weapon: { category: 'martial', melee: false, damage: { dice: '1d8', type: 'piercing' }, properties: ['ammunition', 'heavy', 'twoHanded'], range: { normal: 30, long: 120 } },
+  }),
+  item({
+    id: 'studded_leather',
+    name: 'Studded Leather',
+    kind: 'armor',
+    description: 'Tough leather reinforced with rivets.',
+    cost: 45,
+    armor: { category: 'light', baseAc: 12 },
+  }),
+  item({
     id: 'longsword',
     name: 'Longsword',
     kind: 'weapon',
@@ -457,16 +536,18 @@ export function makeHubModel(): HubModel {
       hp: 22,
       resources: {},
       inventory: [
-        { itemId: 'longsword', quantity: 1 },
-        { itemId: 'shield', quantity: 1 },
+        { itemId: 'shortsword', quantity: 1 },
+        { itemId: 'scimitar_1', quantity: 1 },
+        { itemId: 'longbow', quantity: 1 },
+        { itemId: 'studded_leather', quantity: 1 },
         { itemId: 'chain_mail', quantity: 1 },
         { itemId: 'javelin', quantity: 4 },
         { itemId: 'potion_healing', quantity: 2 },
       ],
-      equipped: { mainHand: 'longsword', offHand: 'shield', armor: 'chain_mail' },
+      equipped: { mainHand: 'shortsword', offHand: 'scimitar_1', ranged: 'longbow', armor: 'studded_leather' },
       gold: 120,
     },
-    items: Object.fromEntries([...ownedItems, ...shopItems.filter((i) => i.id === 'shield' || i.id === 'potion_healing')].map((i) => [i.id, i])),
+    items: Object.fromEntries([...ownedItems, ...shopItems.filter((i) => i.id === 'shield' || i.id === 'potion_healing' || i.id === 'longsword_1')].map((i) => [i.id, i])),
     characterSummary: { name: 'Aldric', className: 'Fighter', speciesName: 'Human', ac: 18 },
     levelUp: {
       fromLevel: 2,

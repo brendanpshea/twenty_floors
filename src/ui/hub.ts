@@ -2,6 +2,12 @@ import type { HubIntent, HubModel, ItemDef } from '../core/types';
 import { button, clear, h, prettifyId, rebuildPreserving } from './dom';
 import { createIcon } from './icons';
 
+/** Magic items get a subtle rarity colour; mundane items stay plain. */
+function rarityClass(item: ItemDef | undefined): string {
+  if (!item || item.magicBonus === undefined) return '';
+  return ` tf-rar tf-rar--${item.rarity ?? 'common'}`;
+}
+
 function iconForItem(item: ItemDef): string {
   if (item.icon) return item.icon;
   switch (item.kind) {
@@ -162,18 +168,24 @@ export function buildHub(
       r.append(h('span', 'tf-equip-k', label), h('span', `tf-equip-v${id ? '' : ' is-empty'}`, id ? nameOf(id) : 'Empty'));
       return r;
     };
-    eq.append(slot('Main hand', ch.equipped.mainHand), slot('Off hand', ch.equipped.offHand), slot('Armor', ch.equipped.armor));
+    eq.append(
+      slot('Main hand', ch.equipped.mainHand),
+      slot('Off hand', ch.equipped.offHand),
+      slot('Ranged', ch.equipped.ranged),
+      slot('Armor', ch.equipped.armor),
+    );
     s.body.append(eq);
 
     s.body.append(h('h3', 'tf-sub-title', 'Inventory'));
-    const equippedIds = new Set([ch.equipped.mainHand, ch.equipped.offHand, ch.equipped.armor].filter((x): x is string => !!x));
+    const equippedCount = (id: string): number =>
+      [ch.equipped.mainHand, ch.equipped.offHand, ch.equipped.ranged, ch.equipped.armor].filter((x) => x === id).length;
     if (ch.inventory.length === 0) {
       s.body.append(h('p', 'tf-hint', 'Your pack is empty.'));
     }
     const list = h('ul', 'tf-inv');
     for (const st of ch.inventory) {
       const def = model.items[st.itemId];
-      const li = h('li', 'tf-inv-row');
+      const li = h('li', `tf-inv-row${rarityClass(def)}`);
       const ic = h('span', 'tf-inv-icon');
       ic.append(createIcon(def ? iconForItem(def) : undefined));
       const info = h('span', 'tf-inv-info');
@@ -181,9 +193,9 @@ export function buildHub(
       if (def) info.append(h('span', 'tf-inv-desc', itemStat(def)));
       li.append(ic, info);
       if (def && def.kind !== 'consumable') {
-        if (equippedIds.has(st.itemId)) {
-          li.append(h('span', 'tf-tag', 'Equipped'));
-        } else {
+        const worn = equippedCount(st.itemId);
+        if (worn > 0) li.append(h('span', 'tf-tag', worn > 1 ? `Equipped \u00d7${worn}` : 'Equipped'));
+        if (st.quantity > worn) {
           const b = button('tf-btn tf-btn--small', 'Equip', () => intent({ type: 'equip', itemId: st.itemId }), `Equip ${nameOf(st.itemId)}`);
           b.dataset['key'] = `equip-${st.itemId}`;
           li.append(b);
@@ -200,7 +212,7 @@ export function buildHub(
     if (model.shop.length === 0) s.body.append(h('p', 'tf-hint', 'The merchant has nothing for sale.'));
     const grid = h('div', 'tf-shop');
     for (const e of model.shop) {
-      const c = h('div', `tf-shop-item${e.affordable ? '' : ' is-unaffordable'}`);
+      const c = h('div', `tf-shop-item${e.affordable ? '' : ' is-unaffordable'}${rarityClass(e.item)}`);
       const ic = h('span', 'tf-inv-icon');
       ic.append(createIcon(iconForItem(e.item)));
       const info = h('div', 'tf-shop-info');

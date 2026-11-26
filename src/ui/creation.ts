@@ -1,6 +1,7 @@
 import type {
   Ability,
   AbilityScores,
+  BuildPreset,
   BackgroundInfo,
   CharacterBuild,
   ChoiceSlot,
@@ -59,6 +60,10 @@ interface CardSpec {
   meta?: string;
   selected: boolean;
   onPick: () => void;
+  /** Small chips under the description (e.g. a preset's key picks). */
+  chips?: string[];
+  /** Small status tag in the card header (e.g. Customised). */
+  badge?: string;
   /** One-line feat summary shown under the title. */
   feat?: string;
   /** Compact card for long option lists: description clamps to two lines (full text in the tooltip). */
@@ -93,6 +98,9 @@ export function buildCreation(
   const stdIdx: Record<Ability, number> = { str: 0, dex: 1, con: 2, int: 3, wis: 4, cha: 5 };
   const pbBase: Record<Ability, number> = { str: pb.min, dex: pb.min, con: pb.min, int: pb.min, wis: pb.min, cha: pb.min };
   /** Class skill picks only (never the background's granted skills). */
+  let presetId = '';
+  /** True once the player hand-edits abilities or a class choice after picking a preset. */
+  let customised = false;
   const skills = new Set<Skill>();
   const choices: Record<string, string> = {};
   let name = '';
@@ -193,6 +201,39 @@ export function buildCreation(
   // ---------------------------------------------------------------------
   // State mutators
   // ---------------------------------------------------------------------
+  const preset = (): BuildPreset | undefined => klass()?.presets?.find((p) => p.id === presetId);
+
+  /** +2 to the first and +1 to the second of the preset's priorities that the background offers. */
+  function presetIncreases(): void {
+    const p = preset();
+    const bg = background();
+    if (!p || !bg) return;
+    const opts = bg.abilityOptions;
+    const pri = p.abilityPriority.filter((a) => opts.includes(a));
+    const first = pri[0] ?? opts[0];
+    if (!first) return;
+    const second = pri[1] ?? opts.find((a) => a !== first);
+    if (!second) return;
+    plus2 = first;
+    plus1 = second;
+    incMode = 'twoOne';
+  }
+
+  function applyPreset(p: BuildPreset): void {
+    presetId = p.id;
+    customised = false;
+    abMode = 'standard';
+    const order = [...ABILITIES].sort((a, b) => p.abilities[b] - p.abilities[a] || ABILITIES.indexOf(a) - ABILITIES.indexOf(b));
+    order.forEach((a, i) => {
+      stdIdx[a] = Math.min(i, stdValues.length - 1);
+    });
+    for (const slot of klass()?.choices ?? []) {
+      const v = p.choices[slot.key];
+      if (v !== undefined && slot.options.some((o) => o.id === v)) choices[slot.key] = v;
+    }
+    presetIncreases();
+  }
+
   function pickBackground(id: string): void {
     if (backgroundId !== id) for (const slot of featSlots()) delete choices[slot.key];
     backgroundId = id;
@@ -201,6 +242,7 @@ export function buildCreation(
       plus2 = bg.abilityOptions[0] ?? 'str';
       plus1 = bg.abilityOptions[1] ?? 'dex';
       incMode = 'twoOne';
+      presetIncreases();
     }
     pruneSkills();
   }
@@ -215,6 +257,10 @@ export function buildCreation(
       for (const slot of klass()?.choices ?? []) delete choices[slot.key];
       classId = id;
       skills.clear();
+      presetId = '';
+      customised = false;
+      const first = klass()?.presets?.[0];
+      if (first) applyPreset(first);
     }
   }
 
@@ -237,6 +283,7 @@ export function buildCreation(
   /** Fill every unset slot with the first option not already taken in its group. */
   function fillSlots(slots: ChoiceSlot[]): void {
     for (const slot of slots) {
+      if (slot.options.some((o) => o.id === choices[slot.key]) && !takenElsewhere(slots, slot, choices[slot.key] ?? '')) continue;
       const first = slot.options.find((o) => !takenElsewhere(slots, slot, o.id));
       if (first) choices[slot.key] = first.id;
     }
@@ -251,7 +298,7 @@ export function buildCreation(
   function applyRecommended(): void {
     const c = klass();
     if (!c) return;
-    const rec = c.recommendedAbilities;
+    const rec = preset()?.abilities ?? c.recommendedAbilities;
     const order = [...ABILITIES].sort((a, b) => rec[b] - rec[a] || ABILITIES.indexOf(a) - ABILITIES.indexOf(b));
     if (abMode === 'standard') {
       order.forEach((a, i) => {
@@ -268,6 +315,7 @@ export function buildCreation(
   }
 
   function stepStd(a: Ability, dir: 1 | -1): void {
+    if (presetId) customised = true;
     // dir = 1 raises the value (lower index in the descending list).
     const to = stdIdx[a] - dir;
     if (to < 0 || to >= stdValues.length) return;
@@ -277,6 +325,7 @@ export function buildCreation(
   }
 
   function stepPb(a: Ability, dir: 1 | -1): void {
+    if (presetId) customised = true;
     const next = pbBase[a] + dir;
     if (next < pb.min || next > pb.max) return;
     if (dir > 0 && costOf(next) - costOf(pbBase[a]) > pointsLeft()) return;
@@ -291,6 +340,8 @@ export function buildCreation(
     speciesId = s.id;
     classId = '';
     pickClass(c.id);
+    const firstPreset = c.presets?.[0];
+    if (firstPreset) applyPreset(firstPreset);
     pickBackground(b.id);
     abMode = 'standard';
     applyRecommended();
@@ -335,6 +386,7 @@ export function buildCreation(
     const tick = h('span', 'tf-card-tick');
     tick.append(createIcon('check'));
     head.append(tick);
+    if (spec.badge) head.insertBefore(h('span', 'tf-card-badge', spec.badge), tick);
     b.append(head);
     if (spec.meta) b.append(h('div', 'tf-card-meta', spec.meta));
     if (spec.feat) b.append(h('div', 'tf-card-feat', spec.feat));
@@ -342,6 +394,11 @@ export function buildCreation(
     if (spec.disabled) {
       b.append(h('div', 'tf-card-note', spec.disabled));
       b.setAttribute('aria-disabled', 'true');
+    }
+    if (spec.chips && spec.chips.length) {
+      const row = h('div', 'tf-mini-chips');
+      for (const t of spec.chips) row.append(h('span', 'tf-mini-chip', t));
+      b.append(row);
     }
     if (spec.bullets && spec.bullets.length) {
       const ul = h('ul', 'tf-card-list');
@@ -451,7 +508,44 @@ export function buildCreation(
         },
       }),
     );
-    return [heading('Choose your class', 'Your training decides how you fight.'), cardGrid('Class', cards)];
+    const out = [heading('Choose your class', 'Your training decides how you fight.'), cardGrid('Class', cards)];
+    const k = klass();
+    if (k?.presets && k.presets.length) out.push(presetPanel(k, k.presets));
+    return out;
+  }
+
+  function presetChips(k: ClassInfo, p: BuildPreset): string[] {
+    const chips: string[] = [];
+    for (const slot of k.choices) {
+      const o = slot.options.find((x) => x.id === p.choices[slot.key]);
+      if (o) chips.push(o.name);
+    }
+    const top = p.abilityPriority[0];
+    if (top) chips.push(`${top.toUpperCase()} ${p.abilities[top]}`);
+    return chips;
+  }
+
+  function presetPanel(k: ClassInfo, presets: BuildPreset[]): HTMLElement {
+    const panel = h('section', 'tf-panel');
+    panel.append(h('h3', 'tf-panel-title', 'Play style'));
+    panel.append(h('p', 'tf-hint', 'A ready-made set of abilities and choices. You can still change everything in later steps.'));
+    const cards = presets.map((p) =>
+      card({
+        key: `preset-${p.id}`,
+        title: p.name,
+        description: p.description,
+        chips: presetChips(k, p),
+        badge: p.id === presetId && customised ? 'Customised' : undefined,
+        compact: true,
+        selected: p.id === presetId,
+        onPick: () => {
+          applyPreset(p);
+          refresh();
+        },
+      }),
+    );
+    panel.append(cardGrid('Play style', cards));
+    return panel;
   }
 
   function stepBackground(): HTMLElement[] {
@@ -558,6 +652,7 @@ export function buildCreation(
         ],
         abMode,
         (k) => {
+          if (k !== abMode && presetId) customised = true;
           abMode = k;
           refresh();
         },
@@ -592,7 +687,8 @@ export function buildCreation(
       const row = h('div', 'tf-ab-row');
       const nm = h('span', 'tf-ab-name');
       nm.append(h('strong', undefined, a.toUpperCase()), h('span', 'tf-ab-full', ABILITY_NAMES[a]));
-      if (c?.primaryAbilities.includes(a)) {
+      const starred = preset() ? preset()?.abilityPriority.slice(0, 2) : c?.primaryAbilities;
+      if (starred?.includes(a)) {
         const star = h('span', 'tf-ab-primary');
         star.title = 'Primary ability for this class';
         star.append(createIcon('star', 'tf-icon'));
@@ -682,7 +778,7 @@ export function buildCreation(
     return out;
   }
 
-  function slotCards(slots: ChoiceSlot[], slot: ChoiceSlot, compact: boolean): HTMLElement {
+  function slotCards(slots: ChoiceSlot[], slot: ChoiceSlot, compact: boolean, onEdit?: () => void): HTMLElement {
     const cards = slot.options.map((o) => {
       const where = takenElsewhere(slots, slot, o.id);
       return card({
@@ -694,6 +790,7 @@ export function buildCreation(
         disabled: where ? `Chosen ${where}` : undefined,
         onPick: () => {
           choices[slot.key] = o.id;
+          onEdit?.();
           refresh();
         },
       });
@@ -706,7 +803,11 @@ export function buildCreation(
   function choicePanel(slots: ChoiceSlot[], slot: ChoiceSlot): HTMLElement {
     const panel = h('section', 'tf-panel');
     panel.append(h('h3', 'tf-panel-title', slot.name));
-    panel.append(slotCards(slots, slot, slot.options.length > 5));
+    panel.append(
+      slotCards(slots, slot, slot.options.length > 5, () => {
+        if (presetId) customised = true;
+      }),
+    );
     return panel;
   }
 
@@ -785,6 +886,7 @@ export function buildCreation(
         left.append(kv(slot.name, o?.name ?? '–'));
       }
     }
+    if (c?.presets?.length) left.append(kv('Play style', customised ? 'Custom' : (preset()?.name ?? 'Custom')));
     const feat = bg?.feat;
     if (feat) {
       const names = feat.choices.map((slot) => slot.options.find((x) => x.id === choices[slot.key])?.name ?? '–');
@@ -917,6 +1019,10 @@ export function buildCreation(
     }
   });
 
+  {
+    const first = klass()?.presets?.[0];
+    if (first) applyPreset(first);
+  }
   refresh();
   void nameInput;
   return root;

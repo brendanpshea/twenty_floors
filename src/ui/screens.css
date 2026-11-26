@@ -1331,3 +1331,63 @@
     display: none;
   }
 }
+
+/* ---------- Play style presets ---------- */
+
+.tf-mini-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tf-mini-chip {
+  padding: 0.1em 0.6em;
+  border: 1px solid var(--tf-line-soft);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--tf-teal-hi);
+  font-size: 0.75em;
+  letter-spacing: 0.03em;
+}
+.tf-card-badge {
+  padding: 0.1em 0.6em;
+  border: 1px solid var(--tf-amber);
+  border-radius: 999px;
+  color: var(--tf-amber);
+  font-size: 0.7em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ---------- Equipment slots (four) and item rarity ---------- */
+
+.tf-equip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 640px) {
+  .tf-equip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.tf-rar {
+  --tf-rar: var(--tf-dim);
+  border-color: color-mix(in srgb, var(--tf-rar) 55%, transparent);
+  box-shadow: inset 3px 0 0 var(--tf-rar);
+}
+.tf-rar .tf-inv-name {
+  color: var(--tf-rar);
+}
+.tf-rar--common {
+  --tf-rar: var(--tf-text);
+}
+.tf-rar--uncommon {
+  --tf-rar: #6fd08a;
+}
+.tf-rar--rare {
+  --tf-rar: #6aa8f0;
+}
+.tf-rar--veryRare {
+  --tf-rar: #b58af0;
+}
+.tf-rar--legendary {
+  --tf-rar: #f0b050;
+}
