@@ -95,7 +95,7 @@ class Draft {
     ];
     return {
       seed,
-      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : theme === 'library' ? 10 : theme === 'foundry' ? 12 : theme === 'ice' ? 14 : 3,
+      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : theme === 'library' ? 10 : theme === 'foundry' ? 12 : theme === 'ice' ? 14 : theme === 'ruin' ? 16 : 3,
       theme,
       width: this.w,
       height: this.h,
@@ -125,12 +125,12 @@ function autoLights(d: Draft, theme: ThemeId): void {
     const { x, y } = p.pos;
     switch (p.type) {
       case 'torch': {
-        const warm = theme === 'warrens' || theme === 'ice' || theme === 'hold' || theme === 'foundry' || (theme === 'crypt' && (x + y) % 4 === 0);
+        const warm = theme === 'warrens' || theme === 'ice' || theme === 'hold' || theme === 'foundry' || theme === 'ruin' || (theme === 'crypt' && (x + y) % 4 === 0);
         d.light(x, y, theme === 'library' ? 0x90c8ff : warm || theme === 'sewers' ? 0xffa050 : theme === 'fungal' ? 0x60f0c0 : theme === 'crypt' ? 0x60d8f0 : 0xa070ff, 1.1, theme === 'depths' ? 5 : 6.5);
         break;
       }
       case 'brazier':
-        d.light(x, y, theme === 'library' ? 0x90c8ff : theme === 'warrens' || theme === 'sewers' || theme === 'hold' || theme === 'foundry' ? 0xff8a30 : theme === 'fungal' ? 0x58e8b8 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
+        d.light(x, y, theme === 'library' ? 0x90c8ff : theme === 'warrens' || theme === 'sewers' || theme === 'hold' || theme === 'foundry' || theme === 'ruin' ? 0xff8a30 : theme === 'fungal' ? 0x58e8b8 : theme === 'crypt' ? 0x58d0e8 : 0x9060ff, 1.3, 6);
         break;
       case 'candelabra':
         d.light(x, y, 0x90c8ff, 1.2, 6);
@@ -484,7 +484,50 @@ function ice(): FloorPlan {
   return d.toPlan('ice', { x: 4, y: 6 }, { x: 21, y: 18 }, 1009, [{ x: 5, y: 9 }, { x: 17, y: 5 }]);
 }
 
-export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, library, depths, foundry, ice };
+function ruin(): FloorPlan {
+  const d = new Draft(24, 24);
+  d.rect(1, 1, 10, 8); // A: overgrown courtyard
+  d.rect(8, 6, 9, 7, WATER); // pool
+  d.rect(11, 4, 14, 5); // passage
+  d.set(11, 4, DOOR); d.set(11, 5, DOOR);
+  d.rect(15, 1, 22, 8); // B: broken hall
+  d.rect(4, 9, 5, 12); // passage south
+  d.set(4, 9, DOOR); d.set(5, 9, DOOR);
+  d.rect(1, 13, 12, 22); // C: collapsed nave
+  d.rect(14, 13, 22, 22, FLOOR, 1); // D: raised terrace
+  d.set(13, 17, DOOR, 0); d.set(13, 18, DOOR, 0);
+  d.rect(16, 18, 18, 20, WATER, 1);
+  d.rect(18, 9, 19, 12); // passage to the terrace
+  d.wallsAround();
+  const P = d.prop.bind(d);
+  // courtyard: a great tree, a second one in the corner, ferns, ivy on the walls
+  P('gnarled_tree', 6, 4); P('gnarled_tree', 2, 7); P('bush', 5, 6, 0, false); P('bush', 7, 3, 0, false); P('bush', 1, 5, 0, false); P('bush', 9, 5, 0, false); P('bush', 10, 8, 0, false);
+  P('bush', 4, 2, 0, false); P('bush', 8, 8, 0, false); P('bush', 6, 8, 0, false);
+  P('vines', 3, 1, 0, false); P('vines', 7, 1, 0, false); P('vines', 10, 3, 1, false); P('vines', 1, 3, 3, false); P('vines', 5, 8, 2, false);
+  P('torch', 5, 1, 0); P('torch', 9, 1, 0); P('torch', 10, 6, 1, true);
+  P('rubble', 3, 5); P('broken_pillar', 9, 2); P('bones', 2, 2);
+  // hall: broken colonnade, a fallen column, a statue
+  P('pillar', 17, 3); P('broken_pillar', 17, 6); P('pillar', 20, 3); P('broken_pillar', 20, 6);
+  P('fallen_column', 19, 4, 0); P('fallen_column', 21, 7, 1); P('statue', 16, 1, 0);
+  P('vines', 18, 1, 0, false); P('vines', 21, 1, 0, false); P('vines', 22, 5, 1, false); P('vines', 15, 4, 3, false); P('vines', 19, 8, 2, false);
+  P('bush', 16, 8, 0, false); P('bush', 22, 2, 0, false); P('bush', 21, 8, 0, false); P('bush', 15, 6, 0, false);
+  P('torch', 16, 8, 2, true); P('torch', 22, 7, 1); P('brazier', 18, 2); P('rubble', 20, 8); P('bones', 17, 7);
+  // nave
+  P('gnarled_tree', 10, 15); P('gnarled_tree', 3, 20); P('fallen_column', 6, 15, 0); P('fallen_column', 8, 19, 1);
+  for (const x of [3, 6, 9]) P('broken_pillar', x, 17);
+  P('vines', 2, 13, 0, false); P('vines', 6, 13, 0, false); P('vines', 10, 13, 0, false); P('vines', 12, 16, 1, false); P('vines', 1, 18, 3, false); P('vines', 5, 22, 2, false);
+  for (const [x, y] of [[2, 14], [4, 21], [11, 21], [1, 21], [8, 14], [12, 13], [7, 22]] as const) P('bush', x, y, 0, false);
+  P('campfire', 7, 21); P('bones', 4, 16); P('rubble', 11, 18); P('torch', 3, 13, 0); P('torch', 11, 22, 2);
+  // terrace
+  P('gnarled_tree', 21, 21); P('bush', 15, 14, 0, false); P('bush', 21, 14, 0, false); P('bush', 15, 21, 0, false); P('bush', 20, 18, 0, false);
+  P('statue', 20, 15, 3); P('broken_pillar', 15, 16); P('fallen_column', 16, 22, 0); P('mushrooms', 19, 20); P('mushrooms', 14, 20);
+  P('vines', 16, 13, 0, false); P('vines', 19, 13, 0, false); P('vines', 22, 16, 1, false); P('vines', 14, 15, 3, false); P('vines', 18, 22, 2, false);
+  P('torch', 22, 18, 1); P('brazier', 15, 19);
+  autoLights(d, 'ruin');
+  return d.toPlan('ruin', { x: 3, y: 3 }, { x: 21, y: 15 }, 1010, [{ x: 4, y: 4 }, { x: 14, y: 6 }]);
+}
+
+export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, library, depths, foundry, ice, ruin };
 
 export function makeFixture(theme: ThemeId): FloorPlan {
   return FIXTURES[theme]();

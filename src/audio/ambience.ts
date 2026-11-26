@@ -602,9 +602,85 @@ const BEDS: Record<ThemeId, BedDef> = {
       ];
     },
   },
+  ruin: {
+    verb: 0.55,
+    build(rig, out) {
+      // Soft broad wind in leaves: band-passed noise, overlapping slow swells.
+      const wind = rig.gain(0.5, out);
+      rig.lfo(0.05, 0.08, wind.gain);
+      rig.lfo(0.1, 0.08, wind.gain);
+      rig.lfo(0.2, 0.05, wind.gain);
+      const bp = rig.filter('bandpass', 1300, 0.5, wind);
+      rig.lfo(0.05, 150, bp.frequency);
+      rig.lfo(0.1, 250, bp.frequency);
+      rig.noiseLoop(rig.filter('lowpass', 2800, 0.5, bp));
+      // Night insects: a very quiet high tone, gated by a fast pulse and slowly fading in and out.
+      const ins = rig.gain(0.005, out);
+      rig.lfo(0.05, 0.004, ins.gain);
+      const pulse = rig.gain(0.5, ins);
+      rig.lfo(7, 0.5, pulse.gain);
+      rig.osc('sine', 4400, pulse);
+      rig.osc('sine', 4650, rig.gain(0.6, pulse));
+    },
+    events(emit, rng) {
+      return [
+        {
+          // Far-off owl: one soft hoot or a two-note call with a gentle downward bend.
+          minGap: 14, maxGap: 38, firstDelay: [5, 14],
+          fire: (t) => {
+            const f = between(rng, 330, 420);
+            const pan = between(rng, -0.7, 0.7);
+            emit([tone('sine', f, 0, 0.45, 0.22, { freqEnd: f * 0.9, a: 0.08, r: 0.25 })], 0.9, t, pan);
+            if (rng() < 0.6) {
+              emit([tone('sine', f * 0.85, 0, 0.7, 0.2, { freqEnd: f * 0.72, a: 0.08, r: 0.4 })], 0.9, t + between(rng, 0.5, 0.7), pan);
+            }
+          },
+        },
+        {
+          // Branch creak: a slow low tone with a pitch bend.
+          minGap: 12, maxGap: 32, firstDelay: [6, 14],
+          fire: (t) => {
+            const f = between(rng, 120, 210);
+            const up = rng() < 0.5;
+            emit([tone('triangle', f, 0, 0.9, 0.2, { freqEnd: f * (up ? 1.15 : 0.85), lp: 700, a: 0.25, r: 0.4 })], 0.5, t, between(rng, -0.6, 0.6));
+          },
+        },
+        {
+          // Rustle in the undergrowth: a quick group of soft noise bursts.
+          minGap: 8, maxGap: 24, firstDelay: [3, 9],
+          fire: (t) => {
+            const layers: Layer[] = [];
+            const n = 3 + Math.floor(rng() * 4);
+            let at = 0;
+            for (let i = 0; i < n; i++) {
+              layers.push(noise('bandpass', between(rng, 1800, 3800), at, 0.08, between(rng, 0.25, 0.5), { a: 0.02, r: 0.05, q: 0.9 }));
+              at += between(rng, 0.05, 0.14);
+            }
+            emit(layers, 0.4, t, between(rng, -0.7, 0.7));
+          },
+        },
+        {
+          // Rare small stone falling: two or three dry clicks, descending.
+          minGap: 30, maxGap: 75, firstDelay: [12, 26],
+          fire: (t) => {
+            const n = 2 + Math.floor(rng() * 2);
+            let f = between(rng, 1800, 2600);
+            let at = 0;
+            const layers: Layer[] = [];
+            for (let i = 0; i < n; i++) {
+              layers.push(puff('bandpass', f, at, 0.015, 0.5, { q: 2 }), ping('sine', f * 0.5, at, 0.04, 0.12));
+              f *= 0.78;
+              at += between(rng, 0.12, 0.3) * (1 + i * 0.4);
+            }
+            emit(layers, 0.5, t, between(rng, -0.6, 0.6));
+          },
+        },
+      ];
+    },
+  },
 };
 
-export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice'];
+export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin'];
 
 const LOOKAHEAD = 1.5;
 const TICK_MS = 400;

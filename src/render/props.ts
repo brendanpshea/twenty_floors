@@ -655,6 +655,97 @@ const BUILDERS: Record<string, Builder> = {
     for (let i = 0; i < 6; i++) g.box(0.07, 0.05, 0.12, p.iron, { x: -0.2 + i * 0.12, y: 0.04, z: -0.6 + Math.sin(i) * 0.12, ry: i, shade: 0.9 });
     return { lit: g.build(), glow: null };
   },
+  // Old twisted tree (~3 high, one cell): flared roots, knotted leaning trunk, bare boughs, a few small leaf clusters high up.
+  gnarled_tree: (look) => {
+    const p = look.prop;
+    const bark = 0x7a6448;
+    const bark2 = 0x56442f;
+    const leaf = p.leaf ?? 0x3f6e32;
+    const leafL = p.leafLight ?? 0x7ab04a;
+    const g = new GeoBuilder();
+    /** A tapered limb from (x,y,z) heading at yaw ry and tilt (from vertical) tz. */
+    const limb = (x: number, y: number, z: number, ry: number, tz: number, len: number, r0: number, r1: number, c: number, sh = 1): [number, number, number] => {
+      const dx = Math.sin(tz) * Math.cos(ry);
+      const dy = Math.cos(tz);
+      const dz = -Math.sin(tz) * Math.sin(ry);
+      g.cyl(r1, r0, len, 6, c, { x: x + (dx * len) / 2, y: y + (dy * len) / 2, z: z + (dz * len) / 2, rz: -tz, ry, shade: sh });
+      return [x + dx * len, y + dy * len, z + dz * len];
+    };
+    for (let i = 0; i < 6; i++) limb(Math.cos(i * 1.05) * 0.18, 0.12, Math.sin(i * 1.05) * 0.18, i * 1.05, 1.28 - (i % 2) * 0.12, 0.95 - (i % 3) * 0.1, 0.24, 0.05, i % 2 ? bark : bark2, 0.9); // roots
+    g.cyl(0.36, 0.5, 0.45, 7, bark2, { y: 0.22, shade: 0.9 }); // flared base
+    g.cyl(0.3, 0.38, 0.9, 7, bark, { x: 0.02, y: 0.85, rz: 0.06 });
+    g.cyl(0.25, 0.3, 0.9, 7, bark2, { x: 0.1, y: 1.65, rz: -0.1, shade: 1.05 });
+    g.cyl(0.18, 0.25, 0.85, 7, bark, { x: 0.04, y: 2.45, rz: 0.12 });
+    g.ico(0.2, 0, bark2, { x: 0.25, y: 1.25, z: 0.18, sy: 0.9, shade: 0.85 }); // knots
+    g.ico(0.17, 0, bark2, { x: -0.22, y: 2.0, z: -0.15, shade: 0.8 });
+    g.ico(0.14, 0, bark, { x: 0.12, y: 0.7, z: -0.3, shade: 1.1 });
+    const tips: [number, number, number][] = [];
+    tips.push(limb(0.1, 2.5, 0, 0.3, 0.95, 0.95, 0.12, 0.05, bark));
+    tips.push(limb(0.05, 2.65, 0, 2.5, 0.8, 0.9, 0.11, 0.045, bark2));
+    tips.push(limb(0.05, 2.35, 0, 4.4, 1.05, 0.8, 0.1, 0.04, bark));
+    tips.push(limb(0.05, 2.75, 0, 5.5, 0.55, 0.75, 0.09, 0.04, bark2));
+    limb(tips[0]![0], tips[0]![1], tips[0]![2], 0.9, 0.9, 0.45, 0.05, 0.025, bark2); // twigs
+    limb(tips[1]![0], tips[1]![1], tips[1]![2], 3.0, 0.7, 0.4, 0.045, 0.02, bark);
+    g.ico(0.4, 0, leaf, { x: tips[0]![0], y: tips[0]![1] + 0.15, z: tips[0]![2], sy: 0.65, top: leafL });
+    g.ico(0.32, 0, leaf, { x: tips[1]![0], y: tips[1]![1] + 0.12, z: tips[1]![2], sy: 0.65, top: leafL, shade: 0.95 });
+    g.ico(0.3, 0, leaf, { x: tips[3]![0], y: tips[3]![1] + 0.15, z: tips[3]![2], sy: 0.65, top: leafL });
+    g.ico(0.25, 0, leafL, { x: tips[2]![0], y: tips[2]![1] + 0.1, z: tips[2]![2], sy: 0.6, shade: 0.9 });
+    return { lit: g.build(), glow: null };
+  },
+  // Low clump of ferns and undergrowth (~1.2 across, 0.5 high).
+  bush: (look) => {
+    const leaf = look.prop.leaf ?? 0x3f6e32;
+    const leafL = look.prop.leafLight ?? 0x7ab04a;
+    const g = new GeoBuilder();
+    g.ico(0.38, 0, leaf, { y: 0.14, sy: 0.55, shade: 0.8, top: leafL });
+    g.ico(0.26, 0, leafL, { x: 0.38, y: 0.1, z: 0.22, sy: 0.55, shade: 0.9 });
+    g.ico(0.24, 0, leaf, { x: -0.36, y: 0.1, z: -0.12, sy: 0.55, shade: 1.0, top: leafL });
+    g.ico(0.2, 0, leaf, { x: 0.05, y: 0.1, z: -0.42, sy: 0.55, shade: 0.85 });
+    for (let i = 0; i < 11; i++) {
+      const a = i * 2.4;
+      const r = 0.12 + (i % 3) * 0.06;
+      const tilt = 1.05 + (i % 4) * 0.12;
+      const len = 0.5 + (i % 3) * 0.08;
+      const dx = Math.sin(tilt) * Math.cos(a);
+      const dz = -Math.sin(tilt) * Math.sin(a);
+      g.cone(0.11, len, 4, i % 2 ? leafL : leaf, { x: Math.cos(a) * r + (dx * len) / 2, y: 0.1 + (Math.cos(tilt) * len) / 2, z: -Math.sin(a) * r + (dz * len) / 2, rz: -tilt, ry: a, shade: 0.85 + 0.1 * (i % 3) });
+    }
+    return { lit: g.build(), glow: null };
+  },
+  // Curtain of ivy on the wall at -Z (authored like torch): ~1.6 wide, hanging ~2 from 2.2, ragged hem, lighter leaves.
+  vines: (look) => {
+    const leaf = look.prop.leaf ?? 0x3f6e32;
+    const leafL = look.prop.leafLight ?? 0x7ab04a;
+    const g = new GeoBuilder();
+    const z = -0.955;
+    g.box(1.7, 0.1, 0.05, 0x2c4a22, { y: 2.18, z, shade: 0.9 }); // dense top band
+    const drops = [1.9, 1.45, 2.0, 1.7, 1.2, 1.95, 1.55, 1.85, 1.35];
+    drops.forEach((len, i) => {
+      const x = -0.8 + i * 0.2;
+      g.box(0.21, len, 0.045, i % 2 ? leaf : 0x34602a, { x, y: 2.2 - len / 2, z: z - (i % 2) * 0.008, shade: 0.8 + 0.08 * (i % 3), top: leafL });
+    });
+    g.box(0.04, 0.5, 0.03, leaf, { x: -0.6, y: 0.22, z: z + 0.02 }); // loose tendrils
+    g.box(0.04, 0.35, 0.03, leaf, { x: 0.45, y: 0.4, z: z + 0.02 });
+    const lv: [number, number, number][] = [[-0.7, 1.9, 0.3], [-0.3, 1.5, -0.4], [0.1, 1.2, 0.5], [0.5, 1.75, -0.2], [0.75, 1.4, 0.4], [-0.5, 0.9, 0.2], [0.25, 0.75, -0.5], [-0.1, 1.85, 0.1]];
+    for (const [x, y, rz] of lv) g.box(0.2, 0.15, 0.03, leafL, { x, y, z: z + 0.03, rz, rx: 0.35, shade: 1.0, top: 0xc0e070 });
+    return { lit: g.build(), glow: null };
+  },
+  // Toppled column (~1.9 long, 0.6 thick) lying along X: a base drum, a middle drum, a splintered stump, shards.
+  fallen_column: (look) => {
+    const p = look.prop;
+    const g = new GeoBuilder();
+    const R = 0.3;
+    g.cyl(R + 0.08, R + 0.08, 0.12, 8, p.stoneDark, { x: -0.92, y: R + 0.08, rz: Math.PI / 2 }); // base ring
+    g.cyl(R, R, 0.7, 8, p.stone, { x: -0.55, y: R, rz: Math.PI / 2, top: 0x7a9068 });
+    g.cyl(R, R, 0.62, 8, p.stone, { x: 0.15, y: R, z: 0.07, rz: Math.PI / 2, ry: 0.1, shade: 0.95, top: 0x7a9068 }); // slipped drum
+    g.cyl(R, R * 0.9, 0.35, 8, p.stoneDark, { x: 0.7, y: R, z: 0.1, rz: Math.PI / 2, ry: 0.14, shade: 0.9 });
+    g.cone(R * 0.9, 0.3, 5, p.stone, { x: 0.98, y: R, z: 0.1, rz: -Math.PI / 2, ry: 0.14, shade: 0.9 }); // jagged break
+    for (const x of [-0.55, 0.15]) g.box(0.5, 0.05, 0.05, p.stoneDark, { x, y: R * 2 - 0.02, shade: 0.7 }); // fluting
+    g.box(0.5, 0.03, 0.2, 0x4e7a3a, { x: -0.45, y: R * 2 + 0.01, shade: 0.95 }); // moss
+    g.ico(0.14, 0, p.stoneDark, { x: 1.1, y: 0.1, z: -0.3 });
+    g.ico(0.1, 0, p.stone, { x: 0.85, y: 0.07, z: 0.45 });
+    return { lit: g.build(), glow: null };
+  },
 };
 
 const ROCK: Builder = (look) => {
@@ -664,8 +755,8 @@ const ROCK: Builder = (look) => {
   return { lit: g.build(), glow: null };
 };
 
-const JITTER_YAW = new Set(['rubble', 'bones', 'book_pile', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'urn', 'crystal', 'barrel', 'crate', 'campfire', 'brazier']);
-const SCALE_JITTER = new Set(['rubble', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'crystal', 'urn']);
+const JITTER_YAW = new Set(['rubble', 'bones', 'book_pile', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'urn', 'crystal', 'barrel', 'crate', 'campfire', 'brazier', 'gnarled_tree', 'bush']);
+const SCALE_JITTER = new Set(['gnarled_tree', 'bush', 'rubble', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'crystal', 'urn']);
 
 export interface PropField {
   group: Group | null;
@@ -738,7 +829,7 @@ export function buildProps(
     const glow = built.glow ? new InstancedMesh(built.glow, built.glowKind === 'flame' ? flameMat : steadyMat, n) : null;
     if (built.lit) geos.push(built.lit);
     if (built.glow) geos.push(built.glow);
-    const wallMounted = type === 'torch' || type === 'pipe' || type === 'banner' || type === 'weapon_rack' || type === 'lectern';
+    const wallMounted = type === 'torch' || type === 'pipe' || type === 'banner' || type === 'vines' || type === 'weapon_rack' || type === 'lectern';
     list.forEach((p, i) => {
       const gi = p.pos.y * plan.width + p.pos.x;
       let gy = groundY[gi]!;

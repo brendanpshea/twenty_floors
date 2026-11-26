@@ -11,6 +11,7 @@ import { genFungal } from './themes/fungal';
 import { genHold } from './themes/hold';
 import { genIce } from './themes/ice';
 import { genLibrary } from './themes/library';
+import { genRuin } from './themes/ruin';
 import { genSewers } from './themes/sewers';
 import { genWarrens } from './themes/warrens';
 import { validateFloor } from './validate';
@@ -81,6 +82,9 @@ export function generateFloorReport(opts: GenerateOptions): GenerateReport {
           break;
         case 'library':
           layout = genLibrary(graph, layoutRng);
+          break;
+        case 'ruin':
+          layout = genRuin(graph, layoutRng);
           break;
         case 'sewers':
           layout = genSewers(graph, layoutRng);

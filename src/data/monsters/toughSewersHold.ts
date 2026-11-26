@@ -526,7 +526,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
       },
     ],
     visual: { model: 'ogre', tint: 0x90b050, scale: 2.0 },
-    themes: ['fungal'],
+    themes: ['fungal', 'ruin'],
     role: 'boss',
     description: 'A towering, moss-bearded tree-warden that has taken root among the glowing caverns and guards them from intruders.',
   },

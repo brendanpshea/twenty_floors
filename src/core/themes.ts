@@ -52,6 +52,11 @@ export const THEMES: Record<ThemeId, ThemeInfo> = {
     name: 'The Ice Caves',
     tagline: 'Blue ice, black water under it, and a cold that hunts.',
   },
+  ruin: {
+    id: 'ruin',
+    name: 'The Overgrown Ruin',
+    tagline: 'Roofless halls under open sky, and a forest that has taken them back.',
+  },
 };
 
 export const TOTAL_FLOORS = 20;
@@ -63,12 +68,13 @@ const THEME_ORDER: ThemeId[] = ['warrens', 'crypt', 'depths'];
 
 /** Which theme a floor uses. Deterministic; more themes slot in here as they are built. */
 export function themeForDepth(depth: number): ThemeId {
-  // Floors 4 and 5 are the sewers, 6 and 7 the fungal caverns, 8 and 9 the bandit hold, 10 and 11 the sunken library, 12 and 13 the foundry, 14 and 15 the ice caves; deeper floors reuse the first three until their themes are built.
+  // Floors 4 and 5 are the sewers, 6 and 7 the fungal caverns, 8 and 9 the bandit hold, 10 and 11 the sunken library, 12 and 13 the foundry, 14 and 15 the ice caves, 16 and 17 the overgrown ruin; deeper floors reuse the first three until their themes are built.
   if (depth === 4 || depth === 5) return 'sewers';
   if (depth === 6 || depth === 7) return 'fungal';
   if (depth === 8 || depth === 9) return 'hold';
   if (depth === 10 || depth === 11) return 'library';
   if (depth === 12 || depth === 13) return 'foundry';
   if (depth === 14 || depth === 15) return 'ice';
+  if (depth === 16 || depth === 17) return 'ruin';
   return THEME_ORDER[(depth - 1) % THEME_ORDER.length] as ThemeId;
 }

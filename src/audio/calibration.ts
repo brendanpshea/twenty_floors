@@ -58,4 +58,5 @@ export const AMB_LEVEL: Record<ThemeId, number> = {
   library: 0.23,
   foundry: 0.115,
   ice: 0.135,
+  ruin: 0.15,
 };

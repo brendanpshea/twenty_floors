@@ -43,6 +43,10 @@ export const PROP_BLOCKING: Record<string, boolean> = {
   ingots: true,
   ice_spike: true,
   snow_drift: false,
+  gnarled_tree: true,
+  bush: false,
+  vines: false,
+  fallen_column: true,
 };
 
 const THEME_PROPS: Record<string, string[]> = {
@@ -55,6 +59,7 @@ const THEME_PROPS: Record<string, string[]> = {
   library: ['bookshelf', 'desk', 'lectern', 'book_pile', 'candelabra', 'statue', 'cobweb'],
   foundry: ['forge', 'anvil', 'crucible', 'ingots', 'chain', 'brazier', 'broken_pillar'],
   ice: ['ice_spike', 'snow_drift', 'crystal', 'campfire'],
+  ruin: ['gnarled_tree', 'bush', 'vines', 'fallen_column', 'broken_pillar', 'statue', 'mushrooms', 'brazier', 'campfire'],
 };
 const COMMON_PROPS = ['torch', 'rubble', 'pillar', 'crate', 'barrel', 'bones'];
 

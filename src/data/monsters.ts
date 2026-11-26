@@ -6,6 +6,7 @@ import type { MonsterDef } from '../core/types';
  * grapples, ability drain, some reactions) are left out.
  */
 import { ICE_MONSTERS } from './monsters/ice';
+import { RUIN_MONSTERS } from './monsters/ruin';
 import { TOUGH_CRYPT } from './monsters/toughCrypt';
 import { TOUGH_DEPTHS } from './monsters/toughDepths';
 import { TOUGH_SEWERS_HOLD } from './monsters/toughSewersHold';
@@ -1338,7 +1339,7 @@ export const MONSTERS: MonsterDef[] = [
       },
     ],
     visual: { model: 'ogre', tint: 0x4a6a2a, scale: 1.1 },
-    themes: ['fungal'],
+    themes: ['fungal', 'ruin'],
     role: 'boss',
     description: 'A walking heap of rotting vines and fungus, humming with static, that drags itself through the deepest caverns.',
   },
@@ -3369,4 +3370,5 @@ export const MONSTERS: MonsterDef[] = [
   ...TOUGH_CRYPT,
   ...TOUGH_SEWERS_HOLD,
   ...ICE_MONSTERS,
+  ...RUIN_MONSTERS,
 ];

@@ -14,7 +14,7 @@ const TRAIT_IDS: TraitId[] = [
   'keenSenses',
 ];
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice'];
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice', 'ruin'];
 
 const MONSTER_IDS = [
   'giant_rat',
@@ -128,6 +128,20 @@ const MONSTER_IDS = [
   'frost_giant',
   'remorhaz',
   'adult_white_dragon',
+  'dryad',
+  'awakened_tree',
+  'griffon',
+  'owlbear',
+  'wyvern',
+  'medusa',
+  'giant_ape',
+  'hydra',
+  'young_green_dragon',
+  'guardian_naga',
+  'roc',
+  'cloud_giant',
+  'storm_giant',
+  'adult_green_dragon',
 ];
 
 const ORIGINAL_ITEM_IDS = [
@@ -238,7 +252,7 @@ const VARIANT_RARITY = {
 
 const XP_BY_CR: Record<number, number> = {
   0.125: 25, 0.25: 50, 0.5: 100, 1: 200, 2: 450, 3: 700, 4: 1100, 5: 1800, 6: 2300, 7: 2900,
-  8: 3900, 9: 5000, 10: 5900, 11: 7200, 12: 8400, 13: 10000,
+  8: 3900, 9: 5000, 10: 5900, 11: 7200, 12: 8400, 13: 10000, 14: 11500, 15: 13000,
 };
 /** Where the SRD 5.2.1 stat block prints a different figure from the table, the stat block wins. */
 const XP_AS_PRINTED: Record<string, number> = { archmage: 8000 };

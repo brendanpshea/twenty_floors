@@ -22,9 +22,9 @@ The creation screen and hub already contain UI for three features whose rules
 are not on `main` yet, so these parts are inert there: background feat choices
 (Magic Initiate), play-style presets, and the ranged weapon slot.
 
-## Floors 4 to 15: Sewers, Fungal Caverns, Bandit Hold, Sunken Library, Foundry, Ice Caves (content only, not reachable yet)
+## Floors 4 to 17: seven more themes (content only, not reachable yet)
 
-Six themes exist end to end except for play:
+Seven themes exist end to end except for play:
 
 - **Flooded Sewers, floors 4 and 5.** Generator `src/gen/themes/sewers.ts`
   (channel tunnels, wet and dry chambers; set pieces sluice, flooded hall,
@@ -53,15 +53,21 @@ Six themes exist end to end except for play:
   cave recipe, frozen: water is drawn as ice), look, ice spike and snow
   drift props, ambience, ten SRD monsters from CR 1/2 to CR 13 in
   `src/data/monsters/ice.ts`. Bosses: Remorhaz, Adult White Dragon.
+- **Overgrown Ruin, floors 16 and 17.** Generator `src/gen/themes/ruin.ts`
+  (crumbled rooms stepping up a hillside; set pieces sunken garden, grove,
+  broken hall), an outdoor moonlit look, four props (gnarled tree, bush,
+  vines, fallen column), ambience, fourteen SRD monsters from CR 1 to CR 15
+  in `src/data/monsters/ruin.ts`. Bosses: Storm Giant, Adult Green Dragon.
 
 Per-floor casts and bosses are in `ENCOUNTER_TUNING`. See the floors at
 `/dev/render-preview.html?gen=1&theme=sewers&depth=4`, `...theme=fungal&depth=6`
 `...theme=hold&depth=8`, `...theme=library&depth=10`,
-`...theme=foundry&depth=12` and `...theme=ice&depth=14`.
+`...theme=foundry&depth=12`, `...theme=ice&depth=14` and
+`...theme=ruin&depth=16`.
 
 What is missing before `MILESTONE_FLOORS` can go past 3:
 
-- **Fighter levels 4 to 15** (in `src/rules`, after the spell-engine branch).
+- **Fighter levels 4 to 17** (in `src/rules`, after the spell-engine branch).
 - **Models.** The sewer, cavern and library monsters use tinted stand-ins from rigs we
   already ship (each has a `TODO model:` comment in `src/data/monsters.ts`
   naming the intended free model). Fetching needs `tools/assets/fetch.mjs`
@@ -112,6 +118,11 @@ The model's own assumptions (ability scores, gear by level) are in
 Calibration against the real engine's solo hero on floors 1 to 3 (90 / 75 /
 70% first-attempt clears): the model gives about 65 / 84 / 93%, so read it
 for trends, not exact rates.
+
+The owner has said the game will eventually give the hero an ally. Nothing in
+the rules engine has one yet, and floors 1 to 3 are tuned for a solo hero;
+treat "hero plus an ally about two levels lower" as the target when choosing
+casts and tuning floors 4 and deeper.
 
 What it shows today (26 November 2026): from floor 4 on, the floors are far
 too easy. A solo hero clears floors 4 to 20 93 to 100% of the time and a

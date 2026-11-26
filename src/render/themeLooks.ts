@@ -62,6 +62,9 @@ export interface ThemeLook {
     iron: number;
     bone: number;
     clay: number;
+    /** Foliage greens (gnarled trees, bushes, vines); themes without plants can omit them. */
+    leaf?: number;
+    leafLight?: number;
   };
 }
 
@@ -382,5 +385,40 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
     crystal: [0x9ad8ff, 0xc8ecff],
     mushroom: 0x9affe0,
     prop: { stone: 0x9aa8b8, stoneDark: 0x66768c, wood: 0x6a5238, woodDark: 0x40301f, iron: 0x3c4450, bone: 0xdcdcd2, clay: 0x7a8294 },
+  },
+  ruin: {
+    id: 'ruin',
+    wallStyle: 'dressed',
+    floorA: 0x838e78,
+    floorB: 0x97a28a,
+    groove: 0.6,
+    wall: 0x6a7868,
+    wall2: 0x7a8a78,
+    cap: 0x4a5848,
+    water: 0x2e5040,
+    waterBed: 0x121e1a,
+    waterOpacity: 0.78,
+    fog: 0x24344a,
+    fogDensity: 0.013,
+    hemiSky: 0xb0c8f0,
+    hemiGround: 0x3c4e5a,
+    hemiIntensity: 1.7,
+    keyColor: 0xd0e2ff,
+    keyIntensity: 1.6,
+    baseLight: 0.9,
+    lightGain: 1.0,
+    pointGain: 1.0,
+    heroGain: 0.4,
+    heroColor: 0xd8e6ff,
+    chasmGlow: 0x142030,
+    moteColor: 0xd4ee58,
+    moteCount: 60,
+    flame: 0xff9a38,
+    flameCore: 0xffe0a0,
+    flameAlt: 0xff9a38,
+    altShare: 0,
+    crystal: [0x9ad0ff, 0xd8f0a0],
+    mushroom: 0xa8e870,
+    prop: { stone: 0x9a9f8c, stoneDark: 0x666d5c, wood: 0x5a4632, woodDark: 0x3a2c1e, iron: 0x3e444a, bone: 0xd4d2bc, clay: 0x7a6a56, leaf: 0x3f6e32, leafLight: 0x7ab04a },
   },
 };
