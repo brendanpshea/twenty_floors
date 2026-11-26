@@ -320,7 +320,7 @@ export const TOUGH_WARRENS: MonsterDef[] = [
       },
     ],
     visual: { model: 'ogre', tint: 0x6ae04a, scale: 1.2 },
-    themes: ['warrens', 'depths'],
+    themes: ['warrens', 'depths', 'ice'],
     role: 'elite',
     description: 'A stooped, warty giant with arms too long and a hunger that never lets up.',
   },

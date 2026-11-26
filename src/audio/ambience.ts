@@ -534,9 +534,77 @@ const BEDS: Record<ThemeId, BedDef> = {
       ];
     },
   },
+  ice: {
+    verb: 0.6,
+    build(rig, out) {
+      // Thin cold wind beyond the cave: high band-passed noise, centre wandering, long gusts and lulls.
+      const wind = rig.gain(0.45, out);
+      rig.lfo(0.05, 0.3, wind.gain);
+      rig.lfo(0.025, 0.1, wind.gain);
+      rig.lfo(0.1, 0.08, wind.gain);
+      const bp = rig.filter('bandpass', 2000, 1.2, wind);
+      rig.lfo(0.03, 700, bp.frequency);
+      rig.lfo(0.07, 300, bp.frequency);
+      rig.noiseLoop(rig.filter('highpass', 800, 0.5, bp));
+      // Very faint glassy shimmer: far-apart sines, slowly beating, kept soft.
+      const shim = rig.gain(0.008, rig.filter('lowpass', 4500, 0.4, out));
+      rig.lfo(0.07, 0.005, shim.gain);
+      rig.osc('sine', 1568, shim);
+      rig.osc('sine', 1570.2, shim);
+      rig.osc('sine', 2637, rig.gain(0.6, shim));
+      rig.osc('sine', 3322, rig.gain(0.3, shim), 7);
+    },
+    events(emit, rng) {
+      return [
+        {
+          // Ice cracking: a sharp click, then a quick descending ping; sometimes a slow run of two or three.
+          minGap: 6, maxGap: 18, firstDelay: [2, 6],
+          fire: (t) => {
+            const pan = between(rng, -0.7, 0.7);
+            const n = rng() < 0.3 ? 2 + Math.floor(rng() * 2) : 1;
+            let at = 0;
+            for (let i = 0; i < n; i++) {
+              const f = between(rng, 1400, 3200);
+              emit([
+                puff('highpass', 3000, 0, 0.012, 0.6),
+                ping('sine', f, 0.005, 0.18, 0.4, { freqEnd: f * 0.45 }),
+                ping('sine', f * 1.7, 0.005, 0.08, 0.12, { freqEnd: f * 0.9 }),
+              ], 0.6, t + at, pan);
+              at += between(rng, 0.35, 0.9);
+            }
+          },
+        },
+        {
+          // Rare deep distant glacier boom: very low thud with a long tail.
+          minGap: 35, maxGap: 80, firstDelay: [14, 30],
+          fire: (t) => {
+            const f = between(rng, 38, 55);
+            emit([
+              ping('sine', f, 0, 2.6, 0.6, { freqEnd: f * 0.7 }),
+              puff('lowpass', 160, 0, 0.12, 0.25),
+            ], 0.9, t, between(rng, -0.4, 0.4));
+          },
+        },
+        {
+          // Brittle tinkle of falling ice fragments: a quick scatter of tiny high pings.
+          minGap: 14, maxGap: 40, firstDelay: [6, 16],
+          fire: (t) => {
+            const layers: Layer[] = [];
+            const n = 4 + Math.floor(rng() * 5);
+            let at = 0;
+            for (let i = 0; i < n; i++) {
+              layers.push(ping('sine', between(rng, 3000, 6500), at, 0.05, between(rng, 0.15, 0.35)));
+              at += between(rng, 0.02, 0.09);
+            }
+            emit(layers, 0.7, t, between(rng, -0.7, 0.7));
+          },
+        },
+      ];
+    },
+  },
 };
 
-export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry'];
+export const THEMES: readonly ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice'];
 
 const LOOKAHEAD = 1.5;
 const TICK_MS = 400;

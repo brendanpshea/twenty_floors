@@ -104,6 +104,32 @@ const BUILDERS: Record<string, Builder> = {
     g.cone(0.22, 0.7, 5, p.stone, { x: -0.45, z: -0.2, y: 0.35, rz: 0.15 });
     return { lit: g.build(), glow: null };
   },
+  // Cluster of faceted ice shards (tallest ~2 units). Pale lit facets with a faint self-lit tip each.
+  ice_spike: () => {
+    const g = new GeoBuilder();
+    const glow = new GeoBuilder();
+    const shards: [number, number, number, number, number, number, number][] = [
+      // x, z, height, radius, tilt z, tilt x, yaw
+      [0, 0, 2.0, 0.36, 0.04, -0.03, 0.2],
+      [0.5, 0.28, 1.3, 0.27, -0.16, -0.1, 0.9],
+      [-0.46, 0.2, 1.0, 0.23, 0.2, 0.08, 0.5],
+      [0.05, -0.5, 0.65, 0.2, 0.1, 0.3, 1.3],
+    ];
+    shards.forEach(([x, z, h, r, rz, rx, ry], i) => {
+      g.cone(r, h, 4 + (i % 2), 0x6fa4d6, { x, z, y: h / 2, rz, rx, ry, shade: 1.15, top: 0xe4f6ff });
+      // faint inner glow: a slim shard poking out of the tip region
+      glow.cone(r * 0.32, h * 0.42, 4, 0xffffff, { x: x - rz * h * 0.28, z: z + rx * h * 0.28, y: h * 0.62, rz, rx, ry, shade: 0.5 });
+    });
+    return { lit: g.build(), glow: glow.build(), glowKind: 'steady' };
+  },
+  // Low rounded mound of snow, about 1.6 across and 0.3 high.
+  snow_drift: () => {
+    const g = new GeoBuilder();
+    g.sphere(0.8, 12, 5, 0xeaf2fa, { y: 0, sy: 0.38, top: 0xfafdff, shade: 1.0 });
+    g.sphere(0.5, 10, 4, 0xf0f6fc, { x: 0.45, z: 0.3, y: 0, sy: 0.4, top: 0xffffff, shade: 1.0 });
+    g.sphere(0.36, 8, 3, 0xe4eef8, { x: -0.5, z: -0.25, y: 0, sy: 0.4, top: 0xf8fcff, shade: 1.0 });
+    return { lit: g.build(), glow: null };
+  },
   mushrooms: (look) => {
     const g = new GeoBuilder();
     const glow = new GeoBuilder();
@@ -638,8 +664,8 @@ const ROCK: Builder = (look) => {
   return { lit: g.build(), glow: null };
 };
 
-const JITTER_YAW = new Set(['rubble', 'bones', 'book_pile', 'stalagmite', 'mushrooms', 'giant_mushroom', 'urn', 'crystal', 'barrel', 'crate', 'campfire', 'brazier']);
-const SCALE_JITTER = new Set(['rubble', 'stalagmite', 'mushrooms', 'giant_mushroom', 'crystal', 'urn']);
+const JITTER_YAW = new Set(['rubble', 'bones', 'book_pile', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'urn', 'crystal', 'barrel', 'crate', 'campfire', 'brazier']);
+const SCALE_JITTER = new Set(['rubble', 'stalagmite', 'ice_spike', 'snow_drift', 'mushrooms', 'giant_mushroom', 'crystal', 'urn']);
 
 export interface PropField {
   group: Group | null;

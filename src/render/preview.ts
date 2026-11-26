@@ -12,8 +12,8 @@ const statsEl = document.getElementById('stats') as HTMLPreElement;
 const barEl = document.getElementById('bar') as HTMLDivElement;
 if (params.get('shot') === '1') document.body.classList.add('shot');
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry'];
-const THEME_DEPTH: Record<ThemeId, number> = { warrens: 1, crypt: 2, depths: 3, sewers: 4, fungal: 6, hold: 8, library: 10, foundry: 12 };
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice'];
+const THEME_DEPTH: Record<ThemeId, number> = { warrens: 1, crypt: 2, depths: 3, sewers: 4, fungal: 6, hold: 8, library: 10, foundry: 12, ice: 14 };
 const QUALITIES: QualityLevel[] = ['low', 'medium', 'high'];
 let theme: ThemeId = (THEMES.includes(params.get('theme') as ThemeId) ? params.get('theme') : 'crypt') as ThemeId;
 let quality: QualityLevel = (QUALITIES.includes(params.get('quality') as QualityLevel) ? params.get('quality') : 'medium') as QualityLevel;
@@ -167,7 +167,9 @@ async function setup(): Promise<void> {
   };
   heroCell = { ...plan.entrance };
   renderer.spawnEntity('hero', { model: 'hero_knight' }, heroCell, { faction: 'player', size: 'medium' });
-  MONSTERS.forEach((m, i) => {
+  // The floor's own cast (every monster only for the scripted demo, which names some directly).
+  const cast = params.get('demo') === '1' ? MONSTERS : MONSTERS.filter((m) => m.themes.includes(plan.theme));
+  cast.forEach((m, i) => {
     const cell = pick(3 + i, 0);
     monsters.set(m.id, { hp: 20, max: 20, cell: { ...cell } });
     renderer.spawnEntity(m.id, m.visual, cell, { faction: 'enemy', size: m.size });
@@ -389,7 +391,7 @@ addButton('R reset', () => applyCamera());
 window.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
-  const ti = ['1', '2', '3', '4', '5', '6', '7', '8'].indexOf(k);
+  const ti = ['1', '2', '3', '4', '5', '6', '7', '8', '9'].indexOf(k);
   if (ti >= 0) changeTheme(THEMES[ti]!);
   const qi = ['z', 'x', 'c'].indexOf(k);
   if (qi >= 0) changeQuality(QUALITIES[qi]!);
@@ -418,7 +420,7 @@ setInterval(() => {
     (useGen && setPiece ? `set piece: ${setPiece}\n` : '') +
     `geo ${s.geometries}  tex ${s.textures}  fog-update ${lastRevealMs.toFixed(1)}ms\n` +
     `click: walk / attack. drag: pan, right-drag: rotate,\nwheel: zoom. WASD pan, Q/E rotate, +/- zoom.\n` +
-    `1-8 theme, Z/X/C quality, F fog, P follow, O overview, R reset
+    `1-9 theme, Z/X/C quality, F fog, P follow, O overview, R reset
 G gen/fixture, [ ] seed, , . depth`;
 }, 500);
 

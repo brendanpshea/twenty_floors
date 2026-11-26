@@ -5,6 +5,7 @@ import type { MonsterDef } from '../core/types';
  * printed stat blocks. Features the schema cannot express (senses, skills,
  * grapples, ability drain, some reactions) are left out.
  */
+import { ICE_MONSTERS } from './monsters/ice';
 import { TOUGH_CRYPT } from './monsters/toughCrypt';
 import { TOUGH_DEPTHS } from './monsters/toughDepths';
 import { TOUGH_SEWERS_HOLD } from './monsters/toughSewersHold';
@@ -3367,4 +3368,5 @@ export const MONSTERS: MonsterDef[] = [
   ...TOUGH_DEPTHS,
   ...TOUGH_CRYPT,
   ...TOUGH_SEWERS_HOLD,
+  ...ICE_MONSTERS,
 ];

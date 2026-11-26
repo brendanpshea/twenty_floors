@@ -22,9 +22,9 @@ The creation screen and hub already contain UI for three features whose rules
 are not on `main` yet, so these parts are inert there: background feat choices
 (Magic Initiate), play-style presets, and the ranged weapon slot.
 
-## Floors 4 to 13: Sewers, Fungal Caverns, Bandit Hold, Sunken Library, Foundry (content only, not reachable yet)
+## Floors 4 to 15: Sewers, Fungal Caverns, Bandit Hold, Sunken Library, Foundry, Ice Caves (content only, not reachable yet)
 
-Five themes exist end to end except for play:
+Six themes exist end to end except for play:
 
 - **Flooded Sewers, floors 4 and 5.** Generator `src/gen/themes/sewers.ts`
   (channel tunnels, wet and dry chambers; set pieces sluice, flooded hall,
@@ -49,15 +49,19 @@ Five themes exist end to end except for play:
   surface in place of the chasm, four props (forge, anvil, crucible,
   ingots), ambience, thirteen SRD monsters from CR 1/2 to CR 9. Bosses:
   Fire Giant, Clay Golem.
+- **Ice Caves, floors 14 and 15.** Generator `src/gen/themes/ice.ts` (the
+  cave recipe, frozen: water is drawn as ice), look, ice spike and snow
+  drift props, ambience, ten SRD monsters from CR 1/2 to CR 13 in
+  `src/data/monsters/ice.ts`. Bosses: Remorhaz, Adult White Dragon.
 
 Per-floor casts and bosses are in `ENCOUNTER_TUNING`. See the floors at
 `/dev/render-preview.html?gen=1&theme=sewers&depth=4`, `...theme=fungal&depth=6`
-`...theme=hold&depth=8`, `...theme=library&depth=10` and
-`...theme=foundry&depth=12`.
+`...theme=hold&depth=8`, `...theme=library&depth=10`,
+`...theme=foundry&depth=12` and `...theme=ice&depth=14`.
 
 What is missing before `MILESTONE_FLOORS` can go past 3:
 
-- **Fighter levels 4 to 13** (in `src/rules`, after the spell-engine branch).
+- **Fighter levels 4 to 15** (in `src/rules`, after the spell-engine branch).
 - **Models.** The sewer, cavern and library monsters use tinted stand-ins from rigs we
   already ship (each has a `TODO model:` comment in `src/data/monsters.ts`
   naming the intended free model). Fetching needs `tools/assets/fetch.mjs`
@@ -95,6 +99,15 @@ sword-and-shield Champion Fighter at the floor's level, optionally with a
 Fighter ally some levels lower) and combat has no grid. Run the table with:
 
     BALANCE_MODEL=1 BALANCE_ALLY=2 npx vitest run src/balance/model.test.ts --disableConsoleIntercept
+
+The Fighter's progression from level 1 to 20 (proficiency bonus, attacks,
+feature uses, critical range, feature names and summaries, engine flags) is
+data in `src/data/fighter.ts`, checked against the SRD class table. The model
+reads it, and it is written to be what `src/rules/classes.ts` extends its
+Fighter from when levels 4 to 20 are built: `features` maps to
+`ClassDef.features`, the uses columns to `resourcesAt`, `flags` to `flagsAt`.
+The model's own assumptions (ability scores, gear by level) are in
+`fighterAt` in `src/balance/model.ts`, not in the data.
 
 Calibration against the real engine's solo hero on floors 1 to 3 (90 / 75 /
 70% first-attempt clears): the model gives about 65 / 84 / 93%, so read it

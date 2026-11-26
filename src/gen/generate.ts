@@ -9,6 +9,7 @@ import { genDepths } from './themes/depths';
 import { genFoundry } from './themes/foundry';
 import { genFungal } from './themes/fungal';
 import { genHold } from './themes/hold';
+import { genIce } from './themes/ice';
 import { genLibrary } from './themes/library';
 import { genSewers } from './themes/sewers';
 import { genWarrens } from './themes/warrens';
@@ -71,6 +72,9 @@ export function generateFloorReport(opts: GenerateOptions): GenerateReport {
           break;
         case 'fungal':
           layout = genFungal(graph, layoutRng, depth);
+          break;
+        case 'ice':
+          layout = genIce(graph, layoutRng, depth);
           break;
         case 'hold':
           layout = genHold(graph, layoutRng);

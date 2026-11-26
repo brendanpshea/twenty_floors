@@ -218,7 +218,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
         groundY[i] = elevAt(x, y) + 0.04;
         topH[i] = elevAt(x, y) + 0.04;
       } else if (k === CellKind.Water) {
-        groundY[i] = elevAt(x, y) - WATER_DEPTH * 0.7;
+        groundY[i] = look.ice ? elevAt(x, y) - 0.15 : elevAt(x, y) - WATER_DEPTH * 0.7; // on the ice sheet, or wading
         topH[i] = elevAt(x, y) - 0.2;
       } else if (k === CellKind.Wall) {
         topH[i] = wallTop(x, y);
@@ -722,7 +722,31 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
           box(buf, idx, xm - 0.5, yt, z1 - 0.55, xm + 0.5, yt + 0.12, z1, frame);
         }
       }
-      if (k === CellKind.Water) {
+      if (k === CellKind.Water && look.ice) {
+        // Frozen: a flat opaque sheet in 0.5-unit facets, pale with dark water showing through in patches and cracks.
+        const wy = elevAt(cx, cy) - 0.15;
+        const iceC = rgbOf(look.ice.color);
+        const deepC = rgbOf(look.ice.deep);
+        for (let sy = 0; sy < 4; sy++) {
+          for (let sx = 0; sx < 4; sx++) {
+            const fx = cx * 4 + sx;
+            const fy = cy * 4 + sy;
+            const n = vnoise(fx * 0.17 + 11, fy * 0.17 + 5);
+            const n2 = vnoise(fx * 0.31 + 71, fy * 0.31 + 23);
+            let c = scale3(iceC, 0.9 + 0.2 * hash2(fx, fy, 7));
+            if (n < 0.36) c = mix3(c, deepC, Math.min(1, (0.36 - n) * 4) * 0.8);
+            else if (Math.abs(n2 - 0.5) < 0.035) c = mix3(c, deepC, 0.7);
+            else if (n > 0.66) c = scale3(c, 1.08);
+            const qx = x0 + sx * 0.5;
+            const qz = z0 + sy * 0.5;
+            setV(va, qx, wy, qz, c, 1);
+            setV(vb, qx + 0.5, wy, qz, c, 1);
+            setV(vc, qx + 0.5, wy, qz + 0.5, c, 1);
+            setV(vd, qx, wy, qz + 0.5, c, 1);
+            quad(waterBuf, va, vb, vc, vd, idx, 0, 1, 0);
+          }
+        }
+      } else if (k === CellKind.Water) {
         const wy = elevAt(cx, cy) - 0.2;
         const a2 = scale3(waterC, 0.9 + 0.2 * hash2(cx, cy, 6));
         for (let sy = 0; sy < 2; sy++) {
@@ -797,17 +821,20 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
   }
 
   if (waterBuf.pos.length) {
-    const wm = new MeshLambertMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: look.waterOpacity,
-      depthWrite: false,
-      side: DoubleSide,
-    });
-    fow.patch(wm, { water: true });
+    // Ice themes: an opaque, unanimated sheet with a faint sheen. Everything else: the translucent, rippling water.
+    const wm = look.ice
+      ? new MeshLambertMaterial({ vertexColors: true, emissive: 0x1c2c40 })
+      : new MeshLambertMaterial({
+          vertexColors: true,
+          transparent: true,
+          opacity: look.waterOpacity,
+          depthWrite: false,
+          side: DoubleSide,
+        });
+    fow.patch(wm, look.ice ? {} : { water: true });
     disposables.push(wm);
     const mesh = new Mesh(toGeo(waterBuf), wm);
-    mesh.renderOrder = 1;
+    mesh.renderOrder = look.ice ? 0 : 1;
     mesh.frustumCulled = false;
     group.add(mesh);
   }
@@ -844,19 +871,25 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       mesh.frustumCulled = false;
       group.add(mesh);
     }
+  }
 
-    const n = look.moteCount;
+  {
+    // Motes hang over the chasm; in ice themes (usually no chasm) snow flakes drift over the walkable floor instead.
+    const moteCells: number[] = chasmCells.length ? chasmCells : [];
+    if (!moteCells.length && look.ice) for (let i = 0; i < W * H; i++) if (isWalkKind(kinds[i]!)) moteCells.push(i);
+    const iceFlakes = !chasmCells.length && !!look.ice;
+    const n = moteCells.length ? look.moteCount : 0;
     if (n > 0) {
       const pos = new Float32Array(n * 3);
       const col = new Float32Array(n * 3);
       const ci = new Float32Array(n);
       const mc = new Color(look.moteColor);
       for (let i = 0; i < n; i++) {
-        const idx = chasmCells[Math.floor(hash2(i, 1, 31) * chasmCells.length)]!;
+        const idx = moteCells[Math.floor(hash2(i, 1, 31) * moteCells.length)]!;
         const cx = idx % W;
         const cy = (idx / W) | 0;
         pos[i * 3] = (cx + hash2(i, 2, 32)) * CELL;
-        pos[i * 3 + 1] = lava ? lavaY + 0.4 + hash2(i, 3, 33) * 7 : depthY + 2 + hash2(i, 3, 33) * (CLIFF_DROP + 1);
+        pos[i * 3 + 1] = iceFlakes ? surface(cx, cy) + 0.3 + hash2(i, 3, 33) * 3.2 : lava ? lavaY + 0.4 + hash2(i, 3, 33) * 7 : depthY + 2 + hash2(i, 3, 33) * (CLIFF_DROP + 1);
         pos[i * 3 + 2] = (cy + hash2(i, 4, 34)) * CELL;
         const k = 0.4 + 0.6 * hash2(i, 5, 35);
         col[i * 3] = mc.r * k;

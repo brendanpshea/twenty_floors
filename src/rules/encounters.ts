@@ -101,7 +101,7 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   // The fixed run's boss order: on the second floor of a two-floor theme both bosses can fit the
   // band, and the same boss twice running would be a let-down. Randomized runs will replace this
   // table together with themeForDepth.
-  bossByDepth: { 4: 'ochre_jelly', 5: 'green_hag', 6: 'chuul', 7: 'shambling_mound', 8: 'tough_boss', 9: 'gladiator', 10: 'mage', 11: 'shield_guardian', 12: 'fire_giant', 13: 'clay_golem' },
+  bossByDepth: { 4: 'ochre_jelly', 5: 'green_hag', 6: 'chuul', 7: 'shambling_mound', 8: 'tough_boss', 9: 'gladiator', 10: 'mage', 11: 'shield_guardian', 12: 'fire_giant', 13: 'clay_golem', 14: 'remorhaz', 15: 'adult_white_dragon' },
   monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5 },
 };
 

@@ -6,7 +6,7 @@ import { createNavGrid, floorToAscii, generateFloor, validateFloor } from './ind
 
 const isWalk = (k: number): boolean => k === CellKind.Floor || k === CellKind.Water || k === CellKind.Door;
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry'];
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice'];
 
 function fingerprint(plan: FloorPlan): string {
   let h = 2166136261;
@@ -183,7 +183,7 @@ describe('generateFloor', () => {
       }
       // Small organic caves cannot always keep everyone 3 cells from every tunnel mouth, and a
       // sewer chamber with four-cell-wide mouths on several sides has few cells that far from all of them.
-      expect(near / total).toBeLessThan(theme === 'warrens' || theme === 'fungal' ? 0.25 : theme === 'sewers' ? 0.15 : 0.1);
+      expect(near / total).toBeLessThan(theme === 'warrens' || theme === 'fungal' || theme === 'ice' ? 0.25 : theme === 'sewers' ? 0.15 : 0.1);
     }
   });
 
@@ -385,6 +385,7 @@ describe('rest spots and set pieces', () => {
       hold: ['trainingYard', 'greatHall', 'stockade'],
       library: ['rotunda', 'grandStacks', 'drownedWing'],
       foundry: ['amphitheatre', 'twinBridge', 'landing', 'well', 'mesa'],
+      ice: ['lake', 'tiers', 'crack', 'columns', 'stream'],
     };
     for (const theme of THEMES) {
       const seen = new Set<string>();

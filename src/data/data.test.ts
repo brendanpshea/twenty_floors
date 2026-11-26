@@ -14,7 +14,7 @@ const TRAIT_IDS: TraitId[] = [
   'keenSenses',
 ];
 
-const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry'];
+const THEMES: ThemeId[] = ['warrens', 'crypt', 'depths', 'sewers', 'fungal', 'hold', 'library', 'foundry', 'ice'];
 
 const MONSTER_IDS = [
   'giant_rat',
@@ -118,6 +118,16 @@ const MONSTER_IDS = [
   'guard_captain',
   'pirate_captain',
   'assassin',
+  'ice_mephit',
+  'white_dragon_wyrmling',
+  'polar_bear',
+  'saber_toothed_tiger',
+  'winter_wolf',
+  'mammoth',
+  'young_white_dragon',
+  'frost_giant',
+  'remorhaz',
+  'adult_white_dragon',
 ];
 
 const ORIGINAL_ITEM_IDS = [

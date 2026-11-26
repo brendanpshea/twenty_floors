@@ -1,6 +1,7 @@
 import { Rng, floorSeed, hashSeed } from '../core/rng';
 import { themeForDepth } from '../core/themes';
 import type { Ability, ActionDef, Condition, DamageType, MonsterDef } from '../core/types';
+import { fighterImprovementsUpTo, fighterLevel } from '../data/fighter';
 import { MONSTERS } from '../data/monsters';
 import { generateFloor } from '../gen';
 import { buildEncounters } from '../rules';
@@ -49,6 +50,9 @@ export interface FighterStats {
   conMod: number;
   secondWindUses: number;
   actionSurges: number;
+  indomitableUses: number;
+  /** Champion level 18: regain 5 + Constitution modifier each turn while bloodied. */
+  heroicRally: boolean;
 }
 
 const at = (level: number, steps: Array<[number, number]>): number => {
@@ -58,16 +62,27 @@ const at = (level: number, steps: Array<[number, number]>): number => {
 };
 
 /**
- * A basic Fighter (Champion) at a given level, SRD 5.2.1 progression, sword and shield with the
- * Defense style. Hit points are the maximum per level (the game's solo rule). Gear follows the
- * design doc's schedule: better armor early, +1 items from floor 4, +2 from about 9, +3 from about 15.
+ * A basic Fighter (Champion) at a given level. The class progression itself (proficiency bonus,
+ * attacks, feature uses, critical range, when the Ability Score Improvements fall) comes from
+ * src/data/fighter.ts, the same table the real game is meant to use. What this function adds is
+ * the model's assumptions about one particular hero:
+ *
+ * - Build: sword and shield with the Defense style; Strength 17 and Constitution 15 at level 1;
+ *   improvements go to Strength until it is 20, then to Constitution.
+ * - Hit points: the maximum per level (the game's solo rule).
+ * - Gear, following the design doc's schedule: chain mail, then splint at 3 and plate at 5; +1
+ *   items from floor 4, +2 from about 9, +3 from about 15.
  */
 export function fighterAt(level: number): FighterStats {
-  const L = Math.max(1, Math.min(20, Math.floor(level)));
-  const pb = 2 + Math.floor((L - 1) / 4);
-  // Ability score improvements at 4, 6, 8, 12, 14, 16, 19: Strength to 20 first, then Constitution.
-  const strMod = at(L, [[1, 3], [4, 4], [6, 5]]);
-  const conMod = at(L, [[1, 2], [8, 3], [12, 4], [14, 5]]);
+  const row = fighterLevel(level);
+  const L = row.level;
+  const pb = row.proficiencyBonus;
+  const asi = fighterImprovementsUpTo(L);
+  const str = Math.min(20, 17 + 2 * asi); // 17, 19, 20
+  const spare = Math.max(0, 17 + 2 * asi - 20); // points that overflow Strength go to Constitution
+  const con = Math.min(20, 15 + spare);
+  const strMod = Math.floor((str - 10) / 2);
+  const conMod = Math.floor((con - 10) / 2);
   const armor = at(L, [[1, 16], [3, 17], [5, 18]]); // chain mail, splint, plate
   const armorMagic = at(L, [[1, 0], [5, 1], [10, 2], [16, 3]]);
   const shieldMagic = at(L, [[1, 0], [8, 1], [13, 2]]);
@@ -77,13 +92,15 @@ export function fighterAt(level: number): FighterStats {
     maxHp: L * (10 + conMod),
     ac: armor + armorMagic + 2 + shieldMagic + 1,
     toHit: pb + strMod + weaponMagic,
-    attacks: at(L, [[1, 1], [5, 2], [11, 3], [20, 4]]),
+    attacks: row.attacks,
     damageBonus: strMod + weaponMagic,
-    critFrom: at(L, [[1, 20], [3, 19], [15, 18]]),
+    critFrom: row.critFrom,
     saves: { str: strMod + pb, dex: 1, con: conMod + pb, int: -1, wis: 0, cha: 1 },
     conMod,
-    secondWindUses: at(L, [[1, 2], [4, 3], [10, 4]]),
-    actionSurges: at(L, [[1, 0], [2, 1], [17, 2]]),
+    secondWindUses: row.secondWindUses,
+    actionSurges: row.actionSurgeUses,
+    indomitableUses: row.indomitableUses,
+    heroicRally: L >= 18,
   };
 }
 
@@ -93,6 +110,7 @@ interface Member {
   hp: number;
   secondWind: number;
   actionSurge: number;
+  indomitable: number;
   hitDice: number;
   lastStand: boolean;
   potions: number;
@@ -110,6 +128,7 @@ function member(stats: FighterStats, hero: boolean, potions: number): Member {
     hp: stats.maxHp,
     secondWind: stats.secondWindUses,
     actionSurge: stats.actionSurges,
+    indomitable: stats.indomitableUses,
     hitDice: stats.level,
     lastStand: hero,
     potions: hero ? potions : 0,
@@ -261,7 +280,14 @@ function resolve(rng: Rng, foe: Foe, a: ActionDef, party: Member[], target: Memb
     }
     if (!hit) continue;
     let saved = false;
-    if (a.save) saved = rng.die(20) + t.stats.saves[a.save.ability] >= a.save.dc;
+    if (a.save) {
+      saved = rng.die(20) + t.stats.saves[a.save.ability] >= a.save.dc;
+      if (!saved && t.indomitable > 0) {
+        // Indomitable: reroll the failed save with the fighter's level added.
+        t.indomitable--;
+        saved = rng.die(20) + t.stats.saves[a.save.ability] + t.stats.level >= a.save.dc;
+      }
+    }
     let dmg = 0;
     for (const p of a.damage ?? []) dmg += roll(rng, p.dice, crit);
     if (a.save && !a.attack) dmg = saved ? (a.save.halfOnSave ? Math.floor(dmg / 2) : 0) : dmg;
@@ -284,6 +310,7 @@ function weaponMultiplier(def: MonsterDef): number {
 
 function memberTurn(rng: Rng, m: Member, foes: Foe[], bossFight: boolean, round: number): void {
   const acts = m.noAct <= 0;
+  if (m.stats.heroicRally && m.hp > 0 && m.hp <= m.stats.maxHp / 2) m.hp = Math.min(m.stats.maxHp, m.hp + 5 + m.stats.conMod);
   if (acts) {
     // Bonus action: Second Wind, else a potion.
     if (m.hp < m.stats.maxHp * 0.5 && m.secondWind > 0) {
@@ -384,6 +411,7 @@ function longRest(party: Member[]): void {
     m.hp = m.stats.maxHp;
     m.secondWind = m.stats.secondWindUses;
     m.actionSurge = m.stats.actionSurges;
+    m.indomitable = m.stats.indomitableUses;
     m.hitDice = Math.min(m.stats.level, m.hitDice + Math.max(1, Math.floor(m.stats.level / 2)));
   }
 }

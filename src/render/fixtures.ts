@@ -95,7 +95,7 @@ class Draft {
     ];
     return {
       seed,
-      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : theme === 'library' ? 10 : theme === 'foundry' ? 12 : 3,
+      depth: theme === 'warrens' ? 1 : theme === 'crypt' ? 2 : theme === 'sewers' ? 4 : theme === 'fungal' ? 6 : theme === 'hold' ? 8 : theme === 'library' ? 10 : theme === 'foundry' ? 12 : theme === 'ice' ? 14 : 3,
       theme,
       width: this.w,
       height: this.h,
@@ -125,7 +125,7 @@ function autoLights(d: Draft, theme: ThemeId): void {
     const { x, y } = p.pos;
     switch (p.type) {
       case 'torch': {
-        const warm = theme === 'warrens' || theme === 'hold' || theme === 'foundry' || (theme === 'crypt' && (x + y) % 4 === 0);
+        const warm = theme === 'warrens' || theme === 'ice' || theme === 'hold' || theme === 'foundry' || (theme === 'crypt' && (x + y) % 4 === 0);
         d.light(x, y, theme === 'library' ? 0x90c8ff : warm || theme === 'sewers' ? 0xffa050 : theme === 'fungal' ? 0x60f0c0 : theme === 'crypt' ? 0x60d8f0 : 0xa070ff, 1.1, theme === 'depths' ? 5 : 6.5);
         break;
       }
@@ -145,7 +145,7 @@ function autoLights(d: Draft, theme: ThemeId): void {
         d.light(x, y, 0xff8030, 1.7, 8);
         break;
       case 'crystal':
-        d.light(x, y, (x + y) % 2 ? 0xa070ff : 0x40e0ff, 1.1, 5);
+        d.light(x, y, theme === 'ice' ? ((x + y) % 2 ? 0x90d8ff : 0xc0ecff) : (x + y) % 2 ? 0xa070ff : 0x40e0ff, 1.1, 5);
         break;
       case 'giant_mushroom':
         d.light(x, y, 0x50f0c0, 1.2, 6.5);
@@ -450,7 +450,41 @@ function foundry(): FloorPlan {
   return d.toPlan('foundry', { x: 4, y: 4 }, { x: 19, y: 21 }, 1008, [{ x: 5, y: 6 }, { x: 14, y: 6 }]);
 }
 
-export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, library, depths, foundry };
+function ice(): FloorPlan {
+  const d = new Draft(24, 24);
+  d.ellipse(7, 7, 5.4, 4.6); // cave 1
+  d.ellipse(8, 8, 2.8, 2.0, WATER); // frozen pool
+  d.rect(11, 6, 14, 7);
+  d.ellipse(17, 7, 4.4, 4.2); // cave 2
+  d.ellipse(18, 8, 1.6, 1.2, WATER);
+  d.rect(6, 11, 7, 15); // tunnel south
+  d.ellipse(7, 18, 5.2, 4.2); // cave 3
+  d.ellipse(7, 18, 3.2, 2.4, FLOOR, 1);
+  d.rect(12, 18, 14, 18);
+  d.ellipse(18, 17, 4.6, 4.2); // cave 4
+  d.rect(16, 17, 20, 18, CHASM); // crevasse
+  d.rect(17, 11, 17, 12);
+  d.wallsAround();
+  const P = d.prop.bind(d);
+  // spikes grow out of the walls
+  P('ice_spike', 3, 5, 0); P('ice_spike', 4, 4, 1); P('ice_spike', 11, 8, 2); P('ice_spike', 2, 8, 3); P('ice_spike', 3, 7, 1);
+  P('ice_spike', 20, 4, 0); P('ice_spike', 21, 6, 2); P('ice_spike', 14, 9, 1); P('ice_spike', 15, 4, 3);
+  P('ice_spike', 3, 20, 1); P('ice_spike', 10, 21, 0); P('ice_spike', 4, 15, 2);
+  P('ice_spike', 20, 14, 3); P('ice_spike', 15, 20, 1); P('ice_spike', 21, 20, 0); P('ice_spike', 16, 15, 2);
+  // drifts along the walls and the pool edge
+  const drift = (x: number, y: number): void => P('snow_drift', x, y, (x + y) % 4, false);
+  drift(4, 3); drift(8, 3); drift(11, 6); drift(3, 9); drift(10, 10); drift(5, 11);
+  drift(16, 3); drift(20, 8); drift(14, 10); drift(19, 11);
+  drift(5, 15); drift(4, 18); drift(8, 22); drift(10, 17); drift(12, 18);
+  drift(15, 14); drift(21, 17); drift(18, 21); drift(14, 21);
+  P('crystal', 21, 9); P('crystal', 3, 13); P('crystal', 5, 21); P('crystal', 12, 4);
+  P('bones', 5, 10); P('bones', 17, 12, 1); P('bones', 14, 15); P('rubble', 9, 14); P('rubble', 20, 20);
+  P('torch', 7, 3, 0); P('torch', 2, 18, 3); P('torch', 18, 3, 0);
+  autoLights(d, 'ice');
+  return d.toPlan('ice', { x: 4, y: 6 }, { x: 21, y: 18 }, 1009, [{ x: 5, y: 9 }, { x: 17, y: 5 }]);
+}
+
+export const FIXTURES: Record<ThemeId, () => FloorPlan> = { warrens, crypt, sewers, fungal, hold, library, depths, foundry, ice };
 
 export function makeFixture(theme: ThemeId): FloorPlan {
   return FIXTURES[theme]();

@@ -14,6 +14,11 @@ export interface ThemeLook {
   water: number;
   waterBed: number;
   waterOpacity: number;
+  /**
+   * If set, water cells are drawn as a frozen sheet instead of liquid: an opaque, unanimated
+   * slab of `color` ice with patches and cracks of `deep` (the dark water showing through).
+   */
+  ice?: { color: number; deep: number };
   /** Fog and clear colour. */
   fog: number;
   fogDensity: number;
@@ -341,5 +346,41 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
     crystal: [0xff9a40, 0xffd060],
     mushroom: 0xffa050,
     prop: { stone: 0x7a7478, stoneDark: 0x4c4648, wood: 0x6a4a30, woodDark: 0x40291a, iron: 0x3e3e46, bone: 0xd8ccb4, clay: 0x8a5a40 },
+  },
+  ice: {
+    id: 'ice',
+    wallStyle: 'jagged',
+    floorA: 0xa2bfd6,
+    floorB: 0xc0d8ea,
+    groove: 0.7,
+    wall: 0x4c78b4,
+    wall2: 0x6090cc,
+    cap: 0x2e4c82,
+    water: 0xcfe6f4,
+    waterBed: 0x0e1a2c,
+    waterOpacity: 1,
+    ice: { color: 0x8fcbea, deep: 0x16345a },
+    fog: 0x9cbcd8,
+    fogDensity: 0.014,
+    hemiSky: 0xe4f2ff,
+    hemiGround: 0x6486b0,
+    hemiIntensity: 1.55,
+    keyColor: 0xe6f2ff,
+    keyIntensity: 1.35,
+    baseLight: 0.92,
+    lightGain: 0.95,
+    pointGain: 0.95,
+    heroGain: 0.4,
+    heroColor: 0xe0f0ff,
+    chasmGlow: 0x0c2040,
+    moteColor: 0xffffff,
+    moteCount: 28,
+    flame: 0xffb868,
+    flameCore: 0xfff0c8,
+    flameAlt: 0xffb868,
+    altShare: 0,
+    crystal: [0x9ad8ff, 0xc8ecff],
+    mushroom: 0x9affe0,
+    prop: { stone: 0x9aa8b8, stoneDark: 0x66768c, wood: 0x6a5238, woodDark: 0x40301f, iron: 0x3c4450, bone: 0xdcdcd2, clay: 0x7a8294 },
   },
 };
