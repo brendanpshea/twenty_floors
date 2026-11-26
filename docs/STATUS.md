@@ -87,6 +87,27 @@ the data but will not be used until it does.
 Stat blocks were transcribed from the SRD 5.2.1 text; a clean plain-text copy
 is in the owner's `dnd_combat` repository (`SRD_CC_v5.2.1.txt`).
 
+## How floors 4 to 20 are going: the quick party model
+
+`src/balance/model.ts` estimates every floor before the real hero can reach
+it. The floors and monsters are the real ones; the party is a model (a basic
+sword-and-shield Champion Fighter at the floor's level, optionally with a
+Fighter ally some levels lower) and combat has no grid. Run the table with:
+
+    BALANCE_MODEL=1 BALANCE_ALLY=2 npx vitest run src/balance/model.test.ts --disableConsoleIntercept
+
+Calibration against the real engine's solo hero on floors 1 to 3 (90 / 75 /
+70% first-attempt clears): the model gives about 65 / 84 / 93%, so read it
+for trends, not exact rates.
+
+What it shows today (26 November 2026): from floor 4 on, the floors are far
+too easy. A solo hero clears floors 4 to 20 93 to 100% of the time and a
+hero with an ally two levels lower essentially always, arriving at the boss
+at full health. Raising room budgets alone runs out at about three times
+the current figures, because the themes have no stronger monsters to spend
+it on at those depths: floors from 4 down need tougher casts and bosses
+(CR much nearer the hero's level), not just more of the same.
+
 ## Planned: randomized runs
 
 The owner wants runs to vary eventually: not the same themes on the same
