@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../core/rng';
 import type { FloorPlan, SpawnSlot, ThemeId } from '../core/types';
 import { ENCOUNTER_TUNING, bossMinionLimit, buildEncounters, roomBudget } from './encounters';
+import { MONSTERS } from '../data/monsters';
 import { FIXTURE_MONSTERS, makePlan } from './testing/fixtures';
 
 const slot = (roomId: number, x: number, y: number, role: SpawnSlot['role'] = 'monster'): SpawnSlot => ({ roomId, role, pos: { x, y } });
@@ -169,6 +170,34 @@ describe('encounter tuning levers', () => {
     } finally {
       ENCOUNTER_TUNING.minMonstersPerRoom = saved;
       ENCOUNTER_TUNING.topUpLimit = savedLimit;
+    }
+  });
+
+  it('picks casts and bosses by CR for the floor when nothing is scripted', () => {
+    const saved = ENCOUNTER_TUNING.bossByDepth;
+    try {
+      ENCOUNTER_TUNING.bossByDepth = {};
+      const bossAt = (depth: number, theme: ThemeId, seed: number): string => {
+        const placed = buildEncounters(plan(depth, theme), MONSTERS, new Rng(seed));
+        return placed.filter((m) => m.roomId === 5).map((m) => m.creature.defId).find((id) => MONSTERS.find((d) => d.id === id)?.role === 'boss') as string;
+      };
+      for (let seed = 1; seed <= 20; seed++) {
+        // Sewers bosses are CR 2 and CR 3. Floor 5 (band 2.5 to 3.75) takes the CR 3 one, a deep
+        // floor the nearer of the two, and floor 4 (band 2 to 3) may take either.
+        expect(bossAt(5, 'sewers', seed)).toBe('green_hag');
+        expect(bossAt(14, 'sewers', seed)).toBe('green_hag');
+        expect(['ochre_jelly', 'green_hag']).toContain(bossAt(4, 'sewers', seed));
+        // No monster the floor has outgrown, and never more kinds than the cast size.
+        const placed = buildEncounters(plan(8, 'hold'), MONSTERS, new Rng(seed));
+        const kinds = new Set(placed.filter((m) => m.roomId !== 5).map((m) => m.creature.defId));
+        expect(kinds.size).toBeLessThanOrEqual(ENCOUNTER_TUNING.maxCastSize);
+        for (const id of kinds) expect(MONSTERS.find((d) => d.id === id)?.cr).toBeGreaterThanOrEqual(2);
+      }
+      const seen = new Set<string>();
+      for (let seed = 1; seed <= 40; seed++) seen.add(bossAt(4, 'sewers', seed));
+      expect(seen.size).toBe(2);
+    } finally {
+      ENCOUNTER_TUNING.bossByDepth = saved;
     }
   });
 });

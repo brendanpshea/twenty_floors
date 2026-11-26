@@ -37,6 +37,14 @@ export interface EncounterTuning {
    * theme is that strong, the rule is waived for the floor rather than leaving rooms empty.
    */
   minCrPerDepth: number;
+  /**
+   * A floor's boss is a boss-role monster of the theme with a CR between depth x these two
+   * factors (picked by the floor's dice when several fit, the nearest one when none does), so a
+   * theme works at whatever depth it turns up. `bossByDepth` overrides it.
+   */
+  bossCrBand: [number, number];
+  /** At most this many kinds of ordinary monster per floor; a larger cast is sampled per floor. */
+  maxCastSize: number;
   /** Monsters that only appear in ordinary rooms from this depth on (default: always). */
   monsterMinDepth: Record<string, number>;
   /** Monsters that stop appearing in ordinary rooms after this depth (default: never). */
@@ -79,10 +87,14 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   /** Selection weight by role. */
   roleWeight: { minion: 1, standard: 1, elite: 0.5, boss: 0 },
   minCrPerDepth: 0.25,
-  // Each two-floor theme has a boss per floor and shifts its cast a little between the two
-  // (docs/research/roster-options.md, minus the monsters minCrPerDepth rules out).
-  monsterMinDepth: { giant_constrictor_snake: 5, ghast: 5, priest: 9, hobgoblin_captain: 9, mummy: 11, ghost: 11 },
-  monsterMaxDepth: { pirate: 4, death_dog: 4, gibbering_mouther: 6, bandit_captain: 8, rug_of_smothering: 10, doppelganger: 10 },
+  bossCrBand: [0.5, 0.75],
+  maxCastSize: 4,
+  // Casts are chosen by CR for the floor, not listed per depth, so a theme can appear anywhere.
+  monsterMinDepth: {},
+  monsterMaxDepth: {},
+  // The fixed run's boss order: on the second floor of a two-floor theme both bosses can fit the
+  // band, and the same boss twice running would be a let-down. Randomized runs will replace this
+  // table together with themeForDepth.
   bossByDepth: { 4: 'ochre_jelly', 5: 'green_hag', 6: 'chuul', 7: 'shambling_mound', 8: 'tough_boss', 9: 'gladiator', 10: 'mage', 11: 'shield_guardian' },
   monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5 },
 };
@@ -156,6 +168,7 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
   const forcedBossId = ENCOUNTER_TUNING.bossByDepth[plan.depth];
   const forcedBoss = forcedBossId ? themed.find((m) => m.id === forcedBossId) : undefined;
   const isBoss = (m: MonsterDef): boolean => (forcedBoss ? m.id === forcedBoss.id : m.role === 'boss');
+  const t = ENCOUNTER_TUNING;
   const eligible = themed.filter(
     (m) =>
       !isBoss(m) &&
@@ -166,10 +179,19 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
   // Drop the monsters this floor has outgrown, unless the theme has nothing stronger to offer.
   const minCr = Math.floor(plan.depth * ENCOUNTER_TUNING.minCrPerDepth);
   const strong = eligible.filter((m) => m.cr >= minCr);
-  const regular = strong.length > 0 ? strong : eligible;
-  const bosses = themed.filter(isBoss);
+  let regular = strong.length > 0 ? strong : eligible;
+  // A big cast is sampled, so two floors of one theme (or two runs) do not field the same monsters.
+  if (regular.length > t.maxCastSize) regular = rng.shuffle(regular.slice()).slice(0, t.maxCastSize);
+  // Bosses that fit this depth; failing that, the one nearest to fitting.
+  let bosses = themed.filter(isBoss);
+  if (!forcedBoss && bosses.length > 1) {
+    const lo = plan.depth * t.bossCrBand[0];
+    const hi = plan.depth * t.bossCrBand[1];
+    const miss = (m: MonsterDef): number => (m.cr < lo ? lo - m.cr : m.cr > hi ? m.cr - hi : 0);
+    const best = Math.min(...bosses.map(miss));
+    bosses = bosses.filter((m) => miss(m) === best);
+  }
   const out: PlacedMonster[] = [];
-  const t = ENCOUNTER_TUNING;
 
   const roomIds = [...new Set(plan.spawns.map((s) => s.roomId))].sort((a, b) => a - b);
   for (const roomId of roomIds) {
