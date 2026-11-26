@@ -27,7 +27,10 @@ Clearing a floor grants a level, so clearing floor 20 means reaching level 20.
 | Death | Restart the current floor from its entrance. The game auto-saves only on floor entry. |
 | Progression | Clear the floor (defeat its boss) to unlock the stairs. The hub between floors gives the level-up, a shop and a full rest. |
 | Characters | A real creation engine (species, class, background, abilities), with a small content set to start. |
-| Art | Stylized low-poly. Procedural geometry for architecture, CC0 glTF models for creatures. |
+| Art | Stylized low-poly. Procedural geometry for architecture, free open glTF models for creatures. |
+| Asset licences | CC0 and CC-BY (any version) are both acceptable. Free assets only: no purchased or commissioned packs for now. Creature variety comes from recolouring and kit parts on the rigs we have (see `docs/research/kitbash-findings.md`). |
+| Later floors | Floors 4 to 20 follow `docs/research/roster-options.md`. The final boss on floor 20 is a red dragon (planned as the Young Red Dragon, which fits the difficulty curve). |
+| Rests | Resting in the middle of a floor is allowed. |
 | Hosting | Static site on GitHub Pages. Saves in localStorage. No backend. |
 
 ## Solo balance
