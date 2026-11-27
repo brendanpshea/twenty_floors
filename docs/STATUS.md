@@ -180,9 +180,29 @@ them, so the tuning does not count them.
   fight; petrified allies are restored after a win. Basilisk, Medusa, Gorgon.
   A restrained hero can still Break Free, which ends the first stage.
 
-Still not expressible: charge and trample attacks, maximum hit point drain
-(Wight, Mummy, Otyugh), damage each turn while held (Shambling Mound, Water
-Elemental), swallowing, and effects triggered at 0 hit points. The Slow spell
+- **Regeneration** (`MonsterDef.regeneration`): hit points back at the start
+  of the monster's turn; damage of a `stoppedBy` type switches it off for a
+  turn. Troll (15; acid or fire), Oni and Shield Guardian (10). HOUSE RULE: a
+  regenerating monster dies at 0 like any other. Guided help explains the
+  troll's weakness when one is targeted.
+- **Fire auras and hurt-when-hit.** Auras gained `trigger: 'ownerTurnEnd'`
+  and an optional save: Remorhaz, Balor, Azer Sentinel, Fire Elemental and
+  Salamander burn every enemy next to them at the end of their turn.
+  `MonsterDef.retaliate` damages whatever hits the monster in melee (Black
+  Pudding), through the Fire Shield code.
+- **Damage each turn while a condition lasts** (`applies.ongoing`, also on
+  `alsoApplies` entries), at the holder's or the source's turn start:
+  Shambling Mound, Water Elemental, Gelatinous Cube (Engulf is back, as a
+  single-target attack), Pit Fiend, Bearded and Horned Devil (their wounds
+  are Poisoned carrying necrotic damage, ended by a Constitution save),
+  Vrock, Invisible Stalker, Rug of Smothering. New condition **burning**
+  (Fire Elemental): 1d4 fire a turn, ended by a Dexterity save (HOUSE RULE:
+  the SRD needs an action to put it out).
+
+Still not expressible: swallowing (it needs "only on a creature this monster
+holds"), charge and trample attacks, maximum hit point drain (Wight, Mummy,
+Otyugh), and effects triggered at 0 hit points. Legendary actions are
+designed but not built; bosses without them still use boss momentum. The Slow spell
 in the spell data is not wired to `slowed` yet. The quick party model
 (`src/balance/model.ts`) does not know the two new conditions.
 
@@ -251,20 +271,20 @@ Each shard appends rows to `$TEMP/roomTune.jsonl`; write their `budget`,
 `boss` and `bossScale` into `src/rules/encounterTable.ts`. Floors 1 to 3 are
 not touched (no companion there; they were fitted on the real engine).
 
-It was run again after the monster conditions below went in (2 minutes 18
-seconds, 661 measurements): ordinary rooms within 4 points of their loss
-target on 78 of 99 pairings, the boss room within 8 points on 57, and the boss
-the hardest fight on 84.
+It was last run after the monster abilities below went in (2 minutes 38
+seconds, 760 measurements). The per-fight targets read about 12 points
+harder on real whole floors than intended, so after the pass every tuned
+budget is multiplied by 0.88 before it is written to the table: keep doing
+that until the loss targets in `ROOM_TUNE` are themselves corrected.
 
 One real whole-floor check of the fixed run followed (24 runs a floor, about
-20 seconds). It averaged 57% against a target near 70%, so every tuned budget
-was eased by 12% in one step. The same check then gave: 4: 63%, 5: 63%,
-6: 67%, 7: 54%, 8: 71%, 9: 71%, 10: 46%, 11: 71%, 12: 50%, 13: 88%, 14: 33%,
-15: 71%, 16: 67%, 17: 63%, 18: 92%, 19: 83%, 20: 50% (average 65%; targets
-75% to floor 10, 67% to 19, 58% on 20). At 24 runs a floor's rate moves by 10
-to 20 points between seed sets, so single floors are not known better than
-that; floor 14 (ice) and floor 18 (hell) are the two worth a look in play.
-The off-run pairings were not checked on whole floors.
+20 seconds): 4: 58%, 5: 50%, 6: 75%, 7: 75%, 8: 54%, 9: 75%, 10: 92%,
+11: 63%, 12: 75%, 13: 83%, 14: 38%, 15: 58%, 16: 88%, 17: 58%, 18: 88%,
+19: 88%, 20: 54% (average 69%; targets 75% to floor 10, 67% to 19, 58% on
+20). At 24 runs a floor's rate moves by 10 to 20 points between seed sets,
+so single floors are not known better than that. Floor 14 (ice) has read low
+on three checks running and is the one to look at in play. The off-run
+pairings were not checked on whole floors.
 
 Known limits:
 
