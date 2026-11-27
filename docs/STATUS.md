@@ -49,6 +49,20 @@ are plain upgrades rose from 32-39% to 82-86% for all three presets.
 Weights are in `LOOT_FIT`. The balance harness still draws evenly
 (`chestLoot` without `fit`); it only counts gold and potions from chests.
 
+## The shop sells plain gear and consumables
+
+`shopStock` (`src/rules/character.ts`) stocks, for the hero at the counter:
+the two strongest healing potions unlocked, a shield, up to two plain armors
+no weaker than the one worn, up to three plain weapons, and the gear
+schedule's upgrade of what the hero carries. At most 12 items
+(`ITEM_GATING.shopMaxItems`). Magic items of their own (rings, cloaks,
+wands, special weapons) and random +N gear are no longer sold: they are
+chest treasure. The one magic the shop keeps is the scheduled +N version of
+the hero's own weapons, armor and shield, because the tuning assumes it can
+be bought; `ITEM_GATING.shopScheduledMagic = false` removes that too. The
+floor budgets were fitted while the scripted hero could also buy worn magic
+items in the shop, so floors may now play slightly harder than measured.
+
 ## How it is tuned (27 November 2026, approximate)
 
 Each fixed-run floor's room budget was fitted on the real engine to a target

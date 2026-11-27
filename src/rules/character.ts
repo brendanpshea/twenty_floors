@@ -993,24 +993,29 @@ export function floorReward(depth: number): number {
 export const ITEM_GATING = {
   /** First depth at which a +N item may be in the shop. */
   shopMagicMinDepth: { 1: 4, 2: 9, 3: 15 } as Record<number, number>,
-  /** Magic items offered per shop once unlocked (rare stock). */
-  shopMagicSlots: 1,
+  /** Random +N items per shop once unlocked. 0: magic beyond the gear schedule is found in chests, not bought. */
+  shopMagicSlots: 0,
   /** First depth at which a chest may hold a +1 weapon or shield, and the chance per chest. */
   chestMagicMinDepth: 4,
   chestMagicChance: 0.12,
   /** Mundane gear on sale: price cap = base + perDepth * depth, and slots. */
   shopCostCapBase: 40,
   shopCostCapPerDepth: 40,
-  weaponSlots: 4,
-  armorSlots: 3,
+  weaponSlots: 3,
+  armorSlots: 2,
+  /** The shop sells plain gear and consumables. The one exception: the +N version of what the hero carries, when the gear schedule expects it (the tuning assumes it can be bought). False leaves +N gear to chests alone. */
+  shopScheduledMagic: true,
+  /** How many kinds of healing potion a shop sells (the strongest ones unlocked), and the most items on a hero's shelf. */
+  shopPotionKinds: 2,
+  shopMaxItems: 12,
   /** First depth that sells Greater Healing. */
   greaterPotionMinDepth: 3,
   /** First depth of each higher healing potion (sold when the catalog has it): a potion that heals 7 is no help to a hero of 100 hit points. */
   potionMinDepth: { potion_superior_healing: 9, potion_supreme_healing: 15 } as Record<string, number>,
   /** First depth at which a magic item of each rarity (rings, cloaks, wands, weapons of slaying...) is sold or found; legendary items are never sold or found in chests. */
   wonderMinDepth: { uncommon: 4, rare: 9, veryRare: 15 } as Partial<Record<ItemRarity, number>>,
-  /** Magic items offered per shop once unlocked, and the price cap as a multiple of the floor reward at that depth. */
-  shopWonderSlots: 2,
+  /** Magic items of their own per shop (0: chests only), and the price cap as a multiple of the floor reward at that depth. */
+  shopWonderSlots: 0,
   shopWonderCostFactor: 4,
   /** Share of the magic finds of a chest that are one of these items instead of +N gear. */
   chestWonderShare: 0.5,
@@ -1054,38 +1059,53 @@ export function shopStock(depth: number, pc?: PlayerCharacter): ItemDef[] {
   const cap = g.shopCostCapBase + g.shopCostCapPerDepth * depth;
   const all = [...itemCatalog()].sort((x, y) => x.id.localeCompare(y.id));
   const mundane = all.filter((i) => i.cost > 0 && isMundane(i) && i.cost <= cap);
+  // Each group in order of importance: when the shelf is full, the last groups give way first.
   const out: ItemDef[] = [];
-  out.push(...mundane.filter((i) => i.id === 'potion_healing'));
-  if (depth >= g.greaterPotionMinDepth) out.push(...all.filter((i) => i.id === 'potion_greater_healing'));
-  for (const [id, min] of Object.entries(g.potionMinDepth)) if (depth >= min) out.push(...all.filter((i) => i.id === id && i.cost > 0));
-  out.push(...pickSome(mundane.filter((i) => i.kind === 'weapon'), g.weaponSlots, rng));
-  const armors = mundane.filter((i) => i.kind === 'armor').sort((x, y) => (y.armor?.baseAc ?? 0) - (x.armor?.baseAc ?? 0));
-  // The best affordable armors are always offered, so upgrades exist at every tier.
-  out.push(...armors.slice(0, g.armorSlots));
+  // Consumables: the strongest healing potions sold at this depth (a potion that heals 7 is no help to a hero of 100 hit points).
+  const potionIds = ['potion_healing', ...(depth >= g.greaterPotionMinDepth ? ['potion_greater_healing'] : []), ...Object.entries(g.potionMinDepth).filter(([, min]) => depth >= min).map(([id]) => id)];
+  const potions = potionIds.map((id) => all.find((i) => i.id === id && i.cost > 0)).filter((i): i is ItemDef => !!i).sort((x, y) => x.cost - y.cost);
+  out.push(...potions.slice(-g.shopPotionKinds));
+  // The scheduled gear for this level is always on offer (see gearSchedule.ts): with a hero, the upgrade of what it carries
+  // (and the plain armor of a new tier, as the cheaper step); without one, that of every starting kit.
+  const wanted = new Set<string>();
+  const level = pc?.level ?? depth;
+  const carried = pc ? [pc.equipped] : CLASSES.flatMap((c) => c.kits.map((k) => k.equipped));
+  for (const eq of carried) {
+    const have = Object.values(eq);
+    const haveKinds = have.map((id) => (id ? (getItem(id)?.baseId ?? id) : ''));
+    for (const id of Object.values(scheduledGear(level, eq))) {
+      if (have.includes(id)) continue;
+      const def = getItem(id);
+      if (def?.magicBonus && !g.shopScheduledMagic) {
+        if (def.baseId && !haveKinds.includes(def.baseId)) wanted.add(def.baseId);
+        continue;
+      }
+      wanted.add(id);
+      if (def?.baseId && !haveKinds.includes(def.baseId)) wanted.add(def.baseId);
+    }
+  }
+  out.push(...all.filter((i) => wanted.has(i.id) && i.cost > 0));
+  // Plain gear: a shield, the best affordable armors (so upgrades exist at every tier) and a few weapons.
   out.push(...mundane.filter((i) => i.kind === 'shield').slice(0, 1));
+  // (For a hero: no armor weaker than what it wears, and no weapon it already holds.)
+  const wornAc = pc?.equipped.armor ? (getItem(pc.equipped.armor)?.armor?.baseAc ?? 0) : 0;
+  const held = pc ? Object.values(pc.equipped).map((id) => (id ? (getItem(id)?.baseId ?? id) : '')) : [];
+  const armors = mundane.filter((i) => i.kind === 'armor' && (i.armor?.baseAc ?? 0) >= wornAc && !held.includes(i.id)).sort((x, y) => (y.armor?.baseAc ?? 0) - (x.armor?.baseAc ?? 0));
+  out.push(...armors.slice(0, g.armorSlots));
+  out.push(...pickSome(mundane.filter((i) => i.kind === 'weapon'), g.weaponSlots, rng).filter((i) => !held.includes(i.id)));
+  // Magic beyond the schedule is treasure, found in chests; these two are off (0 slots) unless a variant turns them on.
   const magicOk = (i: ItemDef): boolean => {
     const bonus = i.magicBonus ?? 0;
     const min = g.shopMagicMinDepth[bonus];
     return bonus > 0 && min !== undefined && depth >= min && i.cost > 0 && i.kind !== 'consumable';
   };
-  out.push(...pickSome(all.filter(magicOk), g.shopMagicSlots, rng));
-  // The scheduled gear for this level is always on offer (see gearSchedule.ts): with a hero, the upgrade of what it carries; without one, that of every starting kit.
-  const wanted = new Set<string>();
-  const level = pc?.level ?? depth;
-  const carried = pc ? [pc.equipped] : CLASSES.flatMap((c) => c.kits.map((k) => k.equipped));
-  for (const eq of carried) {
-    for (const id of Object.values(scheduledGear(level, eq))) {
-      if (Object.values(eq).includes(id)) continue;
-      wanted.add(id);
-      const base = getItem(id)?.baseId;
-      if (base) wanted.add(base);
-    }
-  }
-  out.push(...all.filter((i) => wanted.has(i.id) && i.cost > 0));
-  // Magic items of their own (rings, cloaks, wands, slaying weapons), by rarity unlocked at this depth and within what a hero can afford by then.
+  if (g.shopMagicSlots > 0) out.push(...pickSome(all.filter(magicOk), g.shopMagicSlots, rng));
   const wonderCap = floorReward(depth) * g.shopWonderCostFactor;
-  out.push(...pickSome(wondersAt(depth).filter((i) => i.cost <= wonderCap), g.shopWonderSlots, rng));
-  return [...new Map(out.map((i) => [i.id, i])).values()].sort((x, y) => x.cost - y.cost || x.name.localeCompare(y.name));
+  if (g.shopWonderSlots > 0) out.push(...pickSome(wondersAt(depth).filter((i) => i.cost <= wonderCap), g.shopWonderSlots, rng));
+  const unique = [...new Map(out.map((i) => [i.id, i])).values()];
+  // With no hero the schedule of every kit is listed, so the cap applies only to a hero's own shop.
+  const kept = pc ? unique.slice(0, g.shopMaxItems) : unique;
+  return kept.sort((x, y) => x.cost - y.cost || x.name.localeCompare(y.name));
 }
 
 export function buyItem(pc: PlayerCharacter, itemId: string): PlayerCharacter {

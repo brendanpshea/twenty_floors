@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../core/rng';
 import { ITEM_GATING, chestLoot, floorReward, isWonder, shopStock, wondersAt } from './character';
 import { getItem, itemCatalog } from './items';
+import { presetHero } from './testing/heroes';
 
 describe('magic items in the real catalog, shops and chests', () => {
   it('the default catalog holds the data items and the magic items', () => {
@@ -24,13 +25,31 @@ describe('magic items in the real catalog, shops and chests', () => {
     for (const d of [4, 9, 15, 20]) expect(rarities(d).has('legendary')).toBe(false);
   });
 
-  it('shops stock magic items from the gated depth, deterministically and within a price cap', () => {
-    for (const d of [4, 9, 15]) {
-      const mine = shopStock(d).filter(isWonder);
-      expect(mine.length).toBeGreaterThan(0);
-      expect(mine.length).toBeLessThanOrEqual(ITEM_GATING.shopWonderSlots);
-      for (const i of mine) expect(i.cost).toBeLessThanOrEqual(floorReward(d) * ITEM_GATING.shopWonderCostFactor);
-      expect(shopStock(d).map((i) => i.id)).toEqual(shopStock(d).map((i) => i.id));
+  it('shops sell plain gear and consumables: no magic items of their own, and +N gear only as the upgrade of what the hero carries', () => {
+    for (const preset of ['defender', 'great_weapon', 'archer'] as const) {
+      for (const d of [1, 4, 9, 15, 20]) {
+        const pc = presetHero(preset, d);
+        const stock = shopStock(d, pc);
+        expect(stock.some(isWonder), `${preset} ${d}`).toBe(false);
+        expect(stock.length, `${preset} ${d}`).toBeLessThanOrEqual(ITEM_GATING.shopMaxItems);
+        expect(stock.filter((i) => i.kind === 'consumable').length).toBeLessThanOrEqual(ITEM_GATING.shopPotionKinds);
+        const carried = Object.values(pc.equipped).map((id) => getItem(id as string)?.baseId ?? id);
+        for (const i of stock.filter((x) => x.magicBonus)) {
+          // Its base is something the hero carries, or the next armor tier of the gear schedule.
+          expect(carried.includes(i.baseId as string) || i.kind === 'armor', `${preset} ${d}: ${i.id}`).toBe(true);
+        }
+        expect(shopStock(d, pc).map((i) => i.id)).toEqual(stock.map((i) => i.id));
+      }
+    }
+    for (const d of [4, 9, 15]) expect(shopStock(d).some(isWonder)).toBe(false);
+  });
+
+  it('with shopScheduledMagic off the shop sells no magic at all', () => {
+    ITEM_GATING.shopScheduledMagic = false;
+    try {
+      for (const d of [5, 10, 16]) expect(shopStock(d, presetHero('defender', d)).some((i) => i.magicBonus || isWonder(i))).toBe(false);
+    } finally {
+      ITEM_GATING.shopScheduledMagic = true;
     }
   });
 

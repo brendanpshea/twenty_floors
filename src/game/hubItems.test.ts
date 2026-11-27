@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { getItem, shopStock } from '../rules';
+import { getItem } from '../rules';
+import { itemCatalog } from '../rules/items';
 import { SAVE_KEY } from './deps';
 import { FloorSession } from './floorSession';
 import { HubFlow } from './hubFlow';
@@ -7,14 +8,13 @@ import { quickCharacter } from './quickBuild';
 import { parseSave, runFromSave, writeSave } from './save';
 import { makeHarness } from './testing/fakes';
 
-/** A hero carrying a wondrous item that needs attunement and a worn slot (found in the shop stock). */
+/** A hero carrying a wondrous item that needs attunement and a worn slot. */
 function heroWithWonder() {
   const pc = quickCharacter(10);
   let id = '';
-  for (let d = 1; d <= 20 && !id; d++) {
-    id = shopStock(d, pc).find((i) => i.attunement === true && i.slot === 'neck')?.id ?? '';
-  }
-  expect(id, 'no attuned neck item in any shop').not.toBe('');
+  // Magic items are chest treasure, not shop stock: take one from the catalog.
+  id = itemCatalog().find((i) => i.attunement === true && i.slot === 'neck' && i.cost > 0)?.id ?? '';
+  expect(id, 'no attuned neck item in the catalog').not.toBe('');
   pc.inventory.push({ itemId: id, quantity: 1 });
   pc.gold = 9000;
   return { pc, id };
