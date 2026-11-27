@@ -310,6 +310,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   const trueForm = new Map<string, () => void>();
   /** Spirit Guardians: caster id -> the emanation (radius in cells, save DC, damage) that follows them. */
   const auras = new Map<string, { radius: number; dc: number; dice: string; type: DamageType }>();
+  /** Monster auras: "ownerId|auraId|targetId" for each creature that passed the save and is immune for the rest of the fight. */
+  const auraImmune = new Set<string>();
   let lastAttackMode: RollMode = 'normal';
   const speedOf = (c: Creature): number => Math.max(0, effectiveSpeed(c) - (slowed.get(c.id)?.cells ?? 0));
   let events: GameEvent[] = [];
@@ -1701,6 +1703,29 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       const ok = rollSave(c, 'wis', aura.dc, undefined, { magical: true });
       const amount = rollDice(rng, aura.dice).total;
       dealDamage(c, ok ? Math.floor(amount / 2) : amount, aura.type, owner.id, false);
+    }
+    // Monster auras (Stench, Fear Aura): each hostile creature starting its turn in reach saves or takes the effect.
+    for (const owner of all) {
+      if (!owner.auras || !isAlive(owner) || !isAlive(c) || isIncapacitated(owner) || isIncapacitated(c) || !areHostile(owner, c)) continue;
+      for (const aura of owner.auras) {
+        const key = `${owner.id}|${aura.id}|${c.id}`;
+        if (auraImmune.has(key) || chebyshev(owner.pos, c.pos) > aura.radius) continue;
+        // A creature that cannot suffer the condition and takes no damage is not affected, so it saves nothing and spends no immunity.
+        if (!aura.damage?.length && aura.applies && c.conditionImmunities.includes(aura.applies.condition)) continue;
+        log(`${c.name} starts its turn in ${owner.name}'s ${aura.name}.`);
+        feature(owner, `aura_${aura.id}`, aura.name, { targetId: c.id });
+        const ok = rollSave(c, aura.save.ability, aura.save.dc, aura.applies?.condition, aura.magical ? { magical: true } : {});
+        if (ok && aura.immuneOnSuccess) auraImmune.add(key);
+        const parts = aura.damage ?? [];
+        if (!ok || aura.halfOnSave) {
+          for (const p of parts) {
+            const amount = rollDice(rng, p.dice).total;
+            dealDamage(c, ok ? Math.floor(amount / 2) : amount, p.type, owner.id, false);
+          }
+        }
+        if (!ok && aura.applies) addCondition(c, aura.applies, owner);
+        if (!isAlive(c)) break;
+      }
     }
     // Champion: Heroic Warrior gives Heroic Inspiration at the start of any turn begun without it.
     if (hasFlag(c, 'heroicWarrior') && isAlive(c)) {

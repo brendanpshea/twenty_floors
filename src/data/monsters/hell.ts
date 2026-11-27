@@ -323,8 +323,8 @@ export const HELL_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A devil wrapped in a clanking tangle of hooked chains, the vault\'s keeper of the shackled.',
   },
-  // Simplified: drops Demonic Restoration, Magic Resistance, telepathy, the Stench aura (a poison-on-turn-start
-  // emanation) and the Leap bonus action. Three Rend attacks are kept.
+  // Simplified: drops Demonic Restoration, Magic Resistance, telepathy and the Leap bonus action. Stench is an aura
+  // (10 ft. = 2 cells, Constitution DC 16, Poisoned for 1 round; the SRD gives no immunity on a success). Three Rend attacks are kept.
   {
     id: 'hezrou',
     name: 'Hezrou',
@@ -344,6 +344,16 @@ export const HELL_MONSTERS: MonsterDef[] = [
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
     traits: [],
+    auras: [
+      {
+        id: 'stench',
+        name: 'Stench',
+        description: 'A choking miasma rolls off the demon and fouls the air around it.',
+        radius: 2,
+        save: { ability: 'con', dc: 16 },
+        applies: { condition: 'poisoned', rounds: 1 },
+      },
+    ],
     actions: [
       {
         id: 'multiattack',

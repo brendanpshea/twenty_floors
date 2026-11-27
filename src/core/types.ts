@@ -467,6 +467,8 @@ export interface Creature {
   conditionImmunities: Condition[];
   conditions: ActiveCondition[];
   traits: TraitId[];
+  /** Passive start-of-turn emanations (copied from MonsterDef.auras). */
+  auras?: MonsterAura[];
   actions: ActionDef[];
   resources: Record<string, ResourcePool>;
   visual: VisualSpec;
@@ -497,6 +499,26 @@ export type CreatureType =
 export type MonsterRole = 'minion' | 'standard' | 'elite' | 'boss';
 
 /** A monster stat block, transcribed from SRD 5.2 into game units. */
+/** A passive emanation: creatures that start their turn within `radius` of the owner make a save or suffer the effect. */
+export interface MonsterAura {
+  /** Unique within the monster, e.g. 'stench'. */
+  id: string;
+  name: string;
+  description: string;
+  /** Reach in cells (5 ft each), by Chebyshev distance from the monster. */
+  radius: number;
+  save: { ability: Ability; dc: number };
+  /** On a failed save. */
+  applies?: { condition: Condition; rounds?: number };
+  /** On a failed save (half on a success only if halfOnSave). */
+  damage?: DamagePart[];
+  halfOnSave?: boolean;
+  /** A creature that succeeds is immune to this monster's aura for the rest of the fight (the SRD's "immune for 24 hours"). */
+  immuneOnSuccess?: boolean;
+  /** True for magical auras (the Spellguard Shield and Magic Resistance give advantage on the save). */
+  magical?: boolean;
+}
+
 export interface MonsterDef {
   id: string;
   name: string;
@@ -520,6 +542,8 @@ export interface MonsterDef {
   immunities: DamageType[];
   conditionImmunities: Condition[];
   traits: TraitId[];
+  /** Passive emanations that hit hostile creatures starting their turn nearby (Stench, Fear Aura). */
+  auras?: MonsterAura[];
   /** Ranges in cells (5 ft = 1). Attack bonuses and DCs as printed. */
   actions: ActionDef[];
   visual: VisualSpec;
