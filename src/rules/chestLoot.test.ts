@@ -67,7 +67,7 @@ describe('chestLoot with grades, boss chests and several chests per floor', () =
     }
   });
 
-  it('the boss chest: about 2.5 chests of gold, a potion and often a second, and a real chance of magic gear from the gated depth', () => {
+  it('the boss chest: about 2.5 chests of gold, a potion and often a second, and usually magic gear from the gated depth', () => {
     const depth = ITEM_GATING.chestMagicMinDepth;
     const ordinary = mean(depth, { chestsOnFloor: 4 });
     const boss = mean(depth, { chestsOnFloor: 4, boss: true });
@@ -75,8 +75,10 @@ describe('chestLoot with grades, boss chests and several chests per floor', () =
     expect(boss.potions).toBeGreaterThan(1.3);
     expect(boss.potions).toBeLessThan(1.7);
     for (let i = 0; i < 100; i++) expect(chestLoot(depth, new Rng(i), { boss: true, grade: 'gold' }).items.find((s) => s.itemId === 'potion_healing')?.quantity).toBe(2);
-    expect(boss.magic).toBeGreaterThan(0.25);
-    expect(boss.magic).toBeLessThan(0.55);
+    // Boss chests are where the powerful items are: most hold a find at silver, every one at gold.
+    expect(boss.magic).toBeGreaterThan(0.65);
+    expect(boss.magic).toBeLessThan(0.85);
+    expect(mean(depth, { chestsOnFloor: 4, boss: true, grade: 'gold' }).magic).toBe(1);
     expect(mean(3, { boss: true }).magic).toBe(0);
     // Deeper boss chests pay out of the deeper tier (+2 from the shop's second tier, +3 from the third).
     const tier = (depth: number): number[] => {

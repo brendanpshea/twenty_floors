@@ -74,8 +74,9 @@ filled from the starting kit.
 
 Magic weapons, armor and shields (+1 to +3) add their bonus to attack and
 damage or to Armor Class. They do not appear on floors 1 to 3; +1 items enter
-shops and chests from floor 4, +2 from about floor 9, +3 from about floor 15.
-Their prices are placeholders.
+chests from floor 4, +2 from about floor 9, +3 from about floor 15 (the
+higher tiers in boss chests only). Shops sell no permanent magic: plain gear,
+potions and oils only.
 
 ## Making it a thinking game
 

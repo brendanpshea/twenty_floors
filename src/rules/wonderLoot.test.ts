@@ -25,31 +25,42 @@ describe('magic items in the real catalog, shops and chests', () => {
     for (const d of [4, 9, 15, 20]) expect(rarities(d).has('legendary')).toBe(false);
   });
 
-  it('shops sell plain gear and consumables: no magic items of their own, and +N gear only as the upgrade of what the hero carries', () => {
+  it('shops sell plain gear and consumables, never permanent magic, and keep the shelf short', () => {
     for (const preset of ['defender', 'great_weapon', 'archer'] as const) {
       for (const d of [1, 4, 9, 15, 20]) {
         const pc = presetHero(preset, d);
         const stock = shopStock(d, pc);
-        expect(stock.some(isWonder), `${preset} ${d}`).toBe(false);
+        expect(stock.some((i) => isWonder(i) || i.magicBonus), `${preset} ${d}`).toBe(false);
+        for (const i of stock) expect(i.kind === 'consumable' || i.rarity === undefined || i.rarity === 'common', i.id).toBe(true);
         expect(stock.length, `${preset} ${d}`).toBeLessThanOrEqual(ITEM_GATING.shopMaxItems);
-        expect(stock.filter((i) => i.kind === 'consumable').length).toBeLessThanOrEqual(ITEM_GATING.shopPotionKinds);
-        const carried = Object.values(pc.equipped).map((id) => getItem(id as string)?.baseId ?? id);
-        for (const i of stock.filter((x) => x.magicBonus)) {
-          // Its base is something the hero carries, or the next armor tier of the gear schedule.
-          expect(carried.includes(i.baseId as string) || i.kind === 'armor', `${preset} ${d}: ${i.id}`).toBe(true);
-        }
+        const potions = stock.filter((i) => i.kind === 'consumable');
+        expect(potions.filter((i) => i.consumable?.effect === 'heal').length).toBeLessThanOrEqual(ITEM_GATING.shopPotionKinds);
+        const others = potions.filter((i) => i.consumable?.effect === 'timed');
+        expect(others.length).toBeLessThanOrEqual(ITEM_GATING.shopElixirSlots);
+        if (d < 4) expect(others.length).toBe(0);
+        else expect(others.length).toBeGreaterThan(0);
+        // Never a legendary potion, and never two of one family.
+        expect(others.some((i) => i.rarity === 'legendary')).toBe(false);
+        expect(others.filter((i) => i.id.startsWith('potion_of_resistance')).length).toBeLessThanOrEqual(1);
+        expect(others.filter((i) => i.id.startsWith('potion_of_giant_strength')).length).toBeLessThanOrEqual(1);
         expect(shopStock(d, pc).map((i) => i.id)).toEqual(stock.map((i) => i.id));
       }
     }
-    for (const d of [4, 9, 15]) expect(shopStock(d).some(isWonder)).toBe(false);
   });
 
-  it('with shopScheduledMagic off the shop sells no magic at all', () => {
-    ITEM_GATING.shopScheduledMagic = false;
+  it('with shopScheduledMagic on the shop adds the +N version of what the hero carries, and nothing else magic', () => {
+    ITEM_GATING.shopScheduledMagic = true;
     try {
-      for (const d of [5, 10, 16]) expect(shopStock(d, presetHero('defender', d)).some((i) => i.magicBonus || isWonder(i))).toBe(false);
+      for (const d of [5, 10, 16]) {
+        const pc = presetHero('defender', d);
+        const magic = shopStock(d, pc).filter((i) => i.magicBonus);
+        expect(magic.length).toBeGreaterThan(0);
+        expect(shopStock(d, pc).some(isWonder)).toBe(false);
+        const carried = Object.values(pc.equipped).map((id) => getItem(id as string)?.baseId ?? id);
+        for (const i of magic) expect(carried.includes(i.baseId as string) || i.kind === 'armor', i.id).toBe(true);
+      }
     } finally {
-      ITEM_GATING.shopScheduledMagic = true;
+      ITEM_GATING.shopScheduledMagic = false;
     }
   });
 

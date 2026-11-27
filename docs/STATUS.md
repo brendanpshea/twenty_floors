@@ -49,19 +49,36 @@ are plain upgrades rose from 32-39% to 82-86% for all three presets.
 Weights are in `LOOT_FIT`. The balance harness still draws evenly
 (`chestLoot` without `fit`); it only counts gold and potions from chests.
 
-## The shop sells plain gear and consumables
+## The shop sells plain gear and consumables; magic is chest treasure
 
 `shopStock` (`src/rules/character.ts`) stocks, for the hero at the counter:
-the two strongest healing potions unlocked, a shield, up to two plain armors
-no weaker than the one worn, up to three plain weapons, and the gear
-schedule's upgrade of what the hero carries. At most 12 items
-(`ITEM_GATING.shopMaxItems`). Magic items of their own (rings, cloaks,
-wands, special weapons) and random +N gear are no longer sold: they are
-chest treasure. The one magic the shop keeps is the scheduled +N version of
-the hero's own weapons, armor and shield, because the tuning assumes it can
-be bought; `ITEM_GATING.shopScheduledMagic = false` removes that too. The
-floor budgets were fitted while the scripted hero could also buy worn magic
-items in the shop, so floors may now play slightly harder than measured.
+the two strongest healing potions unlocked, up to three other potions or
+oils of different families from floor 4 (Resistance, Giant Strength,
+Invulnerability, Speed, Flying, Oil of Slipperiness; by rarity unlocked,
+never legendary), a shield, up to two plain armors no weaker than the one
+worn, and up to three plain weapons. At most 12 items
+(`ITEM_GATING.shopMaxItems`). The shop sells no permanent magic at all.
+There are no spell scrolls in the game yet.
+
+Permanent magic comes from chests:
+
+- **Boss chests** are the source of the powerful items: 75% hold a magic
+  find at silver, every one at gold, about 37% at bronze
+  (`bossChestMagicChance`). The find is +N gear of the depth's tier
+  (weapons, shields and armor, named ones included) or a magic item of the
+  top rarity unlocked.
+- **Ordinary chests** keep their small chance of a lesser find: a +1 weapon
+  or shield, or a magic item below the top unlocked rarity.
+- Both lean toward the hero's build (previous section).
+
+Open issue: the floor budgets were fitted with a hero who has the gear
+schedule's +N weapons, armor and shield on time (`gearSchedule.ts`), and
+who could buy it in the shop. Players now depend on boss chests for it and
+will often be a floor or more behind the schedule, so floors from 4 on may
+play harder than measured; and gold has less to be spent on.
+`ITEM_GATING.shopScheduledMagic = true` restores the scheduled +N gear in
+the shop (its tests still run with it on). The balance harness has not been
+re-fitted for this.
 
 ## How it is tuned (27 November 2026, approximate)
 

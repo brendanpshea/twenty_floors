@@ -1003,10 +1003,14 @@ export const ITEM_GATING = {
   shopCostCapPerDepth: 40,
   weaponSlots: 3,
   armorSlots: 2,
-  /** The shop sells plain gear and consumables. The one exception: the +N version of what the hero carries, when the gear schedule expects it (the tuning assumes it can be bought). False leaves +N gear to chests alone. */
-  shopScheduledMagic: true,
+  /** The shop sells plain gear and consumables, never permanent magic. True would add the +N version of what the hero carries when the gear schedule expects it. */
+  shopScheduledMagic: false,
   /** How many kinds of healing potion a shop sells (the strongest ones unlocked), and the most items on a hero's shelf. */
   shopPotionKinds: 2,
+  /** Other potions and oils on the shelf (Resistance, Giant Strength, Speed...), each of a different family, from the rarities unlocked at the depth. */
+  shopElixirSlots: 3,
+  /** The chance that a boss chest holds a magic find at silver (gold 1.5 times, bronze half), from the gated depth. Boss chests are where the powerful items are. */
+  bossChestMagicChance: 0.75,
   shopMaxItems: 12,
   /** First depth that sells Greater Healing. */
   greaterPotionMinDepth: 3,
@@ -1065,6 +1069,18 @@ export function shopStock(depth: number, pc?: PlayerCharacter): ItemDef[] {
   const potionIds = ['potion_healing', ...(depth >= g.greaterPotionMinDepth ? ['potion_greater_healing'] : []), ...Object.entries(g.potionMinDepth).filter(([, min]) => depth >= min).map(([id]) => id)];
   const potions = potionIds.map((id) => all.find((i) => i.id === id && i.cost > 0)).filter((i): i is ItemDef => !!i).sort((x, y) => x.cost - y.cost);
   out.push(...potions.slice(-g.shopPotionKinds));
+  // Other potions and oils: one each of a few families, from the rarities unlocked here (legendary ones are never sold).
+  const elixirs = all.filter((i) => {
+    const min = i.rarity ? g.wonderMinDepth[i.rarity] : undefined;
+    return i.kind === 'consumable' && i.consumable?.effect === 'timed' && i.cost > 0 && min !== undefined && depth >= min;
+  });
+  const family = (i: ItemDef): string => (i.id.startsWith('potion_of_resistance') ? 'resistance' : i.id.startsWith('potion_of_giant_strength') ? 'giant' : i.id);
+  const families = [...new Set(elixirs.map(family))];
+  for (const f of pickSome(families, g.shopElixirSlots, rng)) {
+    const members = elixirs.filter((i) => family(i) === f);
+    // Giant Strength: the strongest unlocked. Resistance: any one type.
+    out.push(f === 'giant' ? (members.sort((x, y) => y.cost - x.cost)[0] as ItemDef) : (members[rng.int(0, members.length - 1)] as ItemDef));
+  }
   // The scheduled gear for this level is always on offer (see gearSchedule.ts): with a hero, the upgrade of what it carries
   // (and the plain armor of a new tier, as the cheaper step); without one, that of every starting kit.
   const wanted = new Set<string>();
@@ -1359,19 +1375,26 @@ export function chestLoot(depth: number, rng: Rng, opts: ChestLootOptions = {}):
   if (potions > 0) items.push({ itemId: 'potion_healing', quantity: potions });
   // Magic find from the gated depth on (never on floors 1-3). A boss chest has a real chance and pays out of the depth's tier.
   const minDepth = ITEM_GATING.chestMagicMinDepth;
-  const chance = boss ? Math.min(0.4, ITEM_GATING.chestMagicChance * 3.3) : ITEM_GATING.chestMagicChance / (n === undefined ? 1 : Math.max(1, n));
+  const chance = boss ? ITEM_GATING.bossChestMagicChance : ITEM_GATING.chestMagicChance / (n === undefined ? 1 : Math.max(1, n));
   if (depth >= minDepth && g.magic > 0 && rng.chance(chance * g.magic)) {
     const tier = boss ? (depth >= ITEM_GATING.shopMagicMinDepth[3]! ? 3 : depth >= ITEM_GATING.shopMagicMinDepth[2]! ? 2 : 1) : 1;
     const wantArmor = boss;
+    // Named gear with a bonus (Dragon Scale Mail, Shield of the Cavalier) also waits for its rarity to unlock.
+    const rarityOpen = (i: ItemDef): boolean => {
+      const min = i.rarity && i.rarity !== 'common' ? ITEM_GATING.wonderMinDepth[i.rarity] : 0;
+      return min !== undefined && depth >= min;
+    };
     const finds = [...itemCatalog()]
-      .filter((i) => i.magicBonus === tier && (i.kind === 'weapon' || i.kind === 'shield' || (wantArmor && i.kind === 'armor')))
+      .filter((i) => i.magicBonus === tier && rarityOpen(i) && (i.kind === 'weapon' || i.kind === 'shield' || (wantArmor && i.kind === 'armor')))
       .sort((x, y) => x.id.localeCompare(y.id));
     // Half of the finds are one of the magic items of their own: a boss chest pays out of the top unlocked rarity, an ordinary chest of any unlocked one.
     const fit = opts.fit;
     const draw = (from: ItemDef[]): ItemDef => (fit ? rng.weighted(from, from.map((i) => Math.max(fit(i), 0))) : rng.pick(from));
     const wonders = wondersAt(depth);
     const topRank = wonders.reduce((m, i) => Math.max(m, RARITY_ORDER.indexOf(i.rarity as ItemRarity)), 0);
-    const wonderPool = boss ? wonders.filter((i) => RARITY_ORDER.indexOf(i.rarity as ItemRarity) === topRank) : wonders;
+    // The top unlocked rarity is the boss chest's; an ordinary chest holds the lesser ones (all of them while only one is unlocked).
+    const lesser = wonders.filter((i) => RARITY_ORDER.indexOf(i.rarity as ItemRarity) < topRank);
+    const wonderPool = boss ? wonders.filter((i) => RARITY_ORDER.indexOf(i.rarity as ItemRarity) === topRank) : lesser.length > 0 ? lesser : wonders;
     const pool = finds.length > 0 ? finds : [...itemCatalog()].filter((i) => i.magicBonus === 1 && (i.kind === 'weapon' || i.kind === 'shield')).sort((x, y) => x.id.localeCompare(y.id));
     // The coin between a wonder and plain +N gear is tossed as before. For a known hero, a side with nothing of use gives
     // way to the other when that one has something (deep down, an ordinary chest's +1 gear is behind what the hero carries).

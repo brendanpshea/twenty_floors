@@ -1,8 +1,17 @@
-import { describe, expect, it } from 'vitest';
-import { CHEST_RULE, applyLevelUp, computeAc, createCharacter, floorReward, getItem, longRest, suggestedLevelChoices } from '../rules';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { CHEST_RULE, ITEM_GATING, applyLevelUp, computeAc, createCharacter, floorReward, getItem, longRest, suggestedLevelChoices } from '../rules';
 import type { PlayerCharacter } from '../core/types';
 import { heroBuild } from './builds';
 import { scheduleGear, shop } from './run';
+
+// The shop no longer sells permanent magic (it is boss-chest treasure). These checks cover the optional variant in which
+// it sells the scheduled +N gear (ITEM_GATING.shopScheduledMagic), so the variant keeps working if it is turned back on.
+beforeAll(() => {
+  ITEM_GATING.shopScheduledMagic = true;
+});
+afterAll(() => {
+  ITEM_GATING.shopScheduledMagic = false;
+});
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 

@@ -13,6 +13,7 @@ import {
   longRest,
   previewLevelUp,
   shopStock,
+  ITEM_GATING,
   takeShortRest,
   shortRestGain,
   longRestGain,
@@ -337,11 +338,17 @@ describe('hub helpers', () => {
     for (let i = 1; i < s1.length; i++) expect(s1[i]!.cost).toBeGreaterThanOrEqual(s1[i - 1]!.cost);
   });
 
-  it('unlocks magic stock by bonus at the gated depths', () => {
-    expect(shopStock(4).some((i) => i.magicBonus === 1)).toBe(true);
-    expect(shopStock(8).some((i) => (i.magicBonus ?? 0) >= 2)).toBe(false);
-    expect(shopStock(9).some((i) => (i.magicBonus ?? 0) <= 2 && i.magicBonus)).toBe(true);
-    for (const d of [4, 5, 6, 7, 8]) expect(shopStock(d).every((i) => (i.magicBonus ?? 0) <= 1)).toBe(true);
+  it('sells no permanent magic; the scheduled +N gear only when that variant is on, by bonus at the gated depths', () => {
+    for (let d = 1; d <= 20; d++) expect(shopStock(d).some((i) => i.magicBonus || (i.rarity && i.kind !== 'consumable' && i.rarity !== 'common'))).toBe(false);
+    ITEM_GATING.shopScheduledMagic = true;
+    try {
+      expect(shopStock(4).some((i) => i.magicBonus === 1)).toBe(true);
+      expect(shopStock(8).some((i) => (i.magicBonus ?? 0) >= 2)).toBe(false);
+      expect(shopStock(9).some((i) => (i.magicBonus ?? 0) <= 2 && i.magicBonus)).toBe(true);
+      for (const d of [4, 5, 6, 7, 8]) expect(shopStock(d).every((i) => (i.magicBonus ?? 0) <= 1)).toBe(true);
+    } finally {
+      ITEM_GATING.shopScheduledMagic = false;
+    }
   });
 
   it('buys items without mutating and refuses when poor', () => {
