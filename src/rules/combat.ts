@@ -117,7 +117,7 @@ function withoutModifier(dice: string, amount: number): string {
 }
 
 /** Condition ids that take a creature's turn away: the "heavy effect" that Indomitable answers. */
-const TURN_LOSING: readonly Condition[] = ['incapacitated', 'paralyzed', 'stunned', 'unconscious'];
+const TURN_LOSING: readonly Condition[] = ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'unconscious'];
 
 /**
  * HOUSE RULE: a ranged attacker standing at least `minSteps` elevation steps
@@ -256,6 +256,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   let winner: Faction | null = null;
   const turn: TurnState = { creatureId: '', movementLeft: 0, actionUsed: false, bonusUsed: false };
   const reactionUsed = new Set<string>();
+  /** True when the creature cannot take a Reaction now: it has spent it, or it is slowed (HOUSE RULE in conditions.ts). */
+  const noReaction = (o: Creature): boolean => reactionUsed.has(o.id) || hasCondition(o, 'slowed');
   const spentRecharge = new Map<string, Set<string>>();
   const slowed = new Map<string, { by: string; cells: number }>();
   /** Weapon Mastery Vex: attacker id -> target it has advantage against, and attacker turn-ends left. */
@@ -441,11 +443,11 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (!isRangedAttack(a)) return undefined;
     return all.find((o) => {
       const reach = o.resources['_intercept']?.current;
-      if (reach === undefined || o === tgt || o === att || !isAlive(o) || isIncapacitated(o)) return false;
+      if (reach === undefined || o === tgt || o === att || !isAlive(o) || isIncapacitated(o) || hasCondition(o, 'slowed')) return false;
       if (isFriendlySide(o) !== isFriendlySide(tgt) || chebyshev(o.pos, tgt.pos) > reach) return false;
       if (hasFlag(o, 'interceptWeaponOnly') && isMagical(a)) return false;
       if (hasFlag(o, 'interceptFree')) return true;
-      return !reactionUsed.has(o.id) && o.hp * 3 >= o.maxHp;
+      return !noReaction(o) && o.hp * 3 >= o.maxHp;
     });
   }
 
@@ -533,7 +535,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (!isFriendlySide(c)) return undefined;
     for (const o of all) {
       const pool = o.resources['burstOfIngenuity'];
-      if (!pool || pool.current <= 0 || !isAlive(o) || isIncapacitated(o) || reactionUsed.has(o.id) || !isFriendlySide(o)) continue;
+      if (!pool || pool.current <= 0 || !isAlive(o) || isIncapacitated(o) || noReaction(o) || !isFriendlySide(o)) continue;
       if (chebyshev(o.pos, c.pos) > 6) continue;
       return { helper: o, bonus: hasFlag(o, 'burstGreater') ? 4 : 2 };
     }
@@ -616,7 +618,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       amount = 0;
       modifier = 'immune';
     } else {
-      if (target.resistances.includes(type)) {
+      if (target.resistances.includes(type) || hasCondition(target, 'petrified')) {
         amount = Math.floor(amount / 2);
         modifier = 'resisted';
       }
@@ -705,7 +707,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     // `rounds` counts the source's own following turns: applied during its own turn, the current one does not count.
     if (rounds !== null && source.id === turn.creatureId && source.id !== target.id) rounds += 1;
     target.conditions = target.conditions.filter((x) => x.condition !== a.condition);
-    target.conditions.push(makeCondition(a.condition, rounds, source.id, a.saveEnds));
+    target.conditions.push(makeCondition(a.condition, rounds, source.id, a.saveEnds, a.thenOnFail));
     emit({ type: 'conditionAdded', creatureId: target.id, condition: a.condition });
     if (INCAPACITATING.includes(a.condition)) endConcentration(target, 'incapacitated');
   }
@@ -782,7 +784,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
 
   function shieldReady(t: Creature): boolean {
     const a = t.actions.find((x) => x.effects?.includes('shield'));
-    if (!a?.uses || !isAlive(t) || isIncapacitated(t) || reactionUsed.has(t.id) || shielded.has(t.id)) return false;
+    if (!a?.uses || !isAlive(t) || isIncapacitated(t) || noReaction(t) || shielded.has(t.id)) return false;
     return (t.resources[a.uses.resource]?.current ?? 0) >= a.uses.amount;
   }
 
@@ -1378,7 +1380,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       const orb = fx.includes('chromaticOrbChoice') ? chromaticOrbType(tgt) : undefined;
       if (orb) log(`${att.name} shapes a ${orb} orb.`);
       // Uncanny Dodge (reaction): the target halves the damage of one attack it can see.
-      const dodge = hasFlag(tgt, 'uncannyDodge') && isAlive(tgt) && !isIncapacitated(tgt) && !reactionUsed.has(tgt.id);
+      const dodge = hasFlag(tgt, 'uncannyDodge') && isAlive(tgt) && !isIncapacitated(tgt) && !noReaction(tgt);
       if (dodge) {
         reactionUsed.add(tgt.id);
         feature(tgt, 'uncannyDodge', 'Uncanny Dodge', { targetId: att.id });
@@ -1568,6 +1570,12 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   }
 
   /** A weapon attack that belongs to the Attack action and so draws on Extra Attack (not spells, not off-hand extras). */
+  /** Attacks one Attack action gives: Extra Attack plus Haste's one, but a slowed creature makes only one. */
+  function attackBudget(c: Creature): number {
+    if (hasCondition(c, 'slowed')) return 1;
+    return (c.resources['_attacks']?.current ?? 1) + (hasFlag(c, 'hasteAttack') ? 1 : 0);
+  }
+
   function isPoolAttack(c: Creature, a: ActionDef): boolean {
     return (c.resources['_attacks'] !== undefined || hasFlag(c, 'hasteAttack')) && a.cost === 'action' && !isSpellAction(a) && (a.id.startsWith('atk_') || a.id.startsWith('throw_') || a.id === 'unarmed' || isShove(a));
   }
@@ -1602,6 +1610,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       if (carried && (thrownThisTurn.get(itemId) ?? 0) >= carried.current) return { ok: false, reason: `No more ${carried.name} to throw` };
     }
     if (cost === 'bonus' && turn.bonusUsed) return { ok: false, reason: 'No bonus action left' };
+    // Slowed: an action or a bonus action on its turn, not both.
+    if (hasCondition(c, 'slowed') && ((cost === 'action' && turn.bonusUsed) || (cost === 'bonus' && turn.actionUsed))) return { ok: false, reason: 'Slowed: action or bonus action, not both' };
     if (a.effects?.includes('actionSurge')) {
       if (!turn.actionUsed) return { ok: false, reason: 'Use your action first' };
       if (surgeUsed.has(turnKey())) return { ok: false, reason: 'Action Surge already used this turn' };
@@ -1626,11 +1636,28 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   function checkOver(): boolean {
     if (over) return true;
     // The fight is lost when the HERO falls (after Last Stand), even if an ally still stands.
-    const friendly = all.some((c) => isAlive(c) && c.faction === 'player');
-    const enemy = all.some((c) => isAlive(c) && !isFriendlySide(c));
+    // HOUSE RULE: a petrified creature stays petrified until the fight ends (there is no Greater Restoration in the game), so
+    // it counts as out of the fight, on either side: a fight where the hero is dead or petrified is lost, and one where every
+    // enemy is dead or petrified is won.
+    const friendly = all.some((c) => isAlive(c) && c.faction === 'player' && !hasCondition(c, 'petrified'));
+    const enemy = all.some((c) => isAlive(c) && !isFriendlySide(c) && !hasCondition(c, 'petrified'));
     if (enemy && friendly) return false;
     over = true;
     winner = enemy ? 'enemy' : 'player';
+    if (winner === 'player') {
+      // After a won fight the player's side is restored; petrified enemies count as defeated (they are dead to the game).
+      for (const c of all) {
+        if (!isAlive(c)) continue;
+        const stone = c.conditions.find((x) => x.condition === 'petrified');
+        if (!stone) continue;
+        if (isFriendlySide(c)) removeCondition(c, stone);
+        else {
+          c.hp = 0;
+          c.dead = true;
+          emit({ type: 'death', creatureId: c.id });
+        }
+      }
+    }
     emit({ type: 'combatEnd', winner });
     return true;
   }
@@ -1754,6 +1781,16 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     for (const cond of [...c.conditions]) {
       if (!cond.saveEnds || !isAlive(c)) continue;
       if (rollSave(c, cond.saveEnds.ability, cond.saveEnds.dc, cond.condition)) removeCondition(c, cond);
+      else if (cond.thenOnFail) {
+        // Second failure of a two-stage effect (Petrifying Gaze): the condition becomes the worse one, with no further save.
+        const next = cond.thenOnFail.condition;
+        removeCondition(c, cond);
+        if (!c.conditionImmunities.includes(next)) {
+          c.conditions.push(makeCondition(next, null, cond.sourceId));
+          emit({ type: 'conditionAdded', creatureId: c.id, condition: next });
+          if (INCAPACITATING.includes(next)) endConcentration(c, 'incapacitated');
+        }
+      }
     }
     // Sleep stage 1 ends with the target's next turn; a second failed save puts it to sleep (the HOUSE RULE repeat save then applies each turn).
     const sl = sleepers.get(c.id);
@@ -1923,7 +1960,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       if (!hasCondition(c, 'disengaged') && !noProvoke) {
         for (const h of all) {
           if (!isAlive(c)) break;
-          if (!isAlive(h) || !areHostile(c, h) || reactionUsed.has(h.id) || isIncapacitated(h) || noOpportunity.has(h.id)) continue;
+          if (!isAlive(h) || !areHostile(c, h) || noReaction(h) || isIncapacitated(h) || noOpportunity.has(h.id)) continue;
           const oa = opportunityAction(h);
           if (!oa || oa.targeting.kind !== 'creature') continue;
           const reach = oa.targeting.range;
@@ -1963,7 +2000,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
           turn.actionUsed = true;
           atk.open = true;
           // Haste: one more weapon attack in the turn.
-          atk.left = (c.resources['_attacks']?.current ?? 1) - 1 + (hasFlag(c, 'hasteAttack') ? 1 : 0);
+          atk.left = attackBudget(c) - 1;
           atk.loadingUsed = false;
         }
         if (a.effects?.includes('loading')) atk.loadingUsed = true;
@@ -2050,7 +2087,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       }
     };
     if (a.multiattack) {
-      runSub(a.multiattack);
+      // Slowed: only the first attack of the Multiattack (the first listed action the creature has).
+      runSub(hasCondition(c, 'slowed') ? a.multiattack.filter((id) => findAction(c, id)).slice(0, 1) : a.multiattack);
       return;
     }
     // HOUSE RULE: the SRD lets a shove replace one attack of the Attack action; for a monster with Multiattack it replaces
@@ -2266,7 +2304,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     const haste = hasFlag(c, 'hasteAttack') ? 1 : 0;
     if (!pool && !haste) return turn.actionUsed ? 0 : 1;
     if (atk.open && atk.left > 0) return atk.left;
-    return turn.actionUsed ? 0 : (pool?.current ?? 1) + haste;
+    return turn.actionUsed ? 0 : attackBudget(c);
   });
   return api;
 }

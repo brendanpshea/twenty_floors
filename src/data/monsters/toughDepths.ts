@@ -53,9 +53,9 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     role: 'elite',
     description: 'A pale, flickering spider that seems to slip in and out of the walls of the chasm before it strikes.',
   },
-  // Simplified: Petrifying Gaze is a bonus-action 30-ft cone (6 cells) that applies Restrained with a
-  // Constitution save-ends at DC 12 (the nearest expressible effect for the first failure; the second-failure
-  // Petrified state is not modelled, and neither is the reflection clause). It is a plain recharge 4 to 6.
+  // Simplified: Petrifying Gaze is a bonus-action 30-ft cone (6 cells), two-stage as printed: the first failure applies
+  // Restrained, the target repeats the Constitution save (DC 12) at the end of its next turn, and a second failure turns
+  // it to Petrified. The reflection clause is not modelled. It is a plain recharge 4 to 6.
   {
     id: 'basilisk',
     name: 'Basilisk',
@@ -98,7 +98,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
         targeting: { kind: 'point', range: 0, area: { shape: 'cone', size: 6 } },
         recharge: 4,
         save: { ability: 'con', dc: 12, halfOnSave: false },
-        applies: { condition: 'restrained', saveEnds: { ability: 'con', dc: 12 } },
+        applies: { condition: 'restrained', saveEnds: { ability: 'con', dc: 12 }, thenOnFail: { condition: 'petrified' } },
       },
     ],
     visual: { model: 'dino', tint: 0x80d0b0, scale: 1.2 },

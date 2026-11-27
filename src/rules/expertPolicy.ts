@@ -447,7 +447,7 @@ function archerCommand(ctx: Ctx): Command | null {
 /** Walking away from the enemies next to the hero provokes nothing: none is adjacent, they are all helpless, or the hero Disengaged. */
 function canLeaveFree(ctx: Ctx): boolean {
   if (hasCondition(ctx.c, 'disengaged')) return true;
-  return ctx.enemies.filter((e) => chebyshev(ctx.c.pos, e.pos) <= 1).every((e) => e.conditions.some((x) => ['incapacitated', 'paralyzed', 'stunned', 'unconscious'].includes(x.condition)));
+  return ctx.enemies.filter((e) => chebyshev(ctx.c.pos, e.pos) <= 1).every((e) => e.conditions.some((x) => ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'unconscious'].includes(x.condition)));
 }
 
 export function makeExpertPolicy(options: ExpertOptions = {}): (combat: CombatApi, nav: NavGrid) => Command {

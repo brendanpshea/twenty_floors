@@ -510,8 +510,11 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   },
   // Simplified: drops Immutable Form and Magic Resistance. Multiattack is two Slams or two Force Bolts (any mix is not
   // expressible, so two separate multiattacks). Force Bolt has a single range of 120 ft., modelled as range 24 and
-  // longRange 25. The Slow bonus action is dropped (there is no slowed condition). Exhaustion and Petrified immunities
-  // are not expressible.
+  // longRange 25. Slow (bonus action, Recharge 5-6) casts the Slow spell at DC 17 as printed: a Wisdom save for each creature
+  // in a 40-ft. cube within 120 ft. (a sphere of radius 4 cells, 24 cells away, as the Slow spell is modelled), failure
+  // applies 'slowed' (see conditions.ts for exactly what that keeps and drops) with the spell's repeat Wisdom save at the end of each of the
+  // target's turns; the six-creature cap, the golem's concentration and the 1-minute limit are not modelled, and the
+  // area also catches the golem's own allies. The Petrified immunity is kept; the Exhaustion immunity is not expressible.
   {
     id: 'stone_golem',
     name: 'Stone Golem',
@@ -529,7 +532,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     resistances: [],
     vulnerabilities: [],
     immunities: ['poison', 'psychic'],
-    conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'poisoned'],
+    conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'petrified', 'poisoned'],
     traits: [],
     actions: [
       {
@@ -572,6 +575,17 @@ export const TOUGH_CRYPT: MonsterDef[] = [
         targeting: { kind: 'creature', melee: false, range: 24, longRange: 25 },
         attack: { bonus: 9 },
         damage: [{ dice: '4d10', type: 'force' }],
+      },
+      {
+        id: 'slow',
+        name: 'Slow',
+        description: 'A grinding chant bends time around the intruders, dragging every step and swing into slow motion.',
+        icon: 'special',
+        cost: 'bonus',
+        targeting: { kind: 'point', range: 24, area: { shape: 'sphere', size: 4 } },
+        recharge: 5,
+        save: { ability: 'wis', dc: 17, halfOnSave: false },
+        applies: { condition: 'slowed', saveEnds: { ability: 'wis', dc: 17 } },
       },
     ],
     visual: { model: 'ogre', tint: 0xb0c8a0, scale: 1.2 },

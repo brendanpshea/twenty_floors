@@ -1,7 +1,7 @@
 import type { Ability, ActiveCondition, Condition, Creature } from '../core/types';
 import { hasFlag } from './util';
 
-export const INCAPACITATING: readonly Condition[] = ['incapacitated', 'paralyzed', 'stunned', 'unconscious'];
+export const INCAPACITATING: readonly Condition[] = ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'unconscious'];
 
 export type RollMode = 'normal' | 'advantage' | 'disadvantage';
 
@@ -13,16 +13,28 @@ export function isIncapacitated(c: Creature): boolean {
   return c.conditions.some((x) => INCAPACITATING.includes(x.condition));
 }
 
-/** Speed is 0 while restrained, grappled or incapacitated. */
-export function effectiveSpeed(c: Creature): number {
-  if (isIncapacitated(c) || hasCondition(c, 'restrained') || hasCondition(c, 'grappled')) return 0;
-  return c.speed;
+/**
+ * HOUSE RULE: 'slowed' is one game condition standing for the SRD's slowing effects (the Slow spell, the Stone Golem's Slow,
+ * the copper dragons' Slowing Breath). What it keeps, all common to those texts: Speed halved (round down, at least 1 cell),
+ * no Reactions, an action OR a bonus action per turn (not both), and at most one attack with the Attack action (a Multiattack
+ * performs only its first attack; the combat engine applies these three). What it drops: the Slow spell's -2 to AC and
+ * Dexterity saves (the dragons' breath and the golem's stat block do not state it, so the condition does not carry it), the
+ * 25 percent spell failure, and the spell's repeated save (the breath simply lasts until the end of the target's next turn).
+ */
+export function slowedSpeed(speed: number): number {
+  return speed > 0 ? Math.max(1, Math.floor(speed / 2)) : 0;
 }
 
-/** Paralyzed, stunned and unconscious creatures automatically fail Strength and Dexterity saves. */
+/** Speed is 0 while restrained, grappled or incapacitated (petrified included); halved while slowed. */
+export function effectiveSpeed(c: Creature): number {
+  if (isIncapacitated(c) || hasCondition(c, 'restrained') || hasCondition(c, 'grappled')) return 0;
+  return hasCondition(c, 'slowed') ? slowedSpeed(c.speed) : c.speed;
+}
+
+/** Paralyzed, petrified, stunned and unconscious creatures automatically fail Strength and Dexterity saves. */
 export function autoFailsSave(c: Creature, ability: Ability): boolean {
   if (ability !== 'str' && ability !== 'dex') return false;
-  return hasCondition(c, 'paralyzed') || hasCondition(c, 'stunned') || hasCondition(c, 'unconscious');
+  return hasCondition(c, 'paralyzed') || hasCondition(c, 'petrified') || hasCondition(c, 'stunned') || hasCondition(c, 'unconscious');
 }
 
 export function mergeMode(adv: boolean, dis: boolean): RollMode {
@@ -45,7 +57,7 @@ export function attackModeFromConditions(
   }
   if (hasCondition(target, 'blinded')) adv = true;
   if (hasCondition(target, 'invisible')) dis = true;
-  for (const c of ['paralyzed', 'stunned', 'unconscious', 'restrained'] as const) {
+  for (const c of ['paralyzed', 'petrified', 'stunned', 'unconscious', 'restrained'] as const) {
     if (hasCondition(target, c)) adv = true;
   }
   if (hasCondition(target, 'prone')) {
@@ -93,9 +105,11 @@ export function makeCondition(
   rounds: number | null,
   sourceId?: string,
   saveEnds?: { ability: Ability; dc: number },
+  thenOnFail?: { condition: Condition },
 ): ActiveCondition {
   const ac: ActiveCondition = { condition, rounds };
   if (sourceId !== undefined) ac.sourceId = sourceId;
   if (saveEnds) ac.saveEnds = { ...saveEnds };
+  if (thenOnFail) ac.thenOnFail = { ...thenOnFail };
   return ac;
 }

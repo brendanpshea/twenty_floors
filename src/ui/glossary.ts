@@ -14,6 +14,8 @@ export const GLOSSARY: Record<string, string> = {
   prone: 'Knocked down. Melee attacks against you have advantage; standing up costs half your movement.',
   restrained: 'Held in place. You cannot move, attacks against you have advantage, and yours have disadvantage.',
   paralyzed: 'Cannot move or act. Attacks against you have advantage and hits up close are critical.',
+  petrified: 'Turned to stone. You cannot move or act, attacks against you have advantage, you fail Strength and Dexterity saves, and you resist all damage. It lasts until the fight ends.',
+  slowed: 'Half speed, no reactions, one action or bonus action per turn, and only one attack when you attack.',
   cover: 'Something in the way that makes a target harder to hit. Half cover adds 2 to Armor Class, three-quarters adds 5.',
   'hit dice': 'Your recovery pool. A short rest spends them to heal; a long rest restores them.',
   'short rest': 'A breather. Spend Hit Dice to heal and regain short-rest abilities. Not with an enemy in view.',

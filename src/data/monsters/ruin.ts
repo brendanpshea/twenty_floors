@@ -275,12 +275,12 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     description: 'A two-legged, bat-winged cousin of true dragons that perches on crumbling arches and strikes with a venomous tail.',
   },
   // Simplified: drops Skills and the reflection clause of Petrifying Gaze. Petrifying Gaze is a bonus-action 30-ft.
-  // cone (6 cells) with Recharge 5-6; Restrained with a Constitution save-ends at DC 13 is the nearest expressible
-  // effect for the first failure, and the second-failure Petrified state is not modelled. The SRD Multiattack is
+  // cone (6 cells) with Recharge 5-6; two-stage as printed: the first failure applies Restrained, the target repeats the
+  // Constitution save (DC 13) at the end of its next turn, and a second failure turns it to Petrified. The SRD Multiattack is
   // two Claws and a Snake Hair, or three Poison Rays, so there are separate melee and ranged multiattacks. Poison
   // Ray has a single range of 150 ft. (30 cells) plus 1 for the long range.
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a snake-haired woman model (none available); hero_rogue body, green, as stand-in (the roster doc
-  // drops the Medusa for lack of a model and a petrified condition).
+  // drops the Medusa for lack of a model).
   {
     id: 'medusa',
     name: 'Medusa',
@@ -361,7 +361,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         targeting: { kind: 'point', range: 0, area: { shape: 'cone', size: 6 } },
         recharge: 5,
         save: { ability: 'con', dc: 13, halfOnSave: false },
-        applies: { condition: 'restrained', saveEnds: { ability: 'con', dc: 13 } },
+        applies: { condition: 'restrained', saveEnds: { ability: 'con', dc: 13 }, thenOnFail: { condition: 'petrified' } },
       },
     ],
     visual: { model: 'hero_rogue', tint: 0x60e8a0, scale: 1.05 },

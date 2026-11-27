@@ -270,9 +270,11 @@ export type Condition =
   | 'incapacitated'
   | 'invisible'
   | 'paralyzed'
+  | 'petrified'
   | 'poisoned'
   | 'prone'
   | 'restrained'
+  | 'slowed'
   | 'stunned'
   | 'unconscious'
   /** Took the Dodge action: attacks against it have disadvantage until its next turn. */
@@ -359,6 +361,11 @@ export interface ActionDef {
     rounds?: number;
     /** If set, the target repeats this save at the end of each of its turns to end it. */
     saveEnds?: { ability: Ability; dc: number };
+    /**
+     * Two-stage effects (Petrifying Gaze): used with `saveEnds`. At the end-of-turn save a success ends the condition as
+     * usual; a failure replaces it with this condition, which has no save.
+     */
+    thenOnFail?: { condition: Condition };
   };
   /**
    * Further conditions from the same hit or failed save (no extra roll), same entry shape as `applies`.
@@ -393,6 +400,8 @@ export interface ActiveCondition {
   saveEnds?: { ability: Ability; dc: number };
   /** Ends as soon as this condition, from the same source, leaves the holder (ActionDef.alsoApplies endsWith). */
   endsWith?: Condition;
+  /** Condition that replaces this one when the `saveEnds` save fails (see `ActionDef.applies.thenOnFail`). */
+  thenOnFail?: { condition: Condition };
 }
 
 export interface ResourcePool {

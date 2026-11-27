@@ -71,7 +71,7 @@ export const DEEP_DRAGONS: MonsterDef[] = [
     role: 'elite',
     description: 'A talkative, sun-bright dragon that would rather bore its prey to sleep than fight, but will roast it if pressed.',
   },
-  // Simplified: Drops Fly, Climb, Blindsight, Darkvision and skills (walks at 40 ft.). Rend reach is 10 ft. (2 cells). Three Rend attacks as printed. Acid Breath is a 40-ft.-long, 5-ft.-wide line (8 cells), Recharge 5-6. Slowing Breath (Constitution save, no Reactions, halved Speed, one action or bonus action per turn) is dropped: no condition or field expresses it. Elite rather than boss, as no legendary actions are modelled.
+  // Simplified: Drops Fly, Climb, Blindsight, Darkvision and skills (walks at 40 ft.). Rend reach is 10 ft. (2 cells). Three Rend attacks as printed. Acid Breath is a 40-ft.-long, 5-ft.-wide line (8 cells), Recharge 5-6. Slowing Breath is a 30-ft. cone (6 cells), Constitution DC 14, applying 'slowed' (see conditions.ts) until the end of the target's next turn (rounds 1); it replaces one Rend in its own Multiattack, as printed. Elite rather than boss, as no legendary actions are modelled.
   {
     id: 'young_copper_dragon',
     name: 'Young Copper Dragon',
@@ -102,6 +102,15 @@ export const DEEP_DRAGONS: MonsterDef[] = [
         multiattack: ['rend', 'rend', 'rend'],
       },
       {
+        id: 'multiattack_slowing',
+        name: 'Multiattack (Slowing Breath)',
+        description: 'The dragon rends twice and breathes a sluggish haze in place of the third strike.',
+        icon: 'special',
+        cost: 'action',
+        targeting: { kind: 'creature', melee: true, range: 2 },
+        multiattack: ['rend', 'rend', 'slowing_breath'],
+      },
+      {
         id: 'rend',
         name: 'Rend',
         description: 'Claws that scrape like a prankster blade, always aimed a little too close.',
@@ -123,6 +132,16 @@ export const DEEP_DRAGONS: MonsterDef[] = [
         recharge: 5,
         save: { ability: 'dex', dc: 14, halfOnSave: true },
         damage: [{ dice: '9d8', type: 'acid' }],
+      },
+      {
+        id: 'slowing_breath',
+        name: 'Slowing Breath',
+        description: 'A thick, honey-sweet vapour that makes every limb feel as if it were wading through syrup.',
+        icon: 'breath',
+        cost: 'action',
+        targeting: { kind: 'point', range: 0, area: { shape: 'cone', size: 6 } },
+        save: { ability: 'con', dc: 14, halfOnSave: false },
+        applies: { condition: 'slowed', rounds: 1 },
       },
     ],
     visual: { model: 'dragon_gold', tint: 0xe87030, scale: 1.35 },

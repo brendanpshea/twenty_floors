@@ -2860,10 +2860,10 @@ const BASE_MONSTERS: MonsterDef[] = [
   },
   // Simplified: Gore drops the "moved 20+ feet straight" Prone rider and the Trample bonus action (which needs a
   // Prone target; neither the charge nor that precondition can be expressed). Petrifying Breath is a cone from
-  // the gorgon (30 ft. = 6 cells) with Recharge 5-6; its first-failure effect (Restrained, repeat the save at
-  // the end of its next turn) is the nearest expressible effect, so it applies 'restrained' with a
-  // Constitution save-ends at DC 15; the second failure's Petrified is not modelled. Exhaustion and Petrified
-  // condition immunities are not expressible.
+  // the gorgon (30 ft. = 6 cells) with Recharge 5-6; two-stage as printed: the first failure applies Restrained, the
+  // target repeats the Constitution save (DC 15) at the end of its next turn, a success ends it and a second failure
+  // turns it to Petrified (see conditions.ts for the petrified house rule). The Petrified immunity is kept; the
+  // Exhaustion immunity is not expressible.
   {
     id: 'gorgon',
     name: 'Gorgon',
@@ -2881,7 +2881,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     resistances: [],
     vulnerabilities: [],
     immunities: [],
-    conditionImmunities: [],
+    conditionImmunities: ['petrified'],
     traits: [],
     actions: [
       {
@@ -2903,7 +2903,7 @@ const BASE_MONSTERS: MonsterDef[] = [
         targeting: { kind: 'point', range: 0, area: { shape: 'cone', size: 6 } },
         recharge: 5,
         save: { ability: 'con', dc: 15, halfOnSave: false },
-        applies: { condition: 'restrained', saveEnds: { ability: 'con', dc: 15 } },
+        applies: { condition: 'restrained', saveEnds: { ability: 'con', dc: 15 }, thenOnFail: { condition: 'petrified' } },
       },
     ],
     visual: { model: 'bull', tint: 0xc0c8e0, scale: 1.3 },

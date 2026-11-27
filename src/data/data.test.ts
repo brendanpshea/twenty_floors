@@ -480,6 +480,20 @@ describe('monster ranged, spell and area actions', () => {
     }
   });
 
+  it('uses thenOnFail only together with saveEnds, and models the slowing and petrifying monsters', () => {
+    for (const m of MONSTERS) {
+      for (const a of m.actions) {
+        if (a.applies?.thenOnFail) expect(a.applies.saveEnds, `${m.id}.${a.id} thenOnFail needs saveEnds`).toBeDefined();
+      }
+    }
+    const act = (mid: string, aid: string) => MONSTERS.find((m) => m.id === mid)!.actions.find((a) => a.id === aid)!;
+    for (const [mid, aid, dc] of [['basilisk', 'petrifying_gaze', 12], ['medusa', 'petrifying_gaze', 13], ['gorgon', 'petrifying_breath', 15]] as const) {
+      expect(act(mid, aid).applies, `${mid}.${aid}`).toEqual({ condition: 'restrained', saveEnds: { ability: 'con', dc }, thenOnFail: { condition: 'petrified' } });
+    }
+    expect(act('stone_golem', 'slow').applies).toMatchObject({ condition: 'slowed', saveEnds: { ability: 'wis', dc: 17 } });
+    expect(act('young_copper_dragon', 'slowing_breath').applies).toEqual({ condition: 'slowed', rounds: 1 });
+  });
+
   it('gives recharge and uses values the engine understands', () => {
     for (const m of MONSTERS) {
       for (const a of m.actions) {
