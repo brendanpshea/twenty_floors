@@ -389,15 +389,15 @@ describe('useConsumable', () => {
 
 describe('chestLoot', () => {
   it('always holds a potion, scales gold with depth and is deterministic', async () => {
-    const { chestLoot } = await import('./character');
+    const { chestLoot, CHEST_RULE } = await import('./character');
     const { Rng } = await import('../core/rng');
     let seconds = 0;
     for (let i = 0; i < 300; i++) {
       for (const depth of [1, 2, 3]) {
         const a = chestLoot(depth, new Rng(i));
         expect(a).toEqual(chestLoot(depth, new Rng(i)));
-        expect(a.gold).toBeGreaterThanOrEqual(12 + 8 * depth);
-        expect(a.gold).toBeLessThanOrEqual(24 + 16 * depth);
+        expect(a.gold).toBeGreaterThanOrEqual(CHEST_RULE.goldMin + CHEST_RULE.goldPerDepthMin * depth);
+        expect(a.gold).toBeLessThanOrEqual(CHEST_RULE.goldMax + CHEST_RULE.goldPerDepthMax * depth);
         const potions = a.items.find((s) => s.itemId === 'potion_healing')?.quantity ?? 0;
         expect(potions).toBeGreaterThanOrEqual(1);
         if (potions === 2) seconds++;

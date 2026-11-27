@@ -1168,8 +1168,11 @@ export interface HudModel {
     faction?: Faction;
     /** Cover it has against the hero from where the hero stands: the bonus to its AC and Dexterity saves. */
     cover?: 0 | 2 | 5;
-    /** With a push selected: the hazard the target would be shoved into, and the expected damage. */
-    pushInto?: { hazard: Hazard; damage: Dice };
+    /**
+     * With a push selected: what the target would be shoved into. `damage` is
+     * given for a fall, lava, fire or spikes; `prone` for water.
+     */
+    pushInto?: { hazard: Hazard | 'fire' | 'spikes'; damage?: Dice; prone?: boolean };
     /** How it fights, once the hero has seen it act or stands close enough to judge. */
     tactic?: MonsterTactic;
     /** 0..1 hit chance with the selected action, if one is selected. */

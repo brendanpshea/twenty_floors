@@ -1,43 +1,71 @@
 # Status and handoff
 
-Last updated 26 November 2026. A snapshot for whoever picks the work up next,
+Last updated 27 November 2026. A snapshot for whoever picks the work up next,
 in a new session or on another machine. `docs/DESIGN.md` has the design and
 its decisions; this file only says where things stand.
 
 ## What is on `main`
 
-Playable three-floor slice, deployed by GitHub Actions to
+The full game, floors 1 to 20, deployed by GitHub Actions to
 https://brendanpshea.github.io/twenty_floors/ on every push to `main`
 (the workflow runs type-check, tests and build first, on Node 24).
 
-- Fighter, levels 1 to 3; Human, Dwarf, Elf; four backgrounds.
-- Three generated floors with rest sites and one set piece each (five kinds per
-  theme).
-- Turn-based combat, long rests at rest sites, Hit Dice short rests, Last Stand.
-- All SRD 5.2.1 weapons and armor with +1 to +3 variants; six weapon masteries.
-- Twelve monsters with open models; kitbashed goblin variants.
-- Synthesized sound, pause menu, saves, autoplay bot (`?autoplay=1`).
+- A Champion Fighter, levels 1 to 20, built from one of three play-style
+  presets; Human, Dwarf, Elf; four backgrounds with origin feats, including
+  Magic Initiate (26 cantrips and level 1 spells).
+- Twenty generated floors across fifteen themes. Floors 1 to 3 keep fixed
+  themes; from floor 4 the themes vary with the run seed.
+- A companion from level 4 (Sphinx of Wonder, Pseudodragon or Blink Dog) with
+  its own level table, kit and player-chosen stance.
+- Terrain as a weapon: Shove, falls and lava (1d6 per floor depth), slams into
+  fire and spikes, prone in water, ice slides, cover. Every theme places push
+  targets near its fights.
+- Monsters fight by tactic (brute, skirmisher, archer, caster, leader, lurker,
+  guard) and stand in formations.
+- Long rests at rest sites, Hit Dice short rests, Last Stand; all SRD weapons
+  and armor with +1 to +3 variants; all eight weapon masteries; weapon sets.
+- About 190 SRD monsters; 107 of the deeper ones have their own model or an
+  honest variant, 47 still use a stand-in.
+- Synthesized sound, pause menu, saves, an autoplay bot (`?autoplay=1`,
+  `?expert=1` for the terrain-aware policy).
 
-Added on 27 November (rules in place; the game layer does not use all of it yet):
+Dev URL parameters: `?depth=N`, `?level=N`, `?theme=<id>`, `?seed=N`,
+`?preset=`, `?background=`, `?spell=`, `?companion=`, `?stance=`,
+`?reveal=1`, `?peace=1`, `?floors=N`.
 
-- Origin feats from backgrounds: Magic Initiate (Cleric, Wizard), Savage
-  Attacker, Alert. A spell engine for 26 cantrips and level 1 spells with
-  concentration and an automatic Shield reaction.
-- Play-style presets (Defender, Great Weapon, Archer) in creation.
-- Weapon sets: main hand, off hand and ranged slot together; two-weapon
-  fighting with the Light property and Nick.
-- Models for 107 of the deeper monsters and for the three companions.
+## How it is tuned (27 November 2026, approximate)
 
-Still to wire in `src/game`: casting while exploring (`castOutOfCombat`),
-a concentration indicator, cast animation and sound, `migrateEquipment` on
-load, and `renderer.preloadModels` before the loading veil drops.
+Each fixed-run floor's room budget was fitted on the real engine to a target
+first-attempt clear rate for the expert scripted hero with a Blink Dog: 85%
+on floors 1 to 3, 75% on 4 to 10, 67% on 11 to 19, 58% on floor 20. The fit
+measured each floor on its own at 24 to 40 runs, so a floor's rate is known
+only to within about ten points. On fresh seeds every floor landed within 12
+points of its band (expert 57% to 88%; naive 46% to 92%).
 
-The hub and HUD also contain UI for companions (panel, stance control, hub
-picker). Nothing feeds it yet: companion data is in `src/data/companions.ts`
-with empty kits, and the rules and game work has not started. See "Companions"
-in `docs/DESIGN.md`.
+- Themes off the fixed run use the multiplier of the nearest tuned floor and
+  are extrapolated, not measured. Two spot checks were far off after a
+  correction: marsh at floor 12 (17%) and peaks at floor 15 (46%).
+- Gold was scaled up about four times so a sensible shopper can afford the
+  gear the tuning assumes. Late-game gold may pile up.
+- Re-run the fit with
+  `FIT=1 FIT_MULTS=... FIT_RUNS=... npx vitest run src/balance/floorFit`
+  and merge the results written to the temp directory.
 
-## Floors 4 to 20: nine more themes (content only, not reachable yet)
+Not achieved by the re-tune:
+
+- Bosses are not the most dangerous fight from about floor 8 on; ordinary
+  rooms cause nearly all deaths. Deep bosses need a mechanic the engine lacks
+  (for example an extra boss action each round while an escort lives).
+- The companion goes down two to four times per floor attempt, not once.
+- The Archer preset is far behind (about 54%, 50% and 42% on floors 3, 6 and
+  10 against roughly 90%, 71% and 88% for the Defender).
+- Thinking pays on the deep floors (the expert leads the naive hero by 8 to 23
+  points from about floor 8) but not measurably on floors 1 to 7.
+
+Next tuning pass (agreed with the owner): measure health lost per fight
+rather than whole-floor clear rates, which needs far fewer runs.
+
+## Floors 4 to 20: the themes
 
 Every floor now has a theme. Nine themes beyond the first three exist end to end except for play:
 
@@ -251,25 +279,18 @@ parameters reach any floor: `?depth=1..20`, `?theme=<id>`, `?peace=1`
 
 ## Work in order from here
 
-The branch `wip/spell-engine` is superseded: that work is finished and on
-`main`. Remaining, in order (the owner wants one re-tune at the end, not
-piecemeal):
+Agreed with the owner, to make the game reward thinking (see
+`docs/DESIGN.md`, "Making it a thinking game"). Terrain, tactics and
+formations are done. Remaining, in order:
 
-1. Done (27 November): Fighter levels 4 to 20 (Champion) and the companion
-   engine in `src/rules` (level table, three kits, stances, return at 1 HP).
-   The engine casts twelve of the level 2 to 5 spells, for companions.
-2. Game layer: the companion on the floor, in fights and in saves; level-ups
-   past 3; the new sound ids.
-3. Raise `MILESTONE_FLOORS` to 20 and re-tune every floor on the real engine.
-   Measured with the real engine, hero plus companion, floors 4 to 20 are far
-   from playable as tuned by the quick model: first-attempt clears are about
-   10% on floors 4 and 5, 0% on 18 and 19, and 100% on 16. Deaths come from
-   ordinary rooms, not bosses. Reproduce with
-   `BALANCE_COMPANIONS=1 BALANCE_RUNS=100 npx vitest run src/balance/companion.test.ts --disableConsoleIntercept -t REPORT`.
-
-Design additions under discussion with the owner, not started: terrain as a
-weapon (Shove, hazards, cover), monster roles and formations, shop items
-beyond potions, chests locked by puzzles, and game-like NPC encounters.
+1. Tuning by health lost per fight; bosses as the peak; companion durability;
+   the Archer preset.
+2. Shop items beyond potions (SRD gear with tactical uses, scrolls, other
+   potions), limited stock and carrying.
+3. Chests locked by generated puzzles (timer sets loot quality; skippable for
+   less), built as a general minigame system.
+4. NPC and monster encounters that offer a game instead of a fight.
+5. Interactive props (toppling bookshelves, kicking over braziers).
 
 ## Known problems
 
@@ -282,8 +303,6 @@ beyond potions, chests locked by puzzles, and game-like NPC encounters.
   another blocker (`PropLayer.can` refuses a blocker that splits its ring of
   open neighbours). The depths' combat colonnade is lopsided for a related
   reason. Fixing these changes floors 2 and 3, so re-run the balance tests.
-- **Archer kit is far behind**: about 31% first-attempt clears on floor 3
-  against about 69% for the melee kits. Items 2 and 3 above are the intended fix.
 - **Players who rarely rest do badly** on floors 2 and 3 in the simulation.
 - **Never checked on real hardware**: frame rate, touch on a real tablet, and
   how the sound actually sounds. All visual checks used a headless browser
@@ -294,7 +313,7 @@ beyond potions, chests locked by puzzles, and game-like NPC encounters.
 ## Next steps after the branch
 
 1. Floors 4 to 20 following `docs/research/roster-options.md` (free assets,
-   CC0 and CC-BY; floor 20 boss is the Young Red Dragon).
+   CC0 and CC-BY; floor 20 boss is the Adult Red Dragon).
 2. More generator set pieces. The whole-floor overview camera exists in the
    renderer preview (`/dev/render-preview.html?gen=1`, key `O` or `&overview=1`;
    `&piece=moat` steps the seed to the next floor with that set piece) but not

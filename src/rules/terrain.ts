@@ -109,16 +109,17 @@ export function planPush(nav: NavGrid, occupied: (p: GridPos) => boolean, from: 
 
 /**
  * What a push is worth to the pusher, in expected-damage units: the fall or lava (1d6 per depth), a slam (1d6 per two
- * depths), water's Prone (more with allies next to the target), a kill bonus. Shared by the AIs. 0 when nothing happens.
+ * depths), water's Prone (more with allies next to the target), a kill bonus. `resist` gives the target's damage multiplier
+ * (0 for an immune creature: a fire-immune devil gains nothing from lava). Shared by the AIs. 0 when nothing happens.
  */
-export function pushValue(plan: PushPlan, depth: number, targetHp: number, alliesAdjacent: number): number {
+export function pushValue(plan: PushPlan, depth: number, targetHp: number, alliesAdjacent: number, resist: (type: 'bludgeoning' | 'fire' | 'piercing') => number = () => 1): number {
   const KILL = 20;
   if (plan.hazard) {
-    const fall = depth * 3.5;
+    const fall = depth * 3.5 * resist(plan.hazard.kind === 'fall' ? 'bludgeoning' : 'fire');
     return fall + 3 + (targetHp <= fall ? KILL : 0);
   }
   if (plan.obstacle) {
-    const dmg = slamDice(depth) * 3.5;
+    const dmg = slamDice(depth) * 3.5 * resist(plan.obstacle.kind === 'fire' ? 'fire' : 'piercing');
     return dmg + (targetHp <= dmg ? KILL : 0);
   }
   if (plan.water) return 1.5 + 2 * alliesAdjacent;

@@ -486,7 +486,7 @@ const den: Builder = ({ v, rng, want, log }) => {
     }
     if (centre === null) return null;
   }
-  const picks = ringAround(v, rng, want, log, centre, 2);
+  const picks = ringAround(v, rng, want, log, centre, 3) ?? (CAVES.includes(v.env.theme) ? ringAround(v, rng, want, log, centre, 2) : null);
   if (!picks) undoEdit(v.env, log);
   void w;
   return picks;
@@ -510,7 +510,8 @@ const chokehold: Builder = ({ v, rng, want }) => {
     }
   }
   if (neck === null) return null;
-  const guards = pickSpaced(w, neck.filter((c) => slotOk(v, c, 2) && !isNear(v.env, c)), 2, [], () => rng.next());
+  const deepNeck = neck.filter((c) => slotOk(v, c, 3) && !isNear(v.env, c));
+  const guards = pickSpaced(w, deepNeck.length > 0 || v.env.theme !== 'lair' ? deepNeck : neck.filter((c) => slotOk(v, c, 2) && !isNear(v.env, c)), 2, [], () => rng.next());
   if (guards.length === 0) return null;
   const backs = pickSpaced(
     w,
@@ -878,7 +879,7 @@ export function buildFormation(v: RoomView, rng: Rng, used: Map<string, number>,
       chokehold: 1.2,
     };
     for (const name of Object.keys(BUILDERS) as Array<keyof typeof BUILDERS>) {
-      const cave = (name === 'den' || name === 'chokehold') && CAVES.includes(theme) ? 3 : 1;
+      const cave = name === 'den' || name === 'chokehold' ? (CAVES.includes(theme) ? 3 : name === 'den' ? 0.3 : 0) : 1;
       order.push([name, BUILDERS[name], (bw[name] ?? 1) * mult[name] * repeat(name) * cave]);
     }
   }

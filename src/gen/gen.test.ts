@@ -153,8 +153,7 @@ describe('generateFloor', () => {
     }
   });
 
-  // Skipped while formations and push targets are being reworked.
-  it.skip('keeps monster slots away from doorways where the room allows', () => {
+  it('keeps monster slots away from doorways where the room allows', () => {
     for (const theme of THEMES) {
       let near = 0;
       let total = 0;

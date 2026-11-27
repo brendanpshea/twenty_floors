@@ -107,8 +107,11 @@ export function themesForDepth(depth: number): ThemeId[] {
   return out;
 }
 
-/** Floors playable in the current milestone. */
-export const MILESTONE_FLOORS = 3;
+/** Floors from 1 that always use the fixed run's themes; they are tuned on those themes. */
+export const FIXED_THEME_FLOORS = 3;
+
+/** Floors in a normal run. */
+export const MILESTONE_FLOORS = 20;
 
 const THEME_ORDER: ThemeId[] = ['warrens', 'crypt', 'depths'];
 
@@ -164,7 +167,7 @@ export interface RunPlanOptions {
  * its THEME_RANGE, and the last floor is always the lair.
  */
 export function planRunThemes(runSeed: number, opts: RunPlanOptions = {}): ThemeId[] {
-  const fixed = Math.max(0, Math.min(TOTAL_FLOORS, opts.fixedFloors ?? MILESTONE_FLOORS));
+  const fixed = Math.max(0, Math.min(TOTAL_FLOORS, opts.fixedFloors ?? FIXED_THEME_FLOORS));
   const ids = (Object.keys(THEME_RANGE) as ThemeId[]).filter((id) => id !== 'lair');
   const fits = (id: ThemeId, d: number): boolean => THEME_RANGE[id][0] <= d && THEME_RANGE[id][1] >= d;
   // Draw a run floor by floor; a draw that paints itself into a corner is thrown away and redrawn.

@@ -851,7 +851,8 @@ export function enterFloor(pc: PlayerCharacter): PlayerCharacter {
 
 /** Gold for clearing a floor. */
 /** Economy tuning (mutable for the balance harness). */
-export const ECONOMY = { rewardBase: 60, rewardPerDepth: 30 };
+// Re-tune: the real economy paid 30 to 60% of what the gear schedule costs at shop prices; scaled so cumulative gold covers it with 25% spare (src/balance/economy.test.ts).
+export const ECONOMY = { rewardBase: 250, rewardPerDepth: 125 };
 
 export function floorReward(depth: number): number {
   return ECONOMY.rewardBase + ECONOMY.rewardPerDepth * depth;
@@ -1010,7 +1011,7 @@ export function useConsumable(pc: PlayerCharacter, itemId: string, rng: Rng): { 
 }
 
 /** Tunable chest loot (mutable for the balance harness). */
-export const CHEST_RULE = { goldMin: 12, goldMax: 24, goldPerDepthMin: 8, goldPerDepthMax: 16, extraPotionChance: 0.25 };
+export const CHEST_RULE = { goldMin: 50, goldMax: 100, goldPerDepthMin: 34, goldPerDepthMax: 68, extraPotionChance: 0.25 };
 
 /**
  * What a treasure-room chest holds on `depth`: gold, one guaranteed Potion of

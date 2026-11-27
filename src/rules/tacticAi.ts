@@ -1,6 +1,6 @@
 import type { ActionDef, CombatApi, Command, Creature, GridPos, MonsterTactic, NavGrid } from '../core/types';
 import { SHOVE_PUSH_ID, SHOVE_TRIP_ID } from './actions';
-import { CONTROL_VALUE, KILL_BONUS, bestChoices, isMeleeOption, isOffense, isRangedOption, jitter, reachOf, valueOf, type Choice } from './ai';
+import { CONTROL_VALUE, KILL_BONUS, bestChoices, typeFactor, isMeleeOption, isOffense, isRangedOption, jitter, reachOf, valueOf, type Choice } from './ai';
 import { actionCost, combatDepth } from './combat';
 import { hasCondition, isIncapacitated } from './conditions';
 import { creatureTactic } from './tactics';
@@ -263,7 +263,7 @@ function shoveChoice(ctx: Ctx): Command | null {
     const plan = planPush(nav, (p) => ctx.occ(p) && !(p.x === t.pos.x && p.y === t.pos.y), t.pos, sign(t.pos.x - c.pos.x), sign(t.pos.y - c.pos.y), 1);
     // Every kind of push target counts: a drop or lava, fire or spikes (a slam), water (Prone, worth more with allies at the target).
     const alliesAtTarget = ctx.allies.filter((o) => chebyshev(o.pos, t.pos) <= 1).length;
-    const pv = pushValue(plan, depth, t.hp, alliesAtTarget);
+    const pv = pushValue(plan, depth, t.hp, alliesAtTarget, (ty) => typeFactor(t, ty));
     if (pv > 0) {
       const value = fail * pv;
       if (!best || value > best.value) best = { cmd: cmd({ id: SHOVE_PUSH_ID }, { targetId: t.id }), value, attack, share: SHOVE_HAZARD_TURN_SHARE, sure: 1 };

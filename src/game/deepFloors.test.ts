@@ -110,8 +110,8 @@ describe('randomized runs', () => {
 });
 
 describe('dev access to deep floors', () => {
-  it('?depth=20 starts on floor 20 even though the milestone is lower', async () => {
-    expect(MILESTONE_FLOORS).toBeLessThan(20);
+  it('?depth=20 starts on floor 20 whatever the run length is', async () => {
+    expect(MILESTONE_FLOORS).toBeLessThanOrEqual(20);
     const h = makeHarness({ depth: 20, seed: 5 });
     const game = new Game(h.deps);
     void game.boot();

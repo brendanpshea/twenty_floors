@@ -95,7 +95,7 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
    * by 0.65 until those floors are tuned the same way.
    */
   // Floors 1 to 3 on their fixed themes use these two; every other pairing has a themeTuning entry.
-  budgetByLevel: [36, 130, 140, 320, 1625, 2535, 3185, 4100, 4900, 5930, 9500, 12870, 14030, 15100, 21450, 13585, 16965, 27300, 32175, 22460],
+  budgetByLevel: [36, 169, 137, 320, 1625, 2535, 3185, 4100, 4900, 5930, 9500, 12870, 14030, 15100, 21450, 13585, 16965, 27300, 32175, 22460],
   /** Global multiplier on every budget. */
   soloFactor: 1,
   /** Budget multiplier by room role. 0 = never spawn. */
@@ -126,14 +126,15 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   eliteBossCr: 0.8,
   // Casts are chosen by CR for the floor, not listed per depth, so a theme can appear anywhere.
   monsterMinDepth: {},
-  monsterMaxDepth: {},
+  // Re-tune (real engine, expert hero + companion): a pack of fire-breathing hounds kills a level 12+ party even at a tenth of the budget.
+  monsterMaxDepth: { hell_hound: 11 },
   // The fixed run's boss order: on the second floor of a two-floor theme both bosses can fit the
   // band, and the same boss twice running would be a let-down. Randomized runs will replace this
   // table together with themeForDepth.
   bossByDepth: { 4: 'green_hag', 5: 'otyugh', 6: 'shambling_mound', 7: 'treant', 8: 'pirate_captain', 9: 'assassin', 10: 'stone_golem', 11: 'archmage', 12: 'clay_golem', 13: 'fire_giant', 14: 'remorhaz', 15: 'adult_white_dragon', 16: 'storm_giant', 17: 'adult_green_dragon', 18: 'marilith', 19: 'balor', 20: 'adult_red_dragon' },
   themeTuning: THEME_TUNING,
   depthScale: Array<number>(20).fill(1),
-  monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5 },
+  monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5, efreeti: 0.3, erinyes: 0.3, horned_devil: 0.4, young_brass_dragon: 0.5, otyugh: 0.5 },
 };
 
 /** The level budget for a floor: the theme's own figure at this depth if it has one. */

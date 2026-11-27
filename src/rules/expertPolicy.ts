@@ -92,7 +92,7 @@ const cmd = (a: { id: string }, extra: { targetId?: string; point?: GridPos } = 
 /** What a push is worth to the shover: a fall or lava, a slam into fire or spikes, water's Prone, a kill when it would die. */
 function pushVal(ctx: Ctx, plan: PushPlan, target: Creature): number {
   const near = ctx.allies.filter((a) => a.faction !== 'player' && chebyshev(a.pos, target.pos) <= 1).length + 1;
-  return pushValue(plan, ctx.depth, target.hp, near);
+  return pushValue(plan, ctx.depth, target.hp, near, (ty) => typeFactor(target, ty));
 }
 
 /** How much the expert wants this enemy dead first. */

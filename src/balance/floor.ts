@@ -1,6 +1,6 @@
 import { Rng, floorSeed, hashSeed } from '../core/rng';
 import { themeForDepth } from '../core/themes';
-import type { Creature, FloorPlan, GameEvent, GridPos, NavGrid, PlayerCharacter, Room } from '../core/types';
+import type { Creature, FloorPlan, GameEvent, GridPos, NavGrid, PlayerCharacter, Room, ThemeId } from '../core/types';
 import { MONSTERS } from '../data/monsters';
 import { createNavGrid, generateFloor } from '../gen';
 import {
@@ -45,6 +45,8 @@ export interface FloorOptions {
   shortRests?: number;
   /** The travelling companion (from floor 4 on): who, how it behaves, and its state entering the floor (default: new, at full health). */
   companion?: { id: string; stance?: CompanionStance; state?: CompanionState };
+  /** Play this theme on the floor instead of the fixed run's (alternate-theme spot checks). */
+  theme?: ThemeId;
 }
 
 export interface FloorResult {
@@ -195,7 +197,7 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
   const { runSeed, depth } = opts;
   const policy = opts.policy ?? playerPolicy;
   const sideChance = opts.sideRoomChance ?? 0.5;
-  const cached = floorFor(runSeed, depth);
+  const cached = floorFor(runSeed, depth, opts.theme);
   const plan = cached.plan;
   const nav = cached.nav;
   const placed = buildEncounters(plan, MONSTERS, new Rng(hashSeed(floorSeed(runSeed, depth), 'encounters')));
@@ -438,12 +440,12 @@ function finishWith(result: FloorResult, cur: PlayerCharacter, startPotions: num
 }
 
 const floorCache = new Map<string, { plan: FloorPlan; nav: NavGrid }>();
-function floorFor(runSeed: number, depth: number): { plan: FloorPlan; nav: NavGrid } {
-  const key = `${runSeed}:${depth}`;
+function floorFor(runSeed: number, depth: number, theme?: ThemeId): { plan: FloorPlan; nav: NavGrid } {
+  const key = `${runSeed}:${depth}:${theme ?? ''}`;
   let hit = floorCache.get(key);
   if (!hit) {
     if (floorCache.size > 400) floorCache.clear();
-    const plan = generateFloor({ seed: floorSeed(runSeed, depth), depth, theme: themeForDepth(depth) });
+    const plan = generateFloor({ seed: floorSeed(runSeed, depth), depth, theme: theme ?? themeForDepth(depth) });
     hit = { plan, nav: createNavGrid(plan) };
     floorCache.set(key, hit);
   }
