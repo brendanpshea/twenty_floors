@@ -251,6 +251,8 @@ export interface MeasureOptions {
   policy?: 'expert' | 'naive';
   kit?: string;
   companion?: string;
+  /** Fight only the rooms of this role (the others are skipped): the tuner searches ordinary rooms and boss rooms separately. */
+  only?: 'combat' | 'boss';
 }
 
 /** Fight every combat room and the boss room of `floors` generated floors of a pairing, once each, from a rested party. */
@@ -279,6 +281,7 @@ export function measureRooms(theme: ThemeId, depth: number, opts: MeasureOptions
       const group = placed.filter((m) => m.roomId === id).map((m) => m.creature);
       if (group.length === 0) continue;
       const role = room.role === 'boss' ? 'boss' : 'combat';
+      if (opts.only && role !== opts.only) continue;
       if (role === 'combat') {
         if (onRoute.has(id)) route++;
         else side++;

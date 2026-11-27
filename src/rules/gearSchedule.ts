@@ -5,7 +5,7 @@ import { getItem } from './items';
  * The design gear schedule: what a hero of each level is assumed to carry (the balance floor fit gives it for free) and what
  * the shop must therefore always have on offer. Heavy armor climbs chain mail, splint at 3, plate at 5, and medium armor
  * scale mail, breastplate at 3, half plate at 5; +1 armor from 5, +2 from 10, +3 from 16; +1 weapons from 4, +2 from 9,
- * +3 from 15; a +1 shield from 8 and +2 from 13. The balance harness plays it as `scheduleGear`, the shop stocks it
+ * +3 from 15; a +1 shield from 8 and +2 from 13; worn magic items from 5 (`worn`). The balance harness plays it as `scheduleGear`, the shop stocks it
  * (`shopStock`), and the economy test checks that the gold of the floors covers it.
  */
 export const GEAR_SCHEDULE = {
@@ -14,7 +14,23 @@ export const GEAR_SCHEDULE = {
   armorBonus: [[5, 1], [10, 2], [16, 3]] as [number, number][],
   weaponBonus: [[4, 1], [9, 2], [15, 3]] as [number, number][],
   shieldBonus: [[8, 1], [13, 2]] as [number, number][],
+  /**
+   * Worn magic items a hero is assumed to have found in boss chests by a level (about one every three floors; never more
+   * than the three it can attune to). Each list replaces the one before it.
+   */
+  worn: [
+    [5, ['cloak_of_protection']],
+    [7, ['cloak_of_protection', 'stone_of_good_luck']],
+    [10, ['cloak_of_protection', 'stone_of_good_luck', 'ring_of_protection']],
+    [13, ['cloak_of_protection', 'ring_of_protection', 'belt_of_giant_strength_hill']],
+    [16, ['cloak_of_protection', 'ring_of_protection', 'belt_of_giant_strength_fire']],
+  ] as [number, string[]][],
 };
+
+/** The worn magic items the schedule gives a hero of this level. */
+export function scheduledWorn(level: number): string[] {
+  return GEAR_SCHEDULE.worn.reduce<string[]>((v, [from, ids]) => (level >= from ? ids : v), []);
+}
 
 const at = (level: number, steps: [number, number][]): number => steps.reduce((v, [from, n]) => (level >= from ? n : v), 0);
 const baseOf = (id: string): string => getItem(id)?.baseId ?? id;

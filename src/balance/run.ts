@@ -20,6 +20,9 @@ import {
   shopStock,
   suggestedLevelChoices,
   scheduledGear,
+  scheduledWorn,
+  attuneItem,
+  canAttune,
 } from '../rules';
 import { simulateFloor, type FloorOptions } from './floor';
 
@@ -40,7 +43,16 @@ export function scheduleGear(pc: PlayerCharacter): PlayerCharacter {
     if (!next.inventory.some((s) => s.itemId === id)) next.inventory.push({ itemId: id, quantity: 1 });
     next.equipped[slot] = id;
   }
-  return next;
+  // Fully equipped for its level: the worn magic items of the schedule, worn and attuned, in place of whatever was worn.
+  const worn = scheduledWorn(pc.level).filter((id) => getItem(id));
+  if (worn.length === 0) return next;
+  let dressed: PlayerCharacter = { ...next, worn: {}, attuned: [] };
+  for (const id of worn) {
+    if (!dressed.inventory.some((s) => s.itemId === id)) dressed = { ...dressed, inventory: [...dressed.inventory, { itemId: id, quantity: 1 }] };
+    if (getItem(id)?.slot) dressed = equipItem(dressed, id);
+    if (getItem(id)?.attunement && canAttune(dressed, id).ok) dressed = attuneItem(dressed, id);
+  }
+  return dressed;
 }
 
 /** Scripted hub visit: long rest, reward for the floor just cleared, level up, shop, refresh floor resources. */

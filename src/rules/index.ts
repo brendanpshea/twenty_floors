@@ -106,7 +106,7 @@ export { abilityMod, proficiencyForLevel, isHiddenResource } from './util';
 export { compareItem, typicalAc, describePassive } from './compare';
 export { hubItemNotes, hubAttunement, hubQuickSlots, timedView, itemEffectLines } from './hubNotes';
 export { activePassives, itemWorks, addTimedEffect, tickTimedEffects, timedEffects, hovers } from './passives';
-export { GEAR_SCHEDULE, scheduledGear, scheduledArmorBase } from './gearSchedule';
+export { GEAR_SCHEDULE, scheduledGear, scheduledArmorBase, scheduledWorn } from './gearSchedule';
 export { previewRest } from './restPreview';
 export { advise, adviseExplore, type Advice, type AdviseOptions, type ExploreContext } from './advise';
 export { LOOT_FIT, lootFit, lootFitFor } from './lootFit';

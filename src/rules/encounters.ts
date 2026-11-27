@@ -252,7 +252,9 @@ function pickGroup(pool: MonsterDef[], maxCount: number, budget: number, depth: 
   while (chosen.length < wantMin && chosen.reduce((n, m) => n + m.xp, 0) < budget * t.topUpLimit) {
     const overUsedNow = chosen.filter((m) => m.cr > depth).length;
     const cheap = pool.filter((m) => m.cr <= depth || overUsedNow < t.maxOverLevel).sort((x, y) => x.xp - y.xp);
-    const lowest = cheap[0]?.xp ?? 0;
+    // Nothing legal to add (every monster of the cast is above the floor and the over-level allowance is spent): stop.
+    if (cheap.length === 0) break;
+    const lowest = (cheap[0] as MonsterDef).xp;
     chosen.push(rng.pick(cheap.filter((m) => m.xp === lowest)));
   }
   return chosen;

@@ -1,134 +1,218 @@
-import type { ThemeId } from '../core/types';
+import type { MonsterDef, ThemeId } from '../core/types';
+import { MONSTERS } from '../data/monsters';
 import { ENCOUNTER_TUNING } from '../rules';
 import type { ThemeDepthTuning } from '../rules/encounterTable';
-import { measureRooms, predictClear, type PairingReport } from './rooms';
+import { measureRooms, predictClear } from './rooms';
 
 /**
- * The fight-based tuner. For one theme on one floor it searches the room budget (and, where the boss room is not the
- * hardest fight, the boss-room scale) with the room harness of rooms.ts: every combat room and boss room of a few
- * generated floors is fought once from a rested party, and `predictClear` turns those fights into a first-attempt clear
- * rate. The same seeds are fought at every budget tried, so the search compares like with like and needs few fights:
- * about six measurements of a dozen floors per pairing, a few seconds each.
+ * The fight-based tuner. It tunes one theme on one floor by HEALTH LOST PER FIGHT, measured with the room harness of
+ * rooms.ts (each room fought once, from a rested party: the expert scripted hero in the gear schedule, with a Blink Dog
+ * from floor 4):
  *
- * Run it for every pairing (four shards, a few minutes in all) and paste the table it prints:
+ *  1. the room budget, until an ordinary room costs the hero the target share of its hit points on average;
+ *  2. the boss and the boss-room scale, until the boss room costs its own, higher target. Each boss of the theme that
+ *     suits the floor is tried and the one that comes nearest is kept, so a boss that is deadly by itself gives way.
+ *
+ * Mean loss per fight is a steady number (dozens of fights per measurement), where a floor's clear rate is not, and the
+ * two searches do not disturb each other (the boss scale leaves ordinary rooms alone). The same seeds are fought at every
+ * setting tried. A pairing takes a few seconds; all of them a few minutes on four shards:
+ *
  *   ROOM_TUNE=1 npx vitest run src/balance/roomTune --disableConsoleIntercept
+ *
+ * `predictClear` (the attrition model of rooms.ts) is reported for each result but is not what is searched for.
  */
 export const ROOM_TUNE = {
-  /** First-attempt clear rate aimed at, by floor (the expert scripted hero with a Blink Dog from floor 4). */
+  /** The share of its hit points an ordinary room should cost the hero on average, and the boss room, by floor. */
+  combatLoss: (depth: number): number => (depth <= 10 ? 0.21 : 0.24),
+  bossLoss: (depth: number): number => (depth <= 10 ? 0.42 : depth <= 19 ? 0.47 : 0.54),
+  /** The clear rate those losses are meant to give (for the report). */
   target: (depth: number): number => (depth <= 3 ? 0.85 : depth <= 10 ? 0.75 : depth <= 19 ? 0.67 : 0.58),
-  /** Close enough: stop searching within this of the target. */
-  tolerance: 0.04,
-  floors: 12,
+  tolerance: 0.02,
+  bossTolerance: 0.04,
+  combatFloors: 10,
+  bossFloors: 24,
   seed0: 500,
   /** Budget multipliers the search may reach, relative to the entry it starts from. */
-  minFactor: 0.2,
-  maxFactor: 6,
+  budgetFactor: [0.15, 8] as [number, number],
+  bossScaleRange: [0.3, 5] as [number, number],
   maxSteps: 7,
-  /** The boss room should cost the hero at least this multiple of an ordinary room's mean loss, and not more than the upper one. */
-  bossPeak: [1.25, 2.6] as [number, number],
-  bossScaleRange: [0.5, 4] as [number, number],
-  bossScaleStep: 1.5,
-  outerPasses: 3,
+  /** Rounds of nudging the loss targets toward the clear-rate target, and how near is near enough. */
+  passes: 3,
+  clearTolerance: 0.06,
+  /** Bosses tried for a floor: challenge rating from this share of the depth up to the depth plus one. */
+  bossCr: [0.45, 1] as [number, number],
 };
 
 export interface TuneResult {
   theme: ThemeId;
   depth: number;
   entry: ThemeDepthTuning;
-  /** Predicted clear rate with the chosen entry, and what the entry it started from gave. */
-  predicted: number;
-  before: number;
   combatLoss: number;
   bossLoss: number;
+  /** The attrition model's first-attempt clear rate for the result, and for the entry it started from. */
+  predicted: number;
+  before: number;
   companionDowns: number;
   measurements: number;
 }
 
 function entryFor(theme: ThemeId, depth: number): ThemeDepthTuning {
-  const table = (ENCOUNTER_TUNING.themeTuning[theme] ??= {});
-  const table2 = table as Record<number, ThemeDepthTuning>;
-  return (table2[depth] ??= { budget: ENCOUNTER_TUNING.budgetByLevel[depth - 1] as number });
+  const table = (ENCOUNTER_TUNING.themeTuning[theme] ??= {}) as Record<number, ThemeDepthTuning>;
+  return (table[depth] ??= { budget: ENCOUNTER_TUNING.budgetByLevel[depth - 1] as number });
+}
+
+/**
+ * Find the x in [min, max] where the rising function f(x) is nearest to `target`: bracket by steps of `grow`, then halve
+ * the gap on a log scale. Returns the best x tried and its value.
+ */
+function search(f: (x: number) => number, start: number, min: number, max: number, target: number, tol: number, steps: number): { x: number; y: number; n: number } {
+  let best = { x: start, y: f(start) };
+  let cur = best;
+  let lo: number | undefined; // too low a value
+  let hi: number | undefined;
+  let n = 1;
+  for (let i = 0; i < steps; i++) {
+    if (Math.abs(cur.y - target) <= tol) break;
+    if (cur.y < target) lo = cur.x;
+    else hi = cur.x;
+    let next = lo !== undefined && hi !== undefined ? Math.sqrt(lo * hi) : lo !== undefined ? lo * 1.7 : (hi as number) / 1.7;
+    next = Math.min(max, Math.max(min, next));
+    if (Math.abs(next - cur.x) / cur.x < 0.03) break;
+    cur = { x: next, y: f(next) };
+    n++;
+    if (Math.abs(cur.y - target) < Math.abs(best.y - target)) best = cur;
+  }
+  return { ...best, n };
+}
+
+/** The bosses of a theme that suit a floor (see ROOM_TUNE.bossCr); the entry's own boss is always among them. */
+export function bossCandidates(theme: ThemeId, depth: number, current?: string): MonsterDef[] {
+  const [lo, hi] = ROOM_TUNE.bossCr;
+  return MONSTERS.filter((m) => m.role === 'boss' && m.themes.includes(theme) && (m.id === current || (m.cr >= depth * lo && m.cr <= depth * hi + 1)));
 }
 
 /** Tune one pairing in place (ENCOUNTER_TUNING.themeTuning holds the result) and report it. */
-export function tunePairing(theme: ThemeId, depth: number, opts: { floors?: number; seed0?: number } = {}): TuneResult {
+export function tunePairing(theme: ThemeId, depth: number, opts: { seed0?: number } = {}): TuneResult {
   const t = ROOM_TUNE;
+  const seed0 = opts.seed0 ?? t.seed0;
   const entry = entryFor(theme, depth);
-  const target = t.target(depth);
   let count = 0;
-  const measure = (): { clear: number; report: PairingReport } => {
-    count++;
-    const report = measureRooms(theme, depth, { floors: opts.floors ?? t.floors, seed0: opts.seed0 ?? t.seed0 });
-    return { clear: predictClear(report), report };
-  };
+  const whole = (): ReturnType<typeof measureRooms> => measureRooms(theme, depth, { floors: t.combatFloors, seed0 });
+  const before = predictClear(whole());
+
+  // The loss targets start from the table in ROOM_TUNE and are then nudged, at most twice, until the attrition model's
+  // clear rate for the measured fights is near the floor's target: how much loss a floor can bear depends on how spiky its
+  // fights are, which the means alone do not say.
   const start = entry.budget;
-  let best = measure();
-  const before = best.clear;
+  let combatTarget = t.combatLoss(depth);
+  let bossTarget = t.bossLoss(depth);
+  for (let pass = 0; pass < t.passes; pass++) {
+    // 1. Ordinary rooms: the budget.
+    const combat = search(
+      (budget) => {
+        entry.budget = Math.round(budget);
+        return measureRooms(theme, depth, { floors: t.combatFloors, seed0, only: 'combat' }).combat.meanLoss;
+      },
+      entry.budget,
+      start * t.budgetFactor[0],
+      start * t.budgetFactor[1],
+      combatTarget,
+      t.tolerance,
+      t.maxSteps,
+    );
+    entry.budget = Math.round(combat.x);
+    count += combat.n;
 
-  /** Search the budget for the target clear rate, by bracketing and then halving the gap on a log scale. */
-  const fitBudget = (): void => {
-    let bestBudget = entry.budget;
-    let lo: number | undefined; // a budget that is too easy (clear above target)
-    let hi: number | undefined; // a budget that is too hard
-    let cur = { budget: entry.budget, ...best };
-    for (let step = 0; step < t.maxSteps; step++) {
-      if (Math.abs(cur.clear - target) <= t.tolerance) break;
-      if (cur.clear > target) lo = cur.budget;
-      else hi = cur.budget;
-      let next: number;
-      if (lo !== undefined && hi !== undefined) next = Math.sqrt(lo * hi);
-      else if (lo !== undefined) next = lo * 1.6;
-      else next = (hi as number) / 1.6;
-      next = Math.round(Math.min(start * t.maxFactor, Math.max(start * t.minFactor, next)));
-      if (next === cur.budget || (lo !== undefined && hi !== undefined && Math.abs(hi - lo) / lo < 0.04)) break;
-      entry.budget = next;
-      cur = { budget: next, ...measure() };
-      if (Math.abs(cur.clear - target) < Math.abs(best.clear - target)) {
-        best = cur;
-        bestBudget = next;
-      }
+    // 2. The boss room: each suitable boss with its best scale; keep the one nearest the target (the current boss on a tie).
+    const wanted = bossTarget;
+    const own = { boss: entry.boss, scale: entry.bossScale ?? 1 };
+    let bestBoss: { boss: string | undefined; scale: number; loss: number } | undefined;
+    const candidates = bossCandidates(theme, depth, own.boss).sort((a, b) => (a.id === own.boss ? -1 : b.id === own.boss ? 1 : a.cr - b.cr));
+    for (const cand of candidates.length > 0 ? candidates.map((m) => m.id) : [own.boss]) {
+      if (cand) entry.boss = cand;
+      const r = search(
+        (scale) => {
+          entry.bossScale = Math.round(scale * 100) / 100;
+          return measureRooms(theme, depth, { floors: t.bossFloors, seed0, only: 'boss' }).boss.meanLoss;
+        },
+        cand === own.boss ? own.scale : 1,
+        t.bossScaleRange[0],
+        t.bossScaleRange[1],
+        wanted,
+        t.bossTolerance,
+        t.maxSteps - 2,
+      );
+      count += r.n;
+      if (!bestBoss || Math.abs(r.y - wanted) < Math.abs(bestBoss.loss - wanted) - 0.02) bestBoss = { boss: cand, scale: Math.round(r.x * 100) / 100, loss: r.y };
+      if (Math.abs(r.y - wanted) <= t.bossTolerance) break;
     }
-    if (entry.budget !== bestBudget) {
-      entry.budget = bestBudget;
+    if (bestBoss) {
+      if (bestBoss.boss) entry.boss = bestBoss.boss;
+      if (bestBoss.scale === 1) delete entry.bossScale;
+      else entry.bossScale = bestBoss.scale;
     }
-  };
 
-  for (let pass = 0; pass < t.outerPasses; pass++) {
-    fitBudget();
-    // The boss room should be the floor's peak. If it is not (or towers over everything), move its scale and fit again.
-    const c = best.report.combat.meanLoss;
-    const b = best.report.boss.meanLoss;
-    const scale = entry.bossScale ?? 1;
-    let wanted = scale;
-    if (best.report.boss.n > 0 && c > 0.02) {
-      if (b < c * t.bossPeak[0]) wanted = Math.min(t.bossScaleRange[1], scale * t.bossScaleStep);
-      else if (b > c * t.bossPeak[1]) wanted = Math.max(t.bossScaleRange[0], scale / t.bossScaleStep);
-    }
-    if (wanted === scale || pass === t.outerPasses - 1) break;
-    entry.bossScale = Math.round(wanted * 100) / 100;
-    const tried = measure();
-    const peakBefore = Math.abs(Math.log((b + 0.01) / (c * 1.8 + 0.01)));
-    const peakAfter = Math.abs(Math.log((tried.report.boss.meanLoss + 0.01) / (tried.report.combat.meanLoss * 1.8 + 0.01)));
-    if (peakAfter >= peakBefore) {
-      // The scale did not help (an escort the cast cannot fill, or a boss that is the danger by itself): put it back.
-      if (scale === 1) delete entry.bossScale;
-      else entry.bossScale = scale;
-      break;
-    }
-    best = tried;
+    if (pass === t.passes - 1) break;
+    const check = predictClear(measureRooms(theme, depth, { floors: t.bossFloors, seed0 }));
+    count += 2;
+    const miss = check - t.target(depth);
+    if (Math.abs(miss) <= t.clearTolerance) break;
+    const nudge = Math.max(-0.06, Math.min(0.06, miss * 0.3));
+    combatTarget = Math.max(0.12, Math.min(0.4, combatTarget + nudge));
+    bossTarget = Math.max(0.3, Math.min(0.65, bossTarget + nudge * 0.8));
   }
-  // Leave the table holding exactly what `best` measured.
-  const final = measure();
-  entry.modelClear = Math.round(final.clear * 100) / 100;
+
+  const final = measureRooms(theme, depth, { floors: t.bossFloors, seed0 });
+  count += 2;
+  const predicted = predictClear(final);
+  entry.modelClear = Math.round(predicted * 100) / 100;
   return {
     theme,
     depth,
     entry: { ...entry },
-    predicted: final.clear,
+    combatLoss: final.combat.meanLoss,
+    bossLoss: final.boss.meanLoss,
+    predicted,
     before,
-    combatLoss: final.report.combat.meanLoss,
-    bossLoss: final.report.boss.meanLoss,
-    companionDowns: final.report.outcomes.filter((o) => o.companionDowned).length / Math.max(1, final.report.outcomes.length),
+    companionDowns: final.outcomes.filter((o) => o.companionDowned).length / Math.max(1, final.outcomes.length),
     measurements: count,
   };
+}
+
+/**
+ * The last step: with boss and boss scale settled, move the budget until the attrition model's clear rate for a LARGE
+ * sample (several sets of floors together) is at the floor's target. The loss-based search above gets every pairing into
+ * the right region with few fights; this corrects what the means do not show (how spiky the fights are) on enough fights
+ * that the result holds on floors it has not seen.
+ */
+export function polishPairing(theme: ThemeId, depth: number, seedSets: number[] = [500, 2000, 4000], floors = 12): { budget: number; predicted: number; measurements: number } {
+  const t = ROOM_TUNE;
+  const entry = entryFor(theme, depth);
+  const clear = (): number => {
+    const parts = seedSets.map((seed0) => measureRooms(theme, depth, { floors, seed0 }));
+    const first = parts[0] as ReturnType<typeof measureRooms>;
+    return predictClear({
+      ...first,
+      outcomes: parts.flatMap((p) => p.outcomes),
+      routeRooms: parts.reduce((n, p) => n + p.routeRooms, 0) / parts.length,
+      sideRooms: parts.reduce((n, p) => n + p.sideRooms, 0) / parts.length,
+    });
+  };
+  const start = entry.budget;
+  // A bigger budget lowers the clear rate, so the search rises on (1 - clear).
+  const r = search(
+    (budget) => {
+      entry.budget = Math.round(budget);
+      return 1 - clear();
+    },
+    start,
+    start * 0.4,
+    start * 2.5,
+    1 - t.target(depth),
+    0.04,
+    6,
+  );
+  entry.budget = Math.round(r.x);
+  entry.modelClear = Math.round((1 - r.y) * 100) / 100;
+  return { budget: entry.budget, predicted: 1 - r.y, measurements: r.n * seedSets.length };
 }
