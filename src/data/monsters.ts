@@ -1065,7 +1065,9 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A pale, rubbery worm of a thing that drops from cave ceilings, beak first, with its tentacles already reaching.',
   },
-  // Simplified: drops Aberrant Ground and the Gibbering aura. Bite knocks the target prone on a hit
+  // Simplified: drops Aberrant Ground. Gibbering is an aura (20 ft. = 4 cells, Wisdom DC 10). HOUSE RULE: the SRD
+  // rolls 1d8 for what a failed target does (nothing, wander, or attack a random creature); the nearest expressible effect is Incapacitated
+  // for the turn (rounds: 1), which matches the "does nothing" half and is harsher on the other half. Bite knocks the target prone on a hit
   // (no Medium-or-smaller check, no absorption). Blinding Spittle is a 10-ft-radius sphere (2 cells) within
   // 30 ft; 'blinded' lasts 1 round (until the end of the mouther's next turn).
   {
@@ -1087,6 +1089,16 @@ const BASE_MONSTERS: MonsterDef[] = [
     immunities: [],
     conditionImmunities: ['prone'],
     traits: [],
+    auras: [
+      {
+        id: 'gibbering',
+        name: 'Gibbering',
+        description: 'A babble of a hundred mouths scrambles the wits of anyone who hears it.',
+        radius: 4,
+        save: { ability: 'wis', dc: 10 },
+        applies: { condition: 'incapacitated', rounds: 1 },
+      },
+    ],
     actions: [
       {
         id: 'bite',
@@ -2039,7 +2051,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'standard',
     description: 'A mangy, two-headed hound that haunts the drains, its twin snouts snapping in a ragged, hungry chorus.',
   },
-  // Simplified: drops the Stench aura (a 5-ft Poisoned emanation) and the Exhaustion immunity. Claw applies
+  // Simplified: Stench is an aura (5 ft. = 1 cell, Constitution DC 10, Poisoned for 1 round, immune for the rest of the fight on a success). Drops the Exhaustion immunity. Claw applies
   // Paralyzed for 1 round on a failed Constitution save (no Undead exemption), like the Ghoul. Necrotic
   // resistance and poison immunity are kept, as are the Charmed and Poisoned condition immunities.
   {
@@ -2061,6 +2073,17 @@ const BASE_MONSTERS: MonsterDef[] = [
     immunities: ['poison'],
     conditionImmunities: ['charmed', 'poisoned'],
     traits: [],
+    auras: [
+      {
+        id: 'stench',
+        name: 'Stench',
+        description: 'A reek of grave-rot makes anyone beside it gag and fight poorly.',
+        radius: 1,
+        save: { ability: 'con', dc: 10 },
+        applies: { condition: 'poisoned', rounds: 1 },
+        immuneOnSuccess: true,
+      },
+    ],
     actions: [
       {
         id: 'bite',
@@ -3401,7 +3424,7 @@ export const MAGIC_ACTION_NAMES: ReadonlySet<string> = new Set([
   'Create Whirlwind', 'Death Glare', 'Dominate Mind', 'Dreadful Glare', 'Entangle', 'Finger of Death', 'Fireball', 'Flame Strike',
   'Harm', 'Hellfire Spellcasting', 'Hold Monster', 'Hold Person', 'Horrific Visage', 'Horror Nimbus', 'Hypnotic Pattern',
   'Ice Storm', 'Ice Wall', 'Lightning Bolt', 'Mind Spike', 'Nightmare', 'Petrifying Gaze', 'Phantasmal Killer', 'Shatter', 'Sleep',
-  'Spirit Guardians', 'Vile Appearance', 'Vitriolic Sphere', 'Wall of Fire',
+  'Spirit Guardians', 'Vitriolic Sphere', 'Wall of Fire',
 ]);
 
 export const MONSTERS: MonsterDef[] = BASE_MONSTERS.map((m) => ({

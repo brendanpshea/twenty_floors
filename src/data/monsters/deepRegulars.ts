@@ -910,8 +910,8 @@ export const DEEP_REGULARS: MonsterDef[] = [
     role: 'boss',
     description: 'A giant iron guardian, built to serve and never tire, that can burn or choke anything its master fears.',
   },
-  // Simplified: drops Fly (walks at 30 ft.), Diabolical Restoration, Fear Aura (an aura; its Frightened is a start-of-
-  // turn effect), Legendary Resistance, Magic Resistance, telepathy and skills. Multiattack is one Bite, two
+  // Simplified: Fear Aura is an aura (20 ft. = 4 cells, Wisdom DC 21, Frightened for 1 round, immune for the rest of the fight on a
+  // success). Drops Fly (walks at 30 ft.), Diabolical Restoration, Legendary Resistance, Magic Resistance, telepathy and skills. Multiattack is one Bite, two
   // Devilish Claws and one Fiery Mace, all with 10-ft. reach (2 cells). The Bite's Poisoned (Constitution DC 21)
   // is a save-ends, and its 6d6 poison at the start of each turn and the no-healing rider are dropped. Hellfire
   // Spellcasting (Recharge 4-6) casts Fireball (level 5 version: 10d6, DC 21, 150 ft. = 30 cells, 20-ft. radius = 4
@@ -938,6 +938,17 @@ export const DEEP_REGULARS: MonsterDef[] = [
     immunities: ['fire', 'poison'],
     conditionImmunities: ['poisoned'],
     traits: [],
+    auras: [
+      {
+        id: 'fear_aura',
+        name: 'Fear Aura',
+        description: 'Dread rolls off the archdevil and cows every enemy that comes near.',
+        radius: 4,
+        save: { ability: 'wis', dc: 21 },
+        applies: { condition: 'frightened', rounds: 1 },
+        immuneOnSuccess: true,
+      },
+    ],
     actions: [
       {
         id: 'multiattack',

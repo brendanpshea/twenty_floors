@@ -48,6 +48,7 @@ export function instantiateMonster(def: MonsterDef, id: string, pos: GridPos): C
     conditionImmunities: [...def.conditionImmunities],
     conditions: [],
     traits: [...def.traits],
+    ...(def.auras ? { auras: def.auras.map((a) => ({ ...a })) } : {}),
     actions,
     resources,
     visual: { ...def.visual },

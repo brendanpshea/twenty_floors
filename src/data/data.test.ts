@@ -359,6 +359,28 @@ describe('monster data', () => {
     }
   });
 
+  it('validates monster auras', () => {
+    const CONDITIONS = ['blinded', 'charmed', 'frightened', 'grappled', 'incapacitated', 'invisible', 'paralyzed', 'poisoned', 'prone', 'restrained', 'stunned', 'unconscious'];
+    let seen = 0;
+    for (const m of MONSTERS) {
+      const ids = (m.auras ?? []).map((a) => a.id);
+      expect(new Set(ids).size, `${m.id} aura ids`).toBe(ids.length);
+      for (const a of m.auras ?? []) {
+        seen++;
+        const at = `${m.id}.${a.id}`;
+        expect(a.name, `${at} name`).toBeTruthy();
+        expect(a.description, `${at} description`).toBeTruthy();
+        expect(a.radius, `${at} radius`).toBeGreaterThan(0);
+        expect(Number.isInteger(a.radius), `${at} radius is whole cells`).toBe(true);
+        expect(a.save.dc, `${at} dc`).toBeGreaterThan(0);
+        expect(a.applies !== undefined || (a.damage?.length ?? 0) > 0, `${at} has an effect`).toBe(true);
+        if (a.applies) expect(CONDITIONS, `${at} condition`).toContain(a.applies.condition);
+        for (const d of a.damage ?? []) expect(d.dice, `${at} damage`).toMatch(DICE_RE);
+      }
+    }
+    expect(seen).toBeGreaterThanOrEqual(5);
+  });
+
   it('has unique action ids within each monster', () => {
     for (const m of MONSTERS) {
       const ids = m.actions.map((a) => a.id);
