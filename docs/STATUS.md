@@ -157,6 +157,35 @@ The shop sells up to four different potions of this kind per visit: the
 floor 15). The scripted hero of the balance harness does not buy or drink
 them, so the tuning does not count them.
 
+## Monster conditions the engine gained (27 November 2026)
+
+- **Several conditions from one hit.** `ActionDef.alsoApplies` lists further
+  conditions put on the same target by the same hit or failed save;
+  `endsWith: true` ties one to the main condition ("Restrained until the
+  grapple ends"). Used by the Roper, Behir, Crocodile, Giant Crocodile, Water
+  Elemental, Salamander, Remorhaz, Shambling Mound, Harpy, Rakshasa and Lamia.
+- **Passive auras.** `MonsterDef.auras`: a hostile creature that starts its
+  turn within the radius saves or takes the effect; a success can make it
+  immune for the fight. Ghast and Hezrou (Stench), Pit Fiend (Fear Aura),
+  Gibbering Mouther (Gibbering, as Incapacitated for the turn), Sea Hag (Vile
+  Appearance). Auras are not shown anywhere in the UI except as floating text
+  when they trigger: there is no monster inspect panel.
+- **Slowed**: half speed, no reactions, one attack per Attack action, and an
+  action or a bonus action but not both. Stone Golem (Slow) and Young Copper
+  Dragon (Slowing Breath).
+- **Petrified**, in two stages (`applies.thenOnFail`): a failed save
+  restrains, a second failed save at the end of the next turn turns the
+  target to stone. HOUSE RULE: it lasts until the fight ends (the game has no
+  cure) and a petrified creature counts as out, so a petrified hero loses the
+  fight; petrified allies are restored after a win. Basilisk, Medusa, Gorgon.
+  A restrained hero can still Break Free, which ends the first stage.
+
+Still not expressible: charge and trample attacks, maximum hit point drain
+(Wight, Mummy, Otyugh), damage each turn while held (Shambling Mound, Water
+Elemental), swallowing, and effects triggered at 0 hit points. The Slow spell
+in the spell data is not wired to `slowed` yet. The quick party model
+(`src/balance/model.ts`) does not know the two new conditions.
+
 ## Magic shields
 
 Besides Shield +1 to +3, the Sentinel Shield and the Shield of the Cavalier,
@@ -222,19 +251,20 @@ Each shard appends rows to `$TEMP/roomTune.jsonl`; write their `budget`,
 `boss` and `bossScale` into `src/rules/encounterTable.ts`. Floors 1 to 3 are
 not touched (no companion there; they were fitted on the real engine).
 
-Result of the pass: ordinary rooms within 4 points of their loss target on 75
-of 99 pairings, the boss room within 8 points on 51, and the boss is the
-hardest fight (at least 1.25 times an ordinary room) on 85.
+It was run again after the monster conditions below went in (2 minutes 18
+seconds, 661 measurements): ordinary rooms within 4 points of their loss
+target on 78 of 99 pairings, the boss room within 8 points on 57, and the boss
+the hardest fight on 84.
 
-One real whole-floor check of the fixed run followed (24 runs a floor, 20
-seconds), with one proportional correction to those 17 budgets. On new seeds
-the fixed run then cleared at the first attempt: 4: 63%, 5: 75%, 6: 83%,
-7: 75%, 8: 42%, 9: 88%, 10: 42%, 11: 67%, 12: 75%, 13: 79%, 14: 50%, 15: 54%,
-16: 67%, 17: 54%, 18: 71%, 19: 88%, 20: 50% (targets 75% to floor 10, 67% to
-19, 58% on 20; average 66% against a target of 70%). At 24 runs a floor's
-rate moves by 10 to 20 points between seed sets (floor 8 read 83% and then
-42%), so single floors are not known better than that, and the off-run
-pairings were not checked on whole floors at all.
+One real whole-floor check of the fixed run followed (24 runs a floor, about
+20 seconds). It averaged 57% against a target near 70%, so every tuned budget
+was eased by 12% in one step. The same check then gave: 4: 63%, 5: 63%,
+6: 67%, 7: 54%, 8: 71%, 9: 71%, 10: 46%, 11: 71%, 12: 50%, 13: 88%, 14: 33%,
+15: 71%, 16: 67%, 17: 63%, 18: 92%, 19: 83%, 20: 50% (average 65%; targets
+75% to floor 10, 67% to 19, 58% on 20). At 24 runs a floor's rate moves by 10
+to 20 points between seed sets, so single floors are not known better than
+that; floor 14 (ice) and floor 18 (hell) are the two worth a look in play.
+The off-run pairings were not checked on whole floors.
 
 Known limits:
 
