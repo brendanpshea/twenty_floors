@@ -2106,7 +2106,11 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   }
 
   function doAction(c: Creature, a: ActionDef, targetId: string | undefined, point: GridPos | undefined): void {
-    const ev: GameEvent = { type: 'actionUsed', creatureId: c.id, actionId: a.id, name: a.name };
+    // A Disengage or Dash that costs only a bonus action is named for what allows it, so the player can see why the
+    // creature still attacks this turn (goblins' and tigers' Nimble Escape, an assassin's Cunning Action).
+    const asBonus = (a.id === 'disengage' || a.id === 'dash') && actionCost(c, a) === 'bonus' && a.name === (a.id === 'dash' ? 'Dash' : 'Disengage');
+    const shown = asBonus ? (c.traits.includes('nimbleEscape') ? `Nimble Escape (${a.name})` : `${a.name} (bonus action)`) : a.name;
+    const ev: GameEvent = { type: 'actionUsed', creatureId: c.id, actionId: a.id, name: shown };
     if (targetId !== undefined) ev.targetId = targetId;
     if (point !== undefined) ev.point = point;
     emit(ev);

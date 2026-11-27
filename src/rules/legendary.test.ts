@@ -100,3 +100,19 @@ describe('Legendary Resistance', () => {
     expect(boss.conditions.some((x) => x.condition === 'restrained')).toBe(true);
   });
 });
+
+describe('bonus-action Disengage is named for what allows it', () => {
+  it('a Nimble Escape creature shows "Nimble Escape (Disengage)" and can still shoot; a plain one cannot', () => {
+    const bow: ActionDef = { id: 'bow', name: 'Shortbow', description: '', cost: 'action', targeting: { kind: 'creature', melee: false, range: 16, longRange: 64 }, attack: { bonus: 4 }, damage: [{ dice: '1d6+2', type: 'piercing' }] };
+    for (const nimble of [true, false]) {
+      const hero = toCreature(createCharacter(makeBuild()), at(4, 4));
+      const g = instantiateMonster(mon({ id: 'gob', hp: 30, ac: 10, actions: [bow], traits: nimble ? ['nimbleEscape'] : [] }), 'gob', at(5, 4));
+      const combat = createCombat([hero, g], createOpenRoomNav(14, 8), new ScriptedRng(2), {});
+      combat.begin();
+      until(combat, 'gob');
+      const ev = combat.execute({ type: 'action', actionId: 'disengage' });
+      expect(ev.find((e) => e.type === 'actionUsed')).toMatchObject({ name: nimble ? 'Nimble Escape (Disengage)' : 'Disengage' });
+      expect(combat.canUse('bow').ok).toBe(nimble);
+    }
+  });
+});
