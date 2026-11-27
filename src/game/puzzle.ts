@@ -1,5 +1,6 @@
 import type { PuzzleGrade, PuzzleRequest } from '../core/types';
 import type { Rng } from '../core/rng';
+import type { ItemDef } from '../core/types';
 import { chestLoot, getItem } from '../rules';
 
 type Loot = ReturnType<typeof chestLoot>;
@@ -15,13 +16,13 @@ export function describeLoot(loot: Loot): string {
 }
 
 /** The loot a chest would pay at a grade, from a fresh fork of the chest's own stream: exactly what opening it then gives. */
-export function lootFor(depth: number, rng: () => Rng, grade: PuzzleGrade, boss: boolean, chestsOnFloor: number): Loot {
-  return chestLoot(depth, rng(), { grade, chestsOnFloor, ...(boss ? { boss: true } : {}) });
+export function lootFor(depth: number, rng: () => Rng, grade: PuzzleGrade, boss: boolean, chestsOnFloor: number, fit?: (item: ItemDef) => number): Loot {
+  return chestLoot(depth, rng(), { grade, chestsOnFloor, ...(boss ? { boss: true } : {}), ...(fit ? { fit } : {}) });
 }
 
 /** The words of the lock puzzle's rewards: each grade's real payout, worked out the same way the payout is. */
-export function rewardWords(depth: number, rng: () => Rng, boss: boolean, chestsOnFloor: number): PuzzleRequest['rewards'] {
-  const say = (g: PuzzleGrade): string => describeLoot(lootFor(depth, rng, g, boss, chestsOnFloor));
+export function rewardWords(depth: number, rng: () => Rng, boss: boolean, chestsOnFloor: number, fit?: (item: ItemDef) => number): PuzzleRequest['rewards'] {
+  const say = (g: PuzzleGrade): string => describeLoot(lootFor(depth, rng, g, boss, chestsOnFloor, fit));
   return { gold: say('gold'), silver: say('silver'), bronze: say('bronze'), skip: say('none') };
 }
 

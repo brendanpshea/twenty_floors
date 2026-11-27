@@ -109,3 +109,4 @@ export { activePassives, itemWorks, addTimedEffect, tickTimedEffects, timedEffec
 export { GEAR_SCHEDULE, scheduledGear, scheduledArmorBase } from './gearSchedule';
 export { previewRest } from './restPreview';
 export { advise, adviseExplore, type Advice, type AdviseOptions, type ExploreContext } from './advise';
+export { LOOT_FIT, lootFit, lootFitFor } from './lootFit';

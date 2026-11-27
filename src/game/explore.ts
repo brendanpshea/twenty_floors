@@ -1,8 +1,9 @@
-import type { CellHighlight, GridPos, PickResult } from '../core/types';
+import type { CellHighlight, GridPos, ItemDef, PickResult } from '../core/types';
 import { CellKind, SHORT_RESTS_PER_LONG_REST } from '../core/types';
 import {
   castOutOfCombat,
   chestLoot,
+  lootFitFor,
   companionPrayer,
   companionShortRest,
   previewRest,
@@ -345,10 +346,12 @@ export class Explore {
     const ordinary = Math.max(1, state.chests.filter((c) => !c.boss).length);
     const lootRng = (): Rng => state.floorRng.fork(`chest:${chestId}`);
     const boss = chest.boss === true;
-    const grade = await this.lockPuzzle(chest, boss, ordinary, lootRng);
+    // Magic finds lean toward what this hero can use. One judgement serves the lock's promised rewards and the payout, so they agree.
+    const fit = lootFitFor(state.pc);
+    const grade = await this.lockPuzzle(chest, boss, ordinary, lootRng, fit);
     if (state.finished) return;
     chest.opened = true;
-    const loot = lootFor(state.depth, lootRng, grade, boss, ordinary);
+    const loot = lootFor(state.depth, lootRng, grade, boss, ordinary, fit);
     deps.ui.banner(`${gradeWords(grade)} ${describeLoot(loot)}`);
     deps.audio.play('chestOpen');
     deps.audio.play('coins', { delay: 0.45 });
@@ -377,7 +380,7 @@ export class Explore {
    * is updated from the result. The bot and headless runs never see a puzzle: they get silver, which is what an
    * instantly opened chest paid, so the economy keeps its tuned baseline.
    */
-  private async lockPuzzle(chest: ChestState, boss: boolean, ordinary: number, lootRng: () => Rng): Promise<PuzzleGrade> {
+  private async lockPuzzle(chest: ChestState, boss: boolean, ordinary: number, lootRng: () => Rng, fit: (item: ItemDef) => number): Promise<PuzzleGrade> {
     const { state, deps } = this.ctx;
     if (deps.options.autoplay) return 'silver';
     const skill = this.ctx.puzzleSkill();
@@ -389,7 +392,7 @@ export class Explore {
     const req: PuzzleRequest = {
       spec,
       title: boss ? (bossName ? `The ${bossName}'s Hoard` : "The Warden's Hoard") : (CHEST_NAMES[state.plan.theme] ?? 'Ironbound Chest'),
-      rewards: rewardWords(state.depth, lootRng, boss, ordinary),
+      rewards: rewardWords(state.depth, lootRng, boss, ordinary, fit),
     };
     if (boss) req.boss = true;
     // The first lock: a word about what it is (guided help only).

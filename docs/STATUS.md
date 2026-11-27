@@ -33,6 +33,22 @@ Dev URL parameters: `?depth=N`, `?level=N`, `?theme=<id>`, `?seed=N`,
 `?preset=`, `?background=`, `?spell=`, `?companion=`, `?stance=`,
 `?reveal=1`, `?peace=1`, `?floors=N`.
 
+## Chest finds lean toward the hero's build
+
+A chest's magic find (+N gear or a magic item of its own) is drawn with
+weights from `lootFit` in `src/rules/lootFit.ts`, not evenly. The weight
+starts from the shop's comparison (`compareItem`: upgrade, trade-off,
+sidegrade, downgrade, unsuitable, owned) and adds what that does not see:
+weapons of a kind the hero holds or has mastered count more, and a worn
+item counts only for what its effect does for this hero (Gauntlets of Ogre
+Power are nothing at Strength 19). It is a bias, not a filter: every item
+keeps a small chance. Whether a chest holds a find, its gold and its potions
+are unchanged, and the lock puzzle's promised rewards use the same weights
+as the payout. In a sample of gold-grade boss chests on floor 6, finds that
+are plain upgrades rose from 32-39% to 82-86% for all three presets.
+Weights are in `LOOT_FIT`. The balance harness still draws evenly
+(`chestLoot` without `fit`); it only counts gold and potions from chests.
+
 ## How it is tuned (27 November 2026, approximate)
 
 Each fixed-run floor's room budget was fitted on the real engine to a target

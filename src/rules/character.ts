@@ -1281,6 +1281,12 @@ export interface ChestLootOptions {
    * one chest, as before). The potion in an ordinary chest becomes a chance of min(1, 1 / n) and its magic find a chance of 1 / n of before (a floor's total stays about what one chest gave). Omitted: one chest, as before.
    */
   chestsOnFloor?: number;
+  /**
+   * How well each item suits the hero opening the chest (see lootFit in lootFit.ts). Given, a magic find is drawn with these
+   * weights instead of evenly, so chests lean toward gear the build can use. Whether a chest holds a find, its gold and its
+   * potions do not change. Omitted: an even draw, as before.
+   */
+  fit?: (item: ItemDef) => number;
 }
 
 /**
@@ -1314,15 +1320,25 @@ export function chestLoot(depth: number, rng: Rng, opts: ChestLootOptions = {}):
       .filter((i) => i.magicBonus === tier && (i.kind === 'weapon' || i.kind === 'shield' || (wantArmor && i.kind === 'armor')))
       .sort((x, y) => x.id.localeCompare(y.id));
     // Half of the finds are one of the magic items of their own: a boss chest pays out of the top unlocked rarity, an ordinary chest of any unlocked one.
+    const fit = opts.fit;
+    const draw = (from: ItemDef[]): ItemDef => (fit ? rng.weighted(from, from.map((i) => Math.max(fit(i), 0))) : rng.pick(from));
     const wonders = wondersAt(depth);
     const topRank = wonders.reduce((m, i) => Math.max(m, RARITY_ORDER.indexOf(i.rarity as ItemRarity)), 0);
     const wonderPool = boss ? wonders.filter((i) => RARITY_ORDER.indexOf(i.rarity as ItemRarity) === topRank) : wonders;
-    if (wonderPool.length > 0 && rng.chance(ITEM_GATING.chestWonderShare)) {
-      items.push({ itemId: rng.pick(wonderPool).id, quantity: 1 });
+    const pool = finds.length > 0 ? finds : [...itemCatalog()].filter((i) => i.magicBonus === 1 && (i.kind === 'weapon' || i.kind === 'shield')).sort((x, y) => x.id.localeCompare(y.id));
+    // The coin between a wonder and plain +N gear is tossed as before. For a known hero, a side with nothing of use gives
+    // way to the other when that one has something (deep down, an ordinary chest's +1 gear is behind what the hero carries).
+    let wonder = wonderPool.length > 0 && rng.chance(ITEM_GATING.chestWonderShare);
+    if (fit) {
+      const useful = (from: ItemDef[]): boolean => from.some((i) => fit(i) >= 1);
+      if (wonder && !useful(wonderPool) && useful(pool)) wonder = false;
+      else if (!wonder && wonderPool.length > 0 && !useful(pool) && useful(wonderPool)) wonder = true;
+    }
+    if (wonder) {
+      items.push({ itemId: draw(wonderPool).id, quantity: 1 });
       return { gold, items };
     }
-    const pool = finds.length > 0 ? finds : [...itemCatalog()].filter((i) => i.magicBonus === 1 && (i.kind === 'weapon' || i.kind === 'shield')).sort((x, y) => x.id.localeCompare(y.id));
-    if (pool.length > 0) items.push({ itemId: rng.pick(pool).id, quantity: 1 });
+    if (pool.length > 0) items.push({ itemId: draw(pool).id, quantity: 1 });
   }
   return { gold, items };
 }
