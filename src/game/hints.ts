@@ -159,6 +159,14 @@ export const HINTS: HintDef[] = [
     done: () => false,
   },
   {
+    id: 'regeneration',
+    kind: 'concept',
+    text: () => 'This monster regrows hit points every turn. Fire or acid damage stops it for a turn.',
+    anchor: 'target',
+    when: (c) => c.model.target !== undefined && c.state.monsters.some((m) => !m.creature.dead && m.creature.name === c.model.target?.name && (m.creature.regenStoppedBy?.length ?? 0) > 0),
+    done: (c) => c.model.target === undefined,
+  },
+  {
     id: 'boss',
     kind: 'concept',
     text: () => 'This is the floor boss. Defeat it to open the stairs down.',

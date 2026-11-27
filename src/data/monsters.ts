@@ -2562,10 +2562,11 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'The pale, drifting memory of a long-drowned librarian, still shushing intruders with a chilling touch.',
   },
-  // Simplified: drops Bound, Regeneration, Spell Storing and the Protection reaction; Exhaustion and Petrified
+  // Simplified: Regeneration (10 HP a turn, no stopping damage) is kept; drops Bound, Spell Storing and the Protection reaction; Exhaustion and Petrified
   // condition immunities are not expressible. Fist reach is 10 ft. (2 cells); Multiattack is two Fists.
   {
     id: 'shield_guardian',
+    regeneration: { amount: 10 },
     name: 'Shield Guardian',
     size: 'large',
     type: 'construct',

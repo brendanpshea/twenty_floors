@@ -32,6 +32,8 @@ export function instantiateMonster(def: MonsterDef, id: string, pos: GridPos): C
     const { dice, damageType, name } = def.retaliate;
     resources[PASSIVE_FLAGS.retaliate] = { name: `${dice}:${damageType}${name ? `:${name}` : ''}`, current: 1, max: 0, refresh: 'floor' };
   }
+  // Regeneration reuses the hidden `_regen` pool the engine reads at the start of every turn (see startTurn).
+  if (def.regeneration) resources['_regen'] = { name: 'Regeneration', current: def.regeneration.amount, max: 0, refresh: 'longRest' };
   return {
     id,
     defId: def.id,
@@ -55,6 +57,7 @@ export function instantiateMonster(def: MonsterDef, id: string, pos: GridPos): C
     conditions: [],
     traits: [...def.traits],
     ...(def.auras ? { auras: def.auras.map((a) => ({ ...a })) } : {}),
+    ...(def.regeneration?.stoppedBy ? { regenStoppedBy: [...def.regeneration.stoppedBy] } : {}),
     actions,
     resources,
     visual: { ...def.visual },

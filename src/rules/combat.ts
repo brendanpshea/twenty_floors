@@ -279,6 +279,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   /** Concentration: caster id -> what to undo when it ends. The visible state is the hidden `_concentration` pool. */
   const conc = new Map<string, { name: string; onEnd: () => void }>();
   const lastDamageType = new Map<string, DamageType>();
+  /** Damage types a creature took since the start of its previous turn (for regeneration's stoppedBy). */
+  const takenSinceTurn = new Map<string, Set<DamageType>>();
   /** Resistance cantrip on a creature: the type it reduces and the turn it last did so. */
   const resistSpell = new Map<string, { type: DamageType; lastKey: string }>();
   const shielded = new Set<string>();
@@ -676,7 +678,12 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       feature(target, 'lastStand', 'Last Stand');
       log(`Last Stand! ${target.name} clings on at 1 HP.`);
     }
-    if (amount > 0) lastDamageType.set(target.id, type);
+    if (amount > 0) {
+      lastDamageType.set(target.id, type);
+      const seen = takenSinceTurn.get(target.id);
+      if (seen) seen.add(type);
+      else takenSinceTurn.set(target.id, new Set([type]));
+    }
     if (target.hp === 0 && !survived) {
       target.dead = true;
       emit({ type: 'death', creatureId: target.id });
@@ -1675,10 +1682,20 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (hasFlag(c, 'displacement') && !isIncapacitated(c)) displaced.add(c.id);
     // Regeneration (Ring of Regeneration, Armor of Troll's...): heal at the start of the turn while alive and hurt.
     const regen = c.resources['_regen']?.current ?? 0;
+    // Monsters: damage of a stopping type (a troll's acid and fire) since its last turn switches it off this turn.
+    // HOUSE RULE: the SRD's "dies only if it starts its turn at 0 HP and doesn't regenerate" is not kept; a regenerating
+    // monster dies at 0 like any other creature.
+    const stopper = c.regenStoppedBy?.find((t) => takenSinceTurn.get(c.id)?.has(t));
+    takenSinceTurn.delete(c.id);
     if (regen > 0 && isAlive(c) && c.hp < c.maxHp) {
-      const before = c.hp;
-      c.hp = Math.min(c.maxHp, c.hp + regen);
-      log(`${c.name} regenerates ${c.hp - before} hit points.`);
+      if (stopper) {
+        log(`${c.name} cannot regenerate this turn: it took ${stopper} damage.`);
+      } else {
+        const before = c.hp;
+        c.hp = Math.min(c.maxHp, c.hp + regen);
+        if (c.faction === 'enemy') feature(c, 'regeneration', 'Regenerates', { amount: c.hp - before });
+        log(`${c.name} regenerates ${c.hp - before} hit points.`);
+      }
     }
     if (pitted.has(c.id)) {
       emit({ type: 'turnStart', creatureId: c.id });
