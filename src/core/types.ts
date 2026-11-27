@@ -469,6 +469,8 @@ export interface Creature {
   traits: TraitId[];
   /** Passive start-of-turn emanations (copied from MonsterDef.auras). */
   auras?: MonsterAura[];
+  /** Damage types that switch off this creature's regeneration for a turn (copied from MonsterDef.regeneration). */
+  regenStoppedBy?: DamageType[];
   actions: ActionDef[];
   resources: Record<string, ResourcePool>;
   visual: VisualSpec;
@@ -544,6 +546,8 @@ export interface MonsterDef {
   traits: TraitId[];
   /** Passive emanations that hit hostile creatures starting their turn nearby (Stench, Fear Aura). */
   auras?: MonsterAura[];
+  /** Regains `amount` hit points at the start of each of its turns; damage of a `stoppedBy` type switches it off for that turn. */
+  regeneration?: { amount: number; stoppedBy?: DamageType[] };
   /** Ranges in cells (5 ft = 1). Attack bonuses and DCs as printed. */
   actions: ActionDef[];
   visual: VisualSpec;

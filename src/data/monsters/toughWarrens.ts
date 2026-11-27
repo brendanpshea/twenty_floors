@@ -274,9 +274,11 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     role: 'elite',
     description: 'A two-headed brute whose heads bicker constantly, yet always agree on whom to hit next.',
   },
-  // Simplified: drops Regeneration, Loathsome Limbs (and the Troll Limb) and the Charge bonus action.
+  // Simplified: drops Loathsome Limbs (and the Troll Limb) and the Charge bonus action. Regeneration 15 HP a turn is kept; Acid or
+  // Fire damage stops it until the troll's next turn. HOUSE RULE: it dies at 0 HP like any monster (the SRD's "starts its turn at 0" is dropped).
   {
     id: 'troll',
+    regeneration: { amount: 15, stoppedBy: ['acid', 'fire'] },
     name: 'Troll',
     size: 'large',
     type: 'giant',
@@ -389,11 +391,12 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     role: 'boss',
     description: 'A towering warren overlord who rules the goblins by sheer size and throws whatever is closest.',
   },
-  // Simplified: drops Regeneration, flight (hover), Shape-Shift, Invisibility and Spellcasting except Sleep (1/Day, DC 13, once per
+  // Simplified: Regeneration (10 HP a turn while above 0, no stopping damage) is kept; drops flight (hover), Shape-Shift, Invisibility and Spellcasting except Sleep (1/Day, DC 13, once per
   // floor, first-level version; Charm Person, Darkness and Gaseous Form dropped: no engine support). Cold resistance is kept. Melee and ranged multiattacks are separate.
   // Nightmare Ray's range is 60 ft with no long range; longRange is range + 1.
   {
     id: 'oni',
+    regeneration: { amount: 10 },
     tactic: 'caster',
     name: 'Oni',
     size: 'large',
