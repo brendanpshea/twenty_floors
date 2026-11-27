@@ -112,6 +112,7 @@ function expectedDamage(ctx: Ctx, a: ActionDef, t: Creature): number {
   if (a.attack) v *= chance;
   else if (a.save) v *= chance + (a.save.halfOnSave ? (1 - chance) * 0.5 : 0);
   if (a.applies && !t.conditionImmunities.includes(a.applies.condition) && !hasCondition(t, a.applies.condition)) v += 2 * chance;
+  for (const e of a.alsoApplies ?? []) if (!t.conditionImmunities.includes(e.condition) && !hasCondition(t, e.condition)) v += 2 * chance;
   const sneak = c.resources['_sneakAttack'];
   if (sneak && a.attack && !isSpellAction(a)) v += sneak.current * 3.5 * 0.7 * chance;
   return v;

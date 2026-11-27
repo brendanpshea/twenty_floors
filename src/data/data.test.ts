@@ -341,6 +341,8 @@ function averageOf(dice: string): number {
   return (n * (sides + 1)) / 2 + mod;
 }
 
+const KNOWN_CONDITIONS = ['blinded', 'charmed', 'frightened', 'grappled', 'incapacitated', 'invisible', 'paralyzed', 'poisoned', 'prone', 'restrained', 'stunned', 'unconscious', 'dodging', 'disengaged'];
+
 describe('monster data', () => {
   it('has exactly the expected ids, each unique', () => {
     const ids = MONSTERS.map((m) => m.id);
@@ -467,6 +469,11 @@ describe('monster ranged, spell and area actions', () => {
         if (a.save) {
           expect(['str', 'dex', 'con', 'int', 'wis', 'cha'], `${m.id}.${a.id}`).toContain(a.save.ability);
           expect(a.save.dc, `${m.id}.${a.id} dc`).toBeGreaterThanOrEqual(8);
+        }
+        for (const e of a.alsoApplies ?? []) {
+          expect(KNOWN_CONDITIONS, `${m.id}.${a.id} alsoApplies`).toContain(e.condition);
+          if (e.saveEnds) expect(e.saveEnds.dc, `${m.id}.${a.id} alsoApplies saveEnds dc`).toBeGreaterThanOrEqual(8);
+          expect(a.applies, `${m.id}.${a.id} alsoApplies needs applies`).toBeDefined();
         }
         if (a.applies?.saveEnds) expect(a.applies.saveEnds.dc, `${m.id}.${a.id} saveEnds dc`).toBeGreaterThanOrEqual(8);
       }

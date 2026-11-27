@@ -360,6 +360,17 @@ export interface ActionDef {
     /** If set, the target repeats this save at the end of each of its turns to end it. */
     saveEnds?: { ability: Ability; dc: number };
   };
+  /**
+   * Further conditions from the same hit or failed save (no extra roll), same entry shape as `applies`.
+   * Each ends by its own `rounds`/`saveEnds`; `endsWith: true` also ends it the moment `applies` ends on that
+   * target, however that happens ("Restrained until the grapple ends").
+   */
+  alsoApplies?: Array<{
+    condition: Condition;
+    rounds?: number;
+    saveEnds?: { ability: Ability; dc: number };
+    endsWith?: boolean;
+  }>;
   /** Consumes this much of a named resource pool on the creature. */
   uses?: { resource: string; amount: number };
   /** Monster recharge: usable again when a d6 rolled at turn start is >= this. */
@@ -380,6 +391,8 @@ export interface ActiveCondition {
   rounds: number | null;
   sourceId?: string;
   saveEnds?: { ability: Ability; dc: number };
+  /** Ends as soon as this condition, from the same source, leaves the holder (ActionDef.alsoApplies endsWith). */
+  endsWith?: Condition;
 }
 
 export interface ResourcePool {

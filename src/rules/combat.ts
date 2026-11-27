@@ -710,11 +710,29 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (INCAPACITATING.includes(a.condition)) endConcentration(target, 'incapacitated');
   }
 
+  /** The action's main condition plus every `alsoApplies` entry, all on the same target under the same outcome. */
+  function applyConditions(target: Creature, a: ActionDef, source: Creature): void {
+    if (!a.applies) return;
+    addCondition(target, a.applies, source);
+    const main = a.applies.condition;
+    for (const e of a.alsoApplies ?? []) {
+      // An endsWith entry needs the main condition on the target to hang from (it may have been immune).
+      if (e.endsWith && !target.conditions.some((x) => x.condition === main && x.sourceId === source.id)) continue;
+      addCondition(target, e, source);
+      if (e.endsWith) {
+        const added = target.conditions.find((x) => x.condition === e.condition && x.sourceId === source.id);
+        if (added) added.endsWith = main;
+      }
+    }
+  }
+
   function removeCondition(target: Creature, cond: ActiveCondition): void {
     const i = target.conditions.indexOf(cond);
     if (i < 0) return;
     target.conditions.splice(i, 1);
     emit({ type: 'conditionRemoved', creatureId: target.id, condition: cond.condition });
+    // Conditions that were riding on this one (alsoApplies endsWith) end with it.
+    for (const linked of target.conditions.filter((x) => x.endsWith === cond.condition && x.sourceId === cond.sourceId)) removeCondition(target, linked);
     const sl = sleepers.get(target.id);
     if (sl && cond.sourceId === sl.by && (cond.condition === 'incapacitated' || cond.condition === 'unconscious')) sleepers.delete(target.id);
   }
@@ -1456,9 +1474,9 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       if (fx.includes('iceKnifeBurst')) iceKnifeBurst(att, a, tgt);
       if (!isAlive(tgt)) return;
       if (a.save) {
-        if (!rollSave(tgt, a.save.ability, a.save.dc, a.applies?.condition, saveOpts(a, att.pos)) && a.applies) addCondition(tgt, a.applies, att);
+        if (!rollSave(tgt, a.save.ability, a.save.dc, a.applies?.condition, saveOpts(a, att.pos)) && a.applies) applyConditions(tgt, a, att);
       } else if (a.applies) {
-        addCondition(tgt, a.applies, att);
+        applyConditions(tgt, a, att);
       }
       return;
     }
@@ -1468,12 +1486,12 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
         const amount = saveDamage(tgt, a, ok, part.amount);
         if (amount > 0 || !ok) dealDamage(tgt, amount, part.type, att.id, false);
       }
-      if (!ok && isAlive(tgt) && a.applies) addCondition(tgt, a.applies, att);
+      if (!ok && isAlive(tgt) && a.applies) applyConditions(tgt, a, att);
       return;
     }
     for (const part of rollParts(a, false)) dealDamage(tgt, part.amount, part.type, att.id, false);
     if (a.heal) heal(tgt, a.heal);
-    if (a.applies) addCondition(tgt, a.applies, att);
+    if (a.applies) applyConditions(tgt, a, att);
   }
 
   function resolveArea(att: Creature, a: ActionDef, cells: GridPos[], origin: GridPos = att.pos): void {
@@ -1504,7 +1522,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
         const amount = saveDamage(t, a, ok, part.amount);
         if (amount > 0 || !ok) dealDamage(t, amount, part.type, att.id, false);
       }
-      if (!ok && isAlive(t) && a.applies) addCondition(t, a.applies, att);
+      if (!ok && isAlive(t) && a.applies) applyConditions(t, a, att);
       if (!ok && push && isAlive(t)) pushTarget(att, t);
     }
   }
@@ -2009,7 +2027,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       if (timedUse) return applyTimedUse(c, timedUse.slice('timedUse:'.length));
       if (applyBuffSpell(c, a, c)) return;
       if (a.heal) heal(c, a.heal);
-      if (a.applies) addCondition(c, a.applies, c);
+      if (a.applies) applyConditions(c, a, c);
       return;
     }
     if (t.kind === 'point') {

@@ -742,3 +742,49 @@ describe('Last Stand (house rule) and Vex', () => {
     expect(second.d20).toBe(12);
   });
 });
+
+describe('alsoApplies: several conditions from one hit', () => {
+  const grab = (also: NonNullable<ActionDef['alsoApplies']>, saveEndsDc = 1): ActionDef =>
+    customAction({
+      id: 'grab',
+      save: { ability: 'str', dc: 50, halfOnSave: false },
+      applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: saveEndsDc } },
+      alsoApplies: also,
+    });
+
+  it('applies every entry to the same target after one failed save', () => {
+    const h = hero(2, 3);
+    const { combat } = arena([h, custom('foe', 3, 3, [grab([{ condition: 'poisoned', rounds: 5 }])])], 'foe');
+    const ev = combat.execute({ type: 'action', actionId: 'grab', targetId: 'player' });
+    expect(ofType(ev, 'saveRoll')).toHaveLength(1);
+    expect(h.conditions.map((c) => c.condition).sort()).toEqual(['grappled', 'poisoned']);
+  });
+
+  it('endsWith: the entry ends the moment the main condition ends, whatever ended it', () => {
+    const h = hero(2, 3);
+    const { combat } = arena([h, custom('foe', 3, 3, [grab([{ condition: 'restrained', endsWith: true }, { condition: 'poisoned', rounds: 50 }])])], 'foe');
+    combat.execute({ type: 'action', actionId: 'grab', targetId: 'player' });
+    expect(h.conditions.map((c) => c.condition).sort()).toEqual(['grappled', 'poisoned', 'restrained']);
+    combat.execute({ type: 'endTurn' });
+    const ev = combat.execute({ type: 'endTurn' }); // the hero's end-of-turn save (DC 1) ends the grapple
+    expect(ofType(ev, 'conditionRemoved').map((e) => e.condition).sort()).toEqual(['grappled', 'restrained']);
+    expect(h.conditions.map((c) => c.condition)).toEqual(['poisoned']);
+  });
+
+  it('endsWith is skipped when the main condition did not stick (immune target)', () => {
+    const foe = custom('foe', 3, 3, [grab([{ condition: 'restrained', endsWith: true }])]);
+    const tgt = hero(2, 3);
+    tgt.conditionImmunities.push('grappled');
+    const { combat } = arena([tgt, foe], 'foe');
+    combat.execute({ type: 'action', actionId: 'grab', targetId: 'player' });
+    expect(tgt.conditions).toHaveLength(0);
+  });
+
+  it('applies nothing extra on a successful save', () => {
+    const h = hero(2, 3);
+    const easy = customAction({ id: 'weak', save: { ability: 'str', dc: 1, halfOnSave: false }, applies: { condition: 'grappled' }, alsoApplies: [{ condition: 'poisoned' }] });
+    const { combat } = arena([h, custom('foe', 3, 3, [easy])], 'foe');
+    combat.execute({ type: 'action', actionId: 'weak', targetId: 'player' });
+    expect(h.conditions).toHaveLength(0);
+  });
+});

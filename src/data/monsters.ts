@@ -1289,7 +1289,7 @@ const BASE_MONSTERS: MonsterDef[] = [
   },
   // Simplified: Multiattack is the SRD three Charged Tendrils, with a second Multiattack (two Tendrils + Engulf)
   // for the Engulf replacement, as for the Salamander's Constrict. Engulf (Strength DC 15, within 5 feet) applies
-  // 'restrained' (the Grappled/Blinded/Restrained set of the SRD) with a Strength save-ends at the escape DC 14;
+  // Grappled with a Strength save-ends at the escape DC 14, plus Blinded and Restrained until the grapple ends;
   // its 3d10 lightning damage at the start of each of the victim's turns and the Medium-or-smaller limit are
   // dropped. Drops Lightning Absorption and the pull-5-feet rider; Deafened and Exhaustion immunities are not
   // expressible.
@@ -1340,7 +1340,8 @@ const BASE_MONSTERS: MonsterDef[] = [
         cost: 'action',
         targeting: { kind: 'creature', melee: true, range: 1 },
         save: { ability: 'str', dc: 15, halfOnSave: false },
-        applies: { condition: 'restrained', saveEnds: { ability: 'str', dc: 14 } },
+        applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 14 } },
+        alsoApplies: [{ condition: 'blinded', endsWith: true }, { condition: 'restrained', endsWith: true }],
       },
       {
         id: 'charged_tendril',
@@ -2913,9 +2914,8 @@ const BASE_MONSTERS: MonsterDef[] = [
   // Simplified: drops Fire Aura (7 fire damage to creatures next to it at the end of its turn). Flame Spear has a
   // melee form and a thrown form (20/60 ft. = range 4, long 12) each with their own Multiattack; the spear's
   // return to hand is implied. Multiattack may replace one spear with Constrict: that is its own Multiattack
-  // (Flame Spear + Constrict). Constrict applies 'restrained' (the Grappled-and-Restrained pair of the SRD)
-  // with a Strength save-ends at the escape DC 14, as the Giant Constrictor Snake does; the "Large or smaller"
-  // size limit is dropped.
+  // (Flame Spear + Constrict). Constrict applies Grappled with a Strength save-ends at the escape DC 14, and
+  // Restrained until the grapple ends; the "Large or smaller" size limit is dropped.
   {
     id: 'salamander',
     name: 'Salamander',
@@ -3001,7 +3001,8 @@ const BASE_MONSTERS: MonsterDef[] = [
           { dice: '2d6+4', type: 'bludgeoning' },
           { dice: '2d6', type: 'fire' },
         ],
-        applies: { condition: 'restrained', saveEnds: { ability: 'str', dc: 14 } },
+        applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 14 } },
+        alsoApplies: [{ condition: 'restrained', endsWith: true }],
       },
     ],
     visual: { model: 'dino', tint: 0xff7a10, scale: 2 },

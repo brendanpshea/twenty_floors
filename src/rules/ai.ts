@@ -128,6 +128,9 @@ function singleValue(combat: CombatApi, a: ActionDef, target: Creature): number 
     }
     v += control * (a.attack || a.save ? chance : 1);
   }
+  for (const e of a.alsoApplies ?? []) {
+    if (!target.conditionImmunities.includes(e.condition) && !hasCondition(target, e.condition)) v += CONTROL_VALUE * (a.attack || a.save ? chance : 1);
+  }
   return v;
 }
 

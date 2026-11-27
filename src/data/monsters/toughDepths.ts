@@ -175,8 +175,8 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     description: 'A lion-bodied brute with a scorpion tail that peppers its prey with spikes from across the chasm before it pounces.',
   },
   // Simplified: speed is the listed 10 ft (the Roper barely moves; its climb speed is dropped). Tentacle (reach
-  // 60 ft, 12 cells) applies Grappled with a Strength save-ends at the escape DC 14; the Poisoned condition that
-  // comes with it, the destructible tentacles and Reel (the pull) are dropped. Multiattack is two Tentacles then
+  // 60 ft, 12 cells) applies Grappled with a Strength save-ends at the escape DC 14, and Poisoned until the grapple
+  // ends; the destructible tentacles and Reel (the pull) are dropped. Multiattack is two Tentacles then
   // two Bites. Keeps Spider Climb.
   {
     id: 'roper',
@@ -216,6 +216,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 12 },
         attack: { bonus: 7 },
         applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 14 } },
+        alsoApplies: [{ condition: 'poisoned', endsWith: true }],
       },
       {
         id: 'bite',
@@ -587,7 +588,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     description: 'A dark, leathery sheet that hangs from the chasm wall like a cloak until it drops onto someone and wails.',
   },
   // Simplified: drops the climb speed and Swallow. Constrict applies Grappled (Strength save-ends at the escape
-  // DC 16; the Restrained that accompanies it is dropped). Multiattack is one Bite then Constrict. Lightning
+  // DC 16) and Restrained until the grapple ends. Multiattack is one Bite then Constrict. Lightning
   // Breath is a recharge 5 to 6 line (90 ft, 18 cells) rather than part of Multiattack.
   {
     id: 'behir',
@@ -641,6 +642,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
         save: { ability: 'str', dc: 18, halfOnSave: false },
         damage: [{ dice: '5d8+6', type: 'bludgeoning' }],
         applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 16 } },
+        alsoApplies: [{ condition: 'restrained', endsWith: true }],
       },
       {
         id: 'lightning_breath',

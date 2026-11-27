@@ -444,8 +444,8 @@ export const ICE_MONSTERS: MonsterDef[] = [
     description: 'A blue-skinned raider-giant who walks the glacier in a coat of bone and fur and treats the caves as his hall.',
   },
   // Simplified: drops Burrow (walks at 40 ft.), Swallow (and its acid and fire damage to the swallowed), and the
-  // Heat Aura. Bite keeps its fire damage; the Grappled condition (escape DC 17) is a Strength save-ends, and
-  // the added Restrained while grappled and the Large-or-smaller size check are not modelled. Cold and Fire
+  // Heat Aura. Bite keeps its fire damage; the Grappled condition (escape DC 17) is a Strength save-ends with Restrained
+  // until the grapple ends; the Large-or-smaller size check is not modelled. Cold and Fire
   // immunities are kept; Tremorsense is not modelled. Bite reach is 10 ft. (2 cells).
   {
     id: 'remorhaz',
@@ -480,6 +480,7 @@ export const ICE_MONSTERS: MonsterDef[] = [
           { dice: '4d6', type: 'fire' },
         ],
         applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 17 } },
+        alsoApplies: [{ condition: 'restrained', endsWith: true }],
       },
     ],
     visual: { model: 'snake', tint: 0x8fd0f0, scale: 9 },

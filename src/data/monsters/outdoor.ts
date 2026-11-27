@@ -654,7 +654,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     role: 'standard',
     description: 'A fist-sized, blood-hungry flier that homes in on warm bodies near still water.',
   },
-  // Simplified: drops Swim (walks at its 20 ft.), Hold Breath and skills. Bite's Grappled (escape DC 12; the SRD also makes the target Restrained) is modelled as a Strength save-ends at DC 12, as the Giant Constrictor Snake does; the 'Medium or smaller' limit is not expressible. The Constitution save proficiency (+3) is kept.
+  // Simplified: drops Swim (walks at its 20 ft.), Hold Breath and skills. Bite's Grappled (escape DC 12) is modelled as a Strength save-ends at DC 12, with Restrained until the grapple ends; the 'Medium or smaller' limit is not expressible. The Constitution save proficiency (+3) is kept.
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a crocodile (none available; roster-options.md lists it as dropped); giant_rat body, large and green, as stand-in.
   {
     id: 'crocodile',
@@ -686,6 +686,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
         attack: { bonus: 4 },
         damage: [{ dice: '1d8+2', type: 'piercing' }],
         applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 12 } },
+        alsoApplies: [{ condition: 'restrained', endsWith: true }],
       },
     ],
     visual: { model: 'giant_rat', tint: 0x58a060, scale: 1.5 },
@@ -984,7 +985,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     role: 'standard',
     description: 'A huge golden-feathered raptor that guards the high crags and swoops on those who disturb them.',
   },
-  // Simplified: drops Fly (it walks at its 20 ft.). Luring Song is a self-centred 300-ft. (60-cell) area: a failed Wisdom save (DC 11) applies Charmed with a Wisdom save-ends at DC 11. It is usable once per floor instead of until Concentration ends; the pull toward the harpy, the Incapacitated rider, the Humanoid/Giant limit and the 24-hour immunity are not expressible.
+  // Simplified: drops Fly (it walks at its 20 ft.). Luring Song is a self-centred 300-ft. (60-cell) area: a failed Wisdom save (DC 11) applies Charmed with a Wisdom save-ends at DC 11. It is usable once per floor instead of until Concentration ends; Charmed carries the SRD's Incapacitated rider (it ends with the same save); the pull toward the harpy, the Humanoid/Giant limit and the 24-hour immunity are not expressible.
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a winged humanoid (none available); hero_rogue body, violet, as stand-in.
   {
     id: 'harpy',
@@ -1026,6 +1027,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
         uses: { resource: 'Luring Song', amount: 1 },
         save: { ability: 'wis', dc: 11, halfOnSave: false },
         applies: { condition: 'charmed', saveEnds: { ability: 'wis', dc: 11 } },
+        alsoApplies: [{ condition: 'incapacitated', endsWith: true }],
       },
     ],
     visual: { model: 'hero_rogue', tint: 0xb090c8, scale: 1.0 },

@@ -82,7 +82,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   },
   // Simplified: drops Leap, Disguise Self, Minor Illusion, Geas, Major Image and Scrying (none damaging). Multiattack
   // is two Claws, or one Claw and Corrupting Touch. The curse of Corrupting Touch (1 hour, Charmed and Poisoned)
-  // keeps only Charmed, for 10 rounds (1 minute) to stay in the scale of a fight.
+  // is Charmed and Poisoned for 10 rounds (1 minute) each, to stay in the scale of a fight.
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon or a centaur-like serpent-woman (none available); wolf body, large and dusky rose, as
   // stand-in.
   {
@@ -146,6 +146,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
         save: { ability: 'wis', dc: 13, halfOnSave: false },
         damage: [{ dice: '3d8', type: 'psychic' }],
         applies: { condition: 'charmed', rounds: 10 },
+        alsoApplies: [{ condition: 'poisoned', rounds: 10 }],
       },
     ],
     visual: { model: 'wolf', tint: 0xe890a8, scale: 1.7 },
@@ -492,7 +493,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // Vulnerability to piercing damage from weapons wielded by creatures under Bless is conditional and cannot be
   // expressed, so it is dropped. Cursed Touch is plain slashing plus necrotic damage (the no-rest curse is
   // dropped). Baleful Command (Recharge 5-6) is a 30-ft. Emanation (a self-centred sphere of 6 cells); it
-  // applies Incapacitated until the start of the rakshasa's next turn (rounds: 1) and drops the Frightened half.
+  // applies Incapacitated and Frightened until the start of the rakshasa's next turn (rounds: 1 each).
   {
     id: 'rakshasa',
     name: 'Rakshasa',
@@ -546,6 +547,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
         save: { ability: 'wis', dc: 18, halfOnSave: false },
         damage: [{ dice: '8d6', type: 'psychic' }],
         applies: { condition: 'incapacitated', rounds: 1 },
+        alsoApplies: [{ condition: 'frightened', rounds: 1 }],
       },
     ],
     visual: { model: 'knight_gold', tint: 0xffc060, scale: 1.1 },

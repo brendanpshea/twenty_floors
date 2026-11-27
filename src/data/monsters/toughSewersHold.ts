@@ -205,8 +205,8 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     role: 'elite',
     description: 'A churning heap of black slime that oozes along walls and ceilings, dissolving everything in its path.',
   },
-  // Simplified: Multiattack is one Bite and one Tail. Bite Grappled (escape DC 15) is a Strength save-ends; the SRD's extra
-  // Restrained and its Large-or-smaller check are dropped. Tail Prone lasts 1 round, without the size check. Drops Hold Breath.
+  // Simplified: Multiattack is one Bite and one Tail. Bite Grappled (escape DC 15) is a Strength save-ends with Restrained until the grapple ends (the SRD's
+  // "can't be targeted by the Tail" while Grappled is dropped); the Large-or-smaller check is dropped. Tail Prone lasts 1 round, without the size check. Drops Hold Breath.
   // Swim 50 ft. is not used: it walks at 30 ft.
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a crocodile (docs/research/roster-options.md drops it for lack of a model); wolf rig scaled up as stand-in.
   {
@@ -248,6 +248,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         attack: { bonus: 8 },
         damage: [{ dice: '3d10+5', type: 'piercing' }],
         applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 15 } },
+        alsoApplies: [{ condition: 'restrained', endsWith: true }],
       },
       {
         id: 'tail',
@@ -270,7 +271,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // Condition immunities keep grappled, paralyzed, poisoned, prone, restrained and unconscious (Exhaustion and Petrified do not
   // exist here). Swim 90 ft. is not used: it walks at 30 ft. Whelm (Recharge 4-6) has no "creatures in its own space"
   // area, so it is a melee Strength save against one target: 4d8+4 bludgeoning (half on a save), Grappled with a
-  // save-ends at the escape DC 14; the Restrained and suffocation riders and the 2d8 damage per turn are dropped.
+  // save-ends at the escape DC 14, with Restrained until the grapple ends; the suffocation rider and the 2d8 damage per turn are dropped.
   {
     id: 'water_elemental',
     tactic: 'brute',
@@ -323,6 +324,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         save: { ability: 'str', dc: 15, halfOnSave: true },
         damage: [{ dice: '4d8+4', type: 'bludgeoning' }],
         applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 14 } },
+        alsoApplies: [{ condition: 'restrained', endsWith: true }],
       },
     ],
     visual: { model: 'slime_cyan', tint: 0x4080ff, scale: 2.6 },
