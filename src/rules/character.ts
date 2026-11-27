@@ -290,7 +290,9 @@ export function computeAc(pc: PlayerCharacter): number {
   }
   const shield = pc.equipped.offHand ? getItem(pc.equipped.offHand) : undefined;
   if (shield?.kind === 'shield') ac += (shield.shieldBonus ?? 2) + (shield.magicBonus ?? 0);
-  return ac + passiveAcBonus(pc);
+  // Barkskin: Armor Class cannot be lower than the spell's floor.
+  const floor = creaturePassives(pc).reduce((n, p) => Math.max(n, p.type === 'minimumAc' ? p.ac : 0), 0);
+  return Math.max(ac + passiveAcBonus(pc), floor);
 }
 
 /**
@@ -602,7 +604,14 @@ function applyPassiveFlags(pc: PlayerCharacter, resources: Record<string, Resour
     for (const h of ['fall', 'lava'] as const) resources[PASSIVE_FLAGS.ignorePrefix + h] = flagPool('ignore_' + h);
   }
   for (const p of ps) if (p.type === 'ignoreHazard') resources[PASSIVE_FLAGS.ignorePrefix + p.hazard] = flagPool('ignore_' + p.hazard);
-  // Spell effects from potions.
+  // Spell effects (see src/data/buffs.ts).
+  if (hasPassive(pc, 'extraAttack')) resources[PASSIVE_FLAGS.hasteAttack] = flagPool('hasteAttack');
+  if (hasPassive(pc, 'sizeUp')) resources[PASSIVE_FLAGS.enlarged] = flagPool('enlarged');
+  for (const p of ps) {
+    if (p.type === 'saveAdvantage') resources[PASSIVE_FLAGS.saveAdvPrefix + p.ability] = flagPool('saveAdv_' + p.ability);
+    if (p.type === 'bonusWeaponDice') resources[PASSIVE_FLAGS.bonusDice] = { name: p.dice, current: 1, max: 0, refresh: 'longRest' };
+    if (p.type === 'retaliate') resources[PASSIVE_FLAGS.retaliate] = { name: `${p.dice}:${p.damageType}`, current: 1, max: 0, refresh: 'longRest' };
+  }
   if (hasPassive(pc, 'bless')) resources[PASSIVE_FLAGS.blessed] = flagPool('blessed');
   if (hasPassive(pc, 'attackersDisadvantage')) resources[PASSIVE_FLAGS.blur] = flagPool('blur');
   for (const p of ps) if (p.type === 'wardVersus') for (const t of p.versus) resources[PASSIVE_FLAGS.wardPrefix + t] = flagPool('ward_' + t);
@@ -742,7 +751,7 @@ export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): 
     // Temporary hit points from False Life cast between fights last until the next long rest.
     tempHp: pc.resources['_tempHp']?.current ?? 0,
     // Armor without enough Strength costs 10 ft of speed (SRD 5.2).
-    speed: Math.max(0, sp.speed - (tooWeak ? 2 : 0) + passiveSpeed(pc)),
+    speed: Math.max(0, sp.speed - (tooWeak ? 2 : 0) + passiveSpeed(pc)) * creaturePassives(pc).reduce((n, p) => (p.type === 'speedMultiplier' ? n * p.factor : n), 1),
     resistances: [...new Set([...sp.resistances, ...creaturePassives(pc).flatMap((p) => (p.type === 'resistance' ? [p.damageType] : []))])],
     vulnerabilities: [],
     immunities: creaturePassives(pc).flatMap((p) => (p.type === 'immunity' ? [p.damageType] : [])),

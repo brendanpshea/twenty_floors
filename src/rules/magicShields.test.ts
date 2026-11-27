@@ -179,3 +179,107 @@ describe('potions of buff and defense spells', () => {
     expect(save(drink('potion_of_bless')).bonus).toBe(save(bearer('shield')).bonus + 4);
   });
 });
+
+describe('Haste, Enlarge, Barkskin and Fire Shield: one definition for a potion and for a cast spell', () => {
+  const drink = (id: string): PlayerCharacter => useConsumable(withItems(bearer('shield'), id), id, new ScriptedRng(1)).pc;
+  const at = (pc: PlayerCharacter): Creature => toCreature(pc, { x: 3, y: 4 });
+  const plain = bearer('shield');
+
+  it('Potion of Speed is Haste: doubled speed, +2 Armor Class, advantage on Dexterity saves, one more weapon attack', () => {
+    const h = at(drink('potion_of_speed'));
+    expect(h.speed).toBe(at(plain).speed * 2);
+    expect(h.ac).toBe(at(plain).ac + 2);
+    expect(h.resources['_saveAdv_dex']).toBeDefined();
+    const attacks = (pc: PlayerCharacter): number => {
+      const hero = at(pc);
+      const f = instantiateMonster(archerDef, 'f', { x: 4, y: 4 });
+      const combat = createCombat([hero, f], arena, new ScriptedRng(1), {});
+      combat.begin();
+      for (let i = 0; i < 30 && combat.activeId !== 'player'; i++) combat.execute({ type: 'endTurn' });
+      const id = (combat.availableActions().find((a) => a.id.startsWith('atk_')) as { id: string }).id;
+      let n = 0;
+      try {
+        for (; n < 10; n++) combat.execute({ type: 'action', actionId: id, targetId: 'f' });
+      } catch {
+        // No attacks left this turn.
+      }
+      return n;
+    };
+    expect(attacks(drink('potion_of_speed'))).toBe(attacks(plain) + 1);
+  });
+
+  it('Potion of Growth is Enlarge: the size flag, +1d4 on weapon hits and advantage on Strength saves', () => {
+    const h = at(drink('potion_of_growth'));
+    expect(h.resources['_enlarged']).toBeDefined();
+    expect(h.resources['_bonusDice']?.name).toBe('1d4');
+    expect(h.resources['_saveAdv_str']).toBeDefined();
+    const dealt = (pc: PlayerCharacter): number => {
+      const hero = at(pc);
+      const f = instantiateMonster(archerDef, 'f', { x: 4, y: 4 });
+      const rng = new ScriptedRng(1);
+      const combat = createCombat([hero, f], arena, rng, {});
+      combat.begin();
+      for (let i = 0; i < 30 && combat.activeId !== 'player'; i++) combat.execute({ type: 'endTurn' });
+      rng.queue = [15, 1, 3];
+      combat.execute({ type: 'action', actionId: (combat.availableActions().find((a) => a.id.startsWith('atk_')) as { id: string }).id, targetId: 'f' });
+      return 200 - f.hp;
+    };
+    expect(dealt(drink('potion_of_growth'))).toBe(dealt(plain) + 3);
+  });
+
+  it('Barkskin lifts a low Armor Class to 17 and leaves a higher one alone', () => {
+    const bare: PlayerCharacter = { ...plain, equipped: {} };
+    const drinkOn = (pc: PlayerCharacter): PlayerCharacter => useConsumable(withItems(pc, 'potion_of_barkskin'), 'potion_of_barkskin', new ScriptedRng(1)).pc;
+    expect(computeAc(bare)).toBeLessThan(17);
+    expect(computeAc(drinkOn(bare))).toBe(17);
+    expect(computeAc(drinkOn(plain))).toBe(Math.max(17, computeAc(plain)));
+  });
+
+  it('Fire Shield burns a creature that hits in melee, not one that shoots', () => {
+    const pc = drink('potion_of_fire_shield');
+    const hurt = (action: string, archerAt?: number): number => {
+      const h = at(pc);
+      h.maxHp = h.hp = 300;
+      const f = instantiateMonster(archerDef, 'f', { x: archerAt ?? 10, y: 4 });
+      const rng = new ScriptedRng(1);
+      const combat = createCombat([h, f], arena, rng, {});
+      combat.begin();
+      for (let i = 0; i < 30 && combat.activeId !== 'f'; i++) combat.execute({ type: 'endTurn' });
+      rng.queue = [19, 3, 5, 5];
+      combat.execute({ type: 'action', actionId: action, targetId: 'player' });
+      return 200 - f.hp;
+    };
+    expect(hurt('club', 4)).toBe(10);
+    expect(hurt('bow')).toBe(0);
+    expect(at(pc).resistances).toContain('cold');
+  });
+
+  it('a spell action carrying buff:<id> puts the same effects on its target and takes them off when concentration ends', () => {
+    const haste: ActionDef = { id: 'cast_haste', name: 'Haste', description: '', cost: 'action', effects: ['spell', 'buff:haste'], targeting: { kind: 'creature', melee: false, range: 6, friendly: true } as ActionDef['targeting'] };
+    const stone: ActionDef = { ...haste, id: 'cast_enlarge', name: 'Enlarge', effects: ['spell', 'buff:enlarge'] };
+    const caster = instantiateMonster(mon({ id: 'test_caster', name: 'Caster', hp: 50, ac: 10, actions: [haste, stone] }), 'caster', { x: 2, y: 4 });
+    caster.faction = 'ally';
+    const h = at(plain);
+    const before = { ac: h.ac, speed: h.speed };
+    const f = instantiateMonster(archerDef, 'f', { x: 12, y: 4 });
+    const combat = createCombat([h, caster, f], arena, new ScriptedRng(1), {});
+    combat.begin();
+    for (let i = 0; i < 30 && combat.activeId !== 'caster'; i++) combat.execute({ type: 'endTurn' });
+    combat.execute({ type: 'action', actionId: 'cast_haste', targetId: 'player' });
+    expect(h.ac).toBe(before.ac + 2);
+    expect(h.speed).toBe(before.speed * 2);
+    expect(h.resources['_hasteAttack']).toBeDefined();
+    expect(caster.resources['_concentration']).toBeDefined();
+    // A second concentration spell replaces the first: Haste comes off, Enlarge goes on.
+    for (let i = 0; i < 30; i++) {
+      combat.execute({ type: 'endTurn' });
+      if (combat.activeId === 'caster') break;
+    }
+    const ev = combat.execute({ type: 'action', actionId: 'cast_enlarge', targetId: 'player' });
+    expect(h.ac).toBe(before.ac);
+    expect(h.speed).toBe(before.speed);
+    expect(h.resources['_hasteAttack']).toBeUndefined();
+    expect(h.resources['_enlarged']).toBeDefined();
+    expect(ev.some((e) => e.type === 'feature' && e.id === 'enlarge' && e.creatureId === 'player')).toBe(true);
+  });
+});

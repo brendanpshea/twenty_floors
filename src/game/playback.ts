@@ -6,7 +6,7 @@ import { QUIET_CONDITIONS, capitalize, logLine } from './eventLog';
 import type { SessionCtx } from './floorState';
 import { getItem } from '../rules';
 import { cellDistance } from './fog';
-import { creatureById, isEntityVisible, isSeen, setEntityVisible } from './floorState';
+import { ENLARGE_SCALE, creatureById, isEntityVisible, isSeen, setEntityVisible } from './floorState';
 
 /** Damage types that have a spell-hit sound of their own; the rest land as a blunt hit. */
 const SPELL_HIT: Partial<Record<DamageType, SfxId>> = {
@@ -202,6 +202,11 @@ export class Playback {
       return;
     }
     if (sound) audio.play(sound);
+    // Enlarge: the creature swells to half again its size, and shrinks back when the spell ends.
+    if (e.id === 'enlarge') deps.renderer.setEntityState(e.creatureId, { scale: ENLARGE_SCALE });
+    if (e.id === 'enlargeEnd') deps.renderer.setEntityState(e.creatureId, { scale: 1 });
+    // A buff spell from the registry taking hold: a shimmer on its target.
+    if (e.id.startsWith('buff:') || e.id === 'enlarge') void this.fx({ kind: 'aura', on: e.creatureId, style: e.id === 'buff:bless' ? 'bless' : 'buff' });
     if (e.id === 'shield') void this.fx({ kind: 'aura', on: e.creatureId, style: 'shield' });
     // The save that Burst of Ingenuity adds to belongs to the target; everything else reads best over the creature itself.
     const at = e.id === 'burstOfIngenuity' && e.targetId ? e.targetId : e.creatureId;

@@ -112,6 +112,9 @@ export interface SessionCtx {
   rebuildPlayer(): void;
 }
 
+/** How much bigger an enlarged creature is drawn (the Enlarge spell: one size category up). */
+export const ENLARGE_SCALE = 1.5;
+
 export function monsterDef(defId: string): MonsterDef | undefined {
   return MONSTERS.find((m) => m.id === defId);
 }

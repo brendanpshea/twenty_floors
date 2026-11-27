@@ -11,7 +11,7 @@ import { Explore } from './explore';
 import { cellDistance, revealFrom } from './fog';
 import { SHOVE_PUSH_ID, pushPreview } from '../rules';
 import type { FloorState, SessionCtx } from './floorState';
-import { creatureById, isSeen, livingMonsters, monsterDef, setEntityVisible } from './floorState';
+import { ENLARGE_SCALE, creatureById, isSeen, livingMonsters, monsterDef, setEntityVisible } from './floorState';
 import { CAST_PREFIX, PRAYER_ID, buildHudModel } from './hudModel';
 import { makeCompanionRuntime } from './party';
 import { Playback } from './playback';
@@ -151,6 +151,7 @@ export class FloorSession {
       }
     }
     renderer.spawnEntity('player', state.player.visual, state.player.pos, { faction: 'player', size: state.player.size });
+    if (state.player.resources['_enlarged']) renderer.setEntityState('player', { scale: ENLARGE_SCALE });
     state.entityVisible.set('player', true);
     if (state.companion) {
       const c = state.companion.creature;
@@ -223,6 +224,8 @@ export class FloorSession {
       rebuildPlayer: () => {
         const prev = this.state.player;
         this.state.player = this.makePlayer(this.state.pc, prev.pos);
+        // An Enlarge effect on the hero (a Potion of Growth) shows as size; it shrinks back when the effect runs out.
+        this.deps.renderer.setEntityState('player', { scale: this.state.player.resources['_enlarged'] ? ENLARGE_SCALE : 1 });
       },
     };
   }

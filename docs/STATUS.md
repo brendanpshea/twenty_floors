@@ -80,29 +80,56 @@ play harder than measured; and gold has less to be spent on.
 the shop (its tests still run with it on). The balance harness has not been
 re-fitted for this.
 
-## Potions of buff and defense spells
+## Buff and defense spells: one definition, for potions and for casters
 
 There is no full caster in the party, so common buff and defense spells
-come in bottles. They are timed consumables like the Potion of Resistance
-("10 minutes" is one fight, "1 hour" or more is three), drunk before or
-during a fight, with no concentration:
+come in bottles. Each spell is defined once in `src/data/buffs.ts` (`BUFFS`:
+name, level, whether it needs concentration, its effects as passives, how
+many fights a potion of it lasts). Two things use an entry:
 
-- SRD: **Potion of Heroism** (rare; 10 temporary hit points once, and Bless
-  for three fights).
-- ORIGINAL items holding SRD spells (family `spell_potion`, 100 gp each;
-  Stoneskin 375 gp): **Bless**, **Shield of Faith** (+2 AC), **False Life**
-  (9 temporary hit points), **Longstrider** (+10 ft), **Protection from
-  Evil and Good** (aberrations, celestials, elementals, fey, fiends and
-  undead attack with disadvantage; its guard against charm and fear is not
-  kept), **Aid** (+5 hit points and maximum), **Blur** (attackers have
-  disadvantage), **Stoneskin** (resistance to bludgeoning, piercing and
-  slashing).
+- **A potion.** `src/data/magicItems.ts` builds the potions from the
+  registry. They are timed consumables: no concentration, "10 minutes" is
+  one fight, "1 hour" or more is three.
+- **A spell cast in combat.** An action with the effect token `buff:<id>`
+  puts the same effects on its target (`applyBuff` in
+  `src/rules/combat.ts`); a concentration spell's effects come off when the
+  caster's concentration ends. So giving a companion or a future caster
+  Haste is one spell action carrying `buff:haste`; nothing else is needed.
+  No hero or companion spell list has these yet.
+
+| Buff | Effect | Potion |
+|---|---|---|
+| Bless | +1d4 to attacks and saves | Potion of Bless, 1 fight |
+| Shield of Faith | +2 AC | 1 fight |
+| False Life | 9 temporary hit points, once | until lost |
+| Longstrider | +10 ft speed | 3 fights |
+| Protection from Evil and Good | six creature types attack with disadvantage | 1 fight |
+| Aid | +5 hit points and maximum | 3 fights |
+| Blur | attackers have disadvantage | 1 fight |
+| Barkskin | AC at least 17 | 3 fights |
+| Enlarge | drawn 1.5 times as big, +1d4 weapon damage, advantage on Strength saves | SRD **Potion of Growth**, 1 fight |
+| Haste | speed doubled, +2 AC, advantage on Dexterity saves, one extra weapon attack a turn | SRD **Potion of Speed**, 1 fight |
+| Fire Shield | cold resistance; a melee attacker that hits takes 2d8 fire | 1 fight |
+| Stoneskin | resistance to bludgeoning, piercing, slashing | 3 fights |
+
+Also the SRD **Potion of Heroism** (10 temporary hit points once, Bless for
+three fights). Potions of Speed, Growth and Heroism are SRD items; the other
+ten are ORIGINAL items holding SRD spells (family `spell_potion`, 100 gp;
+Fire Shield and Stoneskin 375 gp).
+
+Not kept: Enlarge's larger space and reach; Haste's lethargy when it ends,
+and its extra action is always a weapon attack; Protection's guard against
+charm and fear; False Life is a flat 9.
+
+Enlarge's size is real on screen: `Renderer3D.setEntityState(id, { scale })`
+eases a creature to a multiple of its size. The game sets it from the
+`enlarge` and `enlargeEnd` combat events and, for the hero, from the
+`_enlarged` flag whenever the hero is rebuilt.
 
 The shop sells up to four different potions of this kind per visit: the
-100 gp ones from floor 2, the others when their rarity unlocks. New passives:
-`bless`, `tempHp`, `attackersDisadvantage`, `wardVersus`. The scripted hero
-of the balance harness does not buy or drink them, so the tuning does not
-count them.
+100 gp ones from floor 2, the others when their rarity unlocks (Speed from
+floor 15). The scripted hero of the balance harness does not buy or drink
+them, so the tuning does not count them.
 
 ## Magic shields
 

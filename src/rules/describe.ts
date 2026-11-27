@@ -22,6 +22,13 @@ export function describePassive(p: PassiveEffect): string | null {
     case 'critImmunity': return 'Critical hits against you are normal hits';
     case 'ignoreHazard': return `Ignores ${p.hazard === 'fall' ? 'pits' : p.hazard}`;
     case 'displacement': return 'Attacks against you have disadvantage until you are hit';
+    case 'speedMultiplier': return p.factor === 2 ? 'Speed doubled' : `Speed x${p.factor}`;
+    case 'saveAdvantage': return `Advantage on ${p.ability.toUpperCase()} saving throws`;
+    case 'extraAttack': return 'One extra weapon attack each turn';
+    case 'bonusWeaponDice': return `+${p.dice} damage with weapons`;
+    case 'sizeUp': return 'You grow larger';
+    case 'minimumAc': return `Armor Class at least ${p.ac}`;
+    case 'retaliate': return `A creature that hits you in melee takes ${p.dice} ${p.damageType} damage`;
     case 'bless': return '+1d4 to attack rolls and saving throws';
     case 'tempHp': return `${p.amount} temporary hit points`;
     case 'attackersDisadvantage': return 'Attacks against you have disadvantage';

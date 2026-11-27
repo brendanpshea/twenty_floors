@@ -567,6 +567,20 @@ export type PassiveEffect =
   | { type: 'weaponCritDamage'; dice: Dice; damageType?: DamageType }
   /** On a weapon: a different critical range (crits on `from` or higher). */
   | { type: 'critRange'; from: number }
+  /** Walking speed multiplied (Haste: 2). */
+  | { type: 'speedMultiplier'; factor: number }
+  /** Advantage on saving throws of one ability (Haste: Dexterity; Enlarge: Strength). */
+  | { type: 'saveAdvantage'; ability: Ability }
+  /** One more weapon attack each turn (Haste). */
+  | { type: 'extraAttack' }
+  /** Extra dice on every weapon hit, of the weapon's damage type (Enlarge: 1d4). */
+  | { type: 'bonusWeaponDice'; dice: Dice }
+  /** The creature is drawn larger (Enlarge). Space and reach do not change. */
+  | { type: 'sizeUp' }
+  /** Armor Class cannot be lower than this (Barkskin: 17). */
+  | { type: 'minimumAc'; ac: number }
+  /** A creature that hits the bearer with a melee attack takes this damage (Fire Shield). */
+  | { type: 'retaliate'; dice: Dice; damageType: DamageType }
   /** The Bless spell: 1d4 added to every attack roll and saving throw. */
   | { type: 'bless' }
   /** Temporary hit points gained once, when the effect starts (a potion of False Life or Heroism). */
@@ -1227,7 +1241,8 @@ export interface Renderer3D {
   playAnim(id: string, anim: AnimName, opts?: { facing?: GridPos }): Promise<void>;
   setEntityState(
     id: string,
-    state: { selected?: boolean; targetable?: boolean; hpFraction?: number; dead?: boolean; visible?: boolean },
+    /** `scale`: how big the entity is drawn, as a multiple of its normal size (1 = normal; Enlarge 1.5). It swells or shrinks to it over a moment. */
+    state: { selected?: boolean; targetable?: boolean; hpFraction?: number; dead?: boolean; visible?: boolean; scale?: number },
   ): void;
   /** Rising text above an entity or cell. */
   floatText(at: string | GridPos, text: string, style: FloatTextStyle): void;

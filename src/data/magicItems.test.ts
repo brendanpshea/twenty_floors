@@ -81,7 +81,8 @@ const EXPECTED_COUNTS: Record<string, number> = {
   potion_of_flying: 1,
   oil_of_slipperiness: 1,
   potion_of_heroism: 1,
-  spell_potion: 8,
+  spell_potion: 10,
+  potion_of_growth: 1,
   bane_weapon: 72,
 };
 
@@ -98,7 +99,7 @@ const SRD_NAMES = [
   'Boots of the Winterlands', 'Ring of Free Action', 'Cloak of Arachnida', 'Wand of Magic Missiles', 'Wand of Fireballs',
   'Wand of Lightning Bolts', 'Wand of Web', 'Wand of Binding', 'Staff of Healing', 'Staff of Fire', 'Staff of Frost',
   'Circlet of Blasting', 'Potion of Resistance', 'Potion of Giant Strength', 'Potion of Invulnerability', 'Potion of Speed',
-  'Potion of Flying', 'Oil of Slipperiness', 'Potion of Heroism',
+  'Potion of Flying', 'Oil of Slipperiness', 'Potion of Heroism', 'Potion of Growth',
 ];
 
 const byId = new Map(MAGIC_ITEMS.map((i) => [i.id, i] as const));
@@ -154,6 +155,24 @@ function checkPassive(id: string, p: PassiveEffect): void {
     case 'handsFree':
     case 'bless':
     case 'attackersDisadvantage':
+    case 'extraAttack':
+    case 'sizeUp':
+      break;
+    case 'speedMultiplier':
+      expect(p.factor, id).toBeGreaterThan(1);
+      break;
+    case 'saveAdvantage':
+      expect(ABILITIES, id).toContain(p.ability);
+      break;
+    case 'bonusWeaponDice':
+      expect(p.dice, id).toMatch(DICE_RE);
+      break;
+    case 'minimumAc':
+      expect(p.ac, id).toBeGreaterThan(10);
+      break;
+    case 'retaliate':
+      expect(p.dice, id).toMatch(DICE_RE);
+      expect(DAMAGE_TYPES, id).toContain(p.damageType);
       break;
     case 'tempHp':
       expect(p.amount, id).toBeGreaterThan(0);
@@ -411,7 +430,7 @@ describe('ORIGINAL items', () => {
     const banes = [...ORIGINAL_ITEM_IDS].filter((id) => byId.get(id)?.kind !== 'consumable');
     expect(banes.length).toBe(BANE_TYPES.length * 6);
     // The other original items are the bottled spells: timed potions, none with an SRD item's name.
-    expect(potions.length).toBe(8);
+    expect(potions.length).toBe(10);
     for (const id of potions) {
       const i = byId.get(id);
       expect(i?.consumable?.effect, id).toBe('timed');

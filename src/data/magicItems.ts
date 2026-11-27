@@ -1,4 +1,5 @@
 import type { CreatureType, DamageType, ItemDef, ItemRarity, PassiveEffect, WornSlot } from '../core/types';
+import { BUFFS, type BuffDef } from './buffs';
 import { ARMOR, SHIELDS, WEAPONS } from './items';
 
 /*
@@ -69,6 +70,7 @@ export const FAMILY_FACTOR: Readonly<Record<string, number>> = {
   potion_of_flying: 0.5,
   oil_of_slipperiness: 0.5,
   potion_of_heroism: 0.5,
+  potion_of_growth: 0.5,
   // A bottled spell of level 1 to 4: priced like a low Spell Scroll, well under a true potion of its rarity.
   spell_potion: 0.25,
 };
@@ -489,27 +491,23 @@ function potionsOfResistance(): ItemDef[] {
   );
 }
 
-/** Bottled spells (original items; the spells are the SRD's). */
+const fightsText = (n: number): string => (n === 1 ? 'for the next fight' : `for the next ${n} fights`);
+
+/** Bottled spells (original items; the spells are the SRD's): one potion for each buff in src/data/buffs.ts that has no SRD potion. */
 function spellPotions(): ItemDef[] {
-  const list: Array<{ spell: string; name: string; rarity: ItemRarity; fights: number; passives: PassiveEffect[]; description: string }> = [
-    // Bless (level 1, 1 minute).
-    { spell: 'bless', name: 'Bless', rarity: 'uncommon', fights: 1, passives: [{ type: 'bless' }], description: 'Adds 1d4 to your attack rolls and saving throws for the next fight.' },
-    // Shield of Faith (level 1, 10 minutes): +2 AC.
-    { spell: 'shield_of_faith', name: 'Shield of Faith', rarity: 'uncommon', fights: 1, passives: [{ type: 'acBonus', amount: 2 }], description: 'A shimmering field gives +2 Armor Class for the next fight.' },
-    // False Life (level 1): 2d4 + 4 Temporary Hit Points; the average is given.
-    { spell: 'false_life', name: 'False Life', rarity: 'uncommon', fights: 1, passives: [{ type: 'tempHp', amount: 9 }], description: 'Gives 9 temporary hit points when drunk.' },
-    // Longstrider (level 1, 1 hour): +10 ft speed.
-    { spell: 'longstrider', name: 'Longstrider', rarity: 'uncommon', fights: 3, passives: [{ type: 'speedBonus', cells: 2 }], description: 'Adds 10 ft to your speed for the next 3 fights.' },
-    // Protection from Evil and Good (level 1, 10 minutes): the listed creature types attack with disadvantage. (Its guard against charm, fear and possession is not kept.)
-    { spell: 'protection', name: 'Protection from Evil and Good', rarity: 'uncommon', fights: 1, passives: [{ type: 'wardVersus', versus: ['aberration', 'celestial', 'elemental', 'fey', 'fiend', 'undead'] }], description: 'For the next fight, aberrations, celestials, elementals, fey, fiends and undead attack you with disadvantage.' },
-    // Aid (level 2, 8 hours): +5 hit points, maximum and current.
-    { spell: 'aid', name: 'Aid', rarity: 'uncommon', fights: 3, passives: [{ type: 'maxHpBonus', flat: 5 }], description: 'Raises your hit points and their maximum by 5 for the next 3 fights.' },
-    // Blur (level 2, 1 minute): attackers have disadvantage.
-    { spell: 'blur', name: 'Blur', rarity: 'uncommon', fights: 1, passives: [{ type: 'attackersDisadvantage' }], description: 'Your outline wavers: attacks against you have disadvantage for the next fight.' },
-    // Stoneskin (level 4, 1 hour): resistance to bludgeoning, piercing and slashing damage.
-    { spell: 'stoneskin', name: 'Stoneskin', rarity: 'rare', fights: 3, passives: [{ type: 'resistance', damageType: 'bludgeoning' }, { type: 'resistance', damageType: 'piercing' }, { type: 'resistance', damageType: 'slashing' }], description: 'Your skin turns hard as stone: half damage from bludgeoning, piercing and slashing for the next 3 fights.' },
-  ];
-  return list.map((s) => timedConsumable({ id: `potion_of_${s.spell}`, name: `Potion of ${s.name}`, family: 'spell_potion', rarity: s.rarity, fights: s.fights, passives: s.passives, description: s.description }));
+  return Object.values(BUFFS)
+    .filter((d) => d.potion && !d.potion.srdName)
+    .map((d) =>
+      timedConsumable({
+        id: `potion_of_${d.id}`,
+        name: `Potion of ${d.name}`,
+        family: 'spell_potion',
+        rarity: (d.potion as NonNullable<BuffDef['potion']>).rarity,
+        fights: d.fights,
+        passives: d.passives,
+        description: d.passives.every((p) => p.type === 'tempHp') ? `${d.summary.replace(/\.$/, '')} when drunk.` : `${d.summary.replace(/\.$/, '')}, ${fightsText(d.fights)}.`,
+      }),
+    );
 }
 
 /** Potion of Giant Strength (SRD table), 1 hour = 3 fights. */
@@ -1308,7 +1306,21 @@ function build(): MagicFamily[] {
       }),
     ]),
   );
-  // The SRD potion is Haste: here a +6 cell speed bonus (doubling a 6-cell speed); the extra action and AC bonus are not modelled.
+  // Potion of Growth (Uncommon): the enlarge effect of Enlarge/Reduce for 10 minutes (1 fight). See the enlarge entry of src/data/buffs.ts.
+  families.push(
+    fam('potion_of_growth', 'Potion of Growth', [
+      timedConsumable({
+        id: 'potion_of_growth',
+        name: 'Potion of Growth',
+        family: 'potion_of_growth',
+        rarity: 'uncommon',
+        fights: (BUFFS['enlarge'] as BuffDef).fights,
+        passives: (BUFFS['enlarge'] as BuffDef).passives,
+        description: 'You grow to half again your size for the next fight: +1d4 damage with weapons and advantage on Strength saves.',
+      }),
+    ]),
+  );
+  // Potion of Speed: the Haste spell for 1 minute (1 fight), no concentration. See the haste entry of src/data/buffs.ts.
   families.push(
     fam('potion_of_speed', 'Potion of Speed', [
       timedConsumable({
@@ -1316,9 +1328,9 @@ function build(): MagicFamily[] {
         name: 'Potion of Speed',
         family: 'potion_of_speed',
         rarity: 'veryRare',
-        fights: 1,
-        passives: [{ type: 'speedBonus', cells: 6 }],
-        description: 'A swirling yellow draught that doubles your movement for the next fight.',
+        fights: (BUFFS['haste'] as BuffDef).fights,
+        passives: (BUFFS['haste'] as BuffDef).passives,
+        description: 'Haste in a bottle: doubled speed, +2 Armor Class, advantage on Dexterity saves and one extra weapon attack each turn, for the next fight.',
       }),
     ]),
   );

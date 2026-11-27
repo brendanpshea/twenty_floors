@@ -137,6 +137,14 @@ export const PASSIVE_FLAGS = {
   displacement: '_displacement',
   regeneration: '_regen',
   ignorePrefix: '_ignore_',
+  hasteAttack: '_hasteAttack',
+  /** Followed by an ability: advantage on its saving throws. */
+  saveAdvPrefix: '_saveAdv_',
+  /** Pool whose name is the dice (extra weapon damage). */
+  bonusDice: '_bonusDice',
+  enlarged: '_enlarged',
+  /** Pool whose name is "<dice>:<damage type>". */
+  retaliate: '_retaliate',
   blessed: '_blessed',
   blur: '_blur',
   /** Followed by a creature type: attacks by that type have disadvantage. */

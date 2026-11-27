@@ -1,11 +1,11 @@
 import type { Rng } from '../core/rng';
 import type {
+  Ability,
   ActionDef,
   ActiveCondition,
-  Ability,
   AttackOutcome,
-  Command,
   CombatApi,
+  Command,
   Condition,
   Creature,
   DamageType,
@@ -13,9 +13,11 @@ import type {
   GameEvent,
   GridPos,
   NavGrid,
+  PassiveEffect,
   ReachableCell,
   TurnState,
 } from '../core/types';
+import { getBuff } from '../data/buffs';
 import { MONSTERS } from '../data/monsters';
 import { getItem } from './items';
 import {
@@ -538,6 +540,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     }
     let mode = saveMode(c, ability, applies);
     if (opts.magical && hasFlag(c, 'magicResistance')) mode = mode === 'disadvantage' ? 'normal' : 'advantage';
+    // Haste (Dexterity) and Enlarge (Strength): advantage on that ability's saves.
+    if (hasFlag(c, `saveAdv_${ability}`) && mode !== 'advantage') mode = mode === 'disadvantage' ? 'normal' : 'advantage';
     if (opts.forceDis) mode = mode === 'advantage' ? 'normal' : 'disadvantage';
     const r = rollD20(mode);
     let total = r.d20 + bonus;
@@ -834,49 +838,111 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (!def?.consumable || def.consumable.effect !== 'timed') return;
     log(`${c.name} uses ${def.name}.`);
     c.resources[`_used_${itemId}`] = { name: 'used', current: 1, max: 0, refresh: 'longRest' };
-    const flag = (name: string): void => {
-      c.resources[`_${name}`] = { name, current: 1, max: 0, refresh: 'longRest' };
+    applyLive(c, def.consumable.passives);
+    if (def.consumable.hover) for (const f of ['hover', 'ignore_fall', 'ignore_lava']) c.resources[`_${f}`] = { name: f, current: 1, max: 0, refresh: 'longRest' };
+  }
+
+  /**
+   * Put a set of passives on a creature in the middle of a fight: a potion drunk now, or a buff spell cast on it (applyBuff).
+   * Returns the function that takes them off again, for a spell that ends with its caster's concentration. (Ability-score
+   * passives take effect when a potion's effect is carried into the next fight by `syncFromCreature`.)
+   */
+  function applyLive(c: Creature, passives: readonly PassiveEffect[]): () => void {
+    const undo: Array<() => void> = [];
+    const flag = (name: string, poolName: string = name): void => {
+      const key = `_${name}`;
+      if (c.resources[key] !== undefined) return;
+      c.resources[key] = { name: poolName, current: 1, max: 0, refresh: 'longRest' };
+      undo.push(() => delete c.resources[key]);
     };
-    for (const p of def.consumable.passives) {
-      if (p.type === 'acBonus') c.ac += p.amount;
-      else if (p.type === 'saveBonus') c.resources['_saveBonus'] = { name: 'Save bonus', current: (c.resources['_saveBonus']?.current ?? 0) + p.amount, max: 0, refresh: 'longRest' };
-      else if (p.type === 'resistance' && !c.resistances.includes(p.damageType)) c.resistances.push(p.damageType);
-      else if (p.type === 'immunity' && !c.immunities.includes(p.damageType)) c.immunities.push(p.damageType);
-      else if (p.type === 'conditionImmunity' && !c.conditionImmunities.includes(p.condition)) c.conditionImmunities.push(p.condition);
-      else if (p.type === 'speedBonus') {
-        c.speed += p.cells;
-        if (turn.creatureId === c.id) turn.movementLeft += p.cells;
+    for (const p of passives) {
+      if (p.type === 'acBonus') {
+        c.ac += p.amount;
+        undo.push(() => (c.ac -= p.amount));
+      } else if (p.type === 'minimumAc') {
+        const up = Math.max(0, p.ac - c.ac);
+        c.ac += up;
+        undo.push(() => (c.ac -= up));
+      } else if (p.type === 'saveBonus') {
+        c.resources['_saveBonus'] = { name: 'Save bonus', current: (c.resources['_saveBonus']?.current ?? 0) + p.amount, max: 0, refresh: 'longRest' };
+        undo.push(() => ((c.resources['_saveBonus'] as { current: number }).current -= p.amount));
+      } else if (p.type === 'resistance' && !c.resistances.includes(p.damageType)) {
+        c.resistances.push(p.damageType);
+        undo.push(() => (c.resistances = c.resistances.filter((t) => t !== p.damageType)));
+      } else if (p.type === 'immunity' && !c.immunities.includes(p.damageType)) {
+        c.immunities.push(p.damageType);
+        undo.push(() => (c.immunities = c.immunities.filter((t) => t !== p.damageType)));
+      } else if (p.type === 'conditionImmunity' && !c.conditionImmunities.includes(p.condition)) {
+        c.conditionImmunities.push(p.condition);
+        undo.push(() => (c.conditionImmunities = c.conditionImmunities.filter((t) => t !== p.condition)));
+      } else if (p.type === 'speedBonus' || p.type === 'speedMultiplier') {
+        const more = p.type === 'speedBonus' ? p.cells : c.speed * (p.factor - 1);
+        c.speed += more;
+        if (turn.creatureId === c.id) turn.movementLeft += more;
+        undo.push(() => (c.speed -= more));
       } else if (p.type === 'critImmunity') flag('critImmunity');
       else if (p.type === 'displacement') {
         flag('displacement');
         displaced.add(c.id);
+        undo.push(() => displaced.delete(c.id));
       } else if (p.type === 'ignoreHazard') flag(`ignore_${p.hazard}`);
       else if (p.type === 'bless') {
-        flag('blessed');
-        rollMods.set(c.id, { ...(rollMods.get(c.id) ?? { bless: false, bane: false }), bless: true });
+        if (!rollMods.get(c.id)?.bless) {
+          rollMods.set(c.id, { ...(rollMods.get(c.id) ?? { bless: false, bane: false }), bless: true });
+          undo.push(() => {
+            const m = rollMods.get(c.id);
+            if (m) m.bless = false;
+          });
+        }
       } else if (p.type === 'tempHp') c.tempHp = Math.max(c.tempHp, p.amount);
       else if (p.type === 'attackersDisadvantage') flag('blur');
       else if (p.type === 'wardVersus') for (const t of p.versus) flag(`ward_${t}`);
-      else if (p.type === 'maxHpBonus') {
+      else if (p.type === 'extraAttack') flag('hasteAttack');
+      else if (p.type === 'saveAdvantage') flag(`saveAdv_${p.ability}`);
+      else if (p.type === 'bonusWeaponDice') flag('bonusDice', p.dice);
+      else if (p.type === 'retaliate') flag('retaliate', `${p.dice}:${p.damageType}`);
+      else if (p.type === 'sizeUp') {
+        if (c.resources['_enlarged'] === undefined) {
+          flag('enlarged');
+          feature(c, 'enlarge', 'Enlarged', {});
+          undo.push(() => feature(c, 'enlargeEnd', 'Back to size', {}));
+        }
+      } else if (p.type === 'maxHpBonus') {
         const n = (p.flat ?? 0) + (p.perLevel ?? 0) * (c.level ?? 0);
         c.maxHp += n;
         c.hp += n;
-      } else if (p.type === 'regeneration') c.resources['_regen'] = { name: 'Regeneration', current: p.amount, max: 0, refresh: 'longRest' };
-      else if (p.type === 'flight') {
-        flag('hover');
-        flag('ignore_fall');
-        flag('ignore_lava');
-      }
+        undo.push(() => {
+          c.maxHp -= n;
+          c.hp = Math.max(1, Math.min(c.hp, c.maxHp));
+        });
+      } else if (p.type === 'regeneration') {
+        c.resources['_regen'] = { name: 'Regeneration', current: p.amount, max: 0, refresh: 'longRest' };
+        undo.push(() => delete c.resources['_regen']);
+      } else if (p.type === 'flight') for (const f of ['hover', 'ignore_fall', 'ignore_lava']) flag(f);
     }
-    if (def.consumable.hover) {
-      flag('hover');
-      flag('ignore_fall');
-      flag('ignore_lava');
-    }
+    return () => {
+      for (const u of undo.reverse()) u();
+    };
+  }
+
+  /**
+   * A buff spell from the registry (src/data/buffs.ts), cast on `tgt` by an action carrying `buff:<id>`: the same effects a
+   * potion of it gives. A concentration spell ends with the caster's concentration; the others last the fight.
+   */
+  function applyBuff(att: Creature, a: ActionDef, tgt: Creature, buffId: string): boolean {
+    const def = getBuff(buffId);
+    if (!def) return false;
+    const off = applyLive(tgt, def.passives);
+    if (def.concentration) beginConcentration(att, a, def.name, off);
+    feature(tgt, `buff:${def.id}`, def.name, { targetId: tgt.id });
+    log(`${tgt.name} is under ${def.name}.`);
+    return true;
   }
 
   function applyBuffSpell(att: Creature, a: ActionDef, tgt: Creature): boolean {
     const fx = a.effects ?? [];
+    const buff = fx.find((e) => e.startsWith('buff:'));
+    if (buff) return applyBuff(att, a, tgt, buff.slice('buff:'.length));
     if (fx.includes('bless')) {
       beginConcentration(att, a, a.name, () => {
         const m = rollMods.get(tgt.id);
@@ -1231,12 +1297,22 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
           parts.push({ type: type as DamageType, amount: rollDice(rng, dice as string).total });
         }
       }
+      // Enlarge: extra dice on a weapon hit, of the weapon's own damage type.
+      const big = att.resources['_bonusDice'];
+      if (big && isWeaponAttack(a) && parts[0]) parts.push({ type: parts[0].type, amount: rollDice(rng, big.name, { crit }).total });
       // Shield of Missile Attraction: half damage from ranged weapon attacks.
       const deflect = hasFlag(tgt, 'rangedResist') && isRangedAttack(a) && !isMagical(a);
       for (const part of parts) {
         if (deflect) part.amount = Math.floor(part.amount / 2);
         dealDamage(tgt, dodge ? Math.floor(part.amount / 2) : part.amount, part.type, att.id, crit);
         dealt += part.amount;
+      }
+      // Fire Shield: a creature that hits its bearer with a melee attack is burned in turn.
+      const flames = tgt.resources['_retaliate'];
+      if (flames && a.targeting.kind === 'creature' && a.targeting.melee && isAlive(att)) {
+        const [dice, type] = flames.name.split(':');
+        feature(tgt, 'retaliate', 'Fire Shield', { targetId: att.id });
+        dealDamage(att, rollDice(rng, dice as string).total, type as DamageType, tgt.id, false);
       }
       // Sneak Attack (Blink Dog, rogue rule): once per turn, extra d6s when the attack has advantage, or when an ally of the
       // attacker is within 5 ft of the target and the roll does not have disadvantage.
@@ -1394,7 +1470,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
 
   /** A weapon attack that belongs to the Attack action and so draws on Extra Attack (not spells, not off-hand extras). */
   function isPoolAttack(c: Creature, a: ActionDef): boolean {
-    return c.resources['_attacks'] !== undefined && a.cost === 'action' && !isSpellAction(a) && (a.id.startsWith('atk_') || a.id.startsWith('throw_') || a.id === 'unarmed' || isShove(a));
+    return (c.resources['_attacks'] !== undefined || hasFlag(c, 'hasteAttack')) && a.cost === 'action' && !isSpellAction(a) && (a.id.startsWith('atk_') || a.id.startsWith('throw_') || a.id === 'unarmed' || isShove(a));
   }
 
   function useCheck(c: Creature, id: string): { ok: boolean; reason?: string } {
@@ -1787,7 +1863,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
           // A new Attack action: this attack plus the extra ones.
           turn.actionUsed = true;
           atk.open = true;
-          atk.left = (c.resources['_attacks']?.current ?? 1) - 1;
+          // Haste: one more weapon attack in the turn.
+          atk.left = (c.resources['_attacks']?.current ?? 1) - 1 + (hasFlag(c, 'hasteAttack') ? 1 : 0);
           atk.loadingUsed = false;
         }
         if (a.effects?.includes('loading')) atk.loadingUsed = true;
@@ -2082,9 +2159,10 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (!began || over) return 0;
     const c = active();
     const pool = c.resources['_attacks'];
-    if (!pool) return turn.actionUsed ? 0 : 1;
+    const haste = hasFlag(c, 'hasteAttack') ? 1 : 0;
+    if (!pool && !haste) return turn.actionUsed ? 0 : 1;
     if (atk.open && atk.left > 0) return atk.left;
-    return turn.actionUsed ? 0 : pool.current;
+    return turn.actionUsed ? 0 : (pool?.current ?? 1) + haste;
   });
   return api;
 }

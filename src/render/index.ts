@@ -380,7 +380,7 @@ class RendererImpl implements RendererWithDebug {
 
   setEntityState(
     id: string,
-    state: { selected?: boolean; targetable?: boolean; hpFraction?: number; dead?: boolean; visible?: boolean },
+    state: { selected?: boolean; targetable?: boolean; hpFraction?: number; dead?: boolean; visible?: boolean; scale?: number },
   ): void {
     this.entities.setState(id, state);
   }

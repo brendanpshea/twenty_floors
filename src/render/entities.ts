@@ -63,6 +63,9 @@ export class Entity {
   cell: GridPos;
   readonly fp = 1;
   scale = 1;
+  /** Growth on top of the figure's own scale (an Enlarge spell): eased toward growTarget each frame. */
+  grow = 1;
+  growTarget = 1;
   yaw = 0;
   targetYaw = 0;
   moveQueue: MoveJob[] = [];
@@ -135,7 +138,7 @@ export class Entity {
   /** Scale policy: stand-ins by Size, models by manifest scale (already in the figure) times VisualSpec.scale. */
   applyFigureScale(): void {
     const vs = this.spec.scale ?? 1;
-    this.scale = (this.figure.kind === 'model' || this.figure.kind === 'rest' ? 1 : SIZE_SCALE[this.size]) * vs;
+    this.scale = (this.figure.kind === 'model' || this.figure.kind === 'rest' ? 1 : SIZE_SCALE[this.size]) * vs * this.grow;
     this.height = this.figure.height * this.scale;
     const r = Math.min(2.4, Math.max(0.8, 0.28 * this.height + 0.35)); // capped so a dragon does not swallow clicks meant for neighbouring cells
     const h = Math.max(1.5, this.height + 0.3);
@@ -533,10 +536,11 @@ export class EntityManager {
 
   setState(
     id: string,
-    st: { selected?: boolean; targetable?: boolean; hpFraction?: number; dead?: boolean; visible?: boolean },
+    st: { selected?: boolean; targetable?: boolean; hpFraction?: number; dead?: boolean; visible?: boolean; scale?: number },
   ): void {
     const e = this.entities.get(id);
     if (!e) return;
+    if (st.scale !== undefined) e.growTarget = Math.max(0.25, Math.min(3, st.scale));
     if (st.visible !== undefined) {
       e.visible = st.visible;
       e.root.visible = st.visible;
@@ -716,6 +720,14 @@ export class EntityManager {
       pdt = sdt * 0.04;
     }
     for (const e of this.entities.values()) {
+      if (e.grow !== e.growTarget) {
+        // Swell or shrink over about a third of a second, with the rings and the health bar following.
+        const d = e.growTarget - e.grow;
+        e.grow = Math.abs(d) < 0.01 ? e.growTarget : e.grow + d * Math.min(1, sdt * 7);
+        e.applyFigureScale();
+        if (e.ring) e.ring.scale.setScalar(this.ringScale(e));
+        if (e.targetRing) e.targetRing.scale.setScalar(this.ringScale(e) * 1.12);
+      }
       this.updateMovement(e, sdt);
       const hides = !e.dead && e.visible && coversTarget(e.root.position.x, e.root.position.z, e.height);
       const fadeTo = hides ? 0.3 : 1;
