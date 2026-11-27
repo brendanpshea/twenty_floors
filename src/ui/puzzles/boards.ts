@@ -235,7 +235,20 @@ function createTumblersBoard(inst: TumblersInstance, host: BoardHost): Board {
   const current = h('div', 'tf-pz-current');
   current.setAttribute('role', 'group');
   current.setAttribute('aria-label', 'Your try');
-  el.append(history, current);
+  // The key to the feedback, always on the board: the pips do not say which symbol they mean, only how many.
+  const legend = h('div', 'tf-pz-legend');
+  legend.setAttribute('aria-hidden', 'true');
+  const key = (cls: string, text: string): HTMLElement => {
+    const k = h('span', 'tf-pz-legend-item');
+    k.append(h('span', `tf-pz-pip ${cls}`), h('span', '', text));
+    return k;
+  };
+  legend.append(
+    key('is-exact', 'right symbol, right tumbler'),
+    key('is-near', 'right symbol, wrong tumbler'),
+    h('span', 'tf-pz-legend-note', 'Pips count symbols; they are not in tumbler order.'),
+  );
+  el.append(legend, history, current);
 
   const cur: (number | null)[] = new Array<number | null>(length).fill(null);
   let revealed: (number | null)[] = new Array<number | null>(length).fill(null);
@@ -346,8 +359,14 @@ function createTumblersBoard(inst: TumblersInstance, host: BoardHost): Board {
       const pips = h('span', 'tf-pz-pips');
       for (let k = 0; k < guess.exact; k++) pips.appendChild(h('span', 'tf-pz-pip is-exact'));
       for (let k = 0; k < guess.misplaced; k++) pips.appendChild(h('span', 'tf-pz-pip is-near'));
-      if (guess.exact + guess.misplaced === 0) pips.appendChild(h('span', 'tf-pz-nomatch', 'none'));
-      li.append(syms, pips);
+      // The same in words, so a try can be read without the key.
+      const none = length - guess.exact - guess.misplaced;
+      const words: string[] = [];
+      if (guess.exact > 0) words.push(`${guess.exact} in place`);
+      if (guess.misplaced > 0) words.push(`${guess.misplaced} misplaced`);
+      if (none > 0) words.push(guess.exact + guess.misplaced === 0 ? 'none in the lock' : `${none} not in the lock`);
+      const fb = h('span', 'tf-pz-hwords', words.join(', '));
+      li.append(syms, pips, fb);
       li.setAttribute(
         'aria-label',
         `Try ${g + 1}: ${guess.code.map(runeName).join(', ')}. ${guess.exact} right place, ${guess.misplaced} wrong place.`,

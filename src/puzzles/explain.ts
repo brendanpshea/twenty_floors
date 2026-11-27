@@ -19,8 +19,8 @@ export const EXPLAINERS: Record<PuzzleKind, Explainer> = {
     title: 'How a Tumbler Lock works',
     lines: [
       'Set each tumbler to a symbol, then press Try the lock.',
-      'A gold pip means right symbol, right place; a pale pip means right symbol, wrong place.',
-      'Use every try to rule out symbols; you only have a few.',
+      'Gold pip: a right symbol in the right tumbler. Pale pip: a right symbol in the wrong tumbler.',
+      'Pips only count; they do not say which symbols they mean. Compare tries to work it out.',
     ],
   },
   conduits: {

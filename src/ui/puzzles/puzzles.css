@@ -619,6 +619,7 @@
 }
 .tf-pz-hrow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 2px 6px;
@@ -672,6 +673,35 @@
 .tf-pz-pip.is-near {
   border: 2px solid #cfd4de;
   background: transparent;
+}
+.tf-pz-hwords {
+  flex-basis: 100%;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--tf-dim);
+  padding-left: calc(1.6ch + 8px);
+}
+.tf-pz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: var(--tf-dim);
+}
+.tf-pz-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.tf-pz-legend .tf-pz-pip {
+  width: 11px;
+  height: 11px;
+}
+.tf-pz-legend-note {
+  flex-basis: 100%;
+  color: var(--tf-faint);
+  font-size: 11px;
 }
 .tf-pz-nomatch {
   font-size: 11px;
