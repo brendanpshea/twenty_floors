@@ -1216,3 +1216,128 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
+
+/* ---------------------------------------------------------------------------
+   Practice locks (tutorial.ts)
+   --------------------------------------------------------------------------- */
+.tf-pz--tutorial .tf-pz-veil {
+  position: fixed;
+}
+.tf-pz-card.tf-pz-tut {
+  width: min(520px, 100%);
+  gap: 8px;
+}
+.tf-pz-tut-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.tf-pz-tut-head .tf-pz-card-title {
+  flex: 1;
+}
+.tf-pz-tut-count {
+  font-size: 12px;
+  color: var(--tf-faint);
+  white-space: nowrap;
+}
+.tf-pz-tut-close {
+  align-self: center;
+}
+.tf-pz-tut-dots {
+  display: flex;
+  gap: 5px;
+}
+.tf-pz-tut-dot {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--tf-ink-4);
+}
+.tf-pz-tut-dot.is-now {
+  background: var(--tf-gold-lo);
+}
+.tf-pz-tut-dot.is-done {
+  background: var(--tf-gold-hi);
+}
+.tf-pz-tut-coach {
+  min-height: 4.6em;
+  padding: 10px 12px;
+  border: 1px solid var(--tf-line-soft);
+  border-left: 3px solid var(--tf-gold);
+  border-radius: 8px;
+  background: var(--tf-ink-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tf-pz-tut-coach p {
+  margin: 0;
+  line-height: 1.4;
+}
+.tf-pz-tut-after {
+  color: var(--tf-gold-hi);
+}
+.tf-pz-tut-nudge {
+  color: #f1a3a6;
+  font-size: 13px;
+}
+.tf-pz-tut-nudge:empty {
+  display: none;
+}
+.tf-pz-tut-nudge.is-shake {
+  animation: tf-pz-tut-shake 300ms ease;
+}
+@keyframes tf-pz-tut-shake {
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+.tf-pz-tut-sym {
+  display: inline-grid;
+  place-items: center;
+  width: 1.35em;
+  height: 1.35em;
+  vertical-align: -0.3em;
+  margin: 0 1px;
+}
+.tf-pz-tut-sym .tf-pz-glyph,
+.tf-pz-tut-sym svg {
+  width: 100%;
+  height: 100%;
+}
+.tf-pz-tut-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.tf-pz-tut-stage.is-resting {
+  opacity: 0.92;
+}
+.tf-pz-tut-foot {
+  justify-content: space-between;
+}
+.tf-pz-tut-foot .tf-pz-btn--primary {
+  margin-left: auto;
+  min-width: 7em;
+}
+.tf-pz [data-spot].is-spot {
+  position: relative;
+  outline: 2px solid var(--tf-gold-hi);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(239, 211, 145, 0.22);
+  animation: tf-pz-spot 1.4s ease-in-out infinite;
+  z-index: 1;
+}
+@keyframes tf-pz-spot {
+  50% { box-shadow: 0 0 0 8px rgba(239, 211, 145, 0.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tf-pz [data-spot].is-spot,
+  .tf-pz-tut-nudge.is-shake {
+    animation: none;
+  }
+}
+.tf-pz-tut [hidden] {
+  display: none !important;
+}

@@ -2129,3 +2129,14 @@
 .tf-inert {
   border-radius: 8px;
 }
+
+/* ---------- How to play: practice locks ---------- */
+.tf-howto-locks {
+  grid-column: 1 / -1;
+}
+.tf-howto-lockbtns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 0.6em;
+}

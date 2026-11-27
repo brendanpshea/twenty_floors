@@ -21,6 +21,7 @@ import { createBoard } from './boards';
 import { RunClock } from './clock';
 import type { Board } from './boards';
 import { buildExplainerCard } from './explainer';
+import { buildTutorial } from './tutorial';
 import { hourglass, padlock } from './glyphs';
 import { btn, fmtTime, h, reducedMotion } from './util';
 
@@ -386,12 +387,28 @@ function mount(root: HTMLElement, inst: PuzzleInstance, opts: PlayOptions, resol
 
   function openExplainer(first: boolean): void {
     if (finished || overlay) return;
-    const card = buildExplainerCard(inst.kind, () => {
-      hideOverlay();
-      if (first) clock.start();
-      refresh();
-    }, first);
+    const card = buildExplainerCard(
+      inst.kind,
+      () => {
+        hideOverlay();
+        if (first) clock.start();
+        refresh();
+      },
+      first,
+      () => openPractice(first),
+    );
     showOverlay(card);
+  }
+
+  /** The guided practice lock, over this one: the clock is held while it is open, then the explainer comes back. */
+  function openPractice(first: boolean): void {
+    hideOverlay();
+    const tut = buildTutorial(inst.kind, () => {
+      tut.dispose();
+      hideOverlay();
+      openExplainer(first);
+    });
+    showOverlay(tut.el);
   }
 
   function openSkip(): void {

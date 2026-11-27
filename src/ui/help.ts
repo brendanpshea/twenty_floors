@@ -1,3 +1,5 @@
+import { PUZZLE_KINDS, type PuzzleKind } from '../puzzles';
+import { openTutorial } from './puzzles/tutorial';
 import type { HelpMode, HintRequest } from '../core/types';
 import { button, clamp, h } from './dom';
 import { termify } from './glossary';
@@ -154,6 +156,13 @@ function diagramIcon(key: string): HTMLElement {
   return w;
 }
 
+const PRACTICE_NAME: Record<PuzzleKind, string> = {
+  runes: 'Rune Lock',
+  tumblers: 'Tumbler Lock',
+  conduits: 'Conduit Lock',
+  wards: 'Ward Lock',
+};
+
 export function buildHowTo(onBack: () => void, backLabel = 'Back'): HTMLElement {
   const root = h('div', 'tf-howto');
   const head = h('header', 'tf-create-head');
@@ -170,6 +179,22 @@ export function buildHowTo(onBack: () => void, backLabel = 'Back'): HTMLElement 
     sec.append(icons, txt);
     body.append(sec);
   }
+  // Chest locks: each kind can be practised, untimed, any time.
+  const locks = h('section', 'tf-panel tf-howto-sec tf-howto-locks');
+  const ltxt = h('div', 'tf-howto-text');
+  const lp = h('p');
+  lp.append(termify('Chests are locked by small puzzles. Solve one quickly for better loot, or force it open for a little. Practise any lock here, with no timer:'));
+  const lrow = h('div', 'tf-howto-lockbtns');
+  for (const kind of PUZZLE_KINDS) {
+    const b = button('tf-btn', `${PRACTICE_NAME[kind]}`, () => void openTutorial(kind));
+    b.dataset['key'] = `practise-${kind}`;
+    lrow.append(b);
+  }
+  ltxt.append(h('h2', 'tf-panel-title', 'Chest locks'), lp, lrow);
+  const licons = h('div', 'tf-howto-icons');
+  licons.append(diagramIcon('coin'));
+  locks.append(licons, ltxt);
+  body.append(locks);
   const foot = h('footer', 'tf-create-foot');
   const back = button('tf-btn tf-btn--primary', backLabel, onBack);
   back.dataset['key'] = 'howto-back';

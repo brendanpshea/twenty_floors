@@ -93,6 +93,7 @@ function createRunesBoard(inst: RunesInstance, host: BoardHost): Board {
     const c = i % n;
     const b = h('button', 'tf-pz-cell');
     b.type = 'button';
+    b.dataset.spot = `cell:${i}`;
     if ((c + 1) % boxCols === 0 && c < n - 1) b.classList.add('tf-pz-bx-r');
     if ((r + 1) % boxRows === 0 && r < n - 1) b.classList.add('tf-pz-bx-b');
     if (inst.data.givens[i]) b.classList.add('is-given');
@@ -111,6 +112,7 @@ function createRunesBoard(inst: RunesInstance, host: BoardHost): Board {
   const badges: HTMLSpanElement[] = [];
   for (let v = 1; v <= n; v++) {
     const b = btn('tf-pz-key', '', () => place(v));
+    b.dataset.spot = `sym:${v}`;
     b.appendChild(glyph(v - 1));
     const badge = h('span', 'tf-pz-badge');
     b.appendChild(badge);
@@ -119,6 +121,7 @@ function createRunesBoard(inst: RunesInstance, host: BoardHost): Board {
     palette.appendChild(b);
   }
   const erase = btn('tf-pz-key tf-pz-key--erase', 'Erase', () => place(0), 'Erase rune');
+  erase.dataset.spot = 'act:erase';
   palette.appendChild(erase);
   palette.style.setProperty('--pz-keys', String(n + 1));
   palette.style.setProperty('--pz-cols', String(n));
@@ -258,6 +261,7 @@ function createTumblersBoard(inst: TumblersInstance, host: BoardHost): Board {
   for (let i = 0; i < length; i++) {
     const b = h('button', 'tf-pz-slot');
     b.type = 'button';
+    b.dataset.spot = `slot:${i}`;
     b.addEventListener('click', () => selectSlot(i));
     b.addEventListener('focus', () => {
       if (sel !== i) selectSlot(i, false);
@@ -272,6 +276,7 @@ function createTumblersBoard(inst: TumblersInstance, host: BoardHost): Board {
   palette.setAttribute('aria-label', 'Symbols');
   for (let s = 0; s < symbols; s++) {
     const b = btn('tf-pz-key', '', () => setSlot(s));
+    b.dataset.spot = `sym:${s}`;
     b.appendChild(glyph(s));
     b.setAttribute('aria-label', `Set tumbler to ${runeName(s)}`);
     palette.appendChild(b);
@@ -280,6 +285,7 @@ function createTumblersBoard(inst: TumblersInstance, host: BoardHost): Board {
   palette.style.setProperty('--pz-cols', String(Math.max(length * 1.1 + 0.4, 6)));
   el.style.setProperty('--pz-cols', String(Math.max(length * 1.1 + 0.4, 6)));
   const submit = btn('tf-pz-btn tf-pz-btn--primary tf-pz-submit', 'Try the lock', () => trySubmit());
+  submit.dataset.spot = 'act:try';
   tools.append(palette, submit);
 
   function valid(): boolean {
@@ -452,6 +458,7 @@ function createConduitsBoard(inst: ConduitsInstance, host: BoardHost): Board {
   for (let i = 0; i < w * rowsN; i++) {
     const b = h('button', 'tf-pz-cell tf-pz-cell--pipe');
     b.type = 'button';
+    b.dataset.spot = `cell:${i}`;
     if (locked[i]) b.classList.add('is-locked');
     b.addEventListener('click', (ev) => {
       selectCell(i, false);
@@ -558,6 +565,7 @@ function createWardsBoard(inst: WardsInstance, host: BoardHost): Board {
   for (let i = 0; i < w * rowsN; i++) {
     const b = h('button', 'tf-pz-cell tf-pz-cell--ward');
     b.type = 'button';
+    b.dataset.spot = `cell:${i}`;
     b.addEventListener('click', () => {
       selectCell(i, false);
       act(i, mode);
@@ -579,6 +587,8 @@ function createWardsBoard(inst: WardsInstance, host: BoardHost): Board {
   seg.setAttribute('aria-label', 'Tap action');
   const openBtn = btn('tf-pz-segbtn', 'Open', () => setMode('open'), 'Tap opens a tile');
   const markBtn = btn('tf-pz-segbtn', 'Mark trap', () => setMode('mark'), 'Tap marks a trap');
+  openBtn.dataset.spot = 'act:open';
+  markBtn.dataset.spot = 'act:mark';
   seg.append(openBtn, markBtn);
   tools.appendChild(seg);
 

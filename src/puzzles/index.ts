@@ -9,3 +9,5 @@ export { runesConflicts } from './runes';
 export { conduitsPowered, conduitsLoose, rotCW, N, E, S, W } from './conduits';
 export { wardNeighbours } from './wards';
 export { feedback, isValidGuess } from './tumblers';
+export { TUTORIALS } from './tutorials';
+export type { Tutorial, TutorialStep } from './tutorials';

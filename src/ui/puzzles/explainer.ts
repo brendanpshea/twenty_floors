@@ -49,7 +49,11 @@ function example(kind: PuzzleKind): HTMLElement {
   return box;
 }
 
-export function buildExplainerCard(kind: PuzzleKind, onDone: () => void, firstTime: boolean): HTMLElement {
+/**
+ * `onPractise`, when given, adds a button that opens the guided practice lock for this kind (untimed; the real lock's
+ * clock does not run meanwhile).
+ */
+export function buildExplainerCard(kind: PuzzleKind, onDone: () => void, firstTime: boolean, onPractise?: () => void): HTMLElement {
   const info = EXPLAINERS[kind];
   const card = h('div', 'tf-pz-card');
   card.setAttribute('role', 'dialog');
@@ -64,7 +68,14 @@ export function buildExplainerCard(kind: PuzzleKind, onDone: () => void, firstTi
   go.type = 'button';
   go.dataset.autofocus = '1';
   go.addEventListener('click', onDone);
-  card.appendChild(go);
+  if (onPractise) {
+    const row = h('div', 'tf-pz-card-actions');
+    const practise = h('button', 'tf-pz-btn', firstTime ? 'Practise first (no timer)' : 'Practise (no timer)');
+    practise.type = 'button';
+    practise.addEventListener('click', onPractise);
+    row.append(practise, go);
+    card.appendChild(row);
+  } else card.appendChild(go);
   if (firstTime) card.appendChild(h('p', 'tf-pz-card-note', 'The timer starts when you press Begin.'));
   return card;
 }
