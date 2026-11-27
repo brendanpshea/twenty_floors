@@ -28,6 +28,14 @@ function parseOptions(search: string): GameOptions {
   if (q.get('reveal') === '1') opts.reveal = true;
   if (q.get('peace') === '1') opts.peace = true;
   if (q.get('expert') === '1') opts.expert = true;
+  const puzzle = q.get('puzzle');
+  if (puzzle === 'runes' || puzzle === 'tumblers' || puzzle === 'conduits' || puzzle === 'wards') opts.puzzle = puzzle;
+  const puzzleLevel = num('puzzlelevel');
+  if (puzzleLevel !== undefined) opts.puzzleLevel = Math.max(1, Math.min(10, Math.round(puzzleLevel)));
+  const help = q.get('help');
+  if (help === 'guided' || help === 'standard') opts.help = help;
+  const speed = q.get('speed');
+  if (speed === 'normal' || speed === 'fast' || speed === 'skip') opts.speed = speed;
   const level = num('level');
   if (level !== undefined) opts.level = level;
   const floors = num('floors');

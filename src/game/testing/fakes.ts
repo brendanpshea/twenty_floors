@@ -2,10 +2,13 @@ import type { GameAudio, SfxId } from '../../audio';
 import type {
   CellHighlight,
   CharacterBuild,
+  AnimationSpeed,
   CreationOptions,
   FloorPlan,
   GameUi,
   GridPos,
+  HelpMode,
+  HintRequest,
   HubIntent,
   HubModel,
   HudModel,
@@ -14,6 +17,9 @@ import type {
   QualityLevel,
   Renderer3D,
   UiIntent,
+  PuzzleRequest,
+  PuzzleResult,
+  VisualEffect,
 } from '../../core/types';
 import type { GameDeps, GameOptions, StorageLike } from '../deps';
 import { quickBuild } from '../quickBuild';
@@ -40,8 +46,11 @@ export class FakeRenderer implements Renderer3D {
   async loadFloor(plan: FloorPlan): Promise<void> {
     this.plans.push(plan);
   }
-  spawnEntity(id: string, _visual: unknown, pos: GridPos): void {
+  /** The model each entity was spawned with. */
+  models = new Map<string, string>();
+  spawnEntity(id: string, visual: unknown, pos: GridPos): void {
     this.calls++;
+    this.models.set(id, (visual as { model?: string } | undefined)?.model ?? '');
     if (this.entities.has(id)) this.errors.push(`spawnEntity: duplicate ${id}`);
     this.entities.set(id, { pos: { ...pos }, visible: true, dead: false });
   }
@@ -117,6 +126,15 @@ export class FakeRenderer implements Renderer3D {
   setQuality(level: QualityLevel): void {
     this.quality = level;
   }
+  /** Effects played, in order (the game does not send any yet). */
+  effects: VisualEffect[] = [];
+  async playEffect(effect: VisualEffect): Promise<void> {
+    this.effects.push(effect);
+  }
+  animationSpeed: AnimationSpeed = 'normal';
+  setAnimationSpeed(speed: AnimationSpeed): void {
+    this.animationSpeed = speed;
+  }
   start(): void {}
   stop(): void {}
   dispose(): void {}
@@ -128,6 +146,12 @@ export interface FakeUiScript {
   /** Called for every hub model; return the intents to send, in order. */
   hub?: (model: HubModel) => HubIntent[];
   menu?: MenuResult[];
+  /** Answers to confirm() questions, in order; the default is to confirm. */
+  confirm?: { ok: boolean; remember: boolean }[];
+  /** Results of lock puzzles, in order; the default is solved for silver. */
+  puzzle?: PuzzleResult[];
+  /** The answer to the help-mode question (default 'standard'). */
+  help?: HelpMode;
 }
 
 export class FakeUi implements GameUi {
@@ -199,6 +223,26 @@ export class FakeUi implements GameUi {
   }
   async showMenu(): Promise<MenuResult> {
     return this.script.menu?.shift() ?? { type: 'resume' };
+  }
+  async showHelpChoice(): Promise<HelpMode> {
+    return this.script.help ?? 'standard';
+  }
+  confirms: unknown[] = [];
+  async confirm(q?: unknown): Promise<{ ok: boolean; remember: boolean }> {
+    this.confirms.push(q);
+    return this.script.confirm?.shift() ?? { ok: true, remember: false };
+  }
+  hints: HintRequest[] = [];
+  showHint(hint: HintRequest): void {
+    this.hints.push(hint);
+  }
+  clearHint(): void {}
+  async showHowToPlay(): Promise<void> {}
+  /** Every lock puzzle that was put to the player. */
+  puzzles: PuzzleRequest[] = [];
+  async playPuzzle(req: PuzzleRequest): Promise<PuzzleResult> {
+    this.puzzles.push(req);
+    return this.script.puzzle?.shift() ?? { outcome: 'solved', grade: 'silver', seconds: 20, mistakes: 0, hintsUsed: 0, moves: 0 };
   }
 }
 

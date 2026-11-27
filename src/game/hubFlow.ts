@@ -1,11 +1,12 @@
 import type { GameAudio } from '../audio';
 import { THEMES } from '../core/themes';
 import { COMPANION_JOIN_LEVEL } from '../core/types';
-import type { CompanionState, HubIntent, HubModel, ItemDef, PlayerCharacter, GameUi } from '../core/types';
+import type { CompanionState, HubIntent, HubShopEntry, HubModel, ItemDef, PlayerCharacter, GameUi } from '../core/types';
 import {
   applyLevelUp,
   buyItem,
   canEquip,
+  compareItem,
   companionLongRest,
   companionOptions,
   computeAc,
@@ -87,7 +88,20 @@ export class HubFlow {
         speciesName: this.speciesNames.get(pc.build.speciesId) ?? pc.build.speciesId,
         ac: computeAc(pc),
       },
-      shop: shopStock(this.nextDepth).map((item) => ({ item, price: item.cost, affordable: pc.gold >= item.cost })),
+      shop: shopStock(this.nextDepth).map((item) => {
+        const entry: HubShopEntry = { item, price: item.cost, affordable: pc.gold >= item.cost };
+        // Weapons, armor and shields come with a comparison against what the hero has on, for this hero's real build.
+        if (item.kind === 'weapon' || item.kind === 'armor' || item.kind === 'shield') {
+          try {
+            const compare = compareItem(pc, item.id);
+            if (compare) entry.compare = compare;
+          } catch (err) {
+            // The comparison is a courtesy: a rules error must not stop the shop.
+            console.warn(`compareItem failed for ${item.id}`, err);
+          }
+        }
+        return entry;
+      }),
     };
     const preview = this.levelTaken ? null : previewLevelUp(pc);
     if (preview) model.levelUp = preview;
@@ -165,6 +179,46 @@ export class HubFlow {
     }
     return this.pc;
   }
+
+  /**
+   * The bot's shopping: keep two healing potions, buy the best affordable upgrade (armor first, then weapons, then
+   * shields) and put it on, repeat while the gold lasts, then top the potions up. Never buys a downgrade or an item
+   * that does not suit the build.
+   */
+  autoShop(): { bought: string[] } {
+    const bought: string[] = [];
+    const potionCount = (): number => this.pc.inventory.find((x) => x.itemId === 'potion_healing')?.quantity ?? 0;
+    const potion = (): HubShopEntry | undefined => this.model().shop.find((e) => e.item.id === 'potion_healing');
+    const rank: Record<string, number> = { armor: 0, weapon: 1, shield: 2 };
+    for (let guard = 0; guard < 40; guard++) {
+      const p = potion();
+      const reserve = p ? Math.max(0, 2 - potionCount()) * p.price : 0;
+      if (p && potionCount() < 2 && this.pc.gold >= p.price) {
+        this.pc = buyItem(this.pc, p.item.id);
+        bought.push(p.item.id);
+        continue;
+      }
+      const options = this.model()
+        .shop.filter((e) => e.compare?.verdict === 'upgrade' && e.price <= this.pc.gold - reserve)
+        .sort((a, b) => (rank[a.item.kind] ?? 9) - (rank[b.item.kind] ?? 9) || b.price - a.price);
+      const pick = options[0];
+      if (!pick) break;
+      try {
+        const owned = buyItem(this.pc, pick.item.id);
+        if (!canEquip(owned, pick.item.id).ok) break;
+        this.pc = equipItem(owned, pick.item.id);
+        bought.push(pick.item.id);
+      } catch {
+        break;
+      }
+    }
+    const p = potion();
+    while (p && potionCount() < 4 && this.pc.gold >= p.price) {
+      this.pc = buyItem(this.pc, p.item.id);
+      bought.push(p.item.id);
+    }
+    return { bought };
+  }
 }
 
 /** Show the hub (or, headless, take the level-up and descend). Returns the hero and companion that leave it. */
@@ -179,6 +233,10 @@ export async function runHub(
 ): Promise<{ pc: PlayerCharacter; companion?: CompanionState }> {
   const hub = new HubFlow(character, clearedDepth, audio, runSeed, (text) => ui.banner('Hub', text), companion);
   if (!headless) await ui.showHub(hub.model(), (intent) => hub.handle(intent));
-  const pc = hub.settle();
+  let pc = hub.settle();
+  if (headless) {
+    hub.autoShop();
+    pc = hub.pc;
+  }
   return hub.companion ? { pc, companion: hub.companion } : { pc };
 }

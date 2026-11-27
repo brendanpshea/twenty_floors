@@ -10,6 +10,7 @@ import {
   setAttr,
   setText,
 } from './dom';
+import { attachTerm, lookup, setTermText, termSpan } from './glossary';
 import { createIcon, swapIcon } from './icons';
 import type { Tooltip, TipContent } from './tooltip';
 
@@ -50,6 +51,7 @@ function chipList(parent: HTMLElement): KeyedList<Condition, ChipItem> {
     (c) => c,
     (c) => {
       const el = h('span', `tf-chip tf-chip--${c}`, prettifyId(c));
+      if (lookup(c)) attachTerm(el, c);
       return { el };
     },
     () => undefined,
@@ -185,6 +187,11 @@ export class Hud {
   private readonly stanceBtns = new Map<CompanionStance, HTMLButtonElement>();
   private compOpen = false;
   private lastActiveTile = '';
+  private playerEl: HTMLElement = document.createElement('div');
+  private readonly suggestEl = h('div', 'tf-suggest');
+  private readonly suggestText = h('span', 'tf-suggest-text');
+  private readonly hitLabel = h('span', 'tf-hit-label');
+  private readonly hitVal = h('span', 'tf-hit-val');
   private readonly atkEl = h('span', 'tf-atk');
   private atkMax = -1;
   private readonly concEl = h('div', 'tf-conc');
@@ -280,7 +287,9 @@ export class Hud {
 
     // target
     const tHead = h('div', 'tf-target-head');
-    this.targetAc.append(h('span', 'tf-ac-label', 'AC'), this.targetAcNum);
+    const tAcLabel = h('span', 'tf-ac-label', 'AC');
+    attachTerm(tAcLabel, 'armor class');
+    this.targetAc.append(tAcLabel, this.targetAcNum);
     tHead.append(this.targetName, this.targetAc);
     this.targetBar.el.append(this.targetHpText);
     this.coverChip.append(createIcon('cover'), this.coverText, this.coverShort);
@@ -295,6 +304,8 @@ export class Hud {
     });
     this.targetTags.append(this.coverChip, this.tacticChip);
     this.pushLine.append(createIcon('warn'), this.pushText);
+    this.hitLabel.append(termSpan('Hit chance', 'hit chance'));
+    this.targetHit.append(this.hitLabel, this.hitVal);
     this.targetEl.append(tHead, this.targetBar.el, this.targetConds, this.targetTags, this.pushLine, this.targetDesc, this.targetHit);
     this.targetCondList = chipList(this.targetConds);
 
@@ -325,6 +336,7 @@ export class Hud {
     this.logToggle.setAttribute('aria-expanded', String(!smallScreen));
 
     const player = h('section', 'tf-player');
+    this.playerEl = player;
     const acBadge = h('div', 'tf-ac');
     acBadge.append(h('span', 'tf-ac-label', 'AC'), this.playerAcNum);
     const pMain = h('div', 'tf-player-main');
@@ -390,7 +402,9 @@ export class Hud {
       (a) => this.createAction(a),
       (item, a, i) => this.updateAction(item, a, i),
     );
-    bc.append(this.promptEl, this.turnRes, this.actionsEl);
+    this.suggestEl.hidden = true;
+    this.suggestEl.append(createIcon('bulb', 'tf-icon tf-suggest-icon'), this.suggestText);
+    bc.append(this.suggestEl, this.promptEl, this.turnRes, this.actionsEl);
     const updateHint = (): void => {
       const a = this.actionsEl;
       a.classList.toggle('can-left', a.scrollLeft > 4);
@@ -526,6 +540,41 @@ export class Hud {
     }
   }
 
+  /** The element a hint should point at, or null when it is not on screen. */
+  anchorEl(a: NonNullable<import('../core/types').HintRequest['anchor']>): HTMLElement | null {
+    const visible = (e: HTMLElement | null): HTMLElement | null => (e && !e.hidden && !this.el.hidden && e.getClientRects().length ? e : null);
+    if (typeof a === 'object') return visible(this.actions.get(a.actionId)?.el ?? null);
+    switch (a) {
+      case 'actionBar':
+        return visible(this.actionsEl);
+      case 'endTurn':
+        return visible(this.endTurn) ?? visible(this.restBtn) ?? visible(this.shortBtn);
+      case 'player':
+        return visible(this.playerEl);
+      case 'companion':
+        return visible(this.compEl);
+      case 'target':
+        return visible(this.targetEl);
+      case 'rest':
+        return visible(this.restBtn) ?? visible(this.shortBtn);
+      case 'log':
+        return visible(this.logEl);
+      case 'initiative':
+        return visible(this.initWrap);
+      default:
+        return null;
+    }
+  }
+
+  /** Bottom edge of the top row (floor label, initiative strip), for banner-style hints. */
+  topBottom(): number {
+    let b = 0;
+    for (const e of [this.initWrap, this.floorLabel.parentElement]) {
+      if (e && e.getClientRects().length) b = Math.max(b, e.getBoundingClientRect().bottom);
+    }
+    return b;
+  }
+
   // -------------------------------------------------------------------------
   // Visibility
   // -------------------------------------------------------------------------
@@ -575,6 +624,10 @@ export class Hud {
     this.updateOverflowHint();
     this.fitActions(m.actions.length);
     this.syncLog(m.log);
+
+    const sug = m.suggestion ?? '';
+    this.suggestEl.hidden = sug === '';
+    setText(this.suggestText, sug);
 
     const prompt = m.prompt ?? '';
     setText(this.promptEl, prompt);
@@ -669,7 +722,7 @@ export class Hud {
     setText(this.targetHpText, `${t.hp} / ${t.maxHp}`);
     this.targetCondList.sync(t.conditions);
     this.targetConds.hidden = t.conditions.length === 0;
-    setText(this.targetDesc, t.description ?? '');
+    setTermText(this.targetDesc, t.description ?? '');
     this.targetDesc.hidden = !t.description;
     // Tactical info (enemies only)
     const cover = !friendly && (t.cover === 2 || t.cover === 5) ? t.cover : 0;
@@ -700,7 +753,7 @@ export class Hud {
     const hit = friendly ? undefined : t.hitChance;
     this.targetHit.hidden = hit === undefined;
     if (hit !== undefined) {
-      setText(this.targetHit, `Hit chance ${Math.round(hit * 100)}%`);
+      setText(this.hitVal, ` ${Math.round(hit * 100)}%`);
       this.targetHit.dataset['tier'] = hit >= 0.65 ? 'high' : hit >= 0.35 ? 'mid' : 'low';
     }
   }
@@ -864,6 +917,7 @@ export class Hud {
     if (hasUses) setText(item.uses, String(a.usesLeft));
     item.el.classList.toggle('is-disabled', !a.enabled);
     item.el.classList.toggle('is-selected', a.selected);
+    item.el.classList.toggle('is-suggested', !!a.suggested && a.enabled && !a.selected);
     item.el.classList.toggle('is-empty', hasUses && a.usesLeft === 0);
     setAttr(item.el, 'aria-disabled', a.enabled ? null : 'true');
     setAttr(item.el, 'aria-pressed', String(a.selected));

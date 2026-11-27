@@ -3,6 +3,8 @@ import type {
   CreationOptions,
   GameUi,
   HubIntent,
+  HelpMode,
+  PuzzleKind,
   HubModel,
   HudModel,
   MenuResult,
@@ -12,6 +14,9 @@ import './ui.css';
 import './screens.css';
 import './hud.css';
 import { buildCreation } from './creation';
+import { createPuzzleView } from './puzzles/view';
+import { setGlossaryTooltip } from './glossary';
+import { HintManager, buildConfirm, buildHelpChoice, buildHowTo } from './help';
 import { h } from './dom';
 import { Hud } from './hud';
 import { buildHub } from './hub';
@@ -31,31 +36,65 @@ export function createUi(root: HTMLElement): GameUi {
   const hudLayer = h('div', 'tf-layer tf-layer--hud');
   const screenLayer = h('div', 'tf-layer tf-layer--screen');
   const bannerLayer = h('div', 'tf-layer tf-layer--banner');
+  const hintLayer = h('div', 'tf-layer tf-layer--hint');
+  const confirmLayer = h('div', 'tf-layer tf-layer--confirm');
+  const puzzleLayer = h('div', 'tf-layer tf-layer--puzzle');
   const tipLayer = h('div', 'tf-layer tf-layer--tip');
   const loading = new LoadingVeil();
-  ui.append(hudLayer, screenLayer, bannerLayer, tipLayer, loading.el);
+  ui.append(hudLayer, hintLayer, screenLayer, bannerLayer, confirmLayer, puzzleLayer, tipLayer, loading.el);
   root.append(ui);
 
   // Block the browser's own gestures on our UI (pinch/double-tap zoom, text selection).
   ui.addEventListener('dblclick', (e) => e.preventDefault());
 
   const tooltip = new Tooltip(tipLayer);
+  setGlossaryTooltip(tooltip);
   let intentCb: (i: UiIntent) => void = () => undefined;
   let screenOpen = false;
 
   const hud = new Hud(
     tooltip,
     (i) => intentCb(i),
-    () => !screenOpen && !loading.el.classList.contains('is-open'),
+    () => !screenOpen && !confirmOpen && !puzzleOpen && !loading.el.classList.contains('is-open'),
   );
   hudLayer.append(hud.el);
+  const hints = new HintManager(
+    hintLayer,
+    (a) => hud.anchorEl(a),
+    () => hud.topBottom(),
+  );
+  let confirmOpen = false;
+  let puzzleOpen = false;
+  const puzzleView = createPuzzleView(puzzleLayer);
+  // Kinds of lock the player has met (the first time shows the explainer); kept across sessions when storage works.
+  const seenKinds = new Set<PuzzleKind>();
+  try {
+    for (const k of JSON.parse(localStorage.getItem('tf-pz-seen') ?? '[]') as PuzzleKind[]) seenKinds.add(k);
+  } catch {
+    /* storage unavailable: session only */
+  }
+  // While a puzzle is open Escape always reaches it, even if focus slipped outside the dialog.
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if (puzzleOpen && e.key === 'Escape' && !puzzleLayer.contains(e.target as Node)) {
+        e.preventDefault();
+        e.stopPropagation();
+        puzzleView.debug.openSkipConfirm();
+      }
+    },
+    true,
+  );
+  let cancelConfirm: (() => void) | null = null;
 
   /** Disarms the screen currently mounted (so late callbacks cannot fire). */
   let disarm: (() => void) | null = null;
 
   /** HUD buttons are inert (unfocusable, unclickable) while a screen or the loading veil is up. */
   function syncInert(): void {
-    hudLayer.inert = screenOpen || loading.el.classList.contains('is-open');
+    const blocked = screenOpen || confirmOpen || puzzleOpen || loading.el.classList.contains('is-open');
+    hudLayer.inert = blocked;
+    hintLayer.inert = screenOpen || puzzleOpen || loading.el.classList.contains('is-open');
   }
 
   function mount(el: HTMLElement, onReplaced: () => void): void {
@@ -113,6 +152,72 @@ export function createUi(root: HTMLElement): GameUi {
       modal<void>((done) => buildHub(model, onIntent, () => done())),
 
     showMenu: (state) => modal<MenuResult>((done) => buildMenu(state, done)),
+
+    showHelpChoice: () => modal<HelpMode>((done) => buildHelpChoice(done)),
+
+    showHowToPlay: () =>
+      modal<void>((done) => {
+        const r = h('div', 'tf-screen tf-screen--creation');
+        r.append(buildHowTo(() => done(), 'Done'));
+        return r;
+      }),
+
+    showHint: (hint, onClose) => hints.show(hint, onClose),
+
+    clearHint: (id) => hints.clear(id),
+
+    /** A small modal over the running game; it does not replace the current screen. */
+    confirm: (q) =>
+      new Promise((resolve) => {
+        cancelConfirm?.();
+        const prev = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        let live = true;
+        const finish = (r: { ok: boolean; remember: boolean }): void => {
+          if (!live) return;
+          live = false;
+          el.classList.remove('is-in');
+          window.setTimeout(() => el.remove(), 180);
+          confirmOpen = false;
+          cancelConfirm = null;
+          syncInert();
+          prev?.focus({ preventScroll: true });
+          resolve(r);
+        };
+        const el = buildConfirm(q, finish);
+        cancelConfirm = () => finish({ ok: false, remember: false });
+        tooltip.hide();
+        confirmLayer.replaceChildren(el);
+        confirmOpen = true;
+        syncInert();
+        requestAnimationFrame(() => el.classList.add('is-in'));
+      }),
+
+    /** A chest's lock puzzle over the paused game. Always resolves (forcing the lock gives 'skipped'). */
+    playPuzzle: async (req) => {
+      tooltip.hide();
+      puzzleOpen = true;
+      syncInert();
+      try {
+        return await puzzleView.play(req.spec, {
+          title: req.title,
+          flavor: req.flavor,
+          rewards: req.rewards,
+          boss: req.boss,
+          seenKinds: [...seenKinds],
+          onExplainerShown: (k) => {
+            seenKinds.add(k);
+            try {
+              localStorage.setItem('tf-pz-seen', JSON.stringify([...seenKinds]));
+            } catch {
+              /* ignore */
+            }
+          },
+        });
+      } finally {
+        puzzleOpen = false;
+        syncInert();
+      }
+    },
 
     showDeath: (info) => modal<'retry' | 'quit'>((done) => buildDeath(info, done)),
 

@@ -5,6 +5,7 @@ import {
   chestLoot,
   companionPrayer,
   companionShortRest,
+  previewRest,
   getItem,
   isChasmEdge,
   isChokepoint,
@@ -17,11 +18,15 @@ import {
   takeShortRest,
 } from '../rules';
 import type { Rng } from '../core/rng';
+import type { PuzzleGrade, PuzzleRequest, PuzzleResult, PuzzleSpec } from '../core/types';
+import { nextDifficulty, pickKind, updateSkill } from '../puzzles';
 import { PRAYER_ID } from './hudModel';
+import { describeLoot, gradeWords, lootFor, rewardWords } from './puzzle';
+import { Prefs } from './prefs';
 import { companionSpot, companionWantsLongRest, longRested, rebuildCompanion } from './party';
 import { adjacentRestSite, shortRestBlock } from './hudModel';
 import { cellDistance } from './fog';
-import type { MonsterState, SessionCtx } from './floorState';
+import type { ChestState, MonsterState, SessionCtx } from './floorState';
 import {
   blockedAt,
   isEntityVisible,
@@ -47,7 +52,21 @@ export interface ExploreHooks {
 }
 
 /** Exploration: walking, fog-driven combat triggers, chests, rests, the stairs. */
+/** A chest's name by theme (the boss's hoard is named for the boss). */
+const CHEST_NAMES: Partial<Record<string, string>> = {
+  sewers: 'Rusted Strongbox',
+  crypt: 'Sealed Reliquary',
+  library: 'Locked Book Chest',
+  hold: 'Bandit Lockbox',
+  foundry: 'Forge-bound Coffer',
+  ice: 'Frost-sealed Chest',
+  hell: 'Brimstone Coffer',
+  lair: "Dragon's Cache",
+};
+
 export class Explore {
+  /** A lock puzzle is on screen: the floor holds still and takes no input. */
+  puzzleOpen = false;
   private goal: Goal | null = null;
   walking = false;
   private hoverKey = '';
@@ -90,7 +109,7 @@ export class Explore {
 
   hover(pick: PickResult): void {
     const { state, deps } = this.ctx;
-    if (this.walking) return;
+    if (this.walking || this.puzzleOpen) return;
     let targetId: string | null = null;
     if (pick.entityId && state.monsters.some((m) => m.creature.id === pick.entityId) && isEntityVisible(state, pick.entityId)) {
       targetId = pick.entityId;
@@ -116,6 +135,7 @@ export class Explore {
 
   async tap(pick: PickResult): Promise<void> {
     const { state } = this.ctx;
+    if (this.puzzleOpen) return;
     const chest =
       state.chests.find((c) => c.id === pick.entityId) ??
       (pick.cell ? state.chests.find((c) => samePos(c.pos, pick.cell as GridPos)) : undefined);
@@ -146,7 +166,7 @@ export class Explore {
       return;
     }
     if (pick.entityId === 'player') {
-      if (samePos(state.player.pos, state.plan.exit)) this.takeStairs();
+      if (samePos(state.player.pos, state.plan.exit)) await this.takeStairs();
       return;
     }
     if (!pick.cell) return;
@@ -157,7 +177,7 @@ export class Explore {
     const { state } = this.ctx;
     if (samePos(cell, state.player.pos)) {
       // Standing on the stairs when they open (the boss died next to them): choosing the cell descends.
-      if (samePos(cell, state.plan.exit)) this.takeStairs();
+      if (samePos(cell, state.plan.exit)) await this.takeStairs();
       return;
     }
     if (!state.nav.isWalkable(cell) || !state.nav.findPath(state.player.pos, cell, { blocked: blockedAt(state) })) {
@@ -279,7 +299,7 @@ export class Explore {
         }
         if (samePos(step, state.plan.exit)) {
           this.goal = null;
-          if (this.takeStairs()) return;
+          if (await this.takeStairs()) return;
           break;
         }
       }
@@ -293,12 +313,21 @@ export class Explore {
   }
 
   /** Descend if the hero is on the stairs and they are open; if sealed, say so. Returns true when the floor ended. */
-  private takeStairs(): boolean {
+  private async takeStairs(): Promise<boolean> {
     const { state, deps } = this.ctx;
     if (state.finished || state.mode !== 'explore') return false;
     if (!state.stairsOpen) {
       this.ctx.prompt('The stairs are sealed. Defeat the floor boss first.', 3500);
       return false;
+    }
+    // Chests the hero has seen and not opened: leaving them is allowed, but asked about. The bot never asks.
+    const left = state.chests.filter((c) => !c.opened && isSeen(state, c.pos));
+    if (left.length > 0 && !deps.options.autoplay) {
+      const boss = left.some((c) => c.boss);
+      const lines = [`You have not opened ${left.length} chest${left.length === 1 ? '' : 's'} on this floor. Leave ${left.length === 1 ? 'it' : 'them'}?`];
+      if (boss) lines.unshift("The boss's chest is still closed.");
+      const answer = await deps.ui.confirm({ title: 'Leave treasure behind?', lines, confirmLabel: 'Leave', cancelLabel: 'Go back' });
+      if (!answer.ok) return false;
     }
     deps.audio.play('descend');
     this.ctx.finish(state.companion ? { type: 'cleared', pc: state.pc, companion: state.companion.state } : { type: 'cleared', pc: state.pc });
@@ -310,9 +339,17 @@ export class Explore {
   async openChest(chestId: string): Promise<void> {
     const { state, deps } = this.ctx;
     const chest = state.chests.find((c) => c.id === chestId);
-    if (!chest || chest.opened || state.finished) return;
+    if (!chest || chest.opened || state.finished || this.puzzleOpen) return;
+    // Every chest knows how many ordinary chests the floor has, so the floor's treasure stays where the economy expects it;
+    // the boss's hoard is the rules' boss chest (about two and a half ordinary chests, and a chance of magic gear).
+    const ordinary = Math.max(1, state.chests.filter((c) => !c.boss).length);
+    const lootRng = (): Rng => state.floorRng.fork(`chest:${chestId}`);
+    const boss = chest.boss === true;
+    const grade = await this.lockPuzzle(chest, boss, ordinary, lootRng);
+    if (state.finished) return;
     chest.opened = true;
-    const loot = chestLoot(state.depth, state.floorRng.fork(`chest:${chestId}`));
+    const loot = lootFor(state.depth, lootRng, grade, boss, ordinary);
+    deps.ui.banner(`${gradeWords(grade)} ${describeLoot(loot)}`);
     deps.audio.play('chestOpen');
     deps.audio.play('coins', { delay: 0.45 });
     await this.ctx.guard(deps.renderer.playAnim(chest.id, 'attack', { facing: chest.pos }), 1500);
@@ -334,6 +371,41 @@ export class Explore {
     this.ctx.hud();
   }
 
+  /**
+   * The chest's lock: a puzzle played over the paused floor, graded gold, silver or bronze for the loot (or forced:
+   * none). Same chest, same puzzle, on a retried floor (the spec comes from the floor's own stream). The player's rating
+   * is updated from the result. The bot and headless runs never see a puzzle: they get silver, which is what an
+   * instantly opened chest paid, so the economy keeps its tuned baseline.
+   */
+  private async lockPuzzle(chest: ChestState, boss: boolean, ordinary: number, lootRng: () => Rng): Promise<PuzzleGrade> {
+    const { state, deps } = this.ctx;
+    if (deps.options.autoplay) return 'silver';
+    const skill = this.ctx.puzzleSkill();
+    const pick = state.floorRng.fork(`puzzlekind:${chest.id}`);
+    const kind = deps.options.puzzle ?? pickKind(pick, skill, state.puzzleKinds);
+    const difficulty = deps.options.puzzleLevel ?? nextDifficulty(skill, kind, state.depth);
+    const spec: PuzzleSpec = { kind, seed: state.floorRng.fork(`puzzle:${chest.id}`).int(1, 2_000_000_000), difficulty };
+    const bossName = state.monsters.find((m) => m.boss)?.creature.name;
+    const req: PuzzleRequest = {
+      spec,
+      title: boss ? (bossName ? `The ${bossName}'s Hoard` : "The Warden's Hoard") : (CHEST_NAMES[state.plan.theme] ?? 'Ironbound Chest'),
+      rewards: rewardWords(state.depth, lootRng, boss, ordinary),
+    };
+    if (boss) req.boss = true;
+    // The first lock: a word about what it is (guided help only).
+    this.ctx.hint({ id: 'chestLock', kind: 'concept', text: 'Chests are locked. Solve the lock quickly for the best loot, or force it for a little.', anchor: 'center' });
+    this.puzzleOpen = true;
+    let result: PuzzleResult;
+    try {
+      result = await deps.ui.playPuzzle(req);
+    } finally {
+      this.puzzleOpen = false;
+    }
+    state.puzzleKinds.push(kind);
+    this.ctx.setPuzzleSkill(updateSkill(skill, kind, difficulty, result));
+    return result.grade;
+  }
+
   // ---------------------------------------------------------------- rests
 
   /** The shortRest intent: a real short rest, anywhere with no enemy in view. */
@@ -341,6 +413,7 @@ export class Explore {
     const { state, deps } = this.ctx;
     if (this.resting || this.walking) return;
     if (shortRestBlock(state) !== undefined) return;
+    if (!(await this.confirmRest('short'))) return;
     this.resting = true;
     try {
       const before = syncFromCreature(state.pc, state.player);
@@ -369,6 +442,36 @@ export class Explore {
     this.ctx.hud();
   }
 
+  /**
+   * Before a rest: say what it would restore and what it costs, and warn when it would be wasteful. A short rest the
+   * player chose to stop asking about goes ahead unasked, unless it is wasteful. Cancelling costs nothing. The bot
+   * does not ask.
+   */
+  async confirmRest(kind: 'short' | 'long'): Promise<boolean> {
+    const { state, deps } = this.ctx;
+    if (deps.options.autoplay) return true;
+    const rt = state.companion;
+    const preview = previewRest(
+      syncFromCreature(state.pc, state.player),
+      rt ? { state: { ...rt.state, hp: rt.creature.hp } } : null,
+      kind,
+      { shortRestsLeft: state.shortRestsLeft, restSitesLeft: state.restSites.filter((r) => !r.used).length },
+    );
+    const prefs = new Prefs(deps.storage);
+    if (kind === 'short' && prefs.remembered('shortRest') && !preview.wasteful) return true;
+    const q: Parameters<typeof deps.ui.confirm>[0] = {
+      title: kind === 'short' ? 'Take a short rest?' : 'Rest here?',
+      lines: [...preview.gains, ...preview.costs],
+      confirmLabel: 'Rest',
+      cancelLabel: 'Not now',
+    };
+    if (preview.wasteful) q.warning = 'You would recover very little. Save it for later?';
+    if (kind === 'short') q.rememberKey = 'shortRest';
+    const answer = await deps.ui.confirm(q);
+    if (answer.ok && answer.remember && kind === 'short') prefs.remember('shortRest');
+    return answer.ok;
+  }
+
   /** The longRest intent: long rest at the adjacent site. */
   async longRestHere(): Promise<void> {
     const site = adjacentRestSite(this.ctx.state);
@@ -391,6 +494,8 @@ export class Explore {
       this.ctx.prompt('You are already rested.', 2500);
       return;
     }
+    if (!(await this.confirmRest('long'))) return;
+    if (site.used || this.resting) return;
     this.resting = true;
     try {
       site.used = true;

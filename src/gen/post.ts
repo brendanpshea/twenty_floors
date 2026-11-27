@@ -7,7 +7,7 @@ import { buildFormation } from './formations';
 import { buildCost, createNavGrid, floodReach } from './nav';
 import { REST_LIGHT, dressNook, placeRestSpots } from './rest';
 import { buildView, entranceFields, refreshReach, type StageEnv } from './roomview';
-import { enrichRoom, seedHazards } from './stage';
+import { chestCell, enrichRoom, seedHazards } from './stage';
 import { addWalls } from './walls';
 
 export interface FloorRequest {
@@ -321,6 +321,18 @@ function placeSpawns(env: StageEnv, rng: Rng, rooms: FloorPlan['rooms']): SpawnS
   const ei = g.idx(entrance.x, entrance.y);
   const xi = g.idx(exit.x, exit.y);
   const used = new Map<string, number>();
+  const chestCands: Array<{ room: number; cell: number; weight: number }> = [];
+  // Rooms off the main route (not on the shortest room path from the entrance to the boss).
+  const side = new Set<number>(rooms.map((r) => r.id));
+  {
+    const bossId = rooms.find((r) => r.role === 'boss')?.id ?? 0;
+    for (let at = bossId; at >= 0; ) {
+      side.delete(at);
+      const here = rooms[at] as FloorPlan['rooms'][number];
+      const prev = here.neighbors.find((n) => (rooms[n] as FloorPlan['rooms'][number]).distanceFromEntrance === here.distanceFromEntrance - 1);
+      at = prev === undefined ? -1 : prev;
+    }
+  }
   for (const r of infos) {
     if (r.role === 'entrance' || r.role === 'passage') continue;
     if (r.role === 'combat' || r.role === 'boss') {
@@ -334,6 +346,13 @@ function placeSpawns(env: StageEnv, rng: Rng, rooms: FloorPlan['rooms']): SpawnS
       used.set(res.name, (used.get(res.name) ?? 0) + 1);
       seedHazards(view, rr.fork('hazards'), res.picks.map((p) => p.i));
       (rooms[r.id] as FloorPlan['rooms'][number]).formation = res.name;
+      if (!boss) {
+        const cells = res.picks.map((p) => p.i);
+        const cc = chestCell(view, rr.fork('chest'), cells);
+        const spare = cc === null ? chestCell(view, rr.fork('chest2'), cells, true) : null;
+        if (spare !== null) chestCands.push({ room: r.id, cell: spare, weight: 0 });
+        if (cc !== null) chestCands.push({ room: r.id, cell: cc, weight: (side.has(r.id) ? 1.5 : 0.7) + (HARD.includes(res.name) ? 0.8 : 0) + rr.next() });
+      }
       for (const p of res.picks) {
         out.push({ pos: { x: p.i % g.w, y: (p.i / g.w) | 0 }, roomId: r.id, role: p.boss ? 'boss' : 'monster', post: p.post });
       }
@@ -355,8 +374,23 @@ function placeSpawns(env: StageEnv, rng: Rng, rooms: FloorPlan['rooms']): SpawnS
       out.push({ pos: { x: bi % g.w, y: (bi / g.w) | 0 }, roomId: r.id, role: 'chest' });
     }
   }
+  // About 40% of combat rooms hold a reward chest; a floor has 3 to 6 chests in all (boss rooms none).
+  let total = out.filter((s) => s.role === 'chest').length;
+  const crng = rng.fork('chests');
+  const order = chestCands.slice().sort((a, b) => b.weight - a.weight);
+  const take = new Set<number>();
+  for (const c of order) if (c.weight > 0 && crng.chance(0.36 + 0.24 * Math.min(1, c.weight / 2.5))) take.add(c.room);
+  const chosen = order.filter((c) => take.has(c.room));
+  for (const c of order) if (!take.has(c.room) && total + chosen.length < 3) chosen.push(c);
+  while (total + chosen.length > 6) chosen.pop();
+  if (total + chosen.length < 3) throw new GenFail('too few chest slots');
+  chosen.sort((a, b) => a.room - b.room);
+  for (const c of chosen) out.push({ pos: { x: c.cell % g.w, y: (c.cell / g.w) | 0 }, roomId: c.room, role: 'chest' });
+  total += chosen.length;
   return out;
 }
+
+const HARD = ['snipers', 'ambush', 'gauntlet', 'chokehold', 'den'];
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ITEMS } from '../data/items';
-import { CHEST_RULE, ECONOMY, floorReward, resetItemCatalog, setItemCatalog } from '../rules';
+import { Rng } from '../core/rng';
+import { CHEST_RULE, ECONOMY, chestLoot, floorReward, resetItemCatalog, setItemCatalog } from '../rules';
 
 /**
  * Economy check (analytic, no simulation): the gold a player collects up to floor N (the hub reward of every floor cleared
@@ -51,5 +52,20 @@ describe('economy', () => {
       expect(r.gold, `floor ${r.floor}: gold ${r.gold} vs gear ${r.gear}`).toBeGreaterThanOrEqual(r.gear * 1.25);
     }
     expect(ECONOMY.rewardBase).toBeGreaterThan(0);
+  });
+
+  it('four chests and the boss chest at silver pay what one chest did, so the curves above still hold', () => {
+    for (const depth of [1, 5, 10, 20]) {
+      let one = 0;
+      let floor = 0;
+      const n = 2000;
+      for (let i = 0; i < n; i++) {
+        one += chestLoot(depth, new Rng(i + 1)).gold;
+        for (let k = 0; k < 4; k++) floor += chestLoot(depth, new Rng(i * 7 + k + 1), { chestsOnFloor: 4 }).gold;
+        floor += chestLoot(depth, new Rng(i * 7 + 99), { chestsOnFloor: 4, boss: true }).gold;
+      }
+      expect(floor / one, 'depth ' + depth).toBeGreaterThan(0.95);
+      expect(floor / one, 'depth ' + depth).toBeLessThan(1.05);
+    }
   });
 });

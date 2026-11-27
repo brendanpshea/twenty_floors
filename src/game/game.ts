@@ -3,6 +3,7 @@ import { COMPANION_JOIN_LEVEL } from '../core/types';
 import type { CompanionState } from '../core/types';
 import { createCharacter, getCompanion, getCreationOptions, migrateEquipment, newCompanionState } from '../rules';
 import { defaultCompanionId } from './party';
+import { Prefs } from './prefs';
 import { runBot } from './autoplay';
 import type { BotResult } from './autoplay';
 import type { GameDeps, RunState } from './deps';
@@ -32,10 +33,11 @@ function devHero(o: GameDeps['options']): QuickOptions {
   return out;
 }
 
-/** The last floor of a normal run: the milestone, or further when the dev ?floors= says so (3 to 20). */
+/** The last floor of a normal run: the milestone, or the dev ?floors= (1 to 20). */
 export function lastFloor(o: GameDeps['options']): number {
   if (o.floors === undefined) return MILESTONE_FLOORS;
-  return Math.max(MILESTONE_FLOORS, Math.min(20, Math.floor(o.floors) || MILESTONE_FLOORS));
+  // The dev ?floors= can shorten a run (for testing) as well as keep the default: 1 to 20.
+  return Math.max(1, Math.min(20, Math.floor(o.floors) || MILESTONE_FLOORS));
 }
 
 export type RunEnd = 'victory' | 'quit';
@@ -97,6 +99,9 @@ export class Game {
       let run: RunState;
       if (choice === 'continue' && save) {
         run = runFromSave(save);
+        // An older save has no help level: use the device's.
+        const saved = new Prefs(storage).help();
+        if (!run.help && saved) run.help = saved;
       } else {
         const build = await ui.showCreation(getCreationOptions());
         let pc;
@@ -108,11 +113,16 @@ export class Game {
           ui.banner('That character is not valid', err instanceof Error ? err.message : undefined);
           continue;
         }
+        // "New to this kind of game?": asked once per new game (not for dev starts or the bot), remembered as the device default.
+        const prefs = new Prefs(storage);
+        const help = options.help ?? (options.autoplay ? 'standard' : await ui.showHelpChoice());
+        if (!options.autoplay) prefs.setHelp(help);
         run = {
           runSeed: options.seed ?? this.deps.newSeed(),
           depth: 1,
           pc,
           shortRestsLeft: SHORT_RESTS_PER_FLOOR,
+          help,
         };
       }
       await this.playRun(run);
@@ -162,7 +172,10 @@ export class Game {
         }
         const save = loadSave(storage);
         if (!save) return 'quit';
+        // The rating is the player's, not the floor's: what they learned on the failed try stays.
+        const skill = run.puzzleSkill;
         run = runFromSave(save);
+        if (skill) run.puzzleSkill = skill;
         continue;
       }
       // Floor cleared.
@@ -173,7 +186,7 @@ export class Game {
         return 'victory';
       }
       const left = await runHub(ui, this.deps.audio, outcome.pc, run.depth, options.autoplay === true && options.headless === true, run.runSeed, outcome.companion ?? run.companion);
-      run = { runSeed: run.runSeed, depth: run.depth + 1, pc: left.pc, shortRestsLeft: SHORT_RESTS_PER_FLOOR };
+      run = { runSeed: run.runSeed, depth: run.depth + 1, pc: left.pc, shortRestsLeft: SHORT_RESTS_PER_FLOOR, ...(run.help ? { help: run.help } : {}), ...(run.puzzleSkill ? { puzzleSkill: run.puzzleSkill } : {}) };
       if (left.companion) run.companion = left.companion;
     }
   }

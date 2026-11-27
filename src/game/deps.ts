@@ -1,6 +1,6 @@
 import { SHORT_RESTS_PER_LONG_REST } from '../core/types';
 import type { GameAudio } from '../audio';
-import type { CompanionStance, CompanionState, GameUi, PlayerCharacter, QualityLevel, Renderer3D, ThemeId } from '../core/types';
+import type { PlayerSkill, PuzzleKind, AnimationSpeed, CompanionStance, CompanionState, GameUi, HelpMode, PlayerCharacter, QualityLevel, Renderer3D, ThemeId } from '../core/types';
 
 /** The slice of localStorage the game uses. */
 export interface StorageLike {
@@ -29,7 +29,7 @@ export interface GameOptions {
   companion?: string;
   /** Starting stance of the dev-start companion (?stance=). */
   stance?: CompanionStance;
-  /** Let a normal run continue past the milestone, to this floor, 3 to 20 (?floors=). Dev only. */
+  /** End a normal run on this floor, 1 to 20 (?floors=): to shorten a run for testing. Dev only. */
   floors?: number;
   /** The autoplay bot plays with the expert policy (?expert=1), for watching smart play. */
   expert?: boolean;
@@ -39,6 +39,14 @@ export interface GameOptions {
   background?: string;
   /** Magic Initiate level-1 spell for a dev-start hero (?spell=). */
   spell?: string;
+  /** Help level of a dev start (?help=guided|standard); autoplay always plays without hints. */
+  help?: HelpMode;
+  /** Animation speed (?speed=normal|fast|skip). */
+  speed?: AnimationSpeed;
+  /** Force the lock puzzle kind of every chest (?puzzle=runes|tumblers|conduits|wards). */
+  puzzle?: PuzzleKind;
+  /** Force the lock puzzle difficulty, 1 to 10 (?puzzlelevel=). */
+  puzzleLevel?: number;
   /** Monsters are spawned but never start a fight (?peace=1). For walking and looking at a floor. */
   peace?: boolean;
 }
@@ -52,6 +60,8 @@ export interface GameDeps {
   delay(ms: number): Promise<void>;
   /** The only non-seeded randomness: a seed for a brand new run. */
   newSeed(): number;
+  /** Milliseconds on a clock (hints keep a gap between them). Default Date.now; tests pass a fake. */
+  now?(): number;
   options: GameOptions;
 }
 
@@ -63,6 +73,10 @@ export interface RunState {
   shortRestsLeft: number;
   /** The companion travelling with the hero (from level 4), as of the last hub. */
   companion?: CompanionState;
+  /** How much the game helps this run (asked at the start of a new game, changeable in the menu). */
+  help?: HelpMode;
+  /** The player's puzzle rating: theirs, not the floor's, so it survives a floor retry and is saved with the run. */
+  puzzleSkill?: PlayerSkill;
 }
 
 export type FloorOutcome =

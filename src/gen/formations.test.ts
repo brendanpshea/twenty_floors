@@ -221,6 +221,61 @@ describe('things to push enemies into, in every theme', () => {
   });
 });
 
+describe('reward chests', () => {
+  it('a floor has 3 to 6 chest slots, none in boss or entrance rooms, about 40% of combat rooms hold one', () => {
+    for (const theme of THEMES) {
+      let combat = 0;
+      let withChest = 0;
+      let total = 0;
+      for (const plan of floors.get(theme)!) {
+        const chests = plan.spawns.filter((s) => s.role === 'chest');
+        expect(chests.length, `${theme} seed ${plan.seed}`).toBeGreaterThanOrEqual(3);
+        expect(chests.length).toBeLessThanOrEqual(6);
+        total += chests.length;
+        for (const c of chests) expect(['combat', 'treasure']).toContain(plan.rooms[c.roomId]!.role);
+        for (const r of plan.rooms.filter((q) => q.role === 'combat')) {
+          combat++;
+          const n = chests.filter((c) => c.roomId === r.id).length;
+          expect(n).toBeLessThanOrEqual(1);
+          withChest += n;
+        }
+      }
+      console.info(`${theme}: ${(total / floors.get(theme)!.length).toFixed(2)} chests per floor`);
+      expect(withChest / combat, theme).toBeGreaterThan(0.2);
+      expect(withChest / combat, theme).toBeLessThan(0.6);
+    }
+  });
+
+  it('reward chests are off the slots, beside no drop, have room to open, and a doorway sees near them', () => {
+    for (const theme of THEMES) {
+      for (const plan of floors.get(theme)!.slice(0, 30)) {
+        const w = plan.width;
+        const nav = createNavGrid(plan);
+        for (const c of plan.spawns.filter((s) => s.role === 'chest' && plan.rooms[s.roomId]!.role === 'combat')) {
+          let free = 0;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const k = plan.kinds[(c.pos.y + dy) * w + c.pos.x + dx];
+            expect(k).not.toBe(CellKind.Chasm);
+            if (nav.isWalkable({ x: c.pos.x + dx, y: c.pos.y + dy })) free++;
+          }
+          expect(free).toBeGreaterThanOrEqual(2);
+          for (const s of plan.spawns) if (s !== c && s.roomId === c.roomId) expect(Math.max(Math.abs(s.pos.x - c.pos.x), Math.abs(s.pos.y - c.pos.y))).toBeGreaterThanOrEqual(2);
+          expect(plan.props.some((p) => p.blocking && p.pos.x === c.pos.x && p.pos.y === c.pos.y)).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('validateFloor rejects too many chests and a chest beside a drop', () => {
+    const plan = floors.get('crypt')![0]!;
+    const extra = plan.spawns.filter((s) => s.role === 'chest');
+    const many = [...plan.spawns, ...extra, ...extra, ...extra, ...extra];
+    expect(validateFloor({ ...plan, spawns: many }).some((e) => e.includes('chest'))).toBe(true);
+    expect(validateFloor({ ...plan, spawns: plan.spawns.filter((s) => s.role !== 'chest') }).some((e) => e.includes('chest'))).toBe(true);
+  });
+});
+
 describe('formations', () => {
   it('every floor is valid and every room with monsters has a formation and posts on its slots', () => {
     for (const theme of THEMES) {

@@ -1,3 +1,4 @@
+import { ATTUNEMENT_LIMIT } from '../core/types';
 import { Rng, hashSeed } from '../core/rng';
 import type {
   Ability,
@@ -8,8 +9,11 @@ import type {
   BuildPreset,
   ChoiceSlot,
   CreationOptions,
+  DamagePart,
+  PassiveEffect,
   Creature,
   ItemDef,
+  ItemRarity,
   WeaponMastery,
   ItemStack,
   LevelUpPreview,
@@ -30,6 +34,7 @@ import {
 import { CLASSES, classInfo, getClass, masteryKey, type ClassDef } from './classes';
 import { averageDice, rollDice } from './dice';
 import { getItem, itemCatalog, requireItem } from './items';
+import { PASSIVE_FLAGS, applyAbilityPassives, attunedIds, creaturePassives, hasPassive, passiveAcBonus, passiveMaxHp, weaponPassives } from './passives';
 import { SPECIES, getSpecies, speciesFlagPools, type SpeciesDef } from './species';
 import { ABILITIES, abilityMod, clone, flagPool, proficiencyForLevel } from './util';
 
@@ -263,8 +268,13 @@ function fightingStyles(pc: PlayerCharacter): string[] {
   return [pc.build.choices['fightingStyle'], pc.build.choices['fightingStyle2']].filter((s): s is string => typeof s === 'string');
 }
 
+/** Ability scores with the worn and equipped item passives applied (Gauntlets of Ogre Power, Headband of Intellect...). */
+export function effectiveAbilities(pc: PlayerCharacter): AbilityScores {
+  return applyAbilityPassives(finalAbilities(pc.build), creaturePassives(pc));
+}
+
 export function computeAc(pc: PlayerCharacter): number {
-  const dex = abilityMod(finalAbilities(pc.build).dex);
+  const dex = abilityMod(effectiveAbilities(pc).dex);
   const armor = pc.equipped.armor ? getItem(pc.equipped.armor)?.armor : undefined;
   let ac = 10 + dex;
   // Mage Armor: an unarmored hero's base AC becomes 13 + Dexterity modifier (until the next long rest).
@@ -277,7 +287,7 @@ export function computeAc(pc: PlayerCharacter): number {
   }
   const shield = pc.equipped.offHand ? getItem(pc.equipped.offHand) : undefined;
   if (shield?.kind === 'shield') ac += (shield.shieldBonus ?? 2) + (shield.magicBonus ?? 0);
-  return ac;
+  return ac + passiveAcBonus(pc);
 }
 
 /**
@@ -359,6 +369,8 @@ function weaponAction(
     lightPair?: boolean;
     /** Spellcasting ability modifier replacing the weapon's own (True Strike). */
     modOverride?: number;
+    /** The weapon-only passives of the item that work for the hero (weaponDamage, weaponCritDamage, critRange). */
+    passives?: PassiveEffect[];
   },
 ): ActionDef {
   const w = item.weapon as NonNullable<ItemDef['weapon']>;
@@ -376,7 +388,17 @@ function weaponAction(
   const masteryFx = opts.mastered ? masteryEffects(w.mastery, mod, opts.pb, opts.tactical) : [];
   // SRD Heavy property: disadvantage with a Heavy weapon if Strength (melee) or Dexterity (ranged) is below 13.
   const heavyFx = w.properties.includes('heavy') && mode === 'attack' && (ranged ? opts.abilities.dex : opts.abilities.str) < 13 ? ['heavyDisadvantage'] : [];
-  const base = { cost: 'action' as const, attack: { bonus }, damage: [{ dice: dmgDice, type: w.damage.type }] };
+  // Item passives on the weapon: flat extra damage parts; riders against some creature types and the critical effects travel as effects.
+  const extraParts: DamagePart[] = [];
+  const passiveFx: string[] = [];
+  for (const p of opts.passives ?? []) {
+    if (p.type === 'weaponDamage') {
+      if (p.versus && p.versus.length > 0) passiveFx.push(`bane:${p.dice}:${p.damageType ?? w.damage.type}:${p.versus.join('/')}`);
+      else extraParts.push({ dice: p.dice, type: p.damageType ?? w.damage.type });
+    } else if (p.type === 'weaponCritDamage') passiveFx.push(`critdmg:${p.dice}:${p.damageType ?? w.damage.type}`);
+    else if (p.type === 'critRange') passiveFx.push(`crit:${p.from}`);
+  }
+  const base = { cost: 'action' as const, attack: { bonus }, damage: [{ dice: dmgDice, type: w.damage.type }, ...extraParts] };
   if (mode === 'throw') {
     const r = w.range ?? { normal: 4, long: 12 };
     return {
@@ -391,7 +413,9 @@ function weaponAction(
   }
   const gwf = !ranged && opts.twoHands && opts.styles.includes('greatWeaponFighting');
   const loadingFx = w.properties.includes('loading') ? ['loading'] : [];
-  const fx = [...(gwf ? ['greatWeaponFighting'] : []), ...masteryFx, ...heavyFx, ...loadingFx, ...(opts.lightPair ? ['lightAttack'] : [])];
+  // Tactical Master (HOUSE RULE: the replacement is chosen by the engine, see combat.ts): the weapon's own property travels with the action.
+  const tmFx = opts.tactical && opts.mastered && w.mastery ? [`tmOwn:${w.mastery}:${Math.max(0, mod)}`] : [];
+  const fx = [...(gwf ? ['greatWeaponFighting'] : []), ...masteryFx, ...tmFx, ...passiveFx, ...heavyFx, ...loadingFx, ...(opts.lightPair ? ['lightAttack'] : [])];
   if (opts.offhand) {
     const nick = opts.offhand.free;
     return {
@@ -446,14 +470,14 @@ function weaponActions(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: num
   if (hasWeapon(main)) {
     const w = main.weapon as NonNullable<ItemDef['weapon']>;
     const twoHands = w.properties.includes('twoHanded') || (w.properties.includes('versatile') && !shieldOn && !partner);
-    out.push(weaponAction(main, 'attack', { abilities, pb, styles, tactical, twoHands, mastered: mastered(main), lightPair: partner !== undefined }));
+    out.push(weaponAction(main, 'attack', { abilities, pb, styles, tactical, twoHands, mastered: mastered(main), lightPair: partner !== undefined, passives: weaponPassives(pc, main) }));
   }
-  if (hasWeapon(rangedItem)) out.push(weaponAction(rangedItem, 'attack', { abilities, pb, styles, tactical, twoHands: false, mastered: mastered(rangedItem) }));
+  if (hasWeapon(rangedItem)) out.push(weaponAction(rangedItem, 'attack', { abilities, pb, styles, tactical, twoHands: false, mastered: mastered(rangedItem), passives: weaponPassives(pc, rangedItem) }));
   if (hasWeapon(main) && partner) {
     // Nick: the extra attack of the Light property is made as part of the Attack action (once per turn) instead of a bonus action.
     // SRD: the mastery of the weapon that makes the extra attack (the off-hand one) decides.
     const nick = mastered(partner) && partner.weapon?.mastery === 'nick';
-    out.push(weaponAction(partner, 'attack', { abilities, pb, styles, tactical, twoHands: false, mastered: mastered(partner), offhand: { free: nick } }));
+    out.push(weaponAction(partner, 'attack', { abilities, pb, styles, tactical, twoHands: false, mastered: mastered(partner), offhand: { free: nick }, passives: weaponPassives(pc, partner) }));
   }
   const carried = pc.inventory
     .map((s) => getItem(s.itemId))
@@ -462,7 +486,7 @@ function weaponActions(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: num
   for (const item of carried) {
     const w = item.weapon as NonNullable<ItemDef['weapon']>;
     if (w.properties.includes('thrown')) {
-      out.push(weaponAction(item, 'throw', { abilities, pb, styles, tactical, twoHands: false, mastered: mastered(item) }));
+      out.push(weaponAction(item, 'throw', { abilities, pb, styles, tactical, twoHands: false, mastered: mastered(item), passives: weaponPassives(pc, item) }));
     }
   }
   if (out.length === 0) {
@@ -505,10 +529,29 @@ function trueStrikeAction(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: 
   };
 }
 
+/** Extra walking speed from passives, in cells. */
+function passiveSpeed(pc: PlayerCharacter): number {
+  return creaturePassives(pc).reduce((n, p) => n + (p.type === 'speedBonus' ? p.cells : 0), 0);
+}
+
+/** The passives the combat engine reads as hidden resource flags (they are not shown to the player). */
+function applyPassiveFlags(pc: PlayerCharacter, resources: Record<string, ResourcePool>): void {
+  const ps = creaturePassives(pc);
+  const pool = (name: string, current: number): ResourcePool => ({ name, current, max: 0, refresh: 'longRest' });
+  const save = ps.reduce((n, p) => n + (p.type === 'saveBonus' ? p.amount : 0), 0);
+  if (save !== 0) resources[PASSIVE_FLAGS.saveBonus] = pool('Save bonus', save);
+  if (hasPassive(pc, 'initiativeAdvantage')) resources[PASSIVE_FLAGS.initAdv] = flagPool('initAdv');
+  if (hasPassive(pc, 'critImmunity')) resources[PASSIVE_FLAGS.critImmunity] = flagPool('critImmunity');
+  if (hasPassive(pc, 'displacement')) resources[PASSIVE_FLAGS.displacement] = flagPool('displacement');
+  const regen = ps.reduce((n, p) => n + (p.type === 'regeneration' ? p.amount : 0), 0);
+  if (regen > 0) resources[PASSIVE_FLAGS.regeneration] = pool('Regeneration', regen);
+  for (const p of ps) if (p.type === 'ignoreHazard') resources[PASSIVE_FLAGS.ignorePrefix + p.hazard] = flagPool('ignore_' + p.hazard);
+}
+
 export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): Creature {
   const cls = classOf(pc.build);
   const sp = speciesOf(pc.build);
-  const abilities = finalAbilities(pc.build);
+  const abilities = effectiveAbilities(pc);
   const pb = proficiencyForLevel(pc.level);
   const actions: ActionDef[] = [...weaponActions(pc, abilities, pb)];
 
@@ -587,6 +630,7 @@ export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): 
     }
   }
 
+  applyPassiveFlags(pc, resources);
   const armor = pc.equipped.armor ? getItem(pc.equipped.armor)?.armor : undefined;
   const tooWeak = armor?.strRequirement !== undefined && abilities.str < armor.strRequirement;
   return {
@@ -601,16 +645,17 @@ export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): 
     proficiencyBonus: pb,
     saveProficiencies: [...cls.saves],
     ac: computeAc(pc),
-    maxHp: pc.maxHp,
-    hp: pc.hp,
+    maxHp: pc.maxHp + passiveMaxHp(pc),
+    // Full health stays full when an item raises the maximum.
+    hp: pc.hp >= pc.maxHp ? pc.maxHp + passiveMaxHp(pc) : pc.hp,
     // Temporary hit points from False Life cast between fights last until the next long rest.
     tempHp: pc.resources['_tempHp']?.current ?? 0,
     // Armor without enough Strength costs 10 ft of speed (SRD 5.2).
-    speed: Math.max(0, sp.speed - (tooWeak ? 2 : 0)),
-    resistances: [...sp.resistances],
+    speed: Math.max(0, sp.speed - (tooWeak ? 2 : 0) + passiveSpeed(pc)),
+    resistances: [...new Set([...sp.resistances, ...creaturePassives(pc).flatMap((p) => (p.type === 'resistance' ? [p.damageType] : []))])],
     vulnerabilities: [],
-    immunities: [],
-    conditionImmunities: [],
+    immunities: creaturePassives(pc).flatMap((p) => (p.type === 'immunity' ? [p.damageType] : [])),
+    conditionImmunities: creaturePassives(pc).flatMap((p) => (p.type === 'conditionImmunity' ? [p.condition] : [])),
     conditions: [],
     traits: [],
     actions,
@@ -798,12 +843,13 @@ export function shortRestGain(pc: PlayerCharacter): { hp: boolean; resources: bo
  */
 export function takeShortRest(pc: PlayerCharacter, rng: Rng): { pc: PlayerCharacter; healed: number; hitDiceSpent: number } {
   const cls = classOf(pc.build);
-  const con = abilityMod(finalAbilities(pc.build).con);
+  const con = abilityMod(effectiveAbilities(pc).con);
+  const double = hasPassive(pc, 'doubleHitDiceHealing');
   const next = clone(pc);
   let healed = 0;
   let spent = 0;
   while (wouldSpendDie(next)) {
-    const roll = Math.max(1, rng.die(cls.hitDie) + con);
+    const roll = Math.max(1, rng.die(cls.hitDie) + con) * (double ? 2 : 1);
     const gain = Math.min(roll, next.maxHp - next.hp);
     next.hp += gain;
     healed += gain;
@@ -877,9 +923,32 @@ export const ITEM_GATING = {
   armorSlots: 3,
   /** First depth that sells Greater Healing. */
   greaterPotionMinDepth: 3,
+  /** First depth at which a magic item of each rarity (rings, cloaks, wands, weapons of slaying...) is sold or found; legendary items are never sold or found in chests. */
+  wonderMinDepth: { uncommon: 4, rare: 9, veryRare: 15 } as Partial<Record<ItemRarity, number>>,
+  /** Magic items offered per shop once unlocked, and the price cap as a multiple of the floor reward at that depth. */
+  shopWonderSlots: 2,
+  shopWonderCostFactor: 4,
+  /** Share of the magic finds of a chest that are one of these items instead of +N gear. */
+  chestWonderShare: 0.5,
 };
 
 const isMundane = (i: ItemDef): boolean => !i.magicBonus && i.baseId === undefined;
+
+const RARITY_ORDER: ItemRarity[] = ['common', 'uncommon', 'rare', 'veryRare', 'legendary'];
+
+/** A magic item that is not just +N gear: it has a rarity of its own (see data/magicItems). */
+export function isWonder(i: ItemDef): boolean {
+  return i.rarity !== undefined && i.rarity !== 'common' && !i.magicBonus && i.cost > 0 && i.kind !== 'consumable';
+}
+
+/** The magic items on offer at `depth`: only the rarities unlocked by then (none before the first gated depth). */
+export function wondersAt(depth: number): ItemDef[] {
+  const unlocked = (r: ItemRarity | undefined): boolean => {
+    const min = r ? ITEM_GATING.wonderMinDepth[r] : undefined;
+    return min !== undefined && depth >= min;
+  };
+  return [...itemCatalog()].filter((i) => isWonder(i) && unlocked(i.rarity)).sort((x, y) => x.id.localeCompare(y.id));
+}
 
 function pickSome<T>(items: T[], n: number, rng: Rng): T[] {
   return rng.shuffle([...items]).slice(0, n);
@@ -910,6 +979,9 @@ export function shopStock(depth: number): ItemDef[] {
     return bonus > 0 && min !== undefined && depth >= min && i.cost > 0 && i.kind !== 'consumable';
   };
   out.push(...pickSome(all.filter(magicOk), g.shopMagicSlots, rng));
+  // Magic items of their own (rings, cloaks, wands, slaying weapons), by rarity unlocked at this depth and within what a hero can afford by then.
+  const wonderCap = floorReward(depth) * g.shopWonderCostFactor;
+  out.push(...pickSome(wondersAt(depth).filter((i) => i.cost <= wonderCap), g.shopWonderSlots, rng));
   return [...new Map(out.map((i) => [i.id, i])).values()].sort((x, y) => x.cost - y.cost || x.name.localeCompare(y.name));
 }
 
@@ -966,11 +1038,85 @@ function planEquip(pc: PlayerCharacter, item: ItemDef): EquipPlan {
   return { slot: 'mainHand', clears: [] };
 }
 
+type WornKey = keyof NonNullable<PlayerCharacter['worn']>;
+
+/** Which worn key a wondrous item takes: its slot, and for a ring the first free ring slot (else it replaces the first). */
+function wornKeyFor(pc: PlayerCharacter, item: ItemDef): WornKey | undefined {
+  if (item.kind !== 'wondrous' || !item.slot) return undefined;
+  if (item.slot !== 'ring') return item.slot;
+  const w = pc.worn ?? {};
+  if (w.ring === item.id) return 'ring';
+  if (w.ring2 === item.id) return 'ring2';
+  if (!w.ring) return 'ring';
+  if (!w.ring2) return 'ring2';
+  return 'ring';
+}
+
+/** Attunement state: the ids the hero is attuned to and how many more it can take. */
+export function attunementStatus(pc: PlayerCharacter): { ids: string[]; used: number; limit: number; free: number } {
+  const ids = attunedIds(pc);
+  return { ids, used: ids.length, limit: ATTUNEMENT_LIMIT, free: ATTUNEMENT_LIMIT - ids.length };
+}
+
+/** Whether the hero can attune to an item now (owned, needs attunement, not yet attuned, a free slot). */
+export function canAttune(pc: PlayerCharacter, itemId: string): { ok: boolean; reason?: string } {
+  const item = getItem(itemId);
+  if (!item) return { ok: false, reason: 'Unknown item' };
+  if (!pc.inventory.some((s) => s.itemId === itemId && s.quantity > 0)) return { ok: false, reason: `You do not own ${item.name}` };
+  if (!item.attunement) return { ok: false, reason: `${item.name} needs no attunement` };
+  if (attunedIds(pc).includes(itemId)) return { ok: false, reason: `You are already attuned to ${item.name}` };
+  if (attunedIds(pc).length >= ATTUNEMENT_LIMIT) return { ok: false, reason: `You can attune to only ${ATTUNEMENT_LIMIT} items: end one attunement first` };
+  return { ok: true };
+}
+
+export function attuneItem(pc: PlayerCharacter, itemId: string): PlayerCharacter {
+  const can = canAttune(pc, itemId);
+  if (!can.ok) throw new Error(can.reason);
+  const next = clone(pc);
+  next.attuned = [...attunedIds(pc), itemId];
+  return next;
+}
+
+export function unattuneItem(pc: PlayerCharacter, itemId: string): PlayerCharacter {
+  if (!attunedIds(pc).includes(itemId)) throw new Error('You are not attuned to that item');
+  const next = clone(pc);
+  next.attuned = attunedIds(pc).filter((id) => id !== itemId);
+  return next;
+}
+
+/** Take a worn item off (it stays in the pack; its attunement ends). */
+export function removeWorn(pc: PlayerCharacter, itemId: string): PlayerCharacter {
+  const next = clone(pc);
+  const worn = { ...(next.worn ?? {}) };
+  let found = false;
+  for (const k of Object.keys(worn) as WornKey[]) {
+    if (worn[k] === itemId) {
+      delete worn[k];
+      found = true;
+    }
+  }
+  if (!found) throw new Error('That item is not worn');
+  next.worn = worn;
+  next.attuned = attunedIds(pc).filter((id) => id !== itemId);
+  return next;
+}
+
 export function canEquip(pc: PlayerCharacter, itemId: string): { ok: boolean; reason?: string; unequips?: string } {
   const item = getItem(itemId);
   if (!item) return { ok: false, reason: 'Unknown item' };
   if (!pc.inventory.some((s) => s.itemId === itemId && s.quantity > 0)) return { ok: false, reason: `You do not own ${item.name}` };
   if (item.kind === 'consumable') return { ok: false, reason: `${item.name} cannot be equipped` };
+  if (item.kind === 'wondrous') {
+    const key = wornKeyFor(pc, item);
+    if (!key) return { ok: false, reason: `${item.name} works from your pack${item.attunement ? ': attune to it' : ''}` };
+    const out: { ok: boolean; reason?: string; unequips?: string } = { ok: true };
+    const there = pc.worn?.[key];
+    if (there && there !== itemId) out.unequips = there;
+    if (item.attunement && !attunedIds(pc).includes(itemId)) {
+      out.reason = attunedIds(pc).length < ATTUNEMENT_LIMIT ? `${item.name} will attune to you.` : `You are attuned to ${ATTUNEMENT_LIMIT} items already: ${item.name} will not work until you end one attunement.`;
+    }
+    return out;
+  }
   const plan = planEquip(pc, item);
   const out: { ok: boolean; reason?: string; unequips?: string } = { ok: true };
   const gone = plan.clears[0] ? pc.equipped[plan.clears[0]] : undefined;
@@ -984,6 +1130,19 @@ export function equipItem(pc: PlayerCharacter, itemId: string): PlayerCharacter 
   if (!pc.inventory.some((s) => s.itemId === itemId && s.quantity > 0)) throw new Error(`You do not own ${item.name}`);
   if (item.kind === 'consumable') throw new Error(`${item.name} cannot be equipped`);
   const next = clone(migrateEquipment(pc));
+  if (item.kind === 'wondrous') {
+    const key = wornKeyFor(next, item);
+    if (!key) throw new Error(`${item.name} works from your pack`);
+    const worn = { ...(next.worn ?? {}) };
+    const replaced = worn[key];
+    if (replaced === itemId) return next;
+    worn[key] = itemId;
+    next.worn = worn;
+    // The replaced item is no longer worn, so its attunement ends; a new item that needs attunement attunes when a slot is free.
+    if (replaced) next.attuned = attunedIds(next).filter((id) => id !== replaced);
+    if (item.attunement && canAttune(next, itemId).ok) next.attuned = [...attunedIds(next), itemId];
+    return next;
+  }
   const plan = planEquip(next, item);
   for (const c of plan.clears) delete next.equipped[c];
   next.equipped[plan.slot] = itemId;
@@ -1013,20 +1172,73 @@ export function useConsumable(pc: PlayerCharacter, itemId: string, rng: Rng): { 
 /** Tunable chest loot (mutable for the balance harness). */
 export const CHEST_RULE = { goldMin: 50, goldMax: 100, goldPerDepthMin: 34, goldPerDepthMax: 68, extraPotionChance: 0.25 };
 
+/** How well a chest's lock was opened: the result of its puzzle ('none': skipped or failed, a forced lock still pays a little). */
+export type ChestGrade = 'gold' | 'silver' | 'bronze' | 'none';
+
+/** What each grade pays, relative to silver (silver is what an instantly opened chest pays): gold = full, silver 75% of it, bronze 50%, none 25%. */
+export const CHEST_GRADES: Record<ChestGrade, { gold: number; item: number; potionExtra: number; magic: number }> = {
+  gold: { gold: 4 / 3, item: 1, potionExtra: 0.5, magic: 1.5 },
+  silver: { gold: 1, item: 1, potionExtra: 0.25, magic: 1 },
+  bronze: { gold: 2 / 3, item: 0.6, potionExtra: 0, magic: 0.5 },
+  none: { gold: 1 / 3, item: 0, potionExtra: 0, magic: 0 },
+};
+
+/** The boss chest pays about this many ordinary chests of gold, and holds a Potion of Healing and often a second. */
+export const BOSS_CHEST_FACTOR = 2.5;
+
+export interface ChestLootOptions {
+  /** The puzzle result (default 'silver': an instantly opened chest). */
+  grade?: ChestGrade;
+  /** The floor's boss chest: pays BOSS_CHEST_FACTOR chests of gold, one or two potions, and from the gated depth a real chance of magic gear (of the depth's tier, 40%). */
+  boss?: boolean;
+  /**
+   * How many ordinary chests the floor has. Each chest's gold is divided so a floor's treasure at silver stays what the economy
+   * expects whatever the count: ordinary chests pay R / (n + 2.5) each and the boss chest 2.5 times that (R = the rolled gold of
+   * one chest, as before). The potion in an ordinary chest becomes a chance of min(1, 1 / n) and its magic find a chance of 1 / n of before (a floor's total stays about what one chest gave). Omitted: one chest, as before.
+   */
+  chestsOnFloor?: number;
+}
+
 /**
- * What a treasure-room chest holds on `depth`: gold, one guaranteed Potion of
- * Healing, and sometimes a second. The game and the balance simulation both
- * roll chests through this function.
+ * What a treasure chest holds on `depth`: gold, Potions of Healing and, from the gated depths, now and then +N gear. The shared
+ * rule for the game and the balance simulation. With no options it is the instant-open chest of before (silver, one chest).
  */
-export function chestLoot(depth: number, rng: Rng): { gold: number; items: ItemStack[] } {
+export function chestLoot(depth: number, rng: Rng, opts: ChestLootOptions = {}): { gold: number; items: ItemStack[] } {
   const c = CHEST_RULE;
-  const gold = rng.int(c.goldMin + c.goldPerDepthMin * depth, c.goldMax + c.goldPerDepthMax * depth);
-  const potions = 1 + (rng.chance(c.extraPotionChance) ? 1 : 0);
-  const items: ItemStack[] = [{ itemId: 'potion_healing', quantity: potions }];
-  // Rare magic find from the gated depth on (never on floors 1-3).
-  if (depth >= ITEM_GATING.chestMagicMinDepth && rng.chance(ITEM_GATING.chestMagicChance)) {
-    const finds = [...itemCatalog()].filter((i) => i.magicBonus === 1 && (i.kind === 'weapon' || i.kind === 'shield')).sort((x, y) => x.id.localeCompare(y.id));
-    if (finds.length > 0) items.push({ itemId: rng.pick(finds).id, quantity: 1 });
+  const g = CHEST_GRADES[opts.grade ?? 'silver'];
+  const boss = opts.boss === true;
+  const n = opts.chestsOnFloor;
+  const roll = rng.int(c.goldMin + c.goldPerDepthMin * depth, c.goldMax + c.goldPerDepthMax * depth);
+  const share = n === undefined ? 1 : 1 / (Math.max(1, n) + BOSS_CHEST_FACTOR);
+  const gold = Math.round(roll * g.gold * share * (boss ? BOSS_CHEST_FACTOR : 1));
+  const items: ItemStack[] = [];
+  // Potions: as before one guaranteed (silver/gold) plus a chance of a second; with several chests the guarantee becomes a chance.
+  const potionChance = (n === undefined ? 1 : Math.min(1, 1 / Math.max(1, n))) * g.item;
+  const extra = rng.chance(c.extraPotionChance * (g.potionExtra / 0.25));
+  const given = boss ? 1 : n === undefined ? (g.item === 1 ? 1 : rng.chance(potionChance) ? 1 : 0) : rng.chance(potionChance) ? 1 : 0;
+  // A boss chest holds a potion and a second one half the time (a gold grade always); ordinary chests as before.
+  const bossExtra = boss && (opts.grade === 'gold' || rng.chance(0.5));
+  const potions = given + (!boss && given > 0 && extra ? 1 : 0) + (bossExtra ? 1 : 0);
+  if (potions > 0) items.push({ itemId: 'potion_healing', quantity: potions });
+  // Magic find from the gated depth on (never on floors 1-3). A boss chest has a real chance and pays out of the depth's tier.
+  const minDepth = ITEM_GATING.chestMagicMinDepth;
+  const chance = boss ? Math.min(0.4, ITEM_GATING.chestMagicChance * 3.3) : ITEM_GATING.chestMagicChance / (n === undefined ? 1 : Math.max(1, n));
+  if (depth >= minDepth && g.magic > 0 && rng.chance(chance * g.magic)) {
+    const tier = boss ? (depth >= ITEM_GATING.shopMagicMinDepth[3]! ? 3 : depth >= ITEM_GATING.shopMagicMinDepth[2]! ? 2 : 1) : 1;
+    const wantArmor = boss;
+    const finds = [...itemCatalog()]
+      .filter((i) => i.magicBonus === tier && (i.kind === 'weapon' || i.kind === 'shield' || (wantArmor && i.kind === 'armor')))
+      .sort((x, y) => x.id.localeCompare(y.id));
+    // Half of the finds are one of the magic items of their own: a boss chest pays out of the top unlocked rarity, an ordinary chest of any unlocked one.
+    const wonders = wondersAt(depth);
+    const topRank = wonders.reduce((m, i) => Math.max(m, RARITY_ORDER.indexOf(i.rarity as ItemRarity)), 0);
+    const wonderPool = boss ? wonders.filter((i) => RARITY_ORDER.indexOf(i.rarity as ItemRarity) === topRank) : wonders;
+    if (wonderPool.length > 0 && rng.chance(ITEM_GATING.chestWonderShare)) {
+      items.push({ itemId: rng.pick(wonderPool).id, quantity: 1 });
+      return { gold, items };
+    }
+    const pool = finds.length > 0 ? finds : [...itemCatalog()].filter((i) => i.magicBonus === 1 && (i.kind === 'weapon' || i.kind === 'shield')).sort((x, y) => x.id.localeCompare(y.id));
+    if (pool.length > 0) items.push({ itemId: rng.pick(pool).id, quantity: 1 });
   }
   return { gold, items };
 }

@@ -1,6 +1,7 @@
 import { Group, NeutralToneMapping, PCFShadowMap, Scene, Vector3, WebGLRenderer } from 'three';
 import type {
   AnimName,
+  AnimationSpeed,
   CellHighlight,
   Faction,
   FloatTextStyle,
@@ -10,11 +11,14 @@ import type {
   QualityLevel,
   Renderer3D,
   Size,
+  VisualEffect,
   VisualSpec,
 } from '../core/types';
 import { CellKind } from '../core/types';
 import { CameraRig } from './camera';
 import { EntityManager } from './entities';
+import { Effects } from './effects';
+import { setChestDetail } from './standins';
 import { FloatText } from './floatText';
 import { buildFloor } from './floorBuilder';
 import type { FloorBuild } from './floorBuilder';
@@ -86,6 +90,10 @@ class RendererImpl implements RendererWithDebug {
   private plan: FloorPlan | null = null;
   private look: ThemeLook | null = null;
   private lavaSurfaceY: number | null = null;
+  private readonly effects: Effects;
+  private revealedMask: Uint8Array | null = null;
+  private animSpeed: AnimationSpeed = 'normal';
+  private floatSpeed = 1;
   private pickCb: ((p: PickResult) => void) | null = null;
   private hoverCb: ((p: PickResult) => void) | null = null;
   private running = false;
@@ -140,6 +148,16 @@ class RendererImpl implements RendererWithDebug {
     this.rig = new CameraRig(canvas);
     this.picker = new Picker(this.rig.camera, canvas, this.entities);
     this.floats = new FloatText(this.fxGroup);
+    this.effects = new Effects({
+      point: (a, frac, out) => this.anchorPoint(a, frac, out),
+      hidden: (a) => (typeof a === 'string' ? !this.entities.isVisible(a) : !this.cellRevealed(a.x, a.y)),
+      cellRevealed: (x, y) => this.cellRevealed(x, y),
+      groundAt: (x, y) => this.groundAt(x, y),
+      impact: (id, fx, fz, st) => this.entities.impact(id, fx, fz, st),
+      shake: (a) => this.rig.shake(a),
+    });
+    this.entities.reducedMotion = this.effects.reducedMotion;
+    this.fxGroup.add(this.effects.group);
     this.highlights = new Highlights(this.fxGroup);
 
     this.rig.heightAt = (x, z) => this.heightAtWorld(x, z);
@@ -202,6 +220,21 @@ class RendererImpl implements RendererWithDebug {
     return g;
   };
 
+  private cellRevealed(x: number, y: number): boolean {
+    const p = this.plan;
+    if (!p || x < 0 || y < 0 || x >= p.width || y >= p.height) return false;
+    if (!this.fowActive || !this.revealedMask) return true;
+    return this.revealedMask[y * p.width + x] === 1;
+  }
+
+  private anchorPoint(a: string | GridPos, frac: number, out: { x: number; y: number; z: number }): boolean {
+    if (typeof a === 'string') return this.entities.pointOn(a, frac, out);
+    out.x = a.x * CELL + CELL / 2;
+    out.z = a.y * CELL + CELL / 2;
+    out.y = this.groundAt(a.x, a.y) + frac * 1.8;
+    return true;
+  }
+
   private heightAtWorld(wx: number, wz: number): number {
     const p = this.plan;
     if (!p) return 0;
@@ -224,6 +257,8 @@ class RendererImpl implements RendererWithDebug {
   private applyQuality(): void {
     const high = this.quality === 'high';
     this.lighting.setQuality(this.quality);
+    this.effects.setQuality(this.quality);
+    setChestDetail(this.quality !== 'low');
     this.gl.shadowMap.enabled = high;
     if (this.floor) {
       for (const m of this.floor.solids) m.castShadow = false;
@@ -251,6 +286,12 @@ class RendererImpl implements RendererWithDebug {
   /** Off-interface: the creature reappears at the rim cell `at`, climbing up from below over ~0.4 s. Resolves when done. */
   riseEntity(id: string, at: GridPos): Promise<void> {
     return this.entities.rise(id, at);
+  }
+
+  /** Preview only: `pause` stops the effect clock; `advance` then steps it by that many seconds. */
+  debugEffects(pause: boolean, advance = 0): void {
+    this.effects.debugPaused = pause;
+    if (advance > 0) this.effects.debugAdvance(advance);
   }
 
   preloadModels(keys: string[], timeoutMs = 2000): Promise<void> {
@@ -360,6 +401,7 @@ class RendererImpl implements RendererWithDebug {
 
   setRevealed(mask: Uint8Array): void {
     if (!this.fow || !this.plan) return;
+    this.revealedMask = mask;
     this.fow.setMask(mask, this.plan.kinds);
     this.fowActive = true;
     this.markers.refresh(this.fow, true);
@@ -386,6 +428,18 @@ class RendererImpl implements RendererWithDebug {
 
   onHover(cb: (pick: PickResult) => void): void {
     this.hoverCb = cb;
+  }
+
+  playEffect(effect: VisualEffect): Promise<void> {
+    return this.effects.play(effect);
+  }
+
+  setAnimationSpeed(speed: AnimationSpeed): void {
+    this.animSpeed = speed;
+    const k = speed === 'skip' ? 5 : speed === 'fast' ? 2 : 1;
+    this.entities.setSpeed(k);
+    this.effects.setSpeed(k);
+    this.floatSpeed = k;
   }
 
   setQuality(level: QualityLevel): void {
@@ -419,6 +473,7 @@ class RendererImpl implements RendererWithDebug {
     this.entities.dispose();
     this.floats.dispose();
     this.highlights.dispose();
+    this.effects.dispose();
     this.markers.dispose();
     this.lighting.dispose();
     this.models.dispose();
@@ -525,7 +580,8 @@ class RendererImpl implements RendererWithDebug {
     this.lighting.update(dt, this.time, this.rig.focus);
     this.fow?.update(dt);
     this.entities.update(dt, this.time, this.rig.camera.quaternion);
-    this.floats.update(dt);
+    this.floats.update(dt * this.floatSpeed);
+    this.effects.update(dt);
     this.highlights.update(this.time);
     this.markers.update(this.time);
     if (this.hoverPending) this.processHover();

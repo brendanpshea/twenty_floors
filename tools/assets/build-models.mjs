@@ -13,16 +13,16 @@ const S=SRC+'kaykit_skel/repo/addons/kaykit_character_pack_skeletons/';
 const OUT=MODELS;
 const io=new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({'meshopt.decoder':MeshoptDecoder,'meshopt.encoder':MeshoptEncoder});
 const SWORD={t:[0,0.03,0],r:[0,-1,0,0]};
-const kk=(adv)=>({idle:'Idle',walk:'Walking_A',attack:'1H_Melee_Attack_Chop',hit:'Hit_A',death:'Death_A',cast:'Spellcast_Shoot'});
+const kk=(adv)=>({idle:'Idle',walk:'Walking_A',attack:'1H_Melee_Attack_Chop',hit:'Hit_A',death:'Death_A',cast:'Spellcast_Shoot',shoot:'Throw',block:'Block',dodge:'Dodge_Backward'});
 // name -> config
 const M={
  hero_knight:{src:A+'Characters/gltf/Knight.glb',height:1.8,remove:['2H_Sword','1H_Sword_Offhand','Rectangle_Shield','Spike_Shield','Round_Shield'],anim:kk()},
  hero_barbarian:{src:A+'Characters/gltf/Barbarian.glb',height:1.8,remove:['1H_Axe_Offhand','2H_Axe','Mug'],anim:kk()},
  hero_rogue:{src:A+'Characters/gltf/Rogue.glb',height:1.8,remove:['1H_Crossbow','2H_Crossbow','Throwable'],anim:{...kk(),attack:'Dualwield_Melee_Attack_Slice'}},
  rogue_hooded:{base:true,src:A+'Characters/gltf/Rogue_Hooded.glb',height:1.8,remove:['1H_Crossbow','2H_Crossbow','Throwable'],anim:{...kk(),attack:'Dualwield_Melee_Attack_Slice'}},
- hero_mage:{src:A+'Characters/gltf/Mage.glb',height:1.8,remove:['Spellbook','Spellbook_open','2H_Staff'],anim:{...kk(),attack:'1H_Melee_Attack_Chop',cast:'Spellcast_Shoot'}},
+ hero_mage:{src:A+'Characters/gltf/Mage.glb',height:1.8,remove:['Spellbook','Spellbook_open','2H_Staff'],anim:{...kk(),attack:'1H_Melee_Attack_Chop',cast:'Spellcast_Long',shoot:'Spellcast_Shoot'}},
  skeleton_warrior:{src:S+'Characters/gltf/Skeleton_Warrior.glb',height:1.8,attach:[['handslot.r',S+'Assets/gltf/Skeleton_Blade.gltf','Skeleton_Blade',SWORD],['handslot.l',S+'Assets/gltf/Skeleton_Shield_Small_A.gltf','Skeleton_Shield_Small_A',{t:[0,0.02,0.16],r:[0,0,0,1]}]],anim:kk()},
- skeleton_mage:{src:S+'Characters/gltf/Skeleton_Mage.glb',height:1.8,attach:[['handslot.r',S+'Assets/gltf/Skeleton_Staff.gltf','Skeleton_Staff',SWORD]],anim:{...kk(),attack:'Spellcast_Shoot',cast:'Spellcast_Raise'}},
+ skeleton_mage:{src:S+'Characters/gltf/Skeleton_Mage.glb',height:1.8,attach:[['handslot.r',S+'Assets/gltf/Skeleton_Staff.gltf','Skeleton_Staff',SWORD]],anim:{...kk(),attack:'Spellcast_Shoot',cast:'Spellcast_Raise',shoot:'Spellcast_Shoot'}},
  skeleton_rogue:{src:S+'Characters/gltf/Skeleton_Rogue.glb',height:1.8,attach:[['handslot.r',S+'Assets/gltf/Skeleton_Blade.gltf','Skeleton_Blade',SWORD]],anim:kk()},
  skeleton_minion:{src:S+'Characters/gltf/Skeleton_Minion.glb',height:1.8,attach:[['handslot.r',S+'Assets/gltf/Skeleton_Axe.gltf','Skeleton_Axe',SWORD]],anim:kk()},
 };
@@ -43,7 +43,7 @@ Object.assign(M,{
 });
 // --- floors 4-20 creature models (all Quaternius, CC0 per poly.pizza; see CREDITS.md). height = natural size at visual.scale 1.
 const CA='CharacterArmature|';
-const std=(a={})=>({idle:'Idle',walk:'Walk',attack:'Punch',hit:'HitReact',death:'Death',...a});
+const std=(a={})=>({idle:'Idle',walk:'Walk',attack:'Punch',hit:'HitReact',death:'Death',dodge:'Duck',...a});
 const bite=(a={})=>({idle:'Idle',walk:'Walk',attack:'Bite_Front',hit:'HitRecieve',death:'Death',...a});
 const fly=(a={})=>({idle:'Flying_Idle',walk:'Fast_Flying',attack:'Headbutt',hit:'HitReact',death:'Death',...a});
 Object.assign(M,{
@@ -92,12 +92,20 @@ for(const [name,c] of Object.entries(M)){
     if(want.has(nm)&&!used[nm]){const sc=(c.timescale||{})[want.get(nm)];if(sc){for(const a of new Set(an.listSamplers().map(sm=>sm.getInput()))){a.setArray(a.getArray().map(x=>x*sc));}}an.setName(want.get(nm)); used[nm]=1;} else {an.listChannels().forEach(x=>x.dispose());an.listSamplers().forEach(x=>x.dispose());an.dispose();}
   }
   for(const [k,v] of Object.entries(c.anim)) if(!used[(c.pref||'')+v]) throw new Error(name+': missing clip '+v);
+  // drop animation channels on nodes that are neither skin joints nor their ancestors (Blender IK/control helpers): they cost bytes and move nothing
+  {const keep=new Set();for(const sk of root.listSkins())for(const j of sk.listJoints()){let n=j;while(n){keep.add(n);n=n.getParentNode();}}
+   if(keep.size)for(const an of root.listAnimations())for(const ch of an.listChannels())if(!keep.has(ch.getTargetNode()))ch.dispose();}
   const b=getBounds(scene); const h=b.max[1]-b.min[1];
   const prev=fs.existsSync(TOOLS+'meta.json')?JSON.parse(fs.readFileSync(TOOLS+'meta.json','utf8'))[name]:null;
   const scale=prev&&prev.rawHeight?prev.scale:+(c.height/h).toFixed(4);
   if(c.textureMax)await shrinkTextures(doc,c.textureMax);
   for(const sk of root.listSkins()) sk.setSkeleton(null);
   await doc.transform(prune(),dedup(),resample(),weld());
+  // drop animation channels that never move their node (constant at the rest transform): scale tracks and most translation tracks; saves a lot of accessor/JSON overhead
+  for(const an of root.listAnimations())for(const ch of an.listChannels()){const nd=ch.getTargetNode(),p=ch.getTargetPath();if(!nd)continue;
+    const rest=p==='translation'?nd.getTranslation():p==='scale'?nd.getScale():nd.getRotation();const out=ch.getSampler().getOutput(),w=out.getElementSize(),oa=out.getArray();
+    let moves=false;for(let i=0;i<oa.length&&!moves;i++)if(Math.abs(oa[i]-rest[i%w])>2e-4)moves=true;
+    if(!moves){const sm=ch.getSampler();ch.dispose();if(!sm.listParents().some(x=>x.propertyType==='AnimationChannel'))sm.dispose();}}
   // textures
   for(const t of root.listTextures()){/* keep */}
   await doc.transform(reorder({encoder:MeshoptEncoder}),quantize({quantizePosition:14,quantizeNormal:10,quantizeTexcoord:12}),prune(),dedup());

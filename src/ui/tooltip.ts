@@ -1,5 +1,6 @@
 import type { ActionCost } from '../core/types';
 import { COST_LABEL, clear, costMarker, h } from './dom';
+import { GLOSSARY, findTerms, titleCase } from './glossary';
 
 export interface TipContent {
   title: string;
@@ -148,6 +149,14 @@ export class Tooltip {
     if (c.sub) this.el.append(h('div', 'tf-tip-sub', c.sub));
     if (c.body) this.el.append(h('div', 'tf-tip-body', c.body));
     if (c.warn) this.el.append(h('div', 'tf-tip-warn', c.warn));
+    // Plain-language notes for rules terms mentioned here (tooltips cannot be hovered, so list them).
+    const own = c.title.toLowerCase();
+    const terms = findTerms(`${c.body ?? ''} ${c.sub ?? ''}`).filter((k) => k !== own).slice(0, 2);
+    for (const k of terms) {
+      const g = h('div', 'tf-tip-gloss');
+      g.append(h('strong', undefined, `${titleCase(k)}: `), document.createTextNode(GLOSSARY[k] ?? ''));
+      this.el.append(g);
+    }
     this.place();
     this.el.classList.add('is-open');
   }

@@ -7,6 +7,7 @@ import { maxDice } from './dice';
 import { toCreature } from './character';
 import { attacksLeft, createCombat } from './combat';
 import { instantiateMonster } from './monster';
+import { flagPool, hasFlag } from './util';
 import { createOpenRoomNav } from './testing/openRoomNav';
 
 export type PolicyFn = (combat: CombatApi, nav: NavGrid) => Command;
@@ -55,6 +56,8 @@ export interface SingleFight {
  */
 export function playerPolicy(combat: CombatApi, nav: NavGrid): Command {
   const c = combat.creature(combat.activeId) as Creature;
+  // The naive hero keeps the old automation of Tactical Master (Graze becomes Sap); the smart choice is for the expert and for humans.
+  if (!hasFlag(c, 'tacticalAuto')) c.resources['_tacticalAuto'] = flagPool('tacticalAuto');
   const upkeep = heroUpkeep(combat, c);
   if (upkeep) return upkeep;
   const cast = spellCommand(combat, c);

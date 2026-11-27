@@ -1,5 +1,6 @@
 import type { ChoiceSlot, HubIntent, HubModel, ItemDef } from '../core/types';
 import { button, clear, h, prettifyId, rebuildPreserving } from './dom';
+import { termify } from './glossary';
 import { createIcon } from './icons';
 
 /** Magic items get a subtle rarity colour; mundane items stay plain. */
@@ -47,6 +48,8 @@ export function buildHub(
   let picks: Record<string, string> = {};
   let pickFor = -1;
   let finished = false;
+  let showAll = false;
+  const expanded = new Set<string>();
 
   const root = h('div', 'tf-screen tf-screen--hub');
   const frame = h('div', 'tf-hub');
@@ -103,7 +106,9 @@ export function buildHub(
       const tick = h('span', 'tf-card-tick');
       tick.append(createIcon('check'));
       hd.append(h('span', 'tf-card-title', o.name), tick);
-      c.append(hd, h('p', 'tf-card-desc', o.description));
+      const dsc = h('p', 'tf-card-desc');
+      dsc.append(termify(o.description));
+      c.append(hd, dsc);
       if (where) c.append(h('div', 'tf-card-note', `Chosen ${where}`));
       c.addEventListener('click', () => {
         if (where) return;
@@ -167,7 +172,9 @@ export function buildHub(
     list.append(empty);
     wrap.append(list);
     const chosen = slot.options.find((o) => o.id === picks[slot.key]);
-    wrap.append(h('div', `tf-picker-desc${chosen ? '' : ' is-empty'}`, chosen ? chosen.description : 'Select an option to read what it does.'));
+    const pdesc = h('div', `tf-picker-desc${chosen ? '' : ' is-empty'}`);
+    pdesc.append(chosen ? termify(chosen.description) : document.createTextNode('Select an option to read what it does.'));
+    wrap.append(pdesc);
     // Bring the chosen row into view after a re-render.
     queueMicrotask(() => {
       const sel = list.querySelector<HTMLElement>('.is-selected');
@@ -191,7 +198,11 @@ export function buildHub(
     s.body.append(top);
     if (lu.featureSummaries.length) {
       const ul = h('ul', 'tf-card-list');
-      for (const f of lu.featureSummaries) ul.append(h('li', undefined, f));
+      for (const f of lu.featureSummaries) {
+        const li = h('li');
+        li.append(termify(f));
+        ul.append(li);
+      }
       s.body.append(ul);
     }
     const slots = lu.choices;
@@ -347,11 +358,85 @@ export function buildHub(
     return s.el;
   }
 
+  const VERDICT: Record<string, string> = {
+    upgrade: 'Upgrade',
+    tradeoff: 'Trade-off',
+    sidegrade: 'Sidegrade',
+    downgrade: 'Downgrade',
+    unsuitable: 'Not for your build',
+    owned: 'Owned',
+  };
+
+  /** Upgrades, trade-offs, sidegrades, consumables, other gear; then (hidden by default) downgrades, unsuitable and owned. */
+  function shopRank(e: HubModel['shop'][number]): number {
+    switch (e.compare?.verdict) {
+      case 'upgrade':
+        return 0;
+      case 'tradeoff':
+        return 1;
+      case 'sidegrade':
+        return 2;
+      case 'downgrade':
+        return 5;
+      case 'unsuitable':
+        return 6;
+      case 'owned':
+        return 7;
+      default:
+        return e.item.kind === 'consumable' ? 3 : 4;
+    }
+  }
+
+  function compareBlock(e: HubModel['shop'][number]): HTMLElement | null {
+    const cmp = e.compare;
+    if (!cmp) return null;
+    const wrap = h('div', 'tf-cmp');
+    const open = expanded.has(e.item.id);
+    const detail = cmp.changes.length > 0 || cmp.replaces.length > 0;
+    const row = h(detail ? 'button' : 'div', `tf-cmp-row${detail ? ' is-button' : ''}`);
+    if (row instanceof HTMLButtonElement) {
+      row.type = 'button';
+      row.setAttribute('aria-expanded', String(open));
+      row.dataset['key'] = `cmp-${e.item.id}`;
+      row.addEventListener('click', () => {
+        if (expanded.has(e.item.id)) expanded.delete(e.item.id);
+        else expanded.add(e.item.id);
+        render();
+      });
+    }
+    const sum = h('span', 'tf-cmp-summary');
+    sum.append(termify(cmp.summary));
+    row.append(h('span', `tf-verdict tf-verdict--${cmp.verdict}`, VERDICT[cmp.verdict] ?? cmp.verdict), sum);
+    if (detail) row.append(createIcon('chevron', `tf-icon tf-cmp-chev${open ? ' is-open' : ''}`));
+    wrap.append(row);
+    if (open && detail) {
+      const tbl = h('div', 'tf-cmp-table');
+      for (const c of cmp.changes) {
+        const r = h('div', 'tf-cmp-line');
+        const mark = c.better === true ? '\u25b2' : c.better === false ? '\u25bc' : '\u00b7';
+        r.append(
+          h('span', 'tf-cmp-label', c.label),
+          h('span', 'tf-cmp-from', c.from),
+          h('span', 'tf-cmp-arrow', '\u2192'),
+          h('span', `tf-cmp-to ${c.better === true ? 'is-better' : c.better === false ? 'is-worse' : ''}`.trim(), c.to),
+          h('span', `tf-cmp-mark ${c.better === true ? 'is-better' : c.better === false ? 'is-worse' : ''}`.trim(), mark),
+        );
+        tbl.append(r);
+      }
+      if (cmp.replaces.length) tbl.append(h('div', 'tf-cmp-puts', `Puts away: ${cmp.replaces.join(', ')}`));
+      wrap.append(tbl);
+    }
+    return wrap;
+  }
+
   function shopSection(): HTMLElement {
     const s = section('Shop');
     if (model.shop.length === 0) s.body.append(h('p', 'tf-hint', 'The merchant has nothing for sale.'));
+    const sorted = model.shop.map((e, i) => ({ e, i, r: shopRank(e) })).sort((a, b) => a.r - b.r || a.i - b.i);
+    const hiddenCount = sorted.filter((x) => x.r >= 5).length;
+    const shown = showAll ? sorted : sorted.filter((x) => x.r < 5);
     const grid = h('div', 'tf-shop');
-    for (const e of model.shop) {
+    for (const { e } of shown) {
       const c = h('div', `tf-shop-item${e.affordable ? '' : ' is-unaffordable'}${rarityClass(e.item)}`);
       const ic = h('span', 'tf-inv-icon');
       ic.append(createIcon(iconForItem(e.item)));
@@ -360,6 +445,8 @@ export function buildHub(
       const stat = itemStat(e.item);
       if (stat) info.append(h('div', 'tf-shop-stat', stat));
       info.append(h('div', 'tf-inv-desc', e.item.description));
+      const cmp = compareBlock(e);
+      if (cmp) info.append(cmp);
       const buy = h('button', 'tf-btn tf-btn--small tf-buy');
       buy.type = 'button';
       buy.dataset['key'] = `buy-${e.item.id}`;
@@ -372,6 +459,19 @@ export function buildHub(
       grid.append(c);
     }
     s.body.append(grid);
+    if (hiddenCount > 0) {
+      const t = button(
+        'tf-btn tf-btn--small tf-shop-toggle',
+        showAll ? 'Hide unsuitable items' : `Show everything (${hiddenCount} more)`,
+        () => {
+          showAll = !showAll;
+          render();
+        },
+      );
+      t.dataset['key'] = 'shop-toggle';
+      t.setAttribute('aria-expanded', String(showAll));
+      s.body.append(t);
+    }
     return s.el;
   }
 

@@ -1,5 +1,6 @@
 /** Mock data for the UI preview page (dev/ui-preview.html). Not used by the game. */
 import type {
+  ItemComparison,
   CompanionInfo,
   ChoiceSlot,
   CreationOptions,
@@ -799,4 +800,73 @@ export function levelUpFor(level: number): NonNullable<HubModel['levelUp']> {
       { key: 'mastery_new', name: 'New weapon mastery', options: masteryOptions() },
     ],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Shop comparisons
+// ---------------------------------------------------------------------------
+
+const COMPARES: Record<string, ItemComparison> = {
+  greataxe: {
+    verdict: 'tradeoff',
+    summary: '+2 damage, \u22122 AC (no shield)',
+    changes: [
+      { label: 'Damage', from: '1d6+2 (5.5)', to: '1d12+3 (9.5)', better: true },
+      { label: 'Armor Class', from: '16', to: '14', better: false },
+      { label: 'Hit chance', from: '65%', to: '65%', better: null },
+    ],
+    replaces: ['Shortsword', 'Scimitar +1'],
+  },
+  plate_armor: {
+    verdict: 'upgrade',
+    summary: '+6 AC over your studded leather',
+    changes: [
+      { label: 'Armor Class', from: '14', to: '20', better: true },
+      { label: 'Speed', from: '30 ft', to: '30 ft', better: null },
+    ],
+    replaces: ['Studded Leather'],
+  },
+  shortbow: {
+    verdict: 'unsuitable',
+    summary: 'Needs Dexterity 13',
+    changes: [],
+    replaces: [],
+  },
+  dagger: {
+    verdict: 'downgrade',
+    summary: '\u22122 damage compared with your shortsword',
+    changes: [{ label: 'Damage', from: '1d6+2 (5.5)', to: '1d4+2 (4.5)', better: false }],
+    replaces: ['Shortsword'],
+  },
+  handaxe: {
+    verdict: 'sidegrade',
+    summary: 'Similar damage; can be thrown',
+    changes: [{ label: 'Range', from: 'melee', to: 'melee or 4 cells', better: true }],
+    replaces: ['Shortsword'],
+  },
+};
+
+export function withComparisons(m: HubModel): HubModel {
+  const extra: ItemDef[] = [
+    item({
+      id: 'greataxe',
+      name: 'Greataxe',
+      kind: 'weapon',
+      description: 'A brutal two-handed axe.',
+      cost: 30,
+      weapon: { category: 'martial', melee: true, damage: { dice: '1d12', type: 'slashing' }, properties: ['heavy', 'twoHanded'] },
+    }),
+    item({
+      id: 'shortbow',
+      name: 'Shortbow',
+      kind: 'weapon',
+      description: 'A light bow for quick shots.',
+      cost: 25,
+      weapon: { category: 'simple', melee: false, damage: { dice: '1d6', type: 'piercing' }, properties: ['ammunition', 'twoHanded'], range: { normal: 16, long: 64 } },
+    }),
+  ];
+  const known = new Set(m.shop.map((s) => s.item.id));
+  for (const it of extra) if (!known.has(it.id)) m.shop.push({ item: it, price: it.cost, affordable: it.cost <= m.character.gold });
+  m.shop = m.shop.map((e) => (COMPARES[e.item.id] ? { ...e, compare: COMPARES[e.item.id] } : e));
+  return m;
 }

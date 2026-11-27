@@ -1,7 +1,7 @@
 import { Rng, floorSeed } from '../core/rng';
 import { THEMES } from '../core/themes';
 import { SHORT_RESTS_PER_LONG_REST } from '../core/types';
-import type { CompanionStance, Creature, GridPos, PickResult, PlayerCharacter, UiIntent } from '../core/types';
+import type { AnimationSpeed, CompanionStance, Creature, GridPos, HelpMode, HudModel, PickResult, PlayerCharacter, UiIntent } from '../core/types';
 import { MONSTERS } from '../data/monsters';
 import { createNavGrid, generateFloor } from '../gen';
 import { buildEncounters, enterFloor, syncFromCreature, toCreature } from '../rules';
@@ -9,12 +9,16 @@ import { CombatController } from './combatController';
 import type { FloorOutcome, GameDeps, RunState } from './deps';
 import { Explore } from './explore';
 import { cellDistance, revealFrom } from './fog';
+import { SHOVE_PUSH_ID, pushPreview } from '../rules';
 import type { FloorState, SessionCtx } from './floorState';
 import { creatureById, isSeen, livingMonsters, monsterDef, setEntityVisible } from './floorState';
 import { CAST_PREFIX, PRAYER_ID, buildHudModel } from './hudModel';
 import { makeCompanionRuntime } from './party';
 import { Playback } from './playback';
 import { floorTheme } from './runPlan';
+import { newSkill } from '../puzzles';
+import { HintDirector } from './hints';
+import { Prefs } from './prefs';
 import { loadQuality, saveQuality, writeSave } from './save';
 
 /** The player's model, whatever the species. */
@@ -40,6 +44,8 @@ export class FloorSession {
   private promptToken = 0;
   private ctx!: SessionCtx;
   private lastMask = new Uint8Array(0);
+  readonly prefs: Prefs;
+  readonly hints: HintDirector;
 
   constructor(
     private readonly deps: GameDeps,
@@ -49,6 +55,14 @@ export class FloorSession {
     this.outcome = new Promise<FloorOutcome>((resolve) => {
       this.resolveOutcome = resolve;
     });
+    this.prefs = new Prefs(deps.storage);
+    this.hints = new HintDirector(deps.ui, this.prefs, () => this.state?.help ?? 'standard', () => (deps.now ? deps.now() : Date.now()));
+  }
+
+  /** The help level for this run: the run's own, else the dev option, else the device default. A bot plays without help. */
+  private helpLevel(): HelpMode {
+    if (this.deps.options.autoplay) return 'standard';
+    return this.run.help ?? this.deps.options.help ?? this.prefs.help() ?? 'standard';
   }
 
   // -------------------------------------------------------------- entering
@@ -80,6 +94,10 @@ export class FloorSession {
       pc,
       player,
       companion: null,
+      help: this.helpLevel(),
+      puzzleKinds: [],
+      speed: this.deps.options.speed ?? this.prefs.speed(),
+      noticed: new Set<string>(),
       monsters: placed.map((p) => ({
         creature: p.creature,
         roomId: p.roomId,
@@ -118,6 +136,7 @@ export class FloorSession {
     this.combat = new CombatController(this.ctx, playback, this.attempt, () => undefined);
 
     await renderer.loadFloor(plan);
+    this.applySpeed(state.speed);
     // Warm the model cache (bounded) so entities show real models on the first frame, before the veil drops.
     const warm = (renderer as { preloadModels?: (keys: string[], timeoutMs?: number) => Promise<void> }).preloadModels;
     if (typeof warm === 'function') {
@@ -191,6 +210,14 @@ export class FloorSession {
       prompt: (text, ttlMs) => this.setPrompt(text, ttlMs),
       reveal: () => this.reveal(),
       guard: (p, ms = 2500) => this.guard(p, ms),
+      puzzleSkill: () => this.run.puzzleSkill ?? newSkill(),
+      setPuzzleSkill: (skill) => {
+        this.run.puzzleSkill = skill;
+      },
+      hint: (def) => {
+        if (!this.deps.options.autoplay) this.hints.offer(def, true);
+      },
+      areaCells: (actionId, point) => (this.combat?.combat ? this.combat.combat.areaCells(actionId, point) : []),
       finish: (o) => this.finish(o),
       rebuildPlayer: () => {
         const prev = this.state.player;
@@ -203,15 +230,63 @@ export class FloorSession {
 
   pushHud(): void {
     if (this.disposed) return;
-    this.deps.ui.setHud(
-      buildHudModel({
-        state: this.state,
-        combat: this.combat.combat,
-        selectedActionId: this.combat.selectedActionId,
-        previewActionId: this.combat.previewActionId,
-        busy: this.combat.busy || this.explore.walking || this.explore.resting,
-      }),
-    );
+    const busy = this.combat.busy || this.explore.walking || this.explore.resting;
+    const model = buildHudModel({
+      state: this.state,
+      combat: this.combat.combat,
+      selectedActionId: this.combat.selectedActionId,
+      previewActionId: this.combat.previewActionId,
+      busy,
+      help: this.state.help,
+    });
+    this.addBossChestPrompt(model);
+    this.deps.ui.setHud(model);
+    this.updateHints(model, busy);
+  }
+
+  /** Tell the renderer (when it can) and the playback pacing how fast animations play. */
+  private applySpeed(speed: AnimationSpeed): void {
+    this.state.speed = speed;
+    const r = this.deps.renderer as { setAnimationSpeed?: (s: AnimationSpeed) => void };
+    if (typeof r.setAnimationSpeed === 'function') r.setAnimationSpeed(speed);
+  }
+
+  /** Change the help level (the menu): saved with the run and as the device default; tips come back on. */
+  setHelp(mode: HelpMode): void {
+    this.state.help = mode;
+    this.run.help = mode;
+    this.prefs.setHelp(mode);
+    this.prefs.setTipsOff(false);
+    this.hints.reset();
+    writeSave(this.deps.storage, { ...this.run, pc: this.entryCharacter });
+    this.pushHud();
+  }
+
+  setSpeed(speed: AnimationSpeed): void {
+    this.prefs.setSpeed(speed);
+    this.applySpeed(speed);
+  }
+
+  /** The persistent nudge while the floor boss's chest is unopened. */
+  private addBossChestPrompt(model: HudModel): void {
+    if (model.prompt === undefined && this.state.mode === 'explore' && this.state.chests.some((c) => c.boss && !c.opened)) {
+      model.prompt = "The boss's chest is waiting";
+    }
+  }
+
+  /** Offer a first-time hint when the moment fits (never while things are playing), and clear one the player acted on. */
+  private updateHints(model: HudModel, busy: boolean): void {
+    if (this.deps.options.autoplay || this.state.finished || !this.entered) return;
+    const state = this.state;
+    const heroTurn = model.mode !== 'combat' || model.combat?.playerTurn === true;
+    let edgeShove = false;
+    const combat = this.combat.combat;
+    if (state.help === 'guided' && combat && model.combat?.playerTurn) {
+      edgeShove = combat
+        .creatures()
+        .some((c) => c.faction === 'enemy' && !c.dead && c.hp > 0 && cellDistance(c.pos, state.player.pos) <= 1 && pushPreview(combat, SHOVE_PUSH_ID, c.id) !== null);
+    }
+    this.hints.update({ model, state, edgeShove }, busy || !heroTurn || this.menuOpen);
   }
 
   private setPrompt(text: string | undefined, ttlMs?: number): void {
@@ -287,7 +362,8 @@ export class FloorSession {
   }
 
   private get inputBlocked(): boolean {
-    return this.disposed || this.menuOpen || !this.entered || this.state.finished;
+    // A lock puzzle holds the game still: no input reaches the floor while it is open.
+    return this.disposed || this.menuOpen || !this.entered || this.state.finished || this.explore?.puzzleOpen === true;
   }
 
   private safe(p: Promise<void>): void {
@@ -337,7 +413,7 @@ export class FloorSession {
 
   handleIntent(intent: UiIntent): void {
     if (this.disposed || !this.entered || this.state.finished) return;
-    if (this.menuOpen) return;
+    if (this.menuOpen || this.explore.puzzleOpen) return;
     const state = this.state;
     switch (intent.type) {
       case 'openMenu':
@@ -360,7 +436,7 @@ export class FloorSession {
         break;
       case 'endTurn':
         if (state.mode === 'combat' && this.combat.playerTurn) this.deps.audio.play('uiClick');
-        if (state.mode === 'combat') this.safe(this.combat.endTurn());
+        if (state.mode === 'combat') this.safe(this.endTurnChecked());
         break;
       case 'selectAction':
         if (state.mode === 'combat') this.safe(this.combat.selectAction(intent.actionId));
@@ -396,22 +472,56 @@ export class FloorSession {
     this.pushHud();
   }
 
+  /** Guided mode: ending a turn with the action unspent and an enemy in reach asks first. */
+  private async endTurnChecked(): Promise<void> {
+    const combat = this.combat.combat;
+    if (this.state.help === 'guided' && combat && this.combat.playerTurn && !combat.turn.actionUsed && !this.deps.options.autoplay) {
+      const canAttack = combat.availableActions().some((a) => a.cost === 'action' && a.attack !== undefined && combat.canUse(a.id).ok && combat.validTargets(a.id).length > 0);
+      if (canAttack && !this.prefs.remembered('endTurnUnused')) {
+        const answer = await this.deps.ui.confirm({
+          title: 'End your turn?',
+          lines: ['You still have your action. End turn anyway?'],
+          confirmLabel: 'End turn',
+          cancelLabel: 'Keep going',
+          rememberKey: 'endTurnUnused',
+        });
+        if (!answer.ok) return;
+        if (answer.remember) this.prefs.remember('endTurnUnused');
+      }
+    }
+    await this.combat.endTurn();
+  }
+
   private async openMenu(): Promise<void> {
     this.menuOpen = true;
     try {
-      const quality = loadQuality(this.deps.storage) ?? this.deps.options.quality ?? 'medium';
-      const result = await this.deps.ui.showMenu({
-        quality,
-        depth: this.state.depth,
-        muted: this.deps.audio.isMuted(),
-      });
-      if (result.type === 'quality') {
-        this.deps.renderer.setQuality(result.level);
-        saveQuality(this.deps.storage, result.level);
-      } else if (result.type === 'sound') {
-        this.deps.audio.setMuted(result.muted);
-      } else if (result.type === 'abandon') {
-        this.finish({ type: 'abandon' });
+      for (;;) {
+        const quality = loadQuality(this.deps.storage) ?? this.deps.options.quality ?? 'medium';
+        const result = await this.deps.ui.showMenu({
+          quality,
+          depth: this.state.depth,
+          muted: this.deps.audio.isMuted(),
+          help: this.state.help,
+          speed: this.state.speed,
+        });
+        if (result.type === 'quality') {
+          this.deps.renderer.setQuality(result.level);
+          saveQuality(this.deps.storage, result.level);
+        } else if (result.type === 'sound') {
+          this.deps.audio.setMuted(result.muted);
+        } else if (result.type === 'help') {
+          this.setHelp(result.mode);
+          continue;
+        } else if (result.type === 'speed') {
+          this.setSpeed(result.speed);
+          continue;
+        } else if (result.type === 'howToPlay') {
+          await this.deps.ui.showHowToPlay();
+          continue;
+        } else if (result.type === 'abandon') {
+          this.finish({ type: 'abandon' });
+        }
+        return;
       }
     } finally {
       this.menuOpen = false;

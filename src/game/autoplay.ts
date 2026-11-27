@@ -21,6 +21,8 @@ export async function runBot(
   const ignoredChests = new Set<string>();
   const ignoredSites = new Set<string>();
   const ignoredRooms = new Set<number>();
+  let resets = 0;
+  let stairsRetries = 0;
   const casts = new Map<string, number>();
   for (let step = 0; step < maxSteps; step++) {
     if (session.finished) return 'finished';
@@ -66,7 +68,18 @@ export async function runBot(
     const before = { ...state.player.pos };
     if (state.stairsOpen) {
       await session.explore.walkToCell(state.plan.exit);
-      if (!session.finished && samePos(before, state.player.pos) && state.mode === 'explore') return 'stuck';
+      if (!session.finished && samePos(before, state.player.pos) && state.mode === 'explore') {
+        // A chest left closed in a corridor can wall off the stairs: open the nearest unopened one and try again.
+        const closed = state.chests
+          .filter((c) => !c.opened)
+          .sort((x, y) => cellDistance(before, x.pos) - cellDistance(before, y.pos))[0];
+        if (closed && stairsRetries < 6) {
+          stairsRetries++;
+          await session.explore.approachChest(closed.id);
+          continue;
+        }
+        return 'stuck';
+      }
       continue;
     }
     // Chests first (nearest), then the nearest room with living monsters.
@@ -89,7 +102,18 @@ export async function runBot(
     const nearest = [...rooms.entries()].sort(
       (a, b) => pathLen(session, before, a[1]) - pathLen(session, before, b[1]),
     )[0];
-    if (!nearest) return 'stuck';
+    if (!nearest) {
+      // A monster standing in a corridor can make every room look unreachable for a moment: forget what was ruled
+      // out and look again a few times before giving up.
+      if (resets < 4 && (ignoredRooms.size > 0 || ignoredChests.size > 0)) {
+        resets++;
+        ignoredRooms.clear();
+        ignoredChests.clear();
+        await pause(30);
+        continue;
+      }
+      return 'stuck';
+    }
     const [roomId, target] = nearest;
     await session.explore.walkToCell(target);
     if (samePos(before, state.player.pos) && state.mode === 'explore' && !session.finished) ignoredRooms.add(roomId);

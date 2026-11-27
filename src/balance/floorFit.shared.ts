@@ -6,11 +6,23 @@ import { scheduleGear, simulateFloor } from './index';
 
 /** A hero at the floor's level in the design gear schedule, rested, with a Blink Dog of the right level from floor 4. */
 export function arriveAt(depth: number, kit = 'a', companionId = 'blink_dog'): { pc: PlayerCharacter; companion?: CompanionState } {
-  let pc = createCharacter(heroBuild(kit, 'human', kit === 'c' ? undefined : 'defense'));
+  // Kit 'h' (experiment): the Defender with a warhammer (Push mastery, 1d8 versatile like the longsword) and its mastery.
+  let pc = createCharacter(heroBuild(kit === 'h' ? 'a' : kit, 'human', kit === 'c' ? undefined : 'defense'));
+  if (kit === 'h') pc = hammerKit(pc);
   while (pc.level < depth) pc = applyLevelUp(pc, suggestedLevelChoices(pc));
   pc = enterFloor(scheduleGear(pc));
   if (depth < 4) return { pc };
   return { pc, companion: companionLongRest({ id: companionId, hp: 1, resources: {}, stance: 'close' }, requireCompanion(companionId), pc.level) };
+}
+
+/** The Defender's kit with a warhammer in the main hand and Push among the mastered kinds (a Hammer-and-shield variant). */
+export function hammerKit(pc: PlayerCharacter): PlayerCharacter {
+  const next = JSON.parse(JSON.stringify(pc)) as PlayerCharacter;
+  if (!next.inventory.some((s) => s.itemId === 'warhammer')) next.inventory.push({ itemId: 'warhammer', quantity: 1 });
+  next.equipped.mainHand = 'warhammer';
+  const kinds = (next.build.choices['masteries'] ?? 'longsword').split(',').filter((k) => k && k !== 'longsword');
+  next.build.choices['masteries'] = ['warhammer', ...kinds, 'javelin'].join(',');
+  return next;
 }
 
 export interface FitRow {

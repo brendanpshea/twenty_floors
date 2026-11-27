@@ -1,4 +1,4 @@
-import type { CellHighlight, FloorPlan, GridPos, QualityLevel, ThemeId } from '../core/types';
+import type { CellHighlight, EffectElement, FloorPlan, GridPos, QualityLevel, ThemeId } from '../core/types';
 import { CellKind } from '../core/types';
 import { planRunThemes, themeForDepth } from '../core/themes';
 import { MONSTERS } from '../data/monsters';
@@ -39,6 +39,7 @@ let setPiece = '';
 let wantPiece = params.get('piece');
 let overview = params.get('overview') === '1';
 let heroCell: GridPos = { x: 0, y: 0 };
+let chestCellG: GridPos = { x: 0, y: 0 };
 let fogOn = params.get('fog') === '1';
 let revealed = new Uint8Array(0);
 let busy = false;
@@ -184,7 +185,7 @@ async function setup(): Promise<void> {
     return plan.entrance;
   };
   heroCell = { ...plan.entrance };
-  renderer.spawnEntity('hero', { model: 'hero_knight' }, heroCell, { faction: 'player', size: 'medium' });
+  renderer.spawnEntity('hero', { model: params.get('hero') ?? 'hero_knight' }, heroCell, { faction: 'player', size: 'medium' });
   // The floor's own cast (every monster only for the scripted demo, which names some directly).
   const cast = params.get('gallery') === '1' ? [] : params.get('demo') === '1' ? MONSTERS : MONSTERS.filter((m) => m.themes.includes(plan.theme));
   cast.forEach((m, i) => {
@@ -201,7 +202,18 @@ async function setup(): Promise<void> {
   plan.restSpots.forEach((c, i) => renderer.spawnEntity(`rest${i}`, { model: 'rest_site' }, c, { faction: 'ally', size: 'small' }));
   if (params.get('spent') === '1') plan.restSpots.forEach((_, i) => renderer.setEntityState(`rest${i}`, { dead: true }));
   const chestCell = params.get('gallery') === '1' ? { x: 1, y: 1 } : pick(2, 3);
-  renderer.spawnEntity('chest', { model: 'chest' }, chestCell, { faction: 'ally', size: 'small' });
+  chestCellG = { ...chestCell };
+  renderer.spawnEntity('chest', { model: params.get('chest') === 'boss' ? 'chest_boss' : 'chest' }, chestCell, { faction: 'ally', size: 'small' });
+  if (params.get('chestopen') === '1') renderer.setEntityState('chest', { dead: true });
+  if (params.get('chestappear') === '1') {
+    renderer.setEntityState('chest', { visible: false });
+    window.setTimeout(() => {
+      renderer.setEntityState('chest', { visible: true });
+      void renderer.playAnim('chest', 'cast');
+      const fr = Number(params.get('freeze') ?? -1);
+      if (fr >= 0) window.setTimeout(() => renderer.stop(), fr * 1000);
+    }, 2500);
+  }
   monsters.set('chest', { hp: 1, max: 1, cell: chestCell });
   revealed = new Uint8Array(plan.width * plan.height);
   setFog(fogOn);
@@ -247,7 +259,137 @@ async function setup(): Promise<void> {
     renderer.setHighlights(cells);
   }
   applyCamera();
+  if (params.has('fx')) setupFx();
   refreshButtons();
+}
+
+// ---- effects gallery (?fx=1, or ?fx=<name>[&freeze=<seconds>] to auto-play one effect and stop the loop at that moment) ----
+let fxTarget = '';
+function fxCells(kind: 'cone' | 'burst' | 'line'): GridPos[] {
+  const t = monsters.get(fxTarget)!.cell;
+  const out: GridPos[] = [];
+  const dx = Math.sign(t.x - heroCell.x) || 1;
+  const dy = Math.sign(t.y - heroCell.y);
+  if (kind === 'burst') {
+    for (let y = t.y - 3; y <= t.y + 3; y++) for (let x = t.x - 3; x <= t.x + 3; x++) if ((x - t.x) ** 2 + (y - t.y) ** 2 <= 10 && walkable(x, y)) out.push({ x, y });
+  } else if (kind === 'cone') {
+    for (let y = heroCell.y - 6; y <= heroCell.y + 6; y++) {
+      for (let x = heroCell.x - 6; x <= heroCell.x + 6; x++) {
+        if (!walkable(x, y)) continue;
+        if (dy === 0) {
+          const rx = (x - heroCell.x) * dx;
+          if (rx >= 1 && rx <= 6 && Math.abs(y - heroCell.y) <= rx / 2 + 0.5) out.push({ x, y });
+        } else {
+          const ry = (y - heroCell.y) * dy;
+          if (ry >= 1 && ry <= 6 && Math.abs(x - heroCell.x) <= ry / 2 + 0.5) out.push({ x, y });
+        }
+      }
+    }
+  } else {
+    const n = Math.max(Math.abs(t.x - heroCell.x), Math.abs(t.y - heroCell.y));
+    for (let i = 1; i <= n; i++) out.push({ x: Math.round(heroCell.x + ((t.x - heroCell.x) * i) / n), y: Math.round(heroCell.y + ((t.y - heroCell.y) * i) / n) });
+  }
+  return out;
+}
+type Elem = EffectElement;
+const fxTable = (): Record<string, () => Promise<unknown>> => {
+  const T = fxTarget;
+  const pr = (shape: 'arrow' | 'bolt' | 'javelin' | 'rock' | 'dart' | 'orb', element: Elem, hit = true, count = 1) => () => renderer.playEffect({ kind: 'projectile', from: 'hero', to: T, shape, element, hit, count });
+  const area = (el: Elem, kind: 'cone' | 'burst' | 'line', origin: 'hero' | 'target') => () => renderer.playEffect({ kind: 'area', origin: origin === 'hero' ? heroCell : monsters.get(T)!.cell, cells: fxCells(kind), element: el });
+  const aura = (style: 'heal' | 'shield' | 'bless' | 'buff' | 'debuff' | 'teleport') => () => renderer.playEffect({ kind: 'aura', on: 'hero', style });
+  const imp = (strength: number) => () => renderer.playEffect({ kind: 'impact', on: T, from: 'hero', strength, element: 'physical' });
+  const anim = (id: string, a: 'shoot' | 'block' | 'dodge' | 'attack' | 'cast') => () => renderer.playAnim(id, a, { facing: id === 'hero' ? monsters.get(T)!.cell : heroCell });
+  return {
+    'projectile-arrow': pr('arrow', 'physical'),
+    'miss-arrow': pr('arrow', 'physical', false),
+    'projectile-bolt': pr('bolt', 'physical'),
+    'projectile-javelin': pr('javelin', 'physical'),
+    'projectile-rock': pr('rock', 'physical'),
+    'orb-fire': pr('orb', 'fire'),
+    'orb-cold': pr('orb', 'cold'),
+    'orb-necrotic': pr('orb', 'necrotic'),
+    'volley-force': pr('dart', 'force', true, 3),
+    'beam-cold': () => renderer.playEffect({ kind: 'beam', from: 'hero', to: T, element: 'cold' }),
+    'beam-lightning': () => renderer.playEffect({ kind: 'beam', from: 'hero', to: T, element: 'lightning' }),
+    'beam-radiant': () => renderer.playEffect({ kind: 'beam', from: 'hero', to: T, element: 'radiant' }),
+    'cone-fire': area('fire', 'cone', 'hero'),
+    'cone-cold': area('cold', 'cone', 'hero'),
+    'line-lightning': area('lightning', 'line', 'hero'),
+    'burst-fire': area('fire', 'burst', 'target'),
+    'burst-cold': area('cold', 'burst', 'target'),
+    'burst-acid': area('acid', 'burst', 'target'),
+    'burst-radiant': area('radiant', 'burst', 'target'),
+    'burst-necrotic': area('necrotic', 'burst', 'target'),
+    'burst-thunder': area('thunder', 'burst', 'target'),
+    'burst-force': area('force', 'burst', 'target'),
+    'aura-heal': aura('heal'),
+    'aura-shield': aura('shield'),
+    'aura-bless': aura('bless'),
+    'aura-buff': aura('buff'),
+    'aura-debuff': aura('debuff'),
+    'aura-teleport': aura('teleport'),
+    'impact-0.3': imp(0.3),
+    'impact-0.7': imp(0.7),
+    'impact-1': imp(1),
+    'anim-shoot': anim('hero', 'shoot'),
+    'anim-block': anim('hero', 'block'),
+    'anim-dodge': anim('hero', 'dodge'),
+    'anim-attack': anim('hero', 'attack'),
+    'anim-cast': anim('hero', 'cast'),
+    'mon-shoot': anim(T, 'shoot'),
+    'mon-block': anim(T, 'block'),
+    'mon-dodge': anim(T, 'dodge'),
+    'mon-attack': anim(T, 'attack'),
+  };
+};
+function setupFx(): void {
+  const ids = [...monsters.keys()].filter((k) => k !== 'chest');
+  // The target stands 5 cells from the hero in a straight line if possible.
+  const gap = Number(params.get('gap') ?? 5);
+  const cands: GridPos[] = [{ x: gap, y: 0 }, { x: -gap, y: 0 }, { x: 0, y: gap }, { x: 0, y: -gap }, { x: gap - 1, y: 3 }, { x: gap - 1, y: -3 }, { x: 3, y: gap - 1 }].map((o) => ({ x: heroCell.x + o.x, y: heroCell.y + o.y }));
+  const spot = cands.find((c) => walkable(c.x, c.y) && !occupied(c.x, c.y)) ?? { x: heroCell.x + 1, y: heroCell.y };
+  fxTarget = params.get('target') && monsters.has(params.get('target')!) ? params.get('target')! : ids[0] ?? 'chest';
+  for (const id of ids) if (id !== fxTarget) renderer.setEntityState(id, { visible: false });
+  monsters.get(fxTarget)!.cell = { ...spot };
+  renderer.placeEntity(fxTarget, spot);
+  const tbl = fxTable();
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:6px;bottom:6px;right:6px;display:flex;flex-wrap:wrap;gap:3px';
+  for (const name of Object.keys(tbl)) {
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.style.cssText = 'font:11px system-ui;padding:2px 5px';
+    b.addEventListener('click', () => void tbl[name]!());
+    wrap.appendChild(b);
+  }
+  for (const sp of ['normal', 'fast', 'skip'] as const) {
+    const b = document.createElement('button');
+    b.textContent = `speed ${sp}`;
+    b.style.cssText = 'font:11px system-ui;padding:2px 5px;background:#335';
+    b.addEventListener('click', () => renderer.setAnimationSpeed(sp));
+    wrap.appendChild(b);
+  }
+  if (params.get('shot') !== '1') document.body.appendChild(wrap);
+  const auto = params.get('fx')!;
+  if (auto !== '1' && tbl[auto]) {
+    const freeze = params.has('freeze') ? Number(params.get('freeze')) : -1;
+    if (params.has('speed')) renderer.setAnimationSpeed(params.get('speed') as 'normal' | 'fast' | 'skip');
+    const atSec = params.has('at') && !Number.isNaN(Number(params.get('at'))) ? Number(params.get('at')) : -1;
+    window.setTimeout(() => {
+      if (atSec >= 0) {
+        // Deterministic frame: start the effect, hold the effect clock, then step it to `at` seconds.
+        (renderer as unknown as { debugEffects(p: boolean, a?: number): void }).debugEffects(true);
+        void tbl[auto]!();
+        (renderer as unknown as { debugEffects(p: boolean, a?: number): void }).debugEffects(true, atSec);
+        return;
+      }
+      void tbl[auto]!();
+      if (freeze >= 0) window.setTimeout(() => { renderer.stop(); (window as unknown as { __frozen: boolean }).__frozen = true; }, freeze * 1000);
+    }, 2500);
+  }
+  // Frame the hero and the target together.
+  renderer.focusCamera({ x: Math.round((heroCell.x + spot.x) / 2), y: Math.round((heroCell.y + spot.y) / 2) }, { instant: true });
+  renderer.followEntity(null);
 }
 
 function applyCamera(): void {
@@ -266,7 +408,7 @@ function applyOrbit(): void {
   const cam = params.get('cam') ?? 'a';
   const at = params.get('at');
   const bossRoom = plan.rooms.find((r) => r.role === 'boss');
-  const atCell: GridPos | undefined = at === 'rest0' ? plan.restSpots[0] : at === 'rest1' ? plan.restSpots[1] : at === 'exit' ? plan.exit : at === 'entrance' ? plan.entrance : at === 'boss' ? bossRoom?.center : undefined;
+  const atCell: GridPos | undefined = at === 'rest0' ? plan.restSpots[0] : at === 'rest1' ? plan.restSpots[1] : at === 'exit' ? plan.exit : at === 'entrance' ? plan.entrance : at === 'chest' ? chestCellG : at === 'boss' ? bossRoom?.center : undefined;
   const fx = params.get('focus') ?? (atCell ? `${atCell.x},${atCell.y}` : null);
   const hero = plan.entrance;
   const presets: Record<string, { yaw: number; pitch: number; dist: number }> = {

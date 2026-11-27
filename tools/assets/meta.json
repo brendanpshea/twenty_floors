@@ -8,9 +8,12 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
-  "bytes": 271296,
+  "bytes": 224680,
   "rawHeight": 2.45
  },
  "hero_barbarian": {
@@ -22,9 +25,12 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
-  "bytes": 268012,
+  "bytes": 221396,
   "rawHeight": 2.38
  },
  "hero_rogue": {
@@ -36,9 +42,12 @@
    "attack": "Dualwield_Melee_Attack_Slice",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
-  "bytes": 254308,
+  "bytes": 211796,
   "rawHeight": 2.19
  },
  "hero_mage": {
@@ -50,9 +59,12 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Long",
+   "shoot": "Spellcast_Shoot",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
-  "bytes": 258616,
+  "bytes": 214308,
   "rawHeight": 2.99
  },
  "skeleton_warrior": {
@@ -64,9 +76,12 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
-  "bytes": 312660,
+  "bytes": 269364,
   "rawHeight": 2.58
  },
  "skeleton_mage": {
@@ -78,9 +93,12 @@
    "attack": "Spellcast_Shoot",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Raise"
+   "cast": "Spellcast_Raise",
+   "shoot": "Spellcast_Shoot",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
-  "bytes": 295812,
+  "bytes": 234976,
   "rawHeight": 2.62
  },
  "skeleton_rogue": {
@@ -92,9 +110,12 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
-  "bytes": 292688,
+  "bytes": 249396,
   "rawHeight": 2.29
  },
  "skeleton_minion": {
@@ -106,9 +127,12 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
-  "bytes": 288916,
+  "bytes": 245624,
   "rawHeight": 2.17
  },
  "goblin": {
@@ -360,9 +384,10 @@
    "walk": "Walk",
    "attack": "Punch",
    "hit": "HitReact",
-   "death": "Death"
+   "death": "Death",
+   "dodge": "Duck"
   },
-  "bytes": 90420,
+  "bytes": 91280,
   "rawHeight": 2.527
  },
  "slime": {
@@ -448,9 +473,10 @@
    "walk": "Walk",
    "attack": "Punch",
    "hit": "HitReact",
-   "death": "Death"
+   "death": "Death",
+   "dodge": "Duck"
   },
-  "bytes": 105232,
+  "bytes": 106140,
   "rawHeight": 3.447
  },
  "imp": {
@@ -461,9 +487,10 @@
    "walk": "Walk",
    "attack": "Weapon",
    "hit": "HitReact",
-   "death": "Death"
+   "death": "Death",
+   "dodge": "Duck"
   },
-  "bytes": 108028,
+  "bytes": 109220,
   "rawHeight": 2.956
  },
  "bluedemon": {
@@ -474,9 +501,10 @@
    "walk": "Walk",
    "attack": "Punch",
    "hit": "HitReact",
-   "death": "Death"
+   "death": "Death",
+   "dodge": "Duck"
   },
-  "bytes": 99704,
+  "bytes": 100468,
   "rawHeight": 2.671
  },
  "birb": {
@@ -513,9 +541,10 @@
    "walk": "Walk",
    "attack": "Punch",
    "hit": "HitReact",
-   "death": "Death"
+   "death": "Death",
+   "dodge": "Duck"
   },
-  "bytes": 97032,
+  "bytes": 97892,
   "rawHeight": 3.064
  },
  "yeti": {
@@ -630,9 +659,12 @@
    "attack": "Dualwield_Melee_Attack_Slice",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
-  "bytes": 250628
+  "bytes": 208120
  },
  "hooded_brown": {
   "anim": {
@@ -641,12 +673,15 @@
    "attack": "Dualwield_Melee_Attack_Slice",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
   "scale": 0.7995,
   "height": 1.8,
   "variantOf": "rogue_hooded",
-  "bytes": 228928
+  "bytes": 208876
  },
  "dragon_red": {
   "anim": {
@@ -668,12 +703,15 @@
    "attack": "Dualwield_Melee_Attack_Slice",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
   "scale": 0.7995,
   "height": 1.8,
   "variantOf": "rogue_hooded",
-  "bytes": 228696
+  "bytes": 208644
  },
  "hooded_grey": {
   "anim": {
@@ -696,12 +734,15 @@
    "attack": "Dualwield_Melee_Attack_Slice",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
   "scale": 0.8219,
   "height": 1.8,
   "variantOf": "hero_rogue",
-  "bytes": 232868
+  "bytes": 212816
  },
  "rogue_navy": {
   "anim": {
@@ -710,12 +751,15 @@
    "attack": "Dualwield_Melee_Attack_Slice",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
   "scale": 0.8219,
   "height": 1.8,
   "variantOf": "hero_rogue",
-  "bytes": 232644
+  "bytes": 212588
  },
  "rogue_crimson": {
   "anim": {
@@ -738,12 +782,15 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Long",
+   "shoot": "Spellcast_Shoot",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
   "scale": 0.6354,
   "height": 1.9,
   "variantOf": "hero_mage",
-  "bytes": 236992
+  "bytes": 215860
  },
  "mage_priest": {
   "anim": {
@@ -752,12 +799,15 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Long",
+   "shoot": "Spellcast_Shoot",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
   "scale": 0.6354,
   "height": 1.9,
   "variantOf": "hero_mage",
-  "bytes": 230132
+  "bytes": 209004
  },
  "mage_green": {
   "anim": {
@@ -766,12 +816,15 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Long",
+   "shoot": "Spellcast_Shoot",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
   "scale": 0.6354,
   "height": 1.9,
   "variantOf": "hero_mage",
-  "bytes": 237076
+  "bytes": 215944
  },
  "barb_red": {
   "anim": {
@@ -780,12 +833,15 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
   "scale": 0.7563,
   "height": 1.8,
   "variantOf": "hero_barbarian",
-  "bytes": 246976
+  "bytes": 223292
  },
  "knight_dark": {
   "anim": {
@@ -794,12 +850,15 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
   "scale": 0.7347,
   "height": 1.8,
   "variantOf": "hero_knight",
-  "bytes": 249684
+  "bytes": 226004
  },
  "knight_gold": {
   "anim": {
@@ -808,12 +867,15 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
   "scale": 0.7347,
   "height": 1.8,
   "variantOf": "hero_knight",
-  "bytes": 250220
+  "bytes": 226540
  },
  "knight_green": {
   "anim": {
@@ -822,12 +884,15 @@
    "attack": "1H_Melee_Attack_Chop",
    "hit": "Hit_A",
    "death": "Death_A",
-   "cast": "Spellcast_Shoot"
+   "cast": "Spellcast_Shoot",
+   "shoot": "Throw",
+   "block": "Block",
+   "dodge": "Dodge_Backward"
   },
   "scale": 0.7347,
   "height": 1.8,
   "variantOf": "hero_knight",
-  "bytes": 250360
+  "bytes": 226676
  },
  "dragon_black": {
   "anim": {
@@ -926,12 +991,13 @@
    "walk": "Walk",
    "attack": "Punch",
    "hit": "HitReact",
-   "death": "Death"
+   "death": "Death",
+   "dodge": "Duck"
   },
   "scale": 0.3166,
   "height": 0.8,
   "variantOf": "frog",
-  "bytes": 92772
+  "bytes": 94748
  },
  "slime_gray": {
   "anim": {
@@ -1013,12 +1079,13 @@
    "walk": "Walk",
    "attack": "Punch",
    "hit": "HitReact",
-   "death": "Death"
+   "death": "Death",
+   "dodge": "Duck"
   },
   "scale": 0.5802,
   "height": 2,
   "variantOf": "mushking",
-  "bytes": 107640
+  "bytes": 109768
  },
  "hag_green": {
   "anim": {
@@ -1130,12 +1197,13 @@
    "walk": "Walk",
    "attack": "Punch",
    "hit": "HitReact",
-   "death": "Death"
+   "death": "Death",
+   "dodge": "Duck"
   },
   "scale": 0.6365,
   "height": 1.7,
   "variantOf": "bluedemon",
-  "bytes": 101968
+  "bytes": 104060
  },
  "birb_gold": {
   "anim": {

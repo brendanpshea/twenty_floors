@@ -4,6 +4,7 @@ import { hasFeature, pushMap, roomFeatures, type RoomFeatures } from './features
 import { K, NEI8 } from './grid';
 import { PROP_OBSTACLE } from './obstacles';
 import { refreshWalls } from './walls';
+import { lineOfSight } from './sight';
 import { cheb, depthOf, refreshReach, sideOf, slotOk, stillConnected, type RoomView, type StageEnv, buildView } from './roomview';
 
 /**
@@ -480,11 +481,63 @@ export function seedHazards(v: RoomView, rng: Rng, slots: number[], share = 0.6)
 }
 
 /** Would the room stay connected if cell `c` were blocked? (Props placed by `props.can` already keep their ring open; this checks the whole room.) */
-function stillConnectedWith(v: RoomView, c: number): boolean {
+export function stillConnectedWith(v: RoomView, c: number): boolean {
   const { props } = v.env;
   const had = props.occ[c] as number;
   props.occ[c] = 2;
   const ok = stillConnected(v, [c]);
   props.occ[c] = had;
   return ok;
+}
+
+/**
+ * A cell for a reward chest in a cleared room: against (or one cell off) a wall on the far side from the main doorway,
+ * on reachable floor with two or more free neighbours, off the slots, not beside a drop (opening it must
+ * not be a trap), not cutting the room, and in sight of an arrival doorway from within 3 cells.
+ */
+export function chestCell(v: RoomView, rng: Rng, slots: number[], relaxed = false): number | null {
+  const { env } = v;
+  const { g, props } = env;
+  const w = g.w;
+  const T = v.maxDepth;
+  const cands: Array<{ c: number; score: number }> = [];
+  for (const c of v.cells) {
+    if (g.kinds[c] !== K.Floor || props.occ[c] !== 0 || props.keepFree[c] || (v.reach[c] as number) < 0) continue;
+    if (c === env.exit.y * w + env.exit.x || c === env.entrance.y * w + env.entrance.x) continue;
+    if ((env.doorDist[c] as number) < (relaxed ? 2 : 3) || (env.edge[c] as number) > (relaxed ? 4 : 2)) continue;
+    if (slots.some((o) => cheb(w, o, c) < 2)) continue;
+    const x = c % w;
+    const y = (c / w) | 0;
+    let free = 0;
+    let drop = false;
+    for (const [ox, oy] of NEI8) {
+      const k = g.kind(x + ox, y + oy);
+      if (k === K.Chasm) drop = true;
+      if ((k === K.Floor || k === K.Water) && props.occ[(y + oy) * w + x + ox] !== 2) free++;
+    }
+    if (drop || free < 2) continue;
+    const score = (depthOf(v, c) / Math.max(1, T)) * 3 + ((env.edge[c] as number) <= 1 ? 1 : 0) + (v.visMain[c] ? 0.5 : 0) + rng.next();
+    cands.push({ c, score });
+  }
+  cands.sort((p, q) => q.score - p.score || p.c - q.c);
+  for (const { c } of cands.slice(0, 12)) {
+    const x = c % w;
+    const y = (c / w) | 0;
+    // Findable: some arrival doorway sees a cell within 3 of it.
+    let seen = false;
+    for (const t of v.entry) {
+      for (let dy = -3; dy <= 3 && !seen; dy++) {
+        for (let dx = -3; dx <= 3; dx++) {
+          if (g.walkable(x + dx, y + dy) && lineOfSight(g.kinds, w, t % w, (t / w) | 0, x + dx, y + dy)) {
+            seen = true;
+            break;
+          }
+        }
+      }
+      if (seen) break;
+    }
+    if (!seen || !stillConnectedWith(v, c)) continue;
+    return c;
+  }
+  return null;
 }

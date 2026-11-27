@@ -108,6 +108,43 @@ The owner wants intellectual challenge, not hack and slash. Decided so far:
 Order: terrain and formations first, then the shop, then chest puzzles, then
 NPC games. Encounters are re-tuned after terrain and formations are in.
 
+## Items and effects
+
+Decided with the owner; the engine work is not built yet.
+
+- Items are made from three blocks: **passives** (always on while worn),
+  **timed effects** (the same passives for a limited time, from a potion or an
+  activated item) and **granted actions** (an ordinary attack, spell or throw
+  with limited uses, from a wand, a scroll or a flask).
+- **Durations are counted in fights.** One minute is the current fight; one
+  hour is the next three fights.
+- **Four quick slots** hold consumables for use in a fight, and each slot
+  stacks (several Potions of Healing take one slot). Up to three attuned
+  items, as in the SRD.
+- **Flight is narrow**: a flier can cross chasm and lava cells and cannot
+  fall. Nothing else about flight is modelled.
+- Fall and slam damage stay at 1d6 per floor depth and 1d6 per two depths.
+
+## Helping new players without slowing experienced ones
+
+- **Two help levels**, asked once at the start of a new game and changeable
+  in the pause menu. **Guided** explains things as they come up and suggests
+  moves: the game's scripted adviser picks a good action and the HUD says so.
+  **Standard** shows only first-time hints about the controls and never
+  suggests a move.
+- Hints appear in context, one at a time, at the moment they matter, and go
+  away when the player does the thing. Nothing is modal and combat never
+  waits for a hint. Each is shown once; tips can be turned off.
+- Rules terms (Armor Class, bonus action, advantage, concentration, prone)
+  explain themselves on tap. A "How to play" page lives in the pause menu.
+- **Resting asks first.** The confirmation says what the rest would restore
+  and what it costs, and warns when little would be gained.
+- **The shop compares.** Every weapon, armor and shield is shown against what
+  the hero has equipped, using the hero's real build: before and after
+  numbers, a verdict (upgrade, trade-off, sidegrade, not for your build) and
+  what would be put away.
+- **Animation speed** is a setting (normal, fast, skip enemy animations).
+
 ## Companions
 
 From level 4 the hero travels with one companion, chosen in the hub before

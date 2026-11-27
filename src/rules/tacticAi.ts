@@ -5,6 +5,7 @@ import { actionCost, combatDepth } from './combat';
 import { hasCondition, isIncapacitated } from './conditions';
 import { creatureTactic } from './tactics';
 import { exposedToPush, planPush, pushValue } from './terrain';
+import { averageDice } from './dice';
 import { areHostile, chebyshev, isAlive } from './util';
 
 /**
@@ -263,7 +264,7 @@ function shoveChoice(ctx: Ctx): Command | null {
     const plan = planPush(nav, (p) => ctx.occ(p) && !(p.x === t.pos.x && p.y === t.pos.y), t.pos, sign(t.pos.x - c.pos.x), sign(t.pos.y - c.pos.y), 1);
     // Every kind of push target counts: a drop or lava, fire or spikes (a slam), water (Prone, worth more with allies at the target).
     const alliesAtTarget = ctx.allies.filter((o) => chebyshev(o.pos, t.pos) <= 1).length;
-    const pv = pushValue(plan, depth, t.hp, alliesAtTarget, (ty) => typeFactor(t, ty));
+    const pv = pushValue(plan, depth, t.hp, alliesAtTarget, (ty) => typeFactor(t, ty), { minion: isMinionLike(t, depth), turnValue: turnDamage(t) });
     if (pv > 0) {
       const value = fail * pv;
       if (!best || value > best.value) best = { cmd: cmd({ id: SHOVE_PUSH_ID }, { targetId: t.id }), value, attack, share: SHOVE_HAZARD_TURN_SHARE, sure: 1 };
@@ -278,6 +279,14 @@ function shoveChoice(ctx: Ctx): Command | null {
   }
   if (!best) return null;
   return best.value >= best.attack * best.sure || roll < best.share ? best.cmd : null;
+}
+
+/** Experiment helpers: a creature the minion rule removes in a fall, and what its turn is worth (its best attack routine). */
+function isMinionLike(t: Creature, depth: number): boolean {
+  return t.faction === 'enemy' && t.level < depth / 4;
+}
+function turnDamage(t: Creature): number {
+  return Math.max(0, ...t.actions.map((a) => (a.damage ?? []).reduce((s, d) => s + averageDice(d.dice), 0) * (a.multiattack ? a.multiattack.length : 1)));
 }
 
 // ------------------------------------------------------------------- brute

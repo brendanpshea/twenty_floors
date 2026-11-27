@@ -69,6 +69,7 @@ export class CameraRig {
   private pinchY = 0;
   private keys = new Set<string>();
   private tmp = new Vector3();
+  private shakeAmp = 0;
   private attached = false;
   private snapNext = true;
 
@@ -411,6 +412,17 @@ export class CameraRig {
       this.focus.y + Math.sin(this.cPitch) * this.cDist,
       this.focus.z + Math.cos(this.cYaw) * cp * this.cDist,
     );
+    if (this.shakeAmp > 0.002) {
+      this.camera.position.x += (Math.random() - 0.5) * this.shakeAmp;
+      this.camera.position.y += (Math.random() - 0.5) * this.shakeAmp;
+      this.camera.position.z += (Math.random() - 0.5) * this.shakeAmp;
+      this.shakeAmp *= Math.exp(-dt * 14);
+    } else this.shakeAmp = 0;
     this.camera.lookAt(this.focus);
+  }
+
+  /** A brief positional shake (world units, decays in ~0.2 s). */
+  shake(amount: number): void {
+    this.shakeAmp = Math.max(this.shakeAmp, amount);
   }
 }

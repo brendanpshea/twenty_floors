@@ -2,6 +2,7 @@ import type { ActionDef, CellHighlight, CombatApi, Command, CompanionStance, Gam
 import {
   SHOVE_PUSH_ID,
   SHOVE_TRIP_ID,
+  advise,
   attacksLeft,
   createCombat,
   createPartyDriver,
@@ -93,8 +94,10 @@ export class CombatController {
       if (c.dead) state.shownDead.add(c.id);
     }
     state.shownActive = null;
+    const boss = monsters.find((m) => m.creature.resources['_boss'] !== undefined);
     try {
       await deps.delay(PAUSE.intro);
+      if (boss) this.ctx.prompt(`Boss: ${boss.creature.name}`, 6000);
       await this.playback.play(combat.begin());
       await this.advance();
     } catch (err) {
@@ -130,6 +133,45 @@ export class CombatController {
       }
     }
     rt.downed = false;
+  }
+
+  /** When the floor's boss has fallen: its hoard appears on the nearest free cell, with a flourish. */
+  private dropBossChest(): void {
+    const { state, deps } = this.ctx;
+    if (state.chests.some((c) => c.boss)) return;
+    const boss = state.monsters.find((m) => m.boss && m.creature.dead);
+    if (!boss) return;
+    const taken = (p: GridPos): boolean =>
+      samePos(p, state.player.pos) ||
+      (state.companion !== null && samePos(p, state.companion.creature.pos)) ||
+      samePos(p, state.plan.exit) ||
+      state.chests.some((c) => samePos(c.pos, p)) ||
+      state.restSites.some((r) => samePos(r.pos, p)) ||
+      state.monsters.some((m) => !m.creature.dead && m.creature.hp > 0 && samePos(m.creature.pos, p));
+    let at: GridPos | null = null;
+    for (let r = 0; r <= 8 && !at; r++) {
+      for (let dy = -r; dy <= r && !at; dy++) {
+        for (let dx = -r; dx <= r && !at; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const p = { x: boss.creature.pos.x + dx, y: boss.creature.pos.y + dy };
+          if (state.nav.inBounds(p) && state.nav.isWalkable(p) && state.nav.hazardAt(p) === 'none' && !taken(p)) at = p;
+        }
+      }
+    }
+    if (!at) return;
+    const id = 'chest_boss';
+    state.chests.push({ id, pos: at, opened: false, boss: true });
+    deps.renderer.spawnEntity(id, { model: 'chest_boss' }, at, { faction: 'ally', size: 'small' });
+    // Spawned hidden, then shown with its arrival flourish.
+    deps.renderer.setEntityState(id, { visible: false });
+    deps.renderer.setEntityState(id, { visible: true });
+    state.entityVisible.set(id, true);
+    void deps.renderer.playAnim(id, 'cast', { facing: at });
+    this.ctx.say(`The ${boss.creature.name} leaves its hoard behind.`);
+    deps.renderer.focusCamera(at);
+    void deps.delay(1600).then(() => {
+      if (!state.finished && state.mode === 'explore') deps.renderer.followEntity('player');
+    });
   }
 
   /** After a won fight: save the companion's state, and stand a downed one back up at 1 HP. */
@@ -203,11 +245,13 @@ export class CombatController {
     }
     state.mode = 'explore';
     if (comp) this.reviveCompanion();
+    this.dropBossChest();
     const sealedBefore = !state.stairsOpen;
     if (sealedBefore && !state.monsters.some((m) => m.boss && !m.creature.dead)) state.stairsOpen = true;
     if (sealedBefore && state.stairsOpen) {
       deps.audio.play('stairsUnlock', { delay: 0.6 });
-      deps.ui.banner('Victory', 'The way down is open');
+      const hoard = state.monsters.find((m) => m.boss && m.creature.dead);
+      deps.ui.banner('Victory', hoard ? `The ${hoard.creature.name} leaves its hoard behind` : 'The way down is open');
       this.ctx.say('The floor boss is dead. The stairs down are open.');
     } else {
       deps.ui.banner('Victory');
@@ -611,6 +655,12 @@ export class CombatController {
     const out: CellHighlight[] = [];
     if (this.mode === 'move') {
       for (const k of this.reach.keys()) out.push({ pos: unkey(k), style: 'move' });
+      // Guided: when the suggestion is a move, its destination is marked.
+      if (this.ctx.state.help === 'guided') {
+        const adv = advise(combat, this.ctx.state.nav);
+        const step = adv?.command.type === 'move' ? adv.command.path[adv.command.path.length - 1] : undefined;
+        if (step) out.push({ pos: step, style: 'path' });
+      }
       const h = this.hoverCell;
       const plan = this.hoverEnt && !this.quickAttackFor(this.hoverEnt) ? this.approachPlan(this.hoverEnt) : null;
       if (plan) {

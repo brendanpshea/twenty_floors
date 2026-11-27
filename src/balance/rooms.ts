@@ -43,6 +43,17 @@ export interface RoomOutcome {
   companionSpells: number;
   topDealer: string;
   timedOut: boolean;
+  /** Hazard events (falls, lava) the hero suffered, the damage they did, and whether the hero died of one. */
+  heroHazards: number;
+  heroHazardDamage: number;
+  heroHazardDeath: boolean;
+  /** Hazard events on enemies, and slams (fire and spikes) on either side. */
+  enemyHazards: number;
+  slams: number;
+  /** Which hazards enemies were pushed into: 'fall' and 'lava', and 'slam' for fire and spikes. */
+  enemyKinds: Record<string, number>;
+  /** Short descriptions of the falls and slams in the fight (for reading what clever play looks like). */
+  notes: string[];
 }
 
 export interface RoomStats {
@@ -174,10 +185,66 @@ function fightRoom(
     companionSpells: cspells,
     topDealer: top,
     timedOut,
+    ...hazardStats(events),
+    notes: hazardNotes(events, (id) => combat.creature(id)?.name ?? id),
   };
 }
 
+/** Hazard figures from a fight's events (see RoomOutcome). */
+function hazardStats(events: GameEvent[]): { heroHazards: number; heroHazardDamage: number; heroHazardDeath: boolean; enemyHazards: number; slams: number; enemyKinds: Record<string, number> } {
+  const enemyKinds: Record<string, number> = {};
+  let heroHazards = 0;
+  let heroHazardDamage = 0;
+  let heroHazardDeath = false;
+  let enemyHazards = 0;
+  let slams = 0;
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i] as GameEvent;
+    if (e.type === 'feature' && e.id === 'slam') {
+      slams++;
+      if (e.creatureId !== 'player' && e.creatureId !== 'companion') enemyKinds['slam'] = (enemyKinds['slam'] ?? 0) + 1;
+    }
+    if (e.type !== 'hazard') continue;
+    if (e.creatureId === 'player') {
+      heroHazards++;
+      for (let j = i + 1; j < Math.min(events.length, i + 4); j++) {
+        const d = events[j] as GameEvent;
+        if (d.type === 'damage' && d.targetId === 'player') {
+          heroHazardDamage += d.amount;
+          if (d.hpAfter <= 0) heroHazardDeath = true;
+          break;
+        }
+      }
+    } else if (e.creatureId !== 'companion') {
+      enemyHazards++;
+      enemyKinds[e.hazard] = (enemyKinds[e.hazard] ?? 0) + 1;
+    }
+  }
+  return { heroHazards, heroHazardDamage, heroHazardDeath, enemyHazards, slams, enemyKinds };
+}
+
+function hazardNotes(events: GameEvent[], name: (id: string) => string): string[] {
+  const out: string[] = [];
+  let round = 0;
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i] as GameEvent;
+    if (e.type === 'roundStart') round = e.round;
+    const grab = (from: number): string => {
+      for (let j = from; j < Math.min(events.length, from + 4); j++) {
+        const d = events[j] as GameEvent;
+        if (d.type === 'damage') return d.amount + ' damage' + (d.hpAfter <= 0 ? ', killed' : ', ' + d.hpAfter + ' HP left');
+      }
+      return '';
+    };
+    if (e.type === 'hazard') out.push('round ' + round + ': ' + name(e.creatureId) + ' ' + (e.sourceId ? 'pushed by ' + name(e.sourceId) + ' ' : '') + 'into ' + e.hazard + ' (' + grab(i + 1) + ')');
+    if (e.type === 'feature' && e.id === 'slam') out.push('round ' + round + ': ' + name(e.creatureId) + ' slammed (' + (e.amount ?? 0) + ' damage)');
+  }
+  return out.slice(0, 8);
+}
+
 export interface MeasureOptions {
+  /** A custom hero policy (for instrumented measurements); overrides `policy`. */
+  policyFn?: PolicyFn;
   /** Number of floors to generate (each yields several fights). Default 10. */
   floors?: number;
   seed0?: number;
@@ -192,7 +259,7 @@ export function measureRooms(theme: ThemeId, depth: number, opts: MeasureOptions
   const seed0 = opts.seed0 ?? 500;
   const companionId = opts.companion ?? 'blink_dog';
   const policyName = opts.policy ?? 'expert';
-  const policy = policyName === 'naive' ? playerPolicy : expertPolicy;
+  const policy = opts.policyFn ?? (policyName === 'naive' ? playerPolicy : expertPolicy);
   const stance = policyName === 'naive' ? 'close' : expertStance(companionId);
   const { pc: base, companion } = arriveAt(depth, opts.kit ?? 'a', companionId);
   const outcomes: RoomOutcome[] = [];

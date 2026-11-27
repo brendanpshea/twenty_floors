@@ -1,6 +1,6 @@
 import { Rng } from '../core/rng';
-import type { ActionDef, CombatApi, Condition, Creature, Hazard, HudAction, HudModel } from '../core/types';
-import { SHOVE_PUSH_ID, SHOVE_TRIP_ID, attacksLeft, companionPrayer, concentratingOn, coverFor, creatureTactic, pushPreview, getCreationOptions, getSpell, isHiddenResource, longRestGain, outOfCombatSpells, shortRestGain, spellPoolKey, syncFromCreature } from '../rules';
+import type { ActionDef, CombatApi, Condition, Creature, Hazard, HelpMode, HudAction, HudModel } from '../core/types';
+import { advise, adviseExplore, SHOVE_PUSH_ID, SHOVE_TRIP_ID, attacksLeft, companionPrayer, concentratingOn, coverFor, creatureTactic, pushPreview, getCreationOptions, getSpell, isHiddenResource, longRestGain, outOfCombatSpells, shortRestGain, spellPoolKey, syncFromCreature } from '../rules';
 import type { FloorState, RestSiteState } from './floorState';
 import { companionWantsLongRest, companionWantsShortRest } from './party';
 import { SHOVE_ID } from './combatController';
@@ -46,6 +46,8 @@ export interface HudInputs {
   previewActionId?: string | null;
   /** Input is locked (playback, enemy turn). */
   busy: boolean;
+  /** Guided mode shows the adviser's suggestion; standard never does. */
+  help?: HelpMode;
 }
 
 function conditionsOf(c: Creature): Condition[] {
@@ -179,12 +181,13 @@ export function buildHudModel(inp: HudInputs): HudModel {
       speed: player.speed,
       actionAvailable: playerTurn && (!combat.turn.actionUsed || attacksLeft(combat) > 0),
       bonusAvailable: playerTurn && !combat.turn.bonusUsed,
-      initiative: combat.order.flatMap((id) => {
+      // Before the fight has begun the engine has rolled no order yet: show everyone who is in it.
+      initiative: (combat.order.length > 0 ? combat.order : combat.creatures().map((x) => x.id)).flatMap((id) => {
         const c = combat.creature(id);
         if (!c) return [];
         const dead = state.shownDead.has(id);
         // In a crowd the strip only has room for the living.
-        if (dead && combat.order.length > MAX_STRIP_WITH_DEAD) return [];
+        if (dead && combat.creatures().length > MAX_STRIP_WITH_DEAD) return [];
         return [
           {
             id,
@@ -257,6 +260,32 @@ export function buildHudModel(inp: HudInputs): HudModel {
     }
   }
 
+  // Guided mode: the adviser's suggestion (in combat on the hero's turn, between fights otherwise).
+  if (inp.help === 'guided') {
+    if (inCombat && combat && model.combat?.playerTurn) {
+      const adv = advise(combat, state.nav);
+      if (adv) {
+        model.suggestion = adv.text;
+        const id = adv.actionId === SHOVE_PUSH_ID || adv.actionId === SHOVE_TRIP_ID ? SHOVE_ID : adv.actionId;
+        const match = id ? model.actions.find((a) => a.id === id) : undefined;
+        if (match) match.suggested = true;
+      }
+    } else if (!inCombat && !busy && !state.finished) {
+      const synced = syncFromCreature(state.pc, player);
+      const spells = outOfCombatSpells(synced);
+      const nudge = adviseExplore(synced, {
+        hpFraction: player.maxHp > 0 ? player.hp / player.maxHp : 1,
+        shortRestsLeft: state.shortRestsLeft,
+        atRestSite: adjacentRestSite(state) !== undefined,
+        canCastHeal: spells.some((x) => (x.id === 'cure_wounds' || x.id === 'healing_word') && x.available),
+        potions: synced.inventory.find((x) => x.itemId === 'potion_healing')?.quantity ?? 0,
+        enemyInView: enemyInView(state),
+        companionHurt: !!state.companion && state.companion.creature.hp < state.companion.creature.maxHp,
+      });
+      if (nudge) model.suggestion = nudge.text;
+    }
+  }
+
   const target = state.targetId ? creatureById(state, state.targetId) : undefined;
   if (target && isEntityVisible(state, target.id)) {
     const t: NonNullable<HudModel['target']> = {
@@ -268,11 +297,13 @@ export function buildHudModel(inp: HudInputs): HudModel {
       faction: target.faction,
     };
     const desc = target.id === 'player' ? undefined : monsterDef(target.defId)?.description;
-    if (desc) t.description = desc;
+    const isBoss = target.resources['_boss'] !== undefined;
+    if (desc || isBoss) t.description = `${isBoss ? 'Floor boss. ' : ''}${desc ?? ''}`.trim();
     const enemy = target.faction === 'enemy';
     if (inCombat && combat && enemy) {
       // Cover against the hero from where the hero stands, and how the monster fights.
-      t.cover = coverFor(state.nav, combat.creatures(), player.pos, target.pos, [player.id, target.id]);
+      const cv = coverFor(state.nav, combat.creatures(), player.pos, target.pos, [player.id, target.id]);
+      t.cover = cv >= 5 ? 5 : cv >= 2 ? 2 : 0;
       const tactic = creatureTactic(target);
       if (tactic) t.tactic = tactic;
       if (selectedActionId) {

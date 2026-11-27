@@ -44,6 +44,7 @@ const ICONS: Record<string, string> = {
   cover: '<path d="M12 3 L19 6 V11 C19 15 16 17 12 19 C8 17 5 15 5 11 V6 Z"/><path d="M2 21 H22"/>',
   eye: '<path d="M2 12 C5 6 19 6 22 12 C19 18 5 18 2 12 Z"/><circle cx="12" cy="12" r="3"/>',
   warn: '<path d="M12 3 L22 20 H2 Z"/><path d="M12 9 V14"/><path d="M12 17 V17.5"/>',
+  bulb: '<path d="M9 18 H15"/><path d="M10 21 H14"/><path d="M12 3 A6 6 0 0 0 8 13.5 C8.7 14.3 9 15 9 16 H15 C15 15 15.3 14.3 16 13.5 A6 6 0 0 0 12 3 Z"/>',
   menu: '<path d="M4 7 H20"/><path d="M4 12 H20"/><path d="M4 17 H20"/>',
   coin: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/>',
   shield: '<path d="M12 3 L20 6 V12 C20 17 16 20 12 22 C8 20 4 17 4 12 V6 Z"/>',

@@ -29,14 +29,21 @@ const MOVE_CELLS_PER_SEC = 6;
 /** Draw scale of procedural stand-ins by Size. Real models carry their size in the manifest scale. */
 const SIZE_SCALE: Record<Size, number> = { tiny: 0.5, small: 0.8, medium: 1, large: 1.7, huge: 2.3 };
 const RING_SCALE: Record<Size, number> = { tiny: 0.65, small: 0.82, medium: 1, large: 1.2, huge: 1.45 };
-const ANIM_DUR: Record<AnimName, number> = { idle: 0, walk: 0, attack: 0.55, hit: 0.42, death: 0.9, cast: 0.85 };
+const ANIM_DUR: Record<AnimName, number> = { idle: 0, walk: 0, attack: 0.55, hit: 0.42, death: 0.9, cast: 0.85, shoot: 0.6, block: 0.5, dodge: 0.45 };
 
 interface MoveJob {
   path: GridPos[];
   resolve: () => void;
 }
 
+/** Time budget (seconds) a model clip is fitted to, so a long clip (a mage's 2.5 s cast) never stalls combat pacing. */
+const CLIP_BUDGET: Partial<Record<AnimName, number>> = { cast: 1.0, shoot: 0.6, block: 0.45, dodge: 0.45, hit: 0.5, attack: 0.9 };
+/** The fastest a clip is ever played (beyond this it is cut short instead). */
+const CLIP_MAX_RATE = 2.5;
+
 interface OneShot {
+  /** Playback rate applied to the model clip (1 when it already fits its budget). */
+  rate: number;
   anim: AnimName;
   t: number;
   dur: number;
@@ -83,6 +90,10 @@ export class Entity {
   opacity = 1;
   /** 1 normally; eases towards 0.3 while this creature would hide the camera target. */
   occFade = 1;
+  /** How far (world units) the attack lunge carries toward the target. */
+  reach = 0.6;
+  /** Knock-back from an impact effect: eased out to a peak, then a damped spring back. */
+  knock: { t: number; dx: number; dz: number; amp: number; peaked: boolean; resolve: () => void } | null = null;
   /** Falling into / climbing out of a hazard (dropEntity / riseEntity). */
   fx: { mode: 'drop' | 'rise'; lava: boolean; t: number; dur: number; sink: number; resolve: () => void } | null = null;
   lastOpacity = 1;
@@ -252,7 +263,7 @@ export class EntityManager {
     const on = this.host.shadowsOn();
     e.figure.root.traverse((o: Object3D) => {
       const m = o as Mesh;
-      if (m.isMesh) m.castShadow = on;
+      if (m.isMesh) m.castShadow = on && !m.userData.noShadow;
     });
   }
 
@@ -357,6 +368,15 @@ export class EntityManager {
     });
   }
 
+  private speed = 1;
+  private hitStop = 0;
+  reducedMotion = false;
+
+  /** Global time scale for movement, animation and effects (1 normal, 2 fast, 5 skip). */
+  setSpeed(v: number): void {
+    this.speed = v;
+  }
+
   private embers: { pts: Points; pos: Float32Array; vel: Float32Array; t: number; delay: number } | null = null;
 
   private spawnEmbers(x: number, y: number, z: number, delay: number): void {
@@ -442,22 +462,42 @@ export class EntityManager {
       this.pickDirty = true;
     }
     const isChest = e.figure.kind === 'chest';
-    if (isChest && (anim === 'attack' || anim === 'cast')) e.chestWantOpen = true;
-    const clipAct = e.figure.actions?.[anim];
-    const dur = clipAct ? Math.min(3, clipAct.getClip().duration) : e.figure.kind === 'rest' ? 1.2 : ANIM_DUR[anim];
+    if (isChest && anim === 'attack') e.chestWantOpen = true;
+    const clipAct = this.clipFor(e, anim);
+    if (facing && (anim === 'attack' || anim === 'shoot')) {
+      // Carry the strike across: reach most of the way to the target, more for big creatures.
+      const d = Math.hypot((facing.x * CELL + CELL / 2) - e.root.position.x, (facing.y * CELL + CELL / 2) - e.root.position.z);
+      e.reach = anim === 'shoot' ? 0.25 : clamp(d * 0.42 + 0.12 * e.scale, 0.4, 1.3);
+    } else if (anim === 'attack') e.reach = 0.6;
+    let rate = 1;
+    let clipDur = clipAct ? Math.min(3, clipAct.getClip().duration) : 0;
+    const budget = CLIP_BUDGET[anim];
+    if (clipAct && budget && clipDur > budget * 1.15) {
+      // Fit a long clip to its budget by playing it faster, up to a cap; past the cap it is simply cut off at the budget.
+      rate = Math.min(CLIP_MAX_RATE, clipDur / budget);
+      clipDur = clipDur / rate;
+    }
+    const dur = clipAct ? clipDur : e.figure.kind === 'rest' ? 1.2 : ANIM_DUR[anim];
     const needTurn = !!facing && anim !== 'death' && Math.abs(angleDiff(e.yaw, e.targetYaw)) > 0.3;
     return new Promise<void>((resolve) => {
-      e.oneShot = { anim, t: 0, dur, resolve, clip: !!clipAct, started: !needTurn, waitT: 0 };
-      if (!needTurn && clipAct) this.playClip(e, anim);
+      e.oneShot = { anim, rate, t: 0, dur, resolve, clip: !!clipAct, started: !needTurn, waitT: 0 };
+      if (!needTurn && clipAct) this.playClip(e, anim, rate);
       if (anim === 'hit') e.flash = 1;
     });
   }
 
-  private playClip(e: Entity, anim: AnimName): void {
-    const act = e.figure.actions?.[anim];
+  /** The model clip for an animation: 'shoot' falls back to 'attack'; block and dodge have no clip fallback (procedural). */
+  private clipFor(e: Entity, anim: AnimName): AnimationAction | undefined {
+    const a = e.figure.actions;
+    return a?.[anim] ?? (anim === 'shoot' ? a?.attack : undefined);
+  }
+
+  private playClip(e: Entity, anim: AnimName, rate = 1): void {
+    const act = this.clipFor(e, anim);
     if (!act) return;
     if (e.baseAction && e.baseAction !== act) e.baseAction.fadeOut(0.1);
     act.reset().fadeIn(0.08).play();
+    act.setEffectiveTimeScale(rate);
     e.activeShot = act;
   }
 
@@ -529,6 +569,7 @@ export class EntityManager {
     if (st.hpFraction !== undefined) this.setHp(e, st.hpFraction);
     if (st.dead !== undefined && st.dead !== e.dead) {
       e.dead = st.dead;
+      if (st.dead && e.figure.kind === 'chest') e.chestWantOpen = true;
       if (st.dead) {
         if (!e.oneShot || e.oneShot.anim !== 'death') {
           this.finishOneShot(e);
@@ -597,6 +638,39 @@ export class EntityManager {
 
   // ---- queries -----------------------------------------------------------
 
+  /** World point `frac` of the way up an entity (0 feet, 1 head). False if it does not exist. */
+  pointOn(id: string, frac: number, out: { x: number; y: number; z: number }): boolean {
+    const e = this.entities.get(id);
+    if (!e) return false;
+    out.x = e.root.position.x;
+    out.y = e.root.position.y + e.height * frac;
+    out.z = e.root.position.z;
+    return true;
+  }
+
+  isVisible(id: string): boolean {
+    const e = this.entities.get(id);
+    return !!e && e.visible && e.root.visible;
+  }
+
+  /** Knock an entity back from a world point (never leaves its cell), freeze animation briefly; resolves at the knock-back peak. */
+  impact(id: string, fromX: number, fromZ: number, strength: number): Promise<void> {
+    const e = this.entities.get(id);
+    if (!e || e.dead) return Promise.resolve();
+    if (e.knock) e.knock.resolve();
+    let dx = e.root.position.x - fromX;
+    let dz = e.root.position.z - fromZ;
+    const l = Math.hypot(dx, dz) || 1;
+    dx /= l;
+    dz /= l;
+    if (!this.reducedMotion && strength > 0.15) this.hitStop = Math.max(this.hitStop, strength * 0.07);
+    e.flash = Math.max(e.flash, this.reducedMotion ? 0.5 : 1);
+    const amp = this.reducedMotion ? 0.15 : 0.12 + 0.88 * strength; // world units; a cell is 2
+    return new Promise<void>((resolve) => {
+      e.knock = { t: 0, dx, dz, amp, peaked: false, resolve };
+    });
+  }
+
   /** World position a bit above an entity's head, for floating text. */
   headPosition(id: string, out: { x: number; y: number; z: number }): boolean {
     const e = this.entities.get(id);
@@ -632,16 +706,25 @@ export class EntityManager {
     this.tgtMat.color.setRGB(1, 0.3 + 0.35 * pulse, 0.18 + 0.1 * pulse);
     this.tgtMat.opacity = 0.65 + 0.35 * pulse;
     this.selMat.opacity = 0.8 + 0.15 * Math.sin(time * 3);
+    const sdt = dt * this.speed;
+    let mdt = sdt;
+    let pdt = sdt;
+    if (this.hitStop > 0) {
+      // Hit-stop: mixers freeze and poses crawl for a few frames.
+      this.hitStop -= dt;
+      mdt = 0;
+      pdt = sdt * 0.04;
+    }
     for (const e of this.entities.values()) {
-      this.updateMovement(e, dt);
+      this.updateMovement(e, sdt);
       const hides = !e.dead && e.visible && coversTarget(e.root.position.x, e.root.position.z, e.height);
       const fadeTo = hides ? 0.3 : 1;
       if (e.occFade !== fadeTo) e.occFade += Math.sign(fadeTo - e.occFade) * Math.min(Math.abs(fadeTo - e.occFade), dt * 5);
-      if (e.figure.mixer) e.figure.mixer.update(dt);
-      this.updatePose(e, dt, time);
+      if (e.figure.mixer) e.figure.mixer.update(mdt);
+      this.updatePose(e, pdt, time);
       if (e.bar) e.bar.quaternion.copy(camQuat);
     }
-    this.updateEmbers(dt);
+    this.updateEmbers(sdt);
     this.updateBlobs();
   }
 
@@ -749,11 +832,12 @@ export class EntityManager {
     }
     const P = f.parts;
     const pending = e.oneShot;
+    if (f.kind === 'chest' && f.tick) f.tick(time, pending && pending.anim === 'cast' ? Math.min(1, pending.t / pending.dur) : -1, e.dead);
     if (pending && !pending.started) {
       pending.waitT += dt;
       if (Math.abs(angleDiff(e.yaw, e.targetYaw)) < 0.25 || pending.waitT > 0.45) {
         pending.started = true;
-        if (pending.clip) this.playClip(e, pending.anim);
+        if (pending.clip) this.playClip(e, pending.anim, pending.rate);
       }
     }
     const shot = pending && pending.started ? pending : null;
@@ -766,6 +850,7 @@ export class EntityManager {
     const t = time + e.seed;
     let bobY = 0;
     let offZ = 0;
+    let side = 0;
     let rotX = 0;
     let rotZ = 0;
     let sy = 1;
@@ -816,7 +901,7 @@ export class EntityManager {
         case 'attack': {
           const w = u < 0.35 ? u / 0.35 : 1 - (u - 0.35) / 0.65;
           const lunge = Math.sin(Math.PI * clamp(u * 1.15, 0, 1));
-          offZ = lunge * 0.55;
+          offZ = lunge * e.reach;
           armR = -0.22 - 2.5 * (u < 0.35 ? w : w * w) + (u > 0.35 ? 0.9 * Math.sin(((u - 0.35) / 0.65) * Math.PI) : 0);
           armL = -0.5 * w;
           rotX = 0.18 * lunge;
@@ -850,8 +935,55 @@ export class EntityManager {
           const eased = env * env * (3 - 2 * env);
           armL = armR = -0.2 - 2.4 * eased;
           bobY = 0.12 * eased;
-          glow = 0.8 * Math.sin(Math.PI * u);
+          glow = kind === 'chest' ? 0 : 0.8 * Math.sin(Math.PI * u);
           if (kind === 'blob') sy = 1 + 0.25 * eased;
+          break;
+        }
+        case 'shoot': {
+          // Draw back, then snap forward on release.
+          const draw = u < 0.55 ? u / 0.55 : 0;
+          const rel = u >= 0.55 ? Math.sin(Math.PI * clamp((u - 0.55) / 0.45, 0, 1)) : 0;
+          armL = -1.45 * Math.min(1, u * 5);
+          armR = -0.3 - 1.3 * draw + 0.9 * rel;
+          rotX = -0.16 * draw + 0.14 * rel;
+          offZ = -0.1 * draw + 0.15 * rel;
+          if (kind === 'beast') {
+            headX = -0.4 * draw + 0.5 * rel;
+            offZ = -0.2 * draw + 0.4 * rel;
+          }
+          if (kind === 'blob') {
+            sy = 1 + 0.15 * draw - 0.2 * rel;
+            sxz = 1 - 0.08 * draw + 0.1 * rel;
+          }
+          break;
+        }
+        case 'block': {
+          // Raise the shield arm and plant the feet: small step back and brace.
+          const env = u < 0.25 ? u / 0.25 : u > 0.75 ? (1 - u) / 0.25 : 1;
+          const k = env * env * (3 - 2 * env);
+          if (kind === 'beast' || kind === 'blob') {
+            side = Math.sin(Math.PI * u) * 0.5;
+            bobY = 0.12 * Math.sin(Math.PI * u);
+            rotZ = -side * 0.35;
+          } else {
+            armL = -1.7 * k;
+            armR = -0.9 * k;
+            offZ = -0.22 * k;
+            rotX = -0.12 * k;
+            bobY = -0.04 * k;
+          }
+          break;
+        }
+        case 'dodge': {
+          // A quick sidestep and return (a hop for animals).
+          const k = Math.sin(Math.PI * u);
+          side = 0.6 * k * (e.seed > 3.14 ? 1 : -1);
+          rotZ = -side * 0.4;
+          bobY = (kind === 'beast' || kind === 'blob' ? 0.18 : 0.06) * k;
+          if (kind !== 'beast' && kind !== 'blob') {
+            legL = 0.6 * k;
+            legR = -0.5 * k;
+          }
           break;
         }
         case 'death': {
@@ -860,6 +992,11 @@ export class EntityManager {
         default:
           break;
       }
+    }
+
+    if (shot && shot.clip && (shot.anim === 'attack' || shot.anim === 'shoot')) {
+      // A model's own attack clip plays in place; add the forward step so the strike connects.
+      offZ = Math.max(offZ, Math.sin(Math.PI * clamp(u * 1.1, 0, 1)) * e.reach * (shot.anim === 'attack' ? 0.85 : 0.2));
     }
 
     // Death pose (animated or held).
@@ -888,7 +1025,7 @@ export class EntityManager {
           offZ = -0.1 * ease;
         }
       }
-      shade = 1 - 0.5 * ease;
+      shade = kind === 'chest' ? 0.8 : 1 - 0.5 * ease;
       if ((f.baseOpacity ?? 1) < 1) opacity = 1 - 0.35 * ease;
       flash = Math.max(flash, (1 - k) * 0.6);
       if (dying && shot && shot.t >= shot.dur) {
@@ -937,6 +1074,30 @@ export class EntityManager {
       }
     }
 
+    let kx = 0;
+    let kz = 0;
+    if (e.knock) {
+      const kn = e.knock;
+      kn.t += dt;
+      const peak = 0.09;
+      let a = 0;
+      if (kn.t < peak) {
+        const p = kn.t / peak;
+        a = 1 - (1 - p) * (1 - p);
+      } else {
+        if (!kn.peaked) {
+          kn.peaked = true;
+          kn.resolve();
+        }
+        const p = (kn.t - peak) / 0.32;
+        a = p >= 1 ? 0 : (1 - p) * (1 - p) * (1 + 0.12 * Math.sin(p * 9));
+        if (p >= 1) e.knock = null;
+      }
+      kx = kn.dx * kn.amp * a;
+      kz = kn.dz * kn.amp * a;
+      sy *= 1 - 0.08 * kn.amp * a;
+    }
+
     // apply
     const b = e.body;
     const base = e.scale;
@@ -948,6 +1109,14 @@ export class EntityManager {
       // lunge along the facing direction (body yaw already rotates local z)
       b.position.x = Math.sin(e.yaw) * offZ;
       b.position.z = Math.cos(e.yaw) * offZ;
+    }
+    if (side !== 0) {
+      b.position.x += Math.cos(e.yaw) * side;
+      b.position.z -= Math.sin(e.yaw) * side;
+    }
+    if (kx !== 0 || kz !== 0) {
+      b.position.x += kx;
+      b.position.z += kz;
     }
     if (P.armL) P.armL.rotation.x = armL;
     if (P.armR) P.armR.rotation.x = armR;

@@ -36,7 +36,8 @@ import { averageDice, formatDice, parseDice, rollDice } from './dice';
 import { abilityMod, areHostile, chebyshev, hasFlag, isAlive, isFriendlySide } from './util';
 import { chromaticOrbType, fxVal, isSpellAction } from './spells';
 import { SHOVE_PUSH_ID, SHOVE_TRIP_ID, isShove, shovePushAction, shoveTripAction } from './actions';
-import { canShoveSize, climbOutCell, coverFor, planPush, slamDice } from './terrain';
+import { typeFactor } from './ai';
+import { TERRAIN_TUNING, pushValue, canShoveSize, climbOutCell, coverBonusFor, fallDice, planPush, slamDice } from './terrain';
 import { creatureTactic } from './tactics';
 
 /** Per-combat readers that the CombatApi surface has no room for (see `attacksLeft`). */
@@ -64,11 +65,12 @@ export function pushPreview(combat: CombatApi, actionId: string, targetId: strin
   const a = c ? findAction(c, actionId) : undefined;
   if (!nav || !c || !t || !a) return null;
   const fx = a.effects ?? [];
-  const cells = fx.includes('shove:push') ? 1 : fx.includes('mastery:push') || fx.includes('thunderwavePush') ? 2 : 0;
+  const tm = fx.some((e) => e.startsWith('tmOwn:')) && hasFlag(c, 'tacticalMaster') && !hasFlag(c, 'tacticalAuto');
+  const cells = fx.includes('shove:push') ? 1 : fx.includes('mastery:push') || fx.includes('thunderwavePush') || tm ? 2 : 0;
   if (cells === 0 || (t.size === 'huge' && !fx.includes('shove:push'))) return null;
   const plan = planPush(nav, (p) => combat.creatures().some((o) => isAlive(o) && o.id !== t.id && o.pos.x === p.x && o.pos.y === p.y), t.pos, Math.sign(t.pos.x - c.pos.x), Math.sign(t.pos.y - c.pos.y), cells);
   const d = combatDepth(combat);
-  if (plan.hazard) return { hazard: plan.hazard.kind, damage: `${d}d6` };
+  if (plan.hazard) return { hazard: plan.hazard.kind, damage: `${fallDice(d)}d6` };
   if (plan.obstacle) return { hazard: plan.obstacle.kind, damage: `${slamDice(d)}d6` };
   if (plan.water) return { hazard: 'water', prone: true };
   if (plan.slid) return { hazard: 'ice' };
@@ -121,7 +123,7 @@ export const ELEVATION_ATTACK_BONUS = { minSteps: 2, bonus: 1 } as const;
 
 export function elevationAttackBonus(nav: NavGrid, attacker: GridPos, target: GridPos): number {
   const diff = nav.elevationAt(attacker) - nav.elevationAt(target);
-  return diff >= ELEVATION_ATTACK_BONUS.minSteps ? ELEVATION_ATTACK_BONUS.bonus : 0;
+  return diff >= ELEVATION_ATTACK_BONUS.minSteps ? TERRAIN_TUNING.heightBonus : 0;
 }
 
 /** HOUSE RULE: escaping an indefinite restraint is an action: STR check against this DC. */
@@ -149,12 +151,17 @@ function canBreakFree(c: Creature): boolean {
 }
 
 /** The creature's action with this id, including the generated Break Free while it is restrained. */
+/** Experiment: the hero's Shove as a bonus action (TERRAIN_TUNING.shoveBonusAction). */
+function shoveFor(c: Creature, a: ActionDef): ActionDef {
+  return TERRAIN_TUNING.shoveBonusAction && c.faction === 'player' ? { ...a, cost: 'bonus' } : a;
+}
+
 export function findAction(c: Creature, id: string): ActionDef | undefined {
   const own = c.actions.find((a) => a.id === id);
   if (own) return own;
   if (id === BREAK_FREE_ID && canBreakFree(c)) return breakFreeAction();
-  if (id === SHOVE_PUSH_ID) return shovePushAction();
-  if (id === SHOVE_TRIP_ID) return shoveTripAction();
+  if (id === SHOVE_PUSH_ID) return shoveFor(c, shovePushAction());
+  if (id === SHOVE_TRIP_ID) return shoveFor(c, shoveTripAction());
   return undefined;
 }
 
@@ -230,6 +237,10 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   const depth = Math.max(1, Math.floor(options.depth ?? 1));
   /** HOUSE RULE (lurkers): an ambusher that began the fight out of the hero's sight has advantage on its first attack. */
   const ambush = new Set<string>();
+  /** Cloak of Displacement: wearers whose displacement is up (it ends when they are hit and returns at the start of their turn). */
+  const displaced = new Set<string>(all.filter((c) => hasFlag(c, 'displacement')).map((c) => c.id));
+  /** Experiment (fallsTakeTurn): creatures in a pit until the end of their next turn, with where they fell in. */
+  const pitted = new Map<string, { at: GridPos; origin: GridPos }>();
   const byId = new Map<string, Creature>();
   for (const c of all) byId.set(c.id, c);
 
@@ -348,6 +359,12 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       bonus += elevationAttackBonus(nav, att.pos, tgt.pos);
     }
     if (packTacticsActive(att, tgt)) adv = true;
+    // Experiment (2014 optional rule, not in SRD 5.2.1): flanking gives a melee attacker advantage.
+    if (TERRAIN_TUNING.flanking && melee && d <= 1) {
+      const ox = 2 * tgt.pos.x - att.pos.x;
+      const oy = 2 * tgt.pos.y - att.pos.y;
+      if (all.some((o) => o !== att && isAlive(o) && !isIncapacitated(o) && isFriendlySide(o) === isFriendlySide(att) && o.pos.x === ox && o.pos.y === oy)) adv = true;
+    }
     if (vexed.get(att.id)?.targetId === tgt.id) adv = true;
     if (studied.get(att.id)?.targetId === tgt.id) adv = true;
     if (blinkAdv.has(att.id)) adv = true;
@@ -360,10 +377,15 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (a.effects?.includes('heavyDisadvantage')) dis = true;
     // Improved and Superior Critical cover weapon attacks, not spell attacks.
     const spellOnly = isSpellAction(a) && !a.effects?.includes('weaponAttack');
-    const critMin = spellOnly ? 20 : hasFlag(att, 'crit18') ? 18 : hasFlag(att, 'crit19') ? 19 : 20;
+    let critMin = spellOnly ? 20 : hasFlag(att, 'crit18') ? 18 : hasFlag(att, 'crit19') ? 19 : 20;
+    // Item passive critRange on the weapon (a Vicious or Keen weapon): crits on `from` or higher.
+    const cr = a.effects?.find((e) => e.startsWith('crit:'));
+    if (cr) critMin = Math.min(critMin, parseInt(cr.slice(5), 10));
+    // Cloak of Displacement: attack rolls against the wearer have disadvantage until it is hit.
+    if (displaced.has(tgt.id) && !isIncapacitated(tgt)) dis = true;
     // SRD cover: +2 (half) or +5 (three-quarters) to the target's AC against ranged and reach attacks; another creature
     // standing between the two gives half cover. Adjacent targets have none.
-    const cover = t.kind === 'creature' ? coverFor(nav, all, att.pos, tgt.pos) : 0;
+    const cover = t.kind === 'creature' ? coverBonusFor(nav, all, att.pos, tgt.pos) : 0;
     return { bonus, mode: mergeMode(adv, dis), critMin, cover };
   }
 
@@ -428,6 +450,9 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     ) {
       outcome = 'crit';
     }
+    // Critical-hit immunity (Adamantine Armor): a critical hit against the wearer is an ordinary hit.
+    if (outcome === 'crit' && hasFlag(tgt, 'critImmunity')) outcome = 'hit';
+    if ((outcome === 'hit' || outcome === 'crit') && displaced.has(tgt.id)) displaced.delete(tgt.id);
     // HOUSE RULE: Shield is cast automatically as a reaction when its +5 AC would turn a hit into a miss.
     if (outcome === 'hit' && shieldReady(tgt) && r.d20 + bonus < ac + 5) {
       castShield(tgt);
@@ -451,7 +476,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   }
 
   function saveBonus(c: Creature, ability: Ability): number {
-    return abilityMod(c.abilities[ability]) + (c.saveProficiencies.includes(ability) ? c.proficiencyBonus : 0);
+    // Item passives (Ring of Protection, Cloak of Protection...) add to every saving throw.
+    return abilityMod(c.abilities[ability]) + (c.saveProficiencies.includes(ability) ? c.proficiencyBonus : 0) + (c.resources['_saveBonus']?.current ?? 0);
   }
 
   /** A friendly Sphinx of Wonder with a Burst of Ingenuity left, close enough (30 ft) to help `c`. */
@@ -473,9 +499,9 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
    * then the Fighter's Indomitable (reroll with a bonus equal to the level, only against an effect that would take
    * the turn away or deal heavy damage).
    */
-  function rollSave(c: Creature, ability: Ability, dc: number, applies?: Condition, opts: { magical?: boolean; heavy?: number; origin?: GridPos } = {}): boolean {
+  function rollSave(c: Creature, ability: Ability, dc: number, applies?: Condition, opts: { magical?: boolean; heavy?: number; origin?: GridPos; forceDis?: boolean } = {}): boolean {
     // SRD cover: +2 / +5 to Dexterity saves against an effect with a point of origin on the other side of the cover.
-    const cover = ability === 'dex' && opts.origin ? coverFor(nav, all, opts.origin, c.pos) : 0;
+    const cover = ability === 'dex' && opts.origin ? coverBonusFor(nav, all, opts.origin, c.pos) : 0;
     const bonus = saveBonus(c, ability) + cover + (autoFailsSave(c, ability) ? 0 : rollMod(c));
     if (autoFailsSave(c, ability)) {
       emit({ type: 'saveRoll', creatureId: c.id, ability, d20: 0, bonus, total: 0, dc, success: false });
@@ -483,6 +509,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     }
     let mode = saveMode(c, ability, applies);
     if (opts.magical && hasFlag(c, 'magicResistance')) mode = mode === 'disadvantage' ? 'normal' : 'advantage';
+    if (opts.forceDis) mode = mode === 'advantage' ? 'normal' : 'disadvantage';
     const r = rollD20(mode);
     let total = r.d20 + bonus;
     if (total < dc) {
@@ -879,7 +906,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   function forcedMove(tgt: Creature, source: Creature | undefined, dx: number, dy: number, cells: number): boolean {
     if (!isAlive(tgt)) return false;
     const origin = { x: tgt.pos.x, y: tgt.pos.y };
-    const plan = planPush(nav, (p) => occupiedBy(p, tgt.id) !== undefined, origin, dx, dy, cells);
+    const ignore = new Set(Object.keys(tgt.resources).filter((k) => k.startsWith('_ignore_')).map((k) => k.slice('_ignore_'.length)));
+    const plan = planPush(nav, (p) => occupiedBy(p, tgt.id) !== undefined, origin, dx, dy, cells, { ignore });
     if (plan.path.length === 0 && !plan.obstacle) return false;
     if (plan.path.length > 0) {
       const last = plan.path[plan.path.length - 1] as GridPos;
@@ -927,9 +955,21 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (source) h.sourceId = source.id;
     emit(h);
     log(kind === 'fall' ? `${tgt.name} plunges into the chasm!` : `${tgt.name} is thrown into the lava!`);
-    const amount = rollDice(rng, `${depth}d6`).total;
+    const def = MONSTERS.find((m) => m.id === tgt.defId);
+    const minion = tgt.faction === 'enemy' && (def?.role === 'minion' || tgt.level < depth / 4);
+    const amount = TERRAIN_TUNING.minionsDieInFall && minion ? tgt.hp + tgt.tempHp + 999 : rollDice(rng, `${fallDice(depth)}d6`).total;
     dealDamage(tgt, amount, kind === 'fall' ? 'bludgeoning' : 'fire', source?.id, false);
     if (!isAlive(tgt)) return;
+    if (TERRAIN_TUNING.fallsTakeTurn) {
+      // Experiment: out of the fight until the end of its next turn (prone on arrival), then it climbs out.
+      tgt.conditions = tgt.conditions.filter((x) => x.condition !== 'prone');
+      tgt.conditions.push(makeCondition('prone', null, source?.id));
+      emit({ type: 'conditionAdded', creatureId: tgt.id, condition: 'prone' });
+      pitted.set(tgt.id, { at: { x: at.x, y: at.y }, origin: { x: origin.x, y: origin.y } });
+      tgt.pos = { x: -50, y: -50 };
+      log(`${tgt.name} is stuck in the pit.`);
+      return;
+    }
     const out = climbOutCell(nav, (p) => occupiedBy(p, tgt.id) !== undefined, at, origin);
     if (!out) {
       // Nowhere to climb: it is lost.
@@ -952,20 +992,26 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   }
 
   /** The save a shoved creature makes: its better of Strength and Dexterity, against 8 + the shover's Strength modifier + proficiency. */
-  function shoveSave(att: Creature, tgt: Creature): { ability: Ability; dc: number; failChance: number } {
+  function shoveSave(att: Creature, tgt: Creature): { ability: Ability; dc: number; failChance: number; help: boolean } {
     const dc = 8 + abilityMod(att.abilities.str) + att.proficiencyBonus;
     const outs = modOutcomes(tgt);
+    // Experiment (TERRAIN_TUNING.shoveHelpAdvantage): with an ally of the shover next to the target, or the target Prone, the save has disadvantage.
+    const help = TERRAIN_TUNING.shoveHelpAdvantage && (hasCondition(tgt, 'prone') || all.some((o) => o !== att && o !== tgt && isAlive(o) && !isIncapacitated(o) && !areHostile(att, o) && chebyshev(o.pos, tgt.pos) <= 1));
+    const modeOf = (ab: Ability): RollMode => {
+      const m = saveMode(tgt, ab);
+      return help ? (m === 'advantage' ? 'normal' : 'disadvantage') : m;
+    };
     const succeed = (ab: Ability): number =>
-      autoFailsSave(tgt, ab) ? 0 : outs.reduce((t, k) => t + d20Probability(saveMode(tgt, ab), singleSaveProbability(saveBonus(tgt, ab) + k, dc)), 0) / outs.length;
+      autoFailsSave(tgt, ab) ? 0 : outs.reduce((t, k) => t + d20Probability(modeOf(ab), singleSaveProbability(saveBonus(tgt, ab) + k, dc)), 0) / outs.length;
     const str = succeed('str');
     const dex = succeed('dex');
-    return dex > str ? { ability: 'dex', dc, failChance: 1 - dex } : { ability: 'str', dc, failChance: 1 - str };
+    return dex > str ? { ability: 'dex', dc, failChance: 1 - dex, help } : { ability: 'str', dc, failChance: 1 - str, help };
   }
 
   /** Shove (SRD Unarmed Strike): the target saves (its better of STR/DEX) or is pushed 5 ft or knocked Prone. */
   function resolveShove(att: Creature, a: ActionDef, tgt: Creature): void {
-    const { ability, dc } = shoveSave(att, tgt);
-    const ok = rollSave(tgt, ability, dc);
+    const { ability, dc, help } = shoveSave(att, tgt);
+    const ok = rollSave(tgt, ability, dc, undefined, help ? { forceDis: true } : {});
     if (ok) {
       log(`${tgt.name} stands firm against the shove.`);
       return;
@@ -1021,6 +1067,33 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       .sort((x, y) => x.hp - y.hp)[0];
   }
 
+  /**
+   * HOUSE RULE (automation of Tactical Master, Fighter 9; the SRD lets the player choose): the mastery effects an attack uses. By
+   * default the SMART choice: the weapon's own property unless Push would put the target in a hazard (a drop, lava, fire or spikes, or
+   * water with allies at hand) and is worth more than the own property; a Graze weapon uses Sap. A hero flagged `_tacticalAuto` (the
+   * naive scripted hero) keeps the old automation (the action's own effects: Graze becomes Sap). `note` is set when the replacement
+   * differs from the weapon's own property (the 'tacticalMaster' feature event).
+   */
+  function tacticalMaster(att: Creature, a: ActionDef, tgt: Creature): { fx: string[]; note?: string } {
+    const fx = a.effects ?? [];
+    const own = fx.find((e) => e.startsWith('tmOwn:'));
+    if (!own || !hasFlag(att, 'tacticalMaster') || hasFlag(att, 'tacticalAuto') || att.faction !== 'player' || chebyshev(att.pos, tgt.pos) > 1) return { fx };
+    const [, kind, modText] = own.split(':');
+    const mod = parseInt(modText ?? '0', 10);
+    const stripped = fx.filter((e) => !e.startsWith('mastery:') && !e.startsWith('tmOwn:'));
+    const ownTokens = kind === 'graze' ? [`mastery:graze:${mod}`] : fx.filter((e) => e.startsWith('mastery:'));
+    let pushV = 0;
+    if (tgt.size !== 'huge' && isAlive(tgt)) {
+      const plan = planPush(nav, (p) => occupiedBy(p, tgt.id) !== undefined, tgt.pos, Math.sign(tgt.pos.x - att.pos.x), Math.sign(tgt.pos.y - att.pos.y), 2);
+      const near = all.filter((o) => o !== tgt && isAlive(o) && isFriendlySide(o) === isFriendlySide(att) && chebyshev(o.pos, tgt.pos) <= 1).length;
+      pushV = pushValue(plan, depth, tgt.hp, near, (ty) => typeFactor(tgt, ty), {});
+    }
+    const ownValue: Record<string, number> = { push: pushV, sap: 3, slow: 2, vex: 3, topple: 4, cleave: 3, graze: 2, nick: 0 };
+    if (kind !== 'push' && pushV > (ownValue[kind as string] ?? 2)) return { fx: [...stripped, 'mastery:push'], note: 'Tactical Master: Push' };
+    if (kind === 'graze') return { fx: [...stripped, 'mastery:sap'], note: 'Tactical Master: Sap' };
+    return { fx: [...stripped, ...ownTokens] };
+  }
+
   function resolveOn(att: Creature, a: ActionDef, tgt: Creature, reaction = false, name: string = a.name): void {
     const fx = a.effects ?? [];
     if (fx.includes('shove')) return resolveShove(att, a, tgt);
@@ -1032,11 +1105,13 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (applyBuffSpell(att, a, tgt)) return;
     if (a.attack) {
       const outcome = rollAttack(att, tgt, a, reaction, name);
+      const tm = tacticalMaster(att, a, tgt);
+      const mfx = tm.fx;
       if (outcome === 'miss' || outcome === 'fumble') {
         // Studied Attacks (Fighter 13): after a miss, advantage on the next attack against that creature before the end of the next turn.
         if (hasFlag(att, 'studiedAttacks')) studied.set(att.id, { targetId: tgt.id, turnEnds: att.id === turn.creatureId ? 2 : 1 });
         // Weapon Mastery: Graze deals the ability modifier on a miss.
-        const graze = a.effects?.find((e) => e.startsWith('mastery:graze:'));
+        const graze = mfx.find((e) => e.startsWith('mastery:graze:'));
         const first = a.damage?.[0];
         if (graze && first) {
           const mod = parseInt(graze.slice('mastery:graze:'.length), 10);
@@ -1057,6 +1132,17 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
         log(`${tgt.name} uses Uncanny Dodge and halves the damage.`);
       }
       const parts = rollParts(a, crit, att, orb);
+      // Item passives: dice against some creature types (slaying weapons) and extra dice on a critical hit.
+      const targetType = MONSTERS.find((m) => m.id === tgt.defId)?.type;
+      for (const e of fx) {
+        if (e.startsWith('bane:')) {
+          const [, dice, type, types] = e.split(':');
+          if (targetType && (types as string).split('/').includes(targetType)) parts.push({ type: type as DamageType, amount: rollDice(rng, dice as string, { crit }).total });
+        } else if (e.startsWith('critdmg:') && crit) {
+          const [, dice, type] = e.split(':');
+          parts.push({ type: type as DamageType, amount: rollDice(rng, dice as string).total });
+        }
+      }
       for (const part of parts) {
         dealDamage(tgt, dodge ? Math.floor(part.amount / 2) : part.amount, part.type, att.id, crit);
         dealt += part.amount;
@@ -1081,7 +1167,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       }
       // Weapon Mastery: Cleave, once per turn on a melee hit: a second attack against another creature next to the first,
       // within reach, with the weapon's damage but no ability modifier.
-      const cleave = a.effects?.find((e) => e.startsWith('mastery:cleave:'));
+      if (tm.note) feature(att, 'tacticalMaster', tm.note, { targetId: tgt.id });
+      const cleave = mfx.find((e) => e.startsWith('mastery:cleave:'));
       if (cleave && a.targeting.kind === 'creature' && a.targeting.melee) {
         const second = cleaveTarget(att, a, tgt);
         if (second) {
@@ -1098,19 +1185,19 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
         }
       }
       // Weapon Mastery: Vex gives advantage on the next attack against this target until the end of the attacker's next turn.
-      if (dealt > 0 && isAlive(tgt) && a.effects?.includes('mastery:vex')) {
+      if (dealt > 0 && isAlive(tgt) && mfx.includes('mastery:vex')) {
         vexed.set(att.id, { targetId: tgt.id, turnEnds: att.id === turn.creatureId ? 2 : 1 });
       }
       // Weapon Mastery: Sap (disadvantage on its next attack), Topple (CON save or prone), Push (up to 10 ft away).
-      if (isAlive(tgt) && a.effects?.includes('mastery:sap')) sapped.set(tgt.id, { by: att.id });
+      if (isAlive(tgt) && mfx.includes('mastery:sap')) sapped.set(tgt.id, { by: att.id });
       const topple = a.effects?.find((e) => e.startsWith('mastery:topple:'));
       if (topple && isAlive(tgt)) {
         const dc = parseInt(topple.slice('mastery:topple:'.length), 10);
         if (!rollSave(tgt, 'con', dc, 'prone')) addCondition(tgt, { condition: 'prone' }, att);
       }
-      if (isAlive(tgt) && a.effects?.includes('mastery:push')) pushTarget(att, tgt);
+      if (isAlive(tgt) && mfx.includes('mastery:push')) pushTarget(att, tgt);
       // Weapon Mastery: Slow (and Ray of Frost) reduce the target's speed by 10 ft until the start of the attacker's next turn.
-      if (dealt > 0 && isAlive(tgt) && (fx.includes('mastery:slow') || fx.includes('rayOfFrostSlow'))) {
+      if (dealt > 0 && isAlive(tgt) && (mfx.includes('mastery:slow') || fx.includes('rayOfFrostSlow'))) {
         slowed.set(tgt.id, { by: att.id, cells: Math.max(slowed.get(tgt.id)?.cells ?? 0, SLOW_CELLS) });
         log(`${tgt.name} is slowed.`);
       }
@@ -1288,6 +1375,21 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     turn.actionUsed = false;
     turn.bonusUsed = false;
     reactionUsed.delete(c.id);
+    // Cloak of Displacement returns at the start of the wearer's turn.
+    if (hasFlag(c, 'displacement') && !isIncapacitated(c)) displaced.add(c.id);
+    // Regeneration (Ring of Regeneration, Armor of Troll's...): heal at the start of the turn while alive and hurt.
+    const regen = c.resources['_regen']?.current ?? 0;
+    if (regen > 0 && isAlive(c) && c.hp < c.maxHp) {
+      const before = c.hp;
+      c.hp = Math.min(c.maxHp, c.hp + regen);
+      log(`${c.name} regenerates ${c.hp - before} hit points.`);
+    }
+    if (pitted.has(c.id)) {
+      emit({ type: 'turnStart', creatureId: c.id });
+      log(`${c.name} is out of the fight in the pit.`);
+      turn.movementLeft = 0;
+      return false;
+    }
     for (const cond of c.conditions.filter((x) => x.condition === 'dodging')) removeCondition(c, cond);
     emit({ type: 'turnStart', creatureId: c.id });
     noOpportunity.delete(c.id);
@@ -1408,6 +1510,19 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
         if (!ticks) continue;
         cond.rounds -= 1;
         if (cond.rounds <= 0) removeCondition(holder, cond);
+      }
+    }
+    const pit = pitted.get(c.id);
+    if (pit && isAlive(c)) {
+      pitted.delete(c.id);
+      const out = climbOutCell(nav, (p) => occupiedBy(p, c.id) !== undefined, pit.at, pit.origin);
+      if (out) {
+        c.pos = { x: out.x, y: out.y };
+        emit({ type: 'move', creatureId: c.id, path: [{ x: out.x, y: out.y }] });
+      } else {
+        c.hp = 0;
+        c.dead = true;
+        emit({ type: 'death', creatureId: c.id });
       }
     }
     if (isAlive(c) && hasFlag(c, 'boss') && depth >= BOSS_MOMENTUM_FROM_DEPTH) bossMomentum(c);
@@ -1694,7 +1809,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       if (autoFailsSave(tgt, a.save.ability)) return 1;
       const mode = saveMode(tgt, a.save.ability, a.applies?.condition);
       const outs = modOutcomes(tgt);
-      const cover = a.save.ability === 'dex' ? coverFor(nav, all, c.pos, tgt.pos) : 0;
+      const cover = a.save.ability === 'dex' ? coverBonusFor(nav, all, c.pos, tgt.pos) : 0;
       return 1 - outs.reduce((t, k) => t + d20Probability(mode, singleSaveProbability(saveBonus(tgt, a.save!.ability) + cover + k, a.save!.dc)), 0) / outs.length;
     }
     return null;
@@ -1786,8 +1901,19 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       const out = [...c.actions];
       if (canBreakFree(c) && !out.some((a) => a.id === BREAK_FREE_ID)) out.push(breakFreeAction());
       // Shove (SRD Unarmed Strike): generated for everyone; each takes the place of one attack.
-      for (const s of [shovePushAction(), shoveTripAction()]) if (!out.some((a) => a.id === s.id)) out.push(s);
-      return out;
+      for (const s of [shoveFor(c, shovePushAction()), shoveFor(c, shoveTripAction())]) if (!out.some((a) => a.id === s.id)) out.push(s);
+      // A Push-mastery weapon (or Tactical Master) says so when its next blow would knock a creature into a hazard.
+      return out.map((a) => {
+        if (!a.attack || !a.effects?.some((e) => e === 'mastery:push' || e.startsWith('tmOwn:'))) return a;
+        for (const id of targetsFor(c, a)) {
+          const pv = pushPreview(api, a.id, id);
+          if (pv && pv.hazard !== 'ice' && pv.hazard !== 'water') {
+            const t = byId.get(id) as Creature;
+            return { ...a, description: `${a.description} Push: the blow would knock ${t.name} into the ${pv.hazard === 'fall' ? 'pit' : pv.hazard}${pv.damage ? ` for ${pv.damage}` : ''}.` };
+          }
+        }
+        return a;
+      });
     },
 
     canUse(actionId) {

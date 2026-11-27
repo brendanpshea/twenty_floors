@@ -9,7 +9,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "hero_barbarian": {
@@ -21,7 +24,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "hero_rogue": {
@@ -33,7 +39,10 @@
         "attack": "Dualwield_Melee_Attack_Slice",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "hero_mage": {
@@ -45,7 +54,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Long",
+        "shoot": "Spellcast_Shoot",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "skeleton": {
@@ -57,7 +69,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "skeleton_warrior": {
@@ -69,7 +84,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "skeleton_mage": {
@@ -81,7 +99,10 @@
         "attack": "Spellcast_Shoot",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Raise"
+        "cast": "Spellcast_Raise",
+        "shoot": "Spellcast_Shoot",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "skeleton_rogue": {
@@ -93,7 +114,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "skeleton_minion": {
@@ -105,7 +129,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "zombie": {
@@ -233,7 +260,8 @@
         "walk": "Walk",
         "attack": "Punch",
         "hit": "HitReact",
-        "death": "Death"
+        "death": "Death",
+        "dodge": "Duck"
       }
     },
     "snake": {
@@ -275,7 +303,8 @@
         "walk": "Walk",
         "attack": "Weapon",
         "hit": "HitReact",
-        "death": "Death"
+        "death": "Death",
+        "dodge": "Duck"
       }
     },
     "bluedemon": {
@@ -286,7 +315,8 @@
         "walk": "Walk",
         "attack": "Punch",
         "hit": "HitReact",
-        "death": "Death"
+        "death": "Death",
+        "dodge": "Duck"
       }
     },
     "dino": {
@@ -297,7 +327,8 @@
         "walk": "Walk",
         "attack": "Punch",
         "hit": "HitReact",
-        "death": "Death"
+        "death": "Death",
+        "dodge": "Duck"
       }
     },
     "yeti": {
@@ -353,7 +384,10 @@
         "attack": "Dualwield_Melee_Attack_Slice",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "hooded_black": {
@@ -365,7 +399,10 @@
         "attack": "Dualwield_Melee_Attack_Slice",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "rogue_brown": {
@@ -377,7 +414,10 @@
         "attack": "Dualwield_Melee_Attack_Slice",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "rogue_navy": {
@@ -389,7 +429,10 @@
         "attack": "Dualwield_Melee_Attack_Slice",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "mage_cultist": {
@@ -401,7 +444,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Long",
+        "shoot": "Spellcast_Shoot",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "mage_priest": {
@@ -413,7 +459,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Long",
+        "shoot": "Spellcast_Shoot",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "mage_green": {
@@ -425,7 +474,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Long",
+        "shoot": "Spellcast_Shoot",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "barb_red": {
@@ -437,7 +489,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "knight_dark": {
@@ -449,7 +504,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "knight_gold": {
@@ -461,7 +519,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "knight_green": {
@@ -473,7 +534,10 @@
         "attack": "1H_Melee_Attack_Chop",
         "hit": "Hit_A",
         "death": "Death_A",
-        "cast": "Spellcast_Shoot"
+        "cast": "Spellcast_Shoot",
+        "shoot": "Throw",
+        "block": "Block",
+        "dodge": "Dodge_Backward"
       }
     },
     "dragon_red": {
@@ -561,7 +625,8 @@
         "walk": "Walk",
         "attack": "Punch",
         "hit": "HitReact",
-        "death": "Death"
+        "death": "Death",
+        "dodge": "Duck"
       }
     },
     "slime_gray": {
@@ -634,7 +699,8 @@
         "walk": "Walk",
         "attack": "Punch",
         "hit": "HitReact",
-        "death": "Death"
+        "death": "Death",
+        "dodge": "Duck"
       }
     },
     "hag_green": {
@@ -711,7 +777,8 @@
         "walk": "Walk",
         "attack": "Punch",
         "hit": "HitReact",
-        "death": "Death"
+        "death": "Death",
+        "dodge": "Duck"
       }
     },
     "birb_gold": {

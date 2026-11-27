@@ -523,12 +523,60 @@ export type WeaponProperty =
 
 export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'veryRare' | 'legendary';
 
+/** Where a worn magic item goes. A character has one of each, and two rings ('ring' items fill either). */
+export type WornSlot = 'head' | 'neck' | 'cloak' | 'hands' | 'wrists' | 'belt' | 'feet' | 'ring';
+
+/** How many attuned items a character can benefit from at once (SRD). */
+export const ATTUNEMENT_LIMIT = 3;
+
+/**
+ * A lasting effect of an equipped (and, where required, attuned) item. Items
+ * are built from these so that most need no code of their own.
+ */
+export type PassiveEffect =
+  /** Bonus to Armor Class (Ring of Protection, Cloak of Protection). */
+  | { type: 'acBonus'; amount: number }
+  /** Bonus to AC only while wearing no armor and no shield (Bracers of Defense). */
+  | { type: 'unarmoredAcBonus'; amount: number }
+  /** Bonus to all saving throws. */
+  | { type: 'saveBonus'; amount: number }
+  /** The ability score becomes this value if it is lower (Gauntlets of Ogre Power: Strength 19). */
+  | { type: 'setAbility'; ability: Ability; score: number }
+  /** The ability score rises by this amount, up to `max` (default 20). */
+  | { type: 'abilityBonus'; ability: Ability; amount: number; max?: number }
+  | { type: 'resistance'; damageType: DamageType }
+  | { type: 'immunity'; damageType: DamageType }
+  | { type: 'conditionImmunity'; condition: Condition }
+  /** Extra walking speed, in cells. */
+  | { type: 'speedBonus'; cells: number }
+  | { type: 'maxHpBonus'; flat?: number; perLevel?: number }
+  | { type: 'initiativeAdvantage' }
+  /** Critical hits against the wearer count as normal hits (Adamantine Armor). */
+  | { type: 'critImmunity' }
+  /** The wearer ignores this hazard: no damage from falls, no prone in water, no sliding on ice, and so on. */
+  | { type: 'ignoreHazard'; hazard: 'fall' | 'lava' | 'water' | 'ice' | 'fire' | 'spikes' }
+  /** Attack rolls against the wearer have disadvantage until the wearer is hit; it returns at the start of the wearer's turn (Cloak of Displacement). */
+  | { type: 'displacement' }
+  /** Hit Dice spent on a short rest heal twice as much (Periapt of Wound Closure). */
+  | { type: 'doubleHitDiceHealing' }
+  /** Regain this many hit points at the start of each of the wearer's turns while above 0 (keep it small). */
+  | { type: 'regeneration'; amount: number }
+  /** On a weapon: extra damage on every hit, optionally only against some creature types (Flame Tongue; Dragon Slayer). */
+  | { type: 'weaponDamage'; dice: Dice; damageType?: DamageType; versus?: CreatureType[] }
+  /** On a weapon: extra dice on a critical hit (Vicious Weapon). */
+  | { type: 'weaponCritDamage'; dice: Dice; damageType?: DamageType }
+  /** On a weapon: a different critical range (crits on `from` or higher). */
+  | { type: 'critRange'; from: number }
+  /** The item lets its bearer cast a spell from src/data/spells.ts with charges that return on a long rest (wands, staffs). */
+  | { type: 'castSpell'; spellId: string; charges: number; saveDc?: number; attackBonus?: number };
+
 export type WeaponMastery = 'cleave' | 'graze' | 'nick' | 'push' | 'sap' | 'slow' | 'topple' | 'vex';
 
 export interface ItemDef {
   id: string;
   name: string;
-  kind: 'weapon' | 'armor' | 'shield' | 'consumable';
+  /** 'wondrous' covers worn magic items (rings, cloaks, belts...) and wands. */
+  kind: 'weapon' | 'armor' | 'shield' | 'consumable' | 'wondrous';
   description: string;
   /** Price in gold pieces. */
   cost: number;
@@ -541,6 +589,12 @@ export interface ItemDef {
   rarity?: ItemRarity;
   /** For a magic variant, the id of the mundane item it is based on. */
   baseId?: string;
+  /** For 'wondrous' items: where it is worn. Wands and the like have no slot and work from the pack. */
+  slot?: WornSlot;
+  /** True if the item only works while attuned (at most ATTUNEMENT_LIMIT attuned items). */
+  attunement?: boolean;
+  /** Lasting effects while equipped (and attuned, if required). May also appear on magic weapons, armor and shields. */
+  passives?: PassiveEffect[];
   weapon?: {
     category: 'simple' | 'martial';
     melee: boolean;
@@ -766,7 +820,16 @@ export interface PlayerCharacter {
    * second Light weapon (two-weapon fighting). `ranged` is a separate ranged
    * weapon (bow, crossbow) the hero switches to freely when shooting.
    */
-  equipped: { mainHand?: string; offHand?: string; ranged?: string; armor?: string };
+  equipped: {
+    mainHand?: string;
+    offHand?: string;
+    ranged?: string;
+    armor?: string;
+  };
+  /** Worn magic items by slot; both ring slots take ring items. */
+  worn?: Partial<Record<Exclude<WornSlot, 'ring'> | 'ring' | 'ring2', string>>;
+  /** Ids of the items the hero is attuned to (at most ATTUNEMENT_LIMIT). */
+  attuned?: string[];
   gold: number;
 }
 
@@ -1005,7 +1068,62 @@ export interface CombatApi {
 // Rendering
 // ---------------------------------------------------------------------------
 
-export type AnimName = 'idle' | 'walk' | 'attack' | 'hit' | 'death' | 'cast';
+/**
+ * 'shoot', 'block' and 'dodge' are optional extras: a model without the clip
+ * falls back to 'attack' (for shoot) or a procedural motion.
+ */
+export type AnimName = 'idle' | 'walk' | 'attack' | 'hit' | 'death' | 'cast' | 'shoot' | 'block' | 'dodge';
+
+/** The look of a spell or missile effect, usually its damage type. */
+export type EffectElement =
+  | 'physical'
+  | 'fire'
+  | 'cold'
+  | 'lightning'
+  | 'force'
+  | 'acid'
+  | 'radiant'
+  | 'necrotic'
+  | 'poison'
+  | 'thunder'
+  | 'psychic'
+  | 'heal'
+  | 'holy'
+  | 'arcane';
+
+/** Where an effect starts or ends: an entity (by id) or a cell. */
+export type EffectAnchor = string | GridPos;
+
+/**
+ * A short one-shot visual. The renderer resolves each when its main beat
+ * lands (a projectile arriving, a burst at full size), so the game can time
+ * damage numbers and sounds to it. All are brief (about 0.2 to 0.6 s).
+ */
+export type VisualEffect =
+  /** Something that flies: an arrow, bolt, javelin, rock, dart, or a spell bolt. `count` > 1 fires a volley (Magic Missile). A miss flies past. */
+  | {
+      kind: 'projectile';
+      from: EffectAnchor;
+      to: EffectAnchor;
+      shape: 'arrow' | 'bolt' | 'javelin' | 'rock' | 'dart' | 'orb';
+      element: EffectElement;
+      hit: boolean;
+      count?: number;
+    }
+  /** An instant line between two points (Ray of Frost, Lightning Bolt along its cells). */
+  | { kind: 'beam'; from: EffectAnchor; to: EffectAnchor; element: EffectElement }
+  /** A flash across a set of cells from an origin: cones, lines, and bursts (Burning Hands, Fireball, Thunderwave, breath weapons). */
+  | { kind: 'area'; origin: EffectAnchor; cells: GridPos[]; element: EffectElement }
+  /** Something on or around one entity: healing motes, a shield dome, a blessing ring, a buff or debuff shimmer. */
+  | { kind: 'aura'; on: EffectAnchor; style: 'heal' | 'shield' | 'bless' | 'buff' | 'debuff' | 'teleport'; element?: EffectElement }
+  /** The moment a blow lands: knock-back away from `from`, a brief freeze, and camera shake scaled by `strength` (0..1; crits and boss hits near 1). */
+  | { kind: 'impact'; on: string; from?: EffectAnchor; strength: number; element?: EffectElement };
+
+/** How fast combat animations play. 'skip' shows the hero's own animations fast and enemies' almost instantly. */
+export type AnimationSpeed = 'normal' | 'fast' | 'skip';
+
+/** 'guided' explains things as they come up and suggests moves; 'standard' only shows first-time hints about the controls. */
+export type HelpMode = 'guided' | 'standard';
 
 export interface ModelEntry {
   /** URL relative to the site root, e.g. 'assets/models/skeleton_warrior.glb'. */
@@ -1076,6 +1194,10 @@ export interface Renderer3D {
   /** Pointer hover (mouse only); fires when the hovered cell or entity changes. */
   onHover(cb: (pick: PickResult) => void): void;
   setQuality(level: QualityLevel): void;
+  /** Play a one-shot effect; resolves when its main beat lands. Never rejects; unknown anchors resolve at once. */
+  playEffect(effect: VisualEffect): Promise<void>;
+  /** Scale the duration of entity animations, movement and effects ('fast' about 0.5x, 'skip' about 0.2x). */
+  setAnimationSpeed(speed: AnimationSpeed): void;
   start(): void;
   stop(): void;
   dispose(): void;
@@ -1098,6 +1220,8 @@ export interface HudAction {
   selected: boolean;
   /** Remaining uses, when the action draws on a resource. */
   usesLeft?: number;
+  /** Guided mode only: this is the adviser's suggested move right now; the HUD gives it a soft glow. */
+  suggested?: boolean;
 }
 
 export interface HudInitiativeEntry {
@@ -1182,6 +1306,8 @@ export interface HudModel {
   log: string[];
   /** One-line contextual hint, e.g. "Choose a target" or "The stairs are sealed". */
   prompt?: string;
+  /** Guided mode only: the adviser's suggestion in words, e.g. "Suggested: Shove the Skeleton (60%) — it falls for 3d6". */
+  suggestion?: string;
   /** Short rests left before the next long rest. */
   shortRestsLeft: number;
   /**
@@ -1214,10 +1340,54 @@ export type UiIntent =
   | { type: 'openMenu' }
   | { type: 'selectCreature'; creatureId: string };
 
+/** One line of a before-and-after comparison, e.g. "Damage  1d8+3 (7.5) → 1d12+3 (9.5)". */
+export interface StatChange {
+  label: string;
+  from: string;
+  to: string;
+  /** True if the change helps the hero, false if it hurts, null if it is neither. */
+  better: boolean | null;
+}
+
+/** How an item compares with what the hero has equipped. Computed by the rules engine with the hero's real build. */
+export interface ItemComparison {
+  verdict: 'upgrade' | 'tradeoff' | 'sidegrade' | 'downgrade' | 'unsuitable' | 'owned';
+  /** One short sentence, e.g. "+2 damage, −2 AC (no shield)" or "Needs Strength 15". */
+  summary: string;
+  changes: StatChange[];
+  /** Names of items that would be put away to use it. */
+  replaces: string[];
+}
+
 export interface HubShopEntry {
   item: ItemDef;
   price: number;
   affordable: boolean;
+  /** Present for weapons, armor and shields. */
+  compare?: ItemComparison;
+}
+
+/** What a rest would do, shown before the player commits to it. */
+export interface RestPreview {
+  kind: 'short' | 'long';
+  /** Lines such as "Recover about 15 HP (2 Hit Dice)", "Second Wind restored", "Your Blink Dog recovers 9 HP". */
+  gains: string[];
+  /** Lines such as "This site cannot be used again", "1 short rest left afterwards". */
+  costs: string[];
+  /** True when little would be gained, so the dialog can advise saving it. */
+  wasteful: boolean;
+}
+
+/** A first-time hint or a guided explanation. */
+export interface HintRequest {
+  /** Stable id; a hint is shown at most once per player unless `repeat` is set. */
+  id: string;
+  title?: string;
+  text: string;
+  /** What it points at. An action id points at that button on the action bar. */
+  anchor?: 'actionBar' | 'endTurn' | 'player' | 'companion' | 'target' | 'rest' | 'log' | 'initiative' | 'center' | { actionId: string };
+  /** Dismiss automatically after this many seconds (default: stays until dismissed or replaced). */
+  seconds?: number;
 }
 
 /** What the between-floors hub shows. */
@@ -1275,7 +1445,86 @@ export interface GameUi {
    * when the player picks something: resume, a new quality level, or abandon
    * the run (after an in-menu confirmation).
    */
-  showMenu(state: { quality: QualityLevel; depth: number; muted?: boolean }): Promise<MenuResult>;
+  showMenu(state: {
+    quality: QualityLevel;
+    depth: number;
+    muted?: boolean;
+    help?: HelpMode;
+    speed?: AnimationSpeed;
+  }): Promise<MenuResult>;
+  /** Asked once when a new game starts: "New to this kind of game?" */
+  showHelpChoice(): Promise<HelpMode>;
+  /**
+   * A small modal question over the game (rest confirmations and the like).
+   * Resolves true on confirm. When `rememberKey` is given the dialog offers
+   * "Don't ask again"; `remember` is then true if the player ticked it.
+   */
+  confirm(q: {
+    title: string;
+    lines: string[];
+    warning?: string;
+    confirmLabel: string;
+    cancelLabel?: string;
+    rememberKey?: string;
+  }): Promise<{ ok: boolean; remember: boolean }>;
+  /** Show a hint (replacing any hint on screen); the callback fires when the player dismisses it or turns tips off. */
+  showHint(hint: HintRequest, onClose?: (result: 'dismissed' | 'tipsOff') => void): void;
+  /** Remove the hint with this id if it is showing (the player did the thing). */
+  clearHint(id: string): void;
+  /** Open the "How to play" page (also reachable from the pause menu). */
+  showHowToPlay(): Promise<void>;
+  /**
+   * Play a chest's lock puzzle as a modal over the (paused) game. Always
+   * resolves: forcing the lock or closing the puzzle gives outcome 'skipped'
+   * and grade 'none'.
+   */
+  playPuzzle(req: PuzzleRequest): Promise<PuzzleResult>;
+}
+
+// ---------------------------------------------------------------------------
+// Chest lock puzzles (logic in src/puzzles, view in src/ui/puzzles)
+// ---------------------------------------------------------------------------
+
+export type PuzzleKind = 'runes' | 'tumblers' | 'conduits' | 'wards';
+
+/** Same spec, same puzzle, always. */
+export interface PuzzleSpec {
+  kind: PuzzleKind;
+  seed: number;
+  /** Integer 1 (gentle) to 10 (fiendish). */
+  difficulty: number;
+}
+
+/** Also the chest loot grade: gold pays most, 'none' is a forced lock. */
+export type PuzzleGrade = 'gold' | 'silver' | 'bronze' | 'none';
+
+export interface PuzzleResult {
+  outcome: 'solved' | 'skipped' | 'failed';
+  grade: PuzzleGrade;
+  seconds: number;
+  mistakes: number;
+  hintsUsed: number;
+  /** Guesses or taps where the kind counts them, else 0. */
+  moves: number;
+}
+
+/** The player's puzzle rating, kept in the save. Ratings are on the 1..10 difficulty scale. */
+export interface PlayerSkill {
+  overall: number;
+  byKind: Partial<Record<PuzzleKind, number>>;
+  played: number;
+  playedByKind: Partial<Record<PuzzleKind, number>>;
+}
+
+export interface PuzzleRequest {
+  spec: PuzzleSpec;
+  /** The chest's name, e.g. "Ironbound Chest" or "The Warden's Hoard". */
+  title: string;
+  flavor?: string;
+  /** What each grade would pay, already worded ("120 gp and a potion of healing"). */
+  rewards: { gold: string; silver: string; bronze: string; skip: string };
+  /** A boss chest: the view may dress it up. */
+  boss?: boolean;
 }
 
 export type MenuResult =
@@ -1283,4 +1532,7 @@ export type MenuResult =
   | { type: 'quality'; level: QualityLevel }
   /** The player toggled sound; `muted` is the new state. */
   | { type: 'sound'; muted: boolean }
+  | { type: 'help'; mode: HelpMode }
+  | { type: 'speed'; speed: AnimationSpeed }
+  | { type: 'howToPlay' }
   | { type: 'abandon' };

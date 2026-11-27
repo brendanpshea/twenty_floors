@@ -22,6 +22,35 @@ export function canShoveSize(shover: Size, target: Size): boolean {
 
 const pos = (p: GridPos): GridPos => ({ x: p.x, y: p.y });
 
+/**
+ * EXPERIMENT switches (src/balance/terrainExp): every variant of the rules for "does thinking pay" lives here and the defaults
+ * are today's rules. Nothing changes unless a variant is adopted. Mutable so the harness can try them one at a time.
+ */
+export const TERRAIN_TUNING = {
+  /** A creature that falls into a pit or lava is out of the fight (untargetable, no turn) and climbs out, Prone, at the end of its next turn. */
+  fallsTakeTurn: false,
+  /** d6 per floor depth for a fall or lava (1 today) and for a slam against fire or spikes (0.5 today: one per two depths). */
+  fallDicePerDepth: 1,
+  slamDicePerDepth: 0.5,
+  /** The target of a shove has disadvantage on its save when an ally of the shover is next to it or it is Prone. */
+  shoveHelpAdvantage: false,
+  /** The hero's Shove is a bonus action (once per turn) instead of replacing an attack. */
+  shoveBonusAction: false,
+  /** A minion (role 'minion' or CR below a quarter of the depth) pushed into a fall or lava is simply removed. */
+  minionsDieInFall: false,
+  /** Cover bonuses to AC and Dexterity saves (2 and 5 in the SRD) and the bonus to hit from 2+ elevation steps above (1 today). */
+  coverHalf: 2,
+  coverThreeQuarters: 5,
+  heightBonus: 1,
+  /** A melee attacker has advantage when an ally of its side stands directly opposite the target (2014 optional rule). */
+  flanking: false,
+};
+
+/** Dice of a fall or lava for a floor depth. */
+export function fallDice(depth: number): number {
+  return Math.max(1, Math.ceil(depth * TERRAIN_TUNING.fallDicePerDepth));
+}
+
 /** An obstacle that hurts a creature thrown against it: fire (a brazier, a forge) or spikes (stalagmites, a palisade). */
 export type ObstacleKind = 'fire' | 'spikes';
 
@@ -36,7 +65,7 @@ export function obstacleOf(nav: NavGrid, p: GridPos): ObstacleKind | null {
  * Returns the dice count (1 on floors 1 and 2, 2 on floors 3 and 4, ... 10 on floors 19 and 20).
  */
 export function slamDice(depth: number): number {
-  return Math.max(1, Math.ceil(depth / 2));
+  return Math.max(1, Math.ceil(depth * TERRAIN_TUNING.slamDicePerDepth));
 }
 
 /** A cell that is neither walkable nor a pit: a wall, solid prop or out of bounds. */
@@ -68,7 +97,8 @@ export interface PushPlan {
  * steps that are too steep; it does NOT stop at a drop or lava: the creature goes in. If it ends on 'ice' it slides
  * one more cell the same way when that cell is free (possibly into a hazard). Pure: nothing is moved.
  */
-export function planPush(nav: NavGrid, occupied: (p: GridPos) => boolean, from: GridPos, dx: number, dy: number, cells: number): PushPlan {
+export function planPush(nav: NavGrid, occupied: (p: GridPos) => boolean, from: GridPos, dx: number, dy: number, cells: number, opts: { ignore?: ReadonlySet<string> } = {}): PushPlan {
+  const ign = opts.ignore;
   const path: GridPos[] = [];
   let cur = pos(from);
   if (dx === 0 && dy === 0) return { path, slid: false };
@@ -76,6 +106,8 @@ export function planPush(nav: NavGrid, occupied: (p: GridPos) => boolean, from: 
     const next = { x: cur.x + dx, y: cur.y + dy };
     if (!nav.inBounds(next)) break;
     const ob = obstacleOf(nav, next);
+    // A creature that ignores a hazard (a flier, Boots, a Ring) is not forced into it: the push stops short, with no damage.
+    if ((ob && ign?.has(ob)) || (ign?.has(nav.hazardAt(next)) && (isDeadly(nav.hazardAt(next)) || nav.hazardAt(next) === 'water' && false))) break;
     if (ob && cornerOk(nav, cur, dx, dy) && !occupied(next)) return { path, obstacle: { kind: ob, at: pos(next) }, slid: false, ...(path.length > 0 && nav.hazardAt(cur) === 'water' ? { water: true } : {}) };
     const h = nav.hazardAt(next);
     if (isDeadly(h)) {
@@ -87,7 +119,7 @@ export function planPush(nav: NavGrid, occupied: (p: GridPos) => boolean, from: 
     path.push(next);
     cur = next;
   }
-  if (path.length > 0 && nav.hazardAt(cur) === 'ice') {
+  if (path.length > 0 && nav.hazardAt(cur) === 'ice' && !ign?.has('ice')) {
     const next = { x: cur.x + dx, y: cur.y + dy };
     const slideOb = nav.inBounds(next) ? obstacleOf(nav, next) : null;
     if (slideOb && cornerOk(nav, cur, dx, dy) && !occupied(next)) return { path, obstacle: { kind: slideOb, at: pos(next) }, slid: true };
@@ -104,7 +136,7 @@ export function planPush(nav: NavGrid, occupied: (p: GridPos) => boolean, from: 
       }
     }
   }
-  return { path, slid: false, ...(path.length > 0 && nav.hazardAt(path[path.length - 1] as GridPos) === 'water' ? { water: true } : {}) };
+  return { path, slid: false, ...(path.length > 0 && nav.hazardAt(path[path.length - 1] as GridPos) === 'water' && !ign?.has('water') ? { water: true } : {}) };
 }
 
 /**
@@ -112,11 +144,15 @@ export function planPush(nav: NavGrid, occupied: (p: GridPos) => boolean, from: 
  * depths), water's Prone (more with allies next to the target), a kill bonus. `resist` gives the target's damage multiplier
  * (0 for an immune creature: a fire-immune devil gains nothing from lava). Shared by the AIs. 0 when nothing happens.
  */
-export function pushValue(plan: PushPlan, depth: number, targetHp: number, alliesAdjacent: number, resist: (type: 'bludgeoning' | 'fire' | 'piercing') => number = () => 1): number {
+export function pushValue(plan: PushPlan, depth: number, targetHp: number, alliesAdjacent: number, resist: (type: 'bludgeoning' | 'fire' | 'piercing') => number = () => 1, extras: { minion?: boolean; turnValue?: number } = {}): number {
   const KILL = 20;
   if (plan.hazard) {
-    const fall = depth * 3.5 * resist(plan.hazard.kind === 'fall' ? 'bludgeoning' : 'fire');
-    return fall + 3 + (targetHp <= fall ? KILL : 0);
+    // Experiment variants: a minion is removed outright; a fall that takes the victim's next turn is worth that turn's damage.
+    if (TERRAIN_TUNING.minionsDieInFall && extras.minion) return Math.max(targetHp, 10) + KILL;
+    const fall = fallDice(depth) * 3.5 * resist(plan.hazard.kind === 'fall' ? 'bludgeoning' : 'fire');
+    // (A creature the fall cannot hurt is not worth locking in the pit: the fight would never end.)
+    const tempo = TERRAIN_TUNING.fallsTakeTurn && fall > 0 ? (extras.turnValue ?? 8) : 0;
+    return fall + 3 + tempo + (targetHp <= fall ? KILL : 0);
   }
   if (plan.obstacle) {
     const dmg = slamDice(depth) * 3.5 * resist(plan.obstacle.kind === 'fire' ? 'fire' : 'piercing');
@@ -227,4 +263,10 @@ export function coverFor(nav: NavGrid, creatures: Creature[], from: GridPos, to:
   const between = cellsBetween(from, to);
   if (between.some((p) => creatures.some((o) => isAlive(o) && !except.includes(o.id) && o.pos.x === p.x && o.pos.y === p.y))) cover = 2;
   return cover;
+}
+
+/** The AC / Dexterity-save bonus of the cover between two cells under the current rules (2 and 5 in the SRD; see TERRAIN_TUNING). */
+export function coverBonusFor(nav: NavGrid, creatures: Creature[], from: GridPos, to: GridPos, except: string[] = []): number {
+  const c = coverFor(nav, creatures, from, to, except);
+  return c === 5 ? TERRAIN_TUNING.coverThreeQuarters : c === 2 ? TERRAIN_TUNING.coverHalf : 0;
 }

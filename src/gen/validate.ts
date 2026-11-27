@@ -261,10 +261,42 @@ export function validateFloor(plan: FloorPlan): string[] {
   }
   for (const r of rooms) {
     const c = perRoom.get(r.id) ?? { monster: 0, boss: 0, chest: 0 };
-    if (r.role === 'combat' && (c.monster < 3 || c.monster > 6 || c.boss || c.chest)) fail(`combat room ${r.id} spawns ${JSON.stringify(c)}`);
+    if (r.role === 'combat' && (c.monster < 3 || c.monster > 6 || c.boss || c.chest > 1)) fail(`combat room ${r.id} spawns ${JSON.stringify(c)}`);
     if (r.role === 'boss' && (c.boss !== 1 || c.monster < 2 || c.monster > 4 || c.chest)) fail(`boss room ${r.id} spawns ${JSON.stringify(c)}`);
     if (r.role === 'treasure' && (c.chest !== 1 || c.monster || c.boss)) fail(`treasure room ${r.id} spawns ${JSON.stringify(c)}`);
     if (r.role === 'entrance' && (c.monster || c.boss || c.chest)) fail('entrance room has spawns');
+  }
+
+  // Chests: 3 to 6 on a floor; a reward chest in a combat room is against a wall, off the drops and in sight of a doorway.
+  const chests = plan.spawns.filter((s) => s.role === 'chest');
+  if (chests.length < 3 || chests.length > 6) fail(`${chests.length} chest slots (need 3..6)`);
+  for (const s of chests) {
+    if (rooms[s.roomId]?.role !== 'combat') continue;
+    const { x, y } = s.pos;
+    let free = 0;
+    let seesDoor = false;
+    for (const [dx, dy] of NEI8) {
+      const k = at(x + dx, y + dy);
+      if (k === CellKind.Chasm) fail(`chest at ${x},${y} is beside a drop`);
+      if ((k === CellKind.Floor || k === CellKind.Water) && !blockAt.has((y + dy) * w + x + dx)) free++;
+    }
+    if (free < 2) fail(`chest at ${x},${y} has no room to open`);
+    const own: number[] = [];
+    for (let i = 0; i < n; i++) if (plan.roomIds[i] === s.roomId && isWalkKind(plan.kinds[i] as number)) own.push(i);
+    const entry = entryDoorways(plan.kinds, plan.elevation, plan.roomIds, w, h, plan.entrance.y * w + plan.entrance.x, s.roomId, roomThresholds(plan.kinds, plan.roomIds, w, h, s.roomId, own));
+    const probe = createNavGrid(plan);
+    for (const t of entry) {
+      for (let dy = -3; dy <= 3 && !seesDoor; dy++) for (let dx = -3; dx <= 3; dx++) {
+        if (probe.isWalkable({ x: x + dx, y: y + dy }) || (x + dx === x && y + dy === y)) {
+          if (probe.hasLineOfSight({ x: t % w, y: (t / w) | 0 }, { x: x + dx, y: y + dy })) {
+            seesDoor = true;
+            break;
+          }
+        }
+      }
+      if (seesDoor) break;
+    }
+    if (!seesDoor) fail(`chest at ${x},${y} is out of sight of every doorway`);
   }
 
   // Formations: every monster has a post, every room with monsters a formation, and the posts keep their promise.

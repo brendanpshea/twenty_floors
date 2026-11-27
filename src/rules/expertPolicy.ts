@@ -8,7 +8,7 @@ import { spellCommand } from './spellPolicy';
 import { averageDice } from './dice';
 import { archerRetreat, heroUpkeep } from './sim';
 import { creatureTactic } from './tactics';
-import { exposedToPush, planPush, pushValue, type PushPlan } from './terrain';
+import { TERRAIN_TUNING, exposedToPush, planPush, pushValue, type PushPlan } from './terrain';
 import { areHostile, chebyshev, isAlive } from './util';
 
 /**
@@ -52,8 +52,10 @@ export interface ExpertOptions {
   archer?: boolean;
   /** Shove enemies (Shove: Push, Push mastery bonus, Thunderwave) into hazards. */
   shove?: boolean;
+  /** Use the Shove: Push action itself (off: only Push-mastery weapons, Tactical Master and Thunderwave push; an experiment switch). */
+  shoveAction?: boolean;
 }
-const ALL_ON: Required<ExpertOptions> = { hold: false, setup: true, safe: true, priority: true, focus: true, throws: true, cover: true, shove: true, archer: true };
+const ALL_ON: Required<ExpertOptions> = { hold: false, setup: true, safe: true, priority: true, focus: true, throws: true, cover: true, shove: true, shoveAction: true, archer: true };
 
 interface HoldMemory {
   round: number;
@@ -95,7 +97,9 @@ const cmd = (a: { id: string }, extra: { targetId?: string; point?: GridPos } = 
 /** What a push is worth to the shover: a fall or lava, a slam into fire or spikes, water's Prone, a kill when it would die. */
 function pushVal(ctx: Ctx, plan: PushPlan, target: Creature): number {
   const near = ctx.allies.filter((a) => a.faction !== 'player' && chebyshev(a.pos, target.pos) <= 1).length + 1;
-  return pushValue(plan, ctx.depth, target.hp, near, (ty) => typeFactor(target, ty));
+  const turnValue = Math.max(0, ...target.actions.map((a) => (a.damage ?? []).reduce((s, d) => s + averageDice(d.dice), 0) * (a.multiattack ? a.multiattack.length : 1)));
+  const minion = target.faction === 'enemy' && target.level < ctx.depth / 4;
+  return pushValue(plan, ctx.depth, target.hp, near, (ty) => typeFactor(target, ty), { minion, turnValue });
 }
 
 /** How much the expert wants this enemy dead first. */
@@ -121,6 +125,27 @@ function damageOf(e: Creature, id: string): number {
 }
 
 const isRangedEnemy = (e: Creature): boolean => e.actions.some((a) => isOffense(a) && a.targeting.kind === 'creature' && !a.targeting.melee && a.targeting.range >= 4);
+
+/** Experiment (flanking rule): a step to a cell next to an enemy with an ally directly opposite it, when nobody is flanked yet. */
+function flankStep(ctx: Ctx): Command | null {
+  const { c, enemies, allies } = ctx;
+  const flankedNow = enemies.some((e) => chebyshev(c.pos, e.pos) <= 1 && allies.some((a) => a.pos.x === 2 * e.pos.x - c.pos.x && a.pos.y === 2 * e.pos.y - c.pos.y));
+  if (flankedNow) return null;
+  const touching = enemies.some((e) => chebyshev(c.pos, e.pos) <= 1);
+  let best: { pos: GridPos; cost: number } | undefined;
+  for (const cell of cellsHere(ctx)) {
+    if (cell.cost === 0 || ctx.occ(cell.pos) || (touching && !freeStep(ctx, cell.pos))) continue;
+    for (const e of enemies) {
+      if (chebyshev(cell.pos, e.pos) !== 1) continue;
+      const ox = 2 * e.pos.x - cell.pos.x;
+      const oy = 2 * e.pos.y - cell.pos.y;
+      if (!allies.some((a) => a.faction === 'ally' && a.pos.x === ox && a.pos.y === oy)) continue;
+      if (exposedToPush(ctx.nav, cell.pos, enemies)) continue;
+      if (!best || cell.cost < best.cost) best = cell;
+    }
+  }
+  return best ? stepTo(ctx, best.pos) : null;
+}
 
 function sign(n: number): number {
   return Math.sign(n);
@@ -193,7 +218,8 @@ function bestStrike(ctx: Ctx): Play | null {
     const closeIn = canReachInMelee(ctx);
     // Lobbing javelins from range instead of closing in only gives the enemy free turns: measured, it costs clears.
     if (thrown && !closeIn) continue;
-    const push = a.effects?.includes('mastery:push') === true;
+    // Push mastery, or Tactical Master (the engine picks Push when it lands the target in a hazard): a hit can push the target.
+    const push = a.effects?.includes('mastery:push') === true || (a.effects?.some((e) => e.startsWith('tmOwn:')) === true && c.resources['_tacticalMaster'] !== undefined);
     for (const id of combat.validTargets(a.id)) {
       const e = combat.creature(id) as Creature;
       if (thrown && closeIn) {
@@ -216,7 +242,7 @@ function bestStrike(ctx: Ctx): Play | null {
     }
   }
   // Shove: Push into a hazard.
-  if (ctx.o.shove && combat.canUse(SHOVE_PUSH_ID).ok) {
+  if (ctx.o.shove && ctx.o.shoveAction && combat.canUse(SHOVE_PUSH_ID).ok) {
     for (const id of combat.validTargets(SHOVE_PUSH_ID)) {
       const e = combat.creature(id) as Creature;
       const plan = planPush(ctx.nav, (p) => ctx.occ(p) && !(p.x === e.pos.x && p.y === e.pos.y), e.pos, sign(e.pos.x - c.pos.x), sign(e.pos.y - c.pos.y), 1);
@@ -249,7 +275,7 @@ function bestStrike(ctx: Ctx): Play | null {
 /** A cell from which a Shove: Push would send an enemy into a hazard, worth stepping to. */
 function shoveSetup(ctx: Ctx, baseline: number): { pos: GridPos; value: number } | null {
   const { combat } = ctx;
-  if (ctx.c.actions.length === 0 || combat.turn.actionUsed || combat.turn.movementLeft <= 0) return null;
+  if (!ctx.o.shoveAction || ctx.c.actions.length === 0 || combat.turn.actionUsed || combat.turn.movementLeft <= 0) return null;
   let best: { pos: GridPos; value: number } | null = null;
   for (const cell of cellsHere(ctx)) {
     if (cell.cost === 0 || ctx.occ(cell.pos) || !freeStep(ctx, cell.pos)) continue;
@@ -375,7 +401,6 @@ function archerCell(ctx: Ctx, p: GridPos, cost: number, range: number): number {
 
 /** A firing cell must beat the current one by this much to be worth a step (stepping away from the companion costs). */
 export const ARCHER_MOVE_MARGIN = { value: 12 };
-const archerMoves = new WeakMap<CombatApi, { round: number; n: number }>();
 
 /** The Archer's turn: step to a better firing cell first, shoot, then kite; blades only when it cannot get away. Null: fall through. */
 function archerCommand(ctx: Ctx): Command | null {
@@ -383,8 +408,6 @@ function archerCommand(ctx: Ctx): Command | null {
   const bow = rangedWeapon(c) as ActionDef;
   const range = bow.targeting.kind === 'creature' ? bow.targeting.range : 8;
   const turn = combat.turn;
-  let mv = archerMoves.get(combat);
-  if (!mv || mv.round !== combat.round * 100 + (c.id === 'player' ? 1 : 2)) archerMoves.set(combat, (mv = { round: combat.round * 100 + (c.id === 'player' ? 1 : 2), n: 0 }));
   const touching = enemies.some((e) => chebyshev(c.pos, e.pos) <= 1);
   const here = archerCell(ctx, c.pos, 0, range);
   const striking = !turn.actionUsed || attacksLeft(combat) > 0;
@@ -399,14 +422,11 @@ function archerCommand(ctx: Ctx): Command | null {
   };
   if (striking) {
     // Before the first shot: a better firing cell, if leaving provokes nothing.
-    if (!turn.actionUsed && turn.movementLeft > 0 && mv.n < 2 && (!touching || canLeaveFree(ctx))) {
+    if (!turn.actionUsed && turn.movementLeft > 0 && (!touching || canLeaveFree(ctx))) {
       const cell = betterCell(ARCHER_MOVE_MARGIN.value);
       if (cell) {
         const m = stepTo(ctx, cell);
-        if (m) {
-          mv.n++;
-          return m;
-        }
+        if (m) return m;
       }
     }
     const strike = bestStrike(ctx);
@@ -414,14 +434,11 @@ function archerCommand(ctx: Ctx): Command | null {
     return null;
   }
   // After the attacks: kite along the room if that provokes nothing.
-  if (turn.movementLeft > 0 && mv.n < 2 && (!touching || canLeaveFree(ctx))) {
+  if (turn.movementLeft > 0 && (!touching || canLeaveFree(ctx))) {
     const cell = betterCell(ARCHER_MOVE_MARGIN.value);
     if (cell) {
       const m = stepTo(ctx, cell);
-      if (m) {
-        mv.n++;
-        return m;
-      }
+      if (m) return m;
     }
   }
   return { type: 'endTurn' };
@@ -481,6 +498,22 @@ export function makeExpertPolicy(options: ExpertOptions = {}): (combat: CombatAp
       if (hold) return hold;
     }
     const outnumbered = enemies.filter((e) => !isRangedEnemy(e)).length >= 3;
+
+    // Experiment variants: a Shove that is a bonus action is made on top of the attacks, and flanking is worth a step.
+    if (TERRAIN_TUNING.shoveBonusAction && o.shoveAction && !turn.bonusUsed && combat.canUse(SHOVE_PUSH_ID).ok) {
+      let pick: { id: string; v: number } | undefined;
+      for (const id of combat.validTargets(SHOVE_PUSH_ID)) {
+        const e = combat.creature(id) as Creature;
+        const plan = planPush(nav, (p) => ctx.occ(p) && !(p.x === e.pos.x && p.y === e.pos.y), e.pos, sign(e.pos.x - c.pos.x), sign(e.pos.y - c.pos.y), 1);
+        const pv = pushVal(ctx, plan, e) * (combat.hitChance(SHOVE_PUSH_ID, id) ?? 0);
+        if (pv > 2 && (!pick || pv > pick.v)) pick = { id, v: pv };
+      }
+      if (pick) return { type: 'action', actionId: SHOVE_PUSH_ID, targetId: pick.id };
+    }
+    if (TERRAIN_TUNING.flanking && !turn.actionUsed && turn.movementLeft > 0) {
+      const flank = flankStep(ctx);
+      if (flank) return flank;
+    }
 
     // 2. Terrain and 3. the best target now.
     const strike = striking ? bestStrike(ctx) : null;

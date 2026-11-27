@@ -1,7 +1,7 @@
 /** Dev harness for the UI. Open dev/ui-preview.html; see the `?screen=` values in SCREENS. */
 import type { HubIntent, HubModel, HudModel, UiIntent } from '../core/types';
 import { createUi } from './index';
-import { combatHud, creationOptions, crowdedInitiative, levelUpFor, exploreHud, makeCompanionHubModel, makeHubModel, withCompanion } from './mocks';
+import { combatHud, creationOptions, crowdedInitiative, levelUpFor, withComparisons, exploreHud, makeCompanionHubModel, makeHubModel, withCompanion } from './mocks';
 
 const rootEl = document.getElementById('ui-root');
 if (!rootEl) throw new Error('#ui-root missing');
@@ -275,7 +275,7 @@ const SCREENS: Record<string, Runner> = {
   },
   hub: () => {
     ui.hideHud();
-    const state = { current: makeHubModel() };
+    const state = { current: withComparisons(makeHubModel()) };
     void ui.showHub(structuredClone(state.current), hubHandler(state)).then(() => say('hub -> descended'));
   },
   'hub-levelup': () => {
@@ -291,6 +291,77 @@ const SCREENS: Record<string, Runner> = {
     hud.actions = [...hud.actions.slice(0, 3), prayer].slice(0, Number(params.get('n') ?? 4));
     pushHud();
   },
+  'hub-compare': () => {
+    ui.hideHud();
+    const m = withComparisons(makeHubModel());
+    m.levelUp = undefined;
+    const state = { current: m };
+    void ui.showHub(structuredClone(m), hubHandler(state)).then(() => say('hub -> descended'));
+  },
+  puzzle: () => {
+    void ui
+      .playPuzzle({
+        spec: { kind: (params.get('kind') ?? 'runes') as 'runes', seed: 7, difficulty: Number(params.get('d') ?? 4) },
+        title: params.get('boss') === '1' ? "The Warden's Hoard" : 'Ironbound Chest',
+        flavor: 'Rusted hinges and a stubborn lock.',
+        rewards: { gold: '120 gp and a potion', silver: '60 gp', bronze: '25 gp', skip: 'Nothing' },
+        boss: params.get('boss') === '1',
+      })
+      .then((r) => say(`puzzle -> ${JSON.stringify(r)}`));
+  },
+  'help-choice': () => {
+    ui.hideHud();
+    void ui.showHelpChoice().then((r) => say(`help -> ${r}`));
+  },
+  howto: () => {
+    void ui.showHowToPlay().then(() => say('howto -> closed'));
+  },
+  'hud-hint': () => {
+    hud = combatHud();
+    pushHud();
+    const a = params.get('anchor') ?? 'actionBar';
+    const anchor = a.startsWith('action:') ? { actionId: a.slice(7) } : (a as 'actionBar');
+    window.setTimeout(() => {
+      ui.showHint(
+        { id: 'demo', title: 'Tip', text: 'Armor Class is how hard you are to hit. Tap an action to choose it, then tap an enemy.', anchor },
+        (r) => say(`hint -> ${r}`),
+      );
+    }, 250);
+  },
+  'hud-suggest': () => {
+    hud = combatHud();
+    hud.suggestion = 'Suggested: Shove the Skeleton (60%) \u2014 it falls for 3d6';
+    hud.actions = hud.actions.map((a) => (a.id === 'javelin' ? { ...a, suggested: true } : a));
+    pushHud();
+  },
+  'confirm-rest': () => {
+    hud = exploreHud();
+    hud.canLongRest = true;
+    pushHud();
+    void ui
+      .confirm({
+        title: 'Rest here?',
+        lines: ['Restores 14 HP and 2 Hit Dice', 'Second Wind and Magic Missile restored', 'Your Blink Dog recovers 9 HP', 'This site cannot be used again', '1 rest site left on this floor'],
+        confirmLabel: 'Rest',
+        rememberKey: 'rest',
+      })
+      .then((r) => say(`confirm -> ${JSON.stringify(r)}`));
+  },
+  'confirm-rest-wasteful': () => {
+    hud = exploreHud();
+    hud.canLongRest = true;
+    pushHud();
+    void ui
+      .confirm({
+        title: 'Rest here?',
+        lines: ['Restores 3 HP', 'This site cannot be used again', '1 rest site left on this floor'],
+        warning: 'You would only recover 3 HP. Save it for later?',
+        confirmLabel: 'Rest anyway',
+        cancelLabel: 'Save it',
+        rememberKey: 'rest',
+      })
+      .then((r) => say(`confirm -> ${JSON.stringify(r)}`));
+  },
   'hub-companion': () => {
     ui.hideHud();
     const state = { current: makeCompanionHubModel(true) };
@@ -304,7 +375,7 @@ const SCREENS: Record<string, Runner> = {
     void ui.showHub(structuredClone(m), hubHandler(state)).then(() => say('hub -> descended'));
   },
   menu: () => {
-    void ui.showMenu({ quality: 'medium', depth: 3, muted: false }).then((r) => say(`menu -> ${JSON.stringify(r)}`));
+    void ui.showMenu({ quality: 'medium', depth: 3, muted: false, help: 'guided', speed: 'normal' }).then((r) => say(`menu -> ${JSON.stringify(r)}`));
   },
   death: () => {
     ui.hideHud();

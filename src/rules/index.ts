@@ -19,10 +19,22 @@ export {
   buyItem,
   equipItem,
   canEquip,
+  attuneItem,
+  unattuneItem,
+  canAttune,
+  attunementStatus,
+  removeWorn,
+  effectiveAbilities,
+  isWonder,
+  wondersAt,
   masteredKinds,
   floorReward,
   useConsumable,
   chestLoot,
+  CHEST_GRADES,
+  BOSS_CHEST_FACTOR,
+  type ChestGrade,
+  type ChestLootOptions,
   ITEM_GATING,
   CHEST_RULE,
   ECONOMY,
@@ -51,7 +63,7 @@ export {
 export { createCombat, attacksLeft, combatDepth, pushPreview, ELEVATION_ATTACK_BONUS, BREAK_FREE_ID, BREAK_FREE_DC, type CombatOptions, type PushPreview } from './combat';
 export { SHOVE_PUSH_ID, SHOVE_TRIP_ID } from './actions';
 export { tacticOf, inferTactic, creatureTactic, isFlexible, flexibleAlternative } from './tactics';
-export { planPush, pushValue, slamDice, obstacleOf, climbOutCell, coverFor, canShoveSize, exposedToPush, nextToHazard, type PushPlan } from './terrain';
+export { TERRAIN_TUNING, fallDice, planPush, pushValue, slamDice, obstacleOf, climbOutCell, coverFor, canShoveSize, exposedToPush, nextToHazard, type PushPlan } from './terrain';
 export { instantiateMonster } from './monster';
 export {
   COMPANION_LEVEL_OFFSET,
@@ -86,3 +98,7 @@ export { simulateFight, simulateOne, playerPolicy, type PolicyFn, type SimOption
 export { createOpenRoomNav } from './testing/openRoomNav';
 export { setItemCatalog, resetItemCatalog, getItem } from './items';
 export { abilityMod, proficiencyForLevel, isHiddenResource } from './util';
+export { compareItem, typicalAc, describePassive } from './compare';
+export { activePassives, itemWorks } from './passives';
+export { previewRest } from './restPreview';
+export { advise, adviseExplore, type Advice, type AdviseOptions, type ExploreContext } from './advise';

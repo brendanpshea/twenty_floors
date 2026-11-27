@@ -8,7 +8,7 @@ await MeshoptDecoder.ready;
 const root=process.argv[2]||ROOT+'public'; // site root (manifest urls are relative to it)
 const man=JSON.parse(fs.readFileSync(process.argv[3]||path.join(root,'assets/manifest.json'),'utf8'));
 const io=new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({'meshopt.decoder':MeshoptDecoder});
-const ANIMS=['idle','walk','attack','hit','death','cast'];
+const ANIMS=['idle','walk','attack','hit','death','cast','shoot','block','dodge'];
 const files=new Map();let fail=0;
 for(const [k,e] of Object.entries(man.models)){ if(!files.has(e.url))files.set(e.url,[]);files.get(e.url).push(k);
   for(const a of Object.keys(e.animations||{})) if(!ANIMS.includes(a)){console.log('BAD anim key',k,a);fail++;} }

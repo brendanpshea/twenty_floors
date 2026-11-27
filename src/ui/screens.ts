@@ -1,4 +1,5 @@
-import type { MenuResult, QualityLevel } from '../core/types';
+import type { AnimationSpeed, HelpMode, MenuResult, QualityLevel } from '../core/types';
+import { buildHowTo } from './help';
 import { button, h } from './dom';
 import { createIcon } from './icons';
 
@@ -104,7 +105,7 @@ export function buildVictory(info: { floorsCleared: number }, done: () => void):
 }
 
 export function buildMenu(
-  state: { quality: QualityLevel; depth: number; muted?: boolean },
+  state: { quality: QualityLevel; depth: number; muted?: boolean; help?: HelpMode; speed?: AnimationSpeed },
   done: (r: MenuResult) => void,
 ): HTMLElement {
   const root = h('div', 'tf-screen tf-screen--menu');
@@ -162,13 +163,86 @@ export function buildMenu(
       }
       sound.append(sseg);
     }
+    const row = <T extends string>(
+      label: string,
+      items: { key: T; label: string }[],
+      active: T,
+      prefix: string,
+      pick: (k: T) => MenuResult,
+    ): HTMLElement => {
+      const g = h('div', 'tf-modal-group');
+      g.append(h('div', 'tf-modal-label', label));
+      const sg = h('div', 'tf-seg tf-seg--wide');
+      sg.setAttribute('role', 'radiogroup');
+      sg.setAttribute('aria-label', label);
+      for (const it of items) {
+        const on = it.key === active;
+        const b = h('button', `tf-seg-btn${on ? ' is-active' : ''}`, it.label);
+        b.type = 'button';
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', String(on));
+        b.dataset['key'] = `${prefix}-${it.key}`;
+        b.addEventListener('click', () => {
+          if (!on) done(pick(it.key));
+        });
+        sg.append(b);
+      }
+      g.append(sg);
+      return g;
+    };
+    const help =
+      state.help !== undefined
+        ? row<HelpMode>(
+            'Help',
+            [
+              { key: 'guided', label: 'Guided' },
+              { key: 'standard', label: 'Standard' },
+            ],
+            state.help,
+            'help',
+            (mode) => ({ type: 'help', mode }),
+          )
+        : null;
+    const speed =
+      state.speed !== undefined
+        ? row<AnimationSpeed>(
+            'Animation speed',
+            [
+              { key: 'normal', label: 'Normal' },
+              { key: 'fast', label: 'Fast' },
+              { key: 'skip', label: 'Skip' },
+            ],
+            state.speed,
+            'speed',
+            (sp) => ({ type: 'speed', speed: sp }),
+          )
+        : null;
+    const how = button('tf-btn', 'How to play', openHowTo);
+    how.dataset['key'] = 'howto';
     const abandon = button('tf-btn tf-btn--danger', 'Abandon run', confirm);
     abandon.dataset['key'] = 'abandon';
     box.append(resume, gfx);
     if (sound) box.append(sound);
-    box.append(abandon);
+    if (help) box.append(help);
+    if (speed) box.append(speed);
+    box.append(how, abandon);
     resume.focus({ preventScroll: true });
   };
+
+  /**
+   * "How to play" opens inside the menu (no round trip through the game) and
+   * returns to the menu on Back, so the menu's promise stays pending.
+   */
+  function openHowTo(): void {
+    root.classList.add('is-howto');
+    root.replaceChildren(
+      buildHowTo(() => {
+        root.classList.remove('is-howto');
+        root.replaceChildren(box);
+        main();
+      }),
+    );
+  }
 
   function confirm(): void {
     confirming = true;

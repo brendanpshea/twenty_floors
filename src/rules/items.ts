@@ -1,18 +1,21 @@
 import { ITEMS } from '../data/items';
+import { MAGIC_ITEMS } from '../data/magicItems';
 import type { ItemDef } from '../core/types';
 
 /**
  * The item catalog the rules read from. Defaults to the real data; tests swap
  * in their own with setItemCatalog so they never depend on data contents.
  */
-let catalog: readonly ItemDef[] = ITEMS;
+/** The real catalog: the mundane and +N items of data/items plus the magic items of data/magicItems. */
+const DEFAULT_CATALOG: readonly ItemDef[] = [...ITEMS, ...MAGIC_ITEMS];
+let catalog: readonly ItemDef[] = DEFAULT_CATALOG;
 
 export function setItemCatalog(items: readonly ItemDef[]): void {
   catalog = items;
 }
 
 export function resetItemCatalog(): void {
-  catalog = ITEMS;
+  catalog = DEFAULT_CATALOG;
 }
 
 export function itemCatalog(): readonly ItemDef[] {

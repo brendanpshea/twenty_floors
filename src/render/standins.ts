@@ -1,5 +1,5 @@
-import { Group, Mesh, MeshLambertMaterial } from 'three';
-import type { AnimationAction, AnimationMixer, BufferGeometry, Material } from 'three';
+﻿import { AdditiveBlending, BufferAttribute, BufferGeometry, CircleGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, Points, PointsMaterial } from 'three';
+import type { AnimationAction, AnimationMixer, Material } from 'three';
 import type { AnimName, Faction, ThemeId } from '../core/types';
 import { buildRestSite } from './restSite';
 import { GeoBuilder } from './gb';
@@ -308,39 +308,189 @@ function buildBlob(tint: number): Figure {
   };
 }
 
-function buildChest(): Figure {
+/** Chest glow detail: false on 'low' quality (floor glow only; no shaft or motes). Set by the renderer. */
+let chestRich = true;
+export function setChestDetail(rich: boolean): void {
+  chestRich = rich;
+}
+
+/**
+ * The treasure chest. An unopened chest glows: a pale gold-white pool on the floor, a slow sparkle of rising motes and
+ * a faint vertical shaft of light that carries across a room. Opened (dead) it keeps its lid up and goes dark. The boss
+ * chest is larger and ornate (banded, with a crest), shines harder, and 'cast' plays its arrival: it drops in with a
+ * burst of gold motes (~0.8 s).
+ */
+function buildChest(boss: boolean): Figure {
   const mat = new MeshLambertMaterial({ vertexColors: true });
   const root = new Group();
-  const wood = 0x8a5a30;
-  const dark = 0x5a3a20;
-  const gold = 0xe0b83a;
+  const S = boss ? 1.4 : 1;
+  const wood = boss ? 0x6a2a1c : 0x8a5a30;
+  const dark = boss ? 0x3e1810 : 0x5a3a20;
+  const band = boss ? 0xe8c040 : 0x4a4a52;
+  const gold = 0xf0c840;
   const b = new GeoBuilder();
   b.box(1.1, 0.5, 0.74, wood, { y: 0.25 });
   b.box(1.14, 0.08, 0.78, dark, { y: 0.04 });
-  b.box(0.12, 0.52, 0.78, 0x4a4a52, { x: -0.38, y: 0.25 });
-  b.box(0.12, 0.52, 0.78, 0x4a4a52, { x: 0.38, y: 0.25 });
+  b.box(0.12, 0.52, 0.78, band, { x: -0.38, y: 0.25, shade: boss ? 1.25 : 1 });
+  b.box(0.12, 0.52, 0.78, band, { x: 0.38, y: 0.25, shade: boss ? 1.25 : 1 });
   b.box(1.0, 0.08, 0.64, 0x1a1008, { y: 0.51, shade: 0.8 });
+  if (boss) {
+    b.box(1.18, 0.07, 0.82, band, { y: 0.1, shade: 1.2 });
+    for (const [x, z] of [[-0.55, -0.38], [0.55, -0.38], [-0.55, 0.38], [0.55, 0.38]] as const) b.box(0.12, 0.54, 0.12, band, { x, z, y: 0.27, shade: 1.3 });
+    b.box(0.26, 0.3, 0.05, gold, { y: 0.3, z: 0.4, shade: 1.35 }); // crest plate
+    b.octa(0.1, 0xd02a3a, { y: 0.3, z: 0.44, shade: 1.3 }); // gem
+  }
   const base = new Mesh(b.build()!, mat);
   root.add(base);
   const l = new GeoBuilder();
   l.box(1.1, 0.14, 0.74, wood, { y: 0.07, z: 0.37 });
   l.cyl(0.37, 0.37, 1.1, 8, wood, { y: 0.14, z: 0.37, rz: Math.PI / 2, sy: 0.55, sz: 1, shade: 1.05 });
-  l.box(0.12, 0.3, 0.8, 0x4a4a52, { x: -0.38, y: 0.15, z: 0.37 });
-  l.box(0.12, 0.3, 0.8, 0x4a4a52, { x: 0.38, y: 0.15, z: 0.37 });
+  l.box(0.12, 0.3, 0.8, band, { x: -0.38, y: 0.15, z: 0.37, shade: boss ? 1.25 : 1 });
+  l.box(0.12, 0.3, 0.8, band, { x: 0.38, y: 0.15, z: 0.37, shade: boss ? 1.25 : 1 });
   l.box(0.14, 0.16, 0.06, gold, { y: 0.1, z: 0.76, shade: 1.3 });
+  if (boss) {
+    l.box(0.9, 0.05, 0.1, band, { y: 0.3, z: 0.37, shade: 1.2 });
+    l.octa(0.09, 0xd02a3a, { y: 0.3, z: 0.76, shade: 1.3 });
+  }
   const lid = new Mesh(l.build()!, mat);
   lid.position.set(0, 0.5, -0.37);
   root.add(lid);
-  const geos = [base.geometry, lid.geometry];
+  const inner = new Group();
+  inner.scale.setScalar(S);
+  inner.add(base, lid);
+  root.add(inner);
+
+  // ---- glow: floor pool, shaft, motes (all additive, unlit, never shadowed) ----
+  const poolGeo = new CircleGeometry(1.9 * S, 28).rotateX(-Math.PI / 2);
+  {
+    const pp = poolGeo.getAttribute('position');
+    const pc = new Float32Array(pp.count * 3);
+    for (let i = 0; i < pp.count; i++) {
+      const d = Math.min(1, Math.hypot(pp.getX(i), pp.getZ(i)) / (1.9 * S));
+      const k = (1 - d) * (1 - d) * 0.75;
+      pc[i * 3] = 1.0 * k;
+      pc[i * 3 + 1] = 0.93 * k;
+      pc[i * 3 + 2] = 0.62 * k; // pale gold-white, so it survives on orange and on white floors
+    }
+    poolGeo.setAttribute('color', new BufferAttribute(pc, 3));
+  }
+  const glowMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  const pool = new Mesh(poolGeo, glowMat);
+  pool.position.y = 0.07;
+  pool.renderOrder = 1;
+  pool.userData.noShadow = true;
+
+  const shaftH = boss ? 9 : 6;
+  const shaftGeo = new CylinderGeometry(0.28 * S, 0.7 * S, shaftH, 10, 1, true);
+  {
+    const sp = shaftGeo.getAttribute('position');
+    const sc = new Float32Array(sp.count * 3);
+    for (let i = 0; i < sp.count; i++) {
+      const t = (sp.getY(i) + shaftH / 2) / shaftH; // 0 bottom .. 1 top
+      const k = Math.pow(1 - t, 1.5) * (boss ? 0.55 : 0.3);
+      sc[i * 3] = 1.0 * k;
+      sc[i * 3 + 1] = 0.92 * k;
+      sc[i * 3 + 2] = 0.6 * k;
+    }
+    shaftGeo.setAttribute('color', new BufferAttribute(sc, 3));
+  }
+  const shaftMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
+  const shaft = new Mesh(shaftGeo, shaftMat);
+  shaft.position.y = shaftH / 2;
+  shaft.renderOrder = 2;
+  shaft.userData.noShadow = true;
+
+  const N = boss ? 28 : 5; // sparkle motes first; the boss chest uses the rest for its arrival burst
+  const nSparkle = boss ? 4 : 3;
+  const mp = new Float32Array(N * 3);
+  const mc = new Float32Array(N * 3);
+  const moteGeo = new BufferGeometry();
+  moteGeo.setAttribute('position', new BufferAttribute(mp, 3));
+  moteGeo.setAttribute('color', new BufferAttribute(mc, 3));
+  const moteMat = new PointsMaterial({ size: 0.16, vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false, sizeAttenuation: true, fog: false });
+  const motes = new Points(moteGeo, moteMat);
+  motes.frustumCulled = false;
+  motes.userData.noShadow = true;
+  root.add(pool, shaft, motes);
+
+  const tick = (time: number, castU: number, spent: boolean): void => {
+    const rich = chestRich;
+    // Arrival (cast): drop in from above, bounce once; gold burst on landing.
+    let drop = 0;
+    let burst = -1;
+    if (castU >= 0) {
+      const u = Math.min(1, castU);
+      if (u < 0.55) {
+        const k = u / 0.55;
+        drop = (1 - k * k) * 4.5;
+      } else {
+        const k = (u - 0.55) / 0.45;
+        drop = Math.sin(Math.PI * Math.min(1, k * 1.6)) * 0.25 * (1 - k);
+        burst = k;
+      }
+    }
+    inner.position.y = drop;
+    const slow = 0.5 + 0.5 * Math.sin(time * 1.6);
+    const on = !spent;
+    pool.visible = on;
+    shaft.visible = on && rich;
+    motes.visible = (on && rich) || burst >= 0;
+    if (on) {
+      const arrive = castU >= 0 ? Math.min(1, castU * 1.6) : 1;
+      glowMat.opacity = (0.75 + 0.25 * slow) * arrive;
+      pool.scale.setScalar(1 + 0.08 * slow);
+      shaftMat.opacity = (0.7 + 0.3 * slow) * arrive + (burst >= 0 ? 0.6 * (1 - burst) : 0);
+    }
+    if (motes.visible) {
+      for (let i = 0; i < N; i++) {
+        let x = 0;
+        let y = -9;
+        let z = 0;
+        let k = 0;
+        if (i < nSparkle) {
+          if (on && rich) {
+            const ph = (time * 0.32 + i / nSparkle) % 1;
+            const a = i * 2.1 + time * 0.3;
+            x = Math.cos(a) * (0.25 + 0.2 * ph) * S;
+            z = Math.sin(a) * (0.25 + 0.2 * ph) * S;
+            y = (0.5 + ph * 1.8) * S;
+            k = Math.sin(Math.PI * ph);
+          }
+        } else if (burst >= 0) {
+          const j = i - nSparkle;
+          const a = j * 2.4;
+          const r = (0.3 + (j % 5) * 0.18) * burst * 3.2;
+          x = Math.cos(a) * r;
+          z = Math.sin(a) * r;
+          y = 0.4 + burst * (1.2 + (j % 4) * 0.5) - burst * burst * 1.2;
+          k = 1 - burst;
+        }
+        mp[i * 3] = x;
+        mp[i * 3 + 1] = y;
+        mp[i * 3 + 2] = z;
+        mc[i * 3] = 1.0 * k;
+        mc[i * 3 + 1] = 0.88 * k;
+        mc[i * 3 + 2] = 0.45 * k;
+      }
+      moteGeo.getAttribute('position').needsUpdate = true;
+      moteGeo.getAttribute('color').needsUpdate = true;
+    }
+  };
+
+  const geos = [base.geometry, lid.geometry, poolGeo, shaftGeo, moteGeo];
   return {
     root,
     parts: { lid, body: base },
     materials: [mat],
-    height: 0.9,
+    height: 0.9 * S,
     kind: 'chest',
+    tick,
     dispose() {
       for (const g of geos) g.dispose();
       mat.dispose();
+      glowMat.dispose();
+      shaftMat.dispose();
+      moteMat.dispose();
     },
   };
 }
@@ -350,7 +500,8 @@ export function createStandIn(model: string, tint: number | undefined, faction: 
   const k = model.toLowerCase();
   if (k === 'rest_site') return buildRestSite(theme);
   const col = tint ?? FACTION_TINT[faction];
-  if (k === 'chest' || k.includes('chest')) return buildChest();
+  if (k === 'chest_boss' || k === 'boss_chest') return buildChest(true);
+  if (k === 'chest' || k.includes('chest')) return buildChest(false);
   if (/(slime|ooze|blob|cube|jelly|pudding)/.test(k)) return buildBlob(tint ?? 0x6fbf5a);
   if (/(wolf|rat|dog|boar|bat|spider|beast|bear|cat|lizard|snake|worm)/.test(k)) return buildBeast(k, tint ?? 0x8a6a4a);
   return buildHumanoid(k, col, faction);
