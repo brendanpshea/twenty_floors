@@ -788,8 +788,9 @@ export const HELL_MONSTERS: MonsterDef[] = [
     role: 'boss',
     description: 'A six-armed serpent-bodied demon-general that duels a whole party with a blade in every hand.',
   },
-  // Simplified: drops Fly (walks at 40 ft.), Death Throes (the death explosion), Fire Aura, Legendary Resistance,
-  // Demonic Restoration, Magic Resistance, truesight, telepathy, skills and Teleport. Flame Whip reaches 30 ft.
+  // Simplified: drops Fly (walks at 40 ft.), Death Throes (the death explosion), Legendary Resistance,
+  // Demonic Restoration, Magic Resistance, truesight, telepathy, skills and Teleport. Fire Aura is an end-of-turn aura (5 ft. = 1 cell,
+  // 3d8 fire, no save); it hits every hostile creature, and its allies are never harmed by it. Flame Whip reaches 30 ft.
   // (6 cells) and keeps its Prone as rounds: 1; the 25-ft. pull is dropped. Lightning Blade's "can't take
   // Reactions" rider is dropped. The stat block's Proficiency Bonus is +6 (CR 19).
   {
@@ -811,6 +812,16 @@ export const HELL_MONSTERS: MonsterDef[] = [
     immunities: ['fire', 'poison'],
     conditionImmunities: ['charmed', 'frightened', 'poisoned'],
     traits: [],
+    auras: [
+      {
+        id: 'fire_aura',
+        name: 'Fire Aura',
+        description: 'Flames pour off the demon and sear everything next to it each time it finishes a turn.',
+        radius: 1,
+        trigger: 'ownerTurnEnd',
+        damage: [{ dice: '3d8', type: 'fire' }],
+      },
+    ],
     actions: [
       {
         id: 'multiattack',

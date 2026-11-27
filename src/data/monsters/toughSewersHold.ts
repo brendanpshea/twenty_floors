@@ -168,7 +168,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     description: 'A hulking, green-skinned brute with a fish-scale hide that hauls itself out of the murk to spear its prey.',
   },
   // Simplified: keeps Dissolving Pseudopod (reach 10 ft.), Amorphous and Spider Climb; its climb speed and the armor-damaging
-  // rider are dropped. Drops Corrosive Form and Split (reaction). Immunities: acid, cold, lightning, slashing; condition
+  // rider are dropped. Corrosive Form keeps its 1d8 acid damage to a creature that hits it in melee; its ammunition and weapon-penalty riders are dropped. Drops Split (reaction). Immunities: acid, cold, lightning, slashing; condition
   // immunities keep charmed, frightened, grappled, prone and restrained (Deafened and Exhaustion do not exist here).
   {
     id: 'black_pudding',
@@ -189,6 +189,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     immunities: ['acid', 'cold', 'lightning', 'slashing'],
     conditionImmunities: ['charmed', 'frightened', 'grappled', 'prone', 'restrained'],
     traits: ['amorphous', 'spiderClimb'],
+    retaliate: { dice: '1d8', damageType: 'acid', name: 'Corrosive Form' },
     actions: [
       {
         id: 'dissolving_pseudopod',

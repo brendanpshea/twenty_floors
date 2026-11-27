@@ -8,6 +8,7 @@ import type {
   Command,
   Condition,
   Creature,
+  MonsterAura,
   DamageType,
   Faction,
   GameEvent,
@@ -1413,8 +1414,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       // Fire Shield: a creature that hits its bearer with a melee attack is burned in turn.
       const flames = tgt.resources['_retaliate'];
       if (flames && a.targeting.kind === 'creature' && a.targeting.melee && isAlive(att)) {
-        const [dice, type] = flames.name.split(':');
-        feature(tgt, 'retaliate', 'Fire Shield', { targetId: att.id });
+        const [dice, type, label] = flames.name.split(':');
+        feature(tgt, 'retaliate', label ?? 'Fire Shield', { targetId: att.id });
         dealDamage(att, rollDice(rng, dice as string).total, type as DamageType, tgt.id, false);
       }
       // Sneak Attack (Blink Dog, rogue rule): once per turn, extra d6s when the attack has advantage, or when an ally of the
@@ -1708,22 +1709,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     for (const owner of all) {
       if (!owner.auras || !isAlive(owner) || !isAlive(c) || isIncapacitated(owner) || isIncapacitated(c) || !areHostile(owner, c)) continue;
       for (const aura of owner.auras) {
-        const key = `${owner.id}|${aura.id}|${c.id}`;
-        if (auraImmune.has(key) || chebyshev(owner.pos, c.pos) > aura.radius) continue;
-        // A creature that cannot suffer the condition and takes no damage is not affected, so it saves nothing and spends no immunity.
-        if (!aura.damage?.length && aura.applies && c.conditionImmunities.includes(aura.applies.condition)) continue;
-        log(`${c.name} starts its turn in ${owner.name}'s ${aura.name}.`);
-        feature(owner, `aura_${aura.id}`, aura.name, { targetId: c.id });
-        const ok = rollSave(c, aura.save.ability, aura.save.dc, aura.applies?.condition, aura.magical ? { magical: true } : {});
-        if (ok && aura.immuneOnSuccess) auraImmune.add(key);
-        const parts = aura.damage ?? [];
-        if (!ok || aura.halfOnSave) {
-          for (const p of parts) {
-            const amount = rollDice(rng, p.dice).total;
-            dealDamage(c, ok ? Math.floor(amount / 2) : amount, p.type, owner.id, false);
-          }
-        }
-        if (!ok && aura.applies) addCondition(c, aura.applies, owner);
+        if ((aura.trigger ?? 'targetTurnStart') !== 'targetTurnStart') continue;
+        applyMonsterAura(owner, aura, c, `${c.name} starts its turn in ${owner.name}'s ${aura.name}.`);
         if (!isAlive(c)) break;
       }
     }
@@ -1789,6 +1776,28 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     return true;
   }
 
+  /**
+   * One creature meets one monster aura (either trigger): skipped past its radius or when already immune, otherwise the log line,
+   * the feature event, the save (none when the aura has no save: the effect simply happens), then damage and condition.
+   */
+  function applyMonsterAura(owner: Creature, aura: MonsterAura, c: Creature, line: string): void {
+    const key = `${owner.id}|${aura.id}|${c.id}`;
+    if (auraImmune.has(key) || chebyshev(owner.pos, c.pos) > aura.radius) return;
+    // A creature that cannot suffer the condition and takes no damage is not affected, so it saves nothing and spends no immunity.
+    if (!aura.damage?.length && aura.applies && c.conditionImmunities.includes(aura.applies.condition)) return;
+    log(line);
+    feature(owner, `aura_${aura.id}`, aura.name, { targetId: c.id });
+    const ok = aura.save ? rollSave(c, aura.save.ability, aura.save.dc, aura.applies?.condition, aura.magical ? { magical: true } : {}) : false;
+    if (ok && aura.immuneOnSuccess) auraImmune.add(key);
+    if (!ok || aura.halfOnSave) {
+      for (const p of aura.damage ?? []) {
+        const amount = rollDice(rng, p.dice).total;
+        dealDamage(c, ok ? Math.floor(amount / 2) : amount, p.type, owner.id, false);
+      }
+    }
+    if (!ok && aura.applies) addCondition(c, aura.applies, owner);
+  }
+
   function endOfTurn(c: Creature): void {
     blinkAdv.delete(c.id);
     shift.delete(c.id);
@@ -1851,6 +1860,15 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
         c.hp = 0;
         c.dead = true;
         emit({ type: 'death', creatureId: c.id });
+      }
+    }
+    // Monster auras that fire at the end of their owner's turn (Fire Aura, Heat Aura): every hostile creature in reach takes the effect.
+    if (isAlive(c) && c.auras && !isIncapacitated(c)) {
+      for (const aura of c.auras) {
+        if (aura.trigger !== 'ownerTurnEnd') continue;
+        for (const t of all) {
+          if (isAlive(c) && isAlive(t) && areHostile(c, t)) applyMonsterAura(c, aura, t, `${t.name} is caught in ${c.name}'s ${aura.name}.`);
+        }
       }
     }
     if (isAlive(c) && hasFlag(c, 'boss') && depth >= BOSS_MOMENTUM_FROM_DEPTH) bossMomentum(c);

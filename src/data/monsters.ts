@@ -2718,8 +2718,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'standard',
     description: 'A suit of plate that marches the forge galleries on its own, long after its last wearer was smelted down.',
   },
-  // Simplified: drops Fire Aura (5 fire damage to creatures next to it at the end of its turn) and
-  // Illumination. Burning Hammer keeps its extra fire damage.
+  // Simplified: drops Illumination. Fire Aura is an end-of-turn aura (5 ft. = 1 cell, 1d10 fire, no save, skipped while it is
+  // Incapacitated); the "creatures of its choice" clause becomes every hostile creature. Burning Hammer keeps its extra fire damage.
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): hero_barbarian, red-orange tint (docs/research/roster-options.md); hero_barbarian as stand-in.
   {
     id: 'azer_sentinel',
@@ -2740,6 +2740,16 @@ const BASE_MONSTERS: MonsterDef[] = [
     immunities: ['fire', 'poison'],
     conditionImmunities: ['poisoned'],
     traits: [],
+    auras: [
+      {
+        id: 'fire_aura',
+        name: 'Fire Aura',
+        description: 'Heat rolls off its iron hide and scorches anything standing beside it.',
+        radius: 1,
+        trigger: 'ownerTurnEnd',
+        damage: [{ dice: '1d10', type: 'fire' }],
+      },
+    ],
     actions: [
       {
         id: 'burning_hammer',
@@ -2934,7 +2944,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A bull of blackened iron plates that snorts a stone-stiffening mist and thunders through the forge in a straight line.',
   },
-  // Simplified: drops Fire Aura (7 fire damage to creatures next to it at the end of its turn). Flame Spear has a
+  // Simplified: Fire Aura is an end-of-turn aura (5 ft. = 1 cell, 2d6 fire, no save; the "creatures of its choice" clause becomes
+  // every hostile creature). Flame Spear has a
   // melee form and a thrown form (20/60 ft. = range 4, long 12) each with their own Multiattack; the spear's
   // return to hand is implied. Multiattack may replace one spear with Constrict: that is its own Multiattack
   // (Flame Spear + Constrict). Constrict applies Grappled with a Strength save-ends at the escape DC 14, and
@@ -2958,6 +2969,16 @@ const BASE_MONSTERS: MonsterDef[] = [
     immunities: ['fire'],
     conditionImmunities: [],
     traits: [],
+    auras: [
+      {
+        id: 'fire_aura',
+        name: 'Fire Aura',
+        description: 'The heat pouring off its scales burns anything pressed close to it.',
+        radius: 1,
+        trigger: 'ownerTurnEnd',
+        damage: [{ dice: '2d6', type: 'fire' }],
+      },
+    ],
     actions: [
       {
         id: 'multiattack',
@@ -3033,7 +3054,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A long, lizard-bodied fire spirit that lounges in the slag and spears intruders with a lance of white-hot metal.',
   },
-  // Simplified: drops Fire Aura (5 fire damage in a 10-ft. emanation at the end of its turn), Fire Form (moving
+  // Simplified: Fire Aura is an end-of-turn aura (10 ft. = 2 cells, 1d10 fire, no save) without its "start burning" rider (creatures
+  // and flammable objects), which the engine lacks. Drops Fire Form (moving
   // through spaces and the fire damage for entering one), Illumination and Water Susceptibility. Burn keeps its
   // fire damage but not the "starts burning" rider. Exhaustion and Petrified condition immunities are not
   // expressible. The three physical resistances are plain in the stat block, so they are kept.
@@ -3057,6 +3079,16 @@ const BASE_MONSTERS: MonsterDef[] = [
     immunities: ['fire', 'poison'],
     conditionImmunities: ['grappled', 'paralyzed', 'poisoned', 'prone', 'restrained', 'unconscious'],
     traits: [],
+    auras: [
+      {
+        id: 'fire_aura',
+        name: 'Fire Aura',
+        description: 'A shimmering heat haze around the elemental scorches everything close by.',
+        radius: 2,
+        trigger: 'ownerTurnEnd',
+        damage: [{ dice: '1d10', type: 'fire' }],
+      },
+    ],
     actions: [
       {
         id: 'multiattack',

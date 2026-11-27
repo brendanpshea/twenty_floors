@@ -1,6 +1,7 @@
 import type { ActionDef, Creature, GridPos, MonsterDef, ResourcePool } from '../core/types';
 import { CELL_FEET } from '../core/types';
 import { aggressiveAction, standardActions } from './actions';
+import { PASSIVE_FLAGS } from './passives';
 import { clone } from './util';
 
 /** Build a combat-ready Creature from a stat block. */
@@ -25,6 +26,11 @@ export function instantiateMonster(def: MonsterDef, id: string, pos: GridPos): C
       resources[a.uses.resource] = { name: a.uses.resource, current: n, max: n, refresh: 'floor' };
     }
     a.uses = { resource: a.uses.resource, amount: 1 };
+  }
+  // Hurt-when-hit: the combat engine's Fire Shield code reads this pool ("<dice>:<type>[:<label>]") after a melee hit lands.
+  if (def.retaliate) {
+    const { dice, damageType, name } = def.retaliate;
+    resources[PASSIVE_FLAGS.retaliate] = { name: `${dice}:${damageType}${name ? `:${name}` : ''}`, current: 1, max: 0, refresh: 'floor' };
   }
   return {
     id,

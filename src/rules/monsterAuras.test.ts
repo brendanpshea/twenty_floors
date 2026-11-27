@@ -108,4 +108,53 @@ describe('monster auras', () => {
     resist.passTo('v');
     expect(held - resist.v.hp).toBe(6);
   });
+
+  it('an ownerTurnEnd aura with no save burns every hostile creature in reach at the end of the owner turn, and not before', () => {
+    const fire: MonsterAura = { id: 'fire_aura', name: 'Fire Aura', description: 'Heat.', radius: 1, trigger: 'ownerTurnEnd', damage: [{ dice: '2d6', type: 'fire' }] };
+    const t = setup([fire], 1);
+    t.until('v');
+    expect(t.v.hp).toBe(100);
+    t.until('m');
+    t.rng.queue = [6, 6];
+    t.ev.length = 0;
+    t.passTo('v');
+    expect(100 - t.v.hp).toBe(12);
+    expect(saves(t.ev).length).toBe(0);
+    expect(t.ev.some((e) => e.type === 'feature' && e.id === 'aura_fire_aura' && e.label === 'Fire Aura')).toBe(true);
+    const far = setup([fire], 2);
+    far.until('m');
+    far.passTo('v');
+    expect(far.v.hp).toBe(100);
+    const down = setup([fire], 1, {}, (_v, m) => m.conditions.push({ condition: 'incapacitated', rounds: null }));
+    down.until('m');
+    down.passTo('v');
+    expect(down.v.hp).toBe(100);
+    const resist = setup([fire], 1, { resistances: ['fire'] });
+    resist.until('m');
+    resist.rng.queue = [6, 6];
+    resist.passTo('v');
+    expect(100 - resist.v.hp).toBe(6);
+  });
+
+  it('an ownerTurnEnd aura with a save still saves and halves', () => {
+    const t = setup([{ id: 'heat', name: 'Heat', description: 'Heat.', radius: 1, trigger: 'ownerTurnEnd', save: { ability: 'con', dc: 1 }, damage: [{ dice: '2d6', type: 'fire' }], halfOnSave: true }], 1);
+    t.until('m');
+    t.rng.queue = [20, 6, 6];
+    t.passTo('v');
+    expect(100 - t.v.hp).toBe(6);
+  });
+
+  it('hurt-when-hit: a MonsterDef retaliate burns the melee attacker and the event carries the ability name', () => {
+    const hero = instantiateMonster(mon({ id: 'hero', hp: 100, actions: [{ id: 'hit', name: 'Hit', description: 'Hit.', cost: 'action', targeting: { kind: 'creature', melee: true, range: 1 }, attack: { bonus: 30 }, damage: [{ dice: '1d4', type: 'bludgeoning' }] }] }), 'h', { x: 2, y: 4 });
+    hero.faction = 'player';
+    const m = instantiateMonster(mon({ id: 'pudding', hp: 100, actions: [], retaliate: { dice: '1d8', damageType: 'acid', name: 'Corrosive Form' } }), 'm', { x: 3, y: 4 });
+    const rng = new ScriptedRng(1);
+    const combat = createCombat([hero, m], arena, rng, {});
+    combat.begin();
+    for (let i = 0; i < 4 && combat.activeId !== 'h'; i++) combat.execute({ type: 'endTurn' });
+    rng.queue = [15, 2, 5];
+    const ev = combat.execute({ type: 'action', actionId: 'hit', targetId: 'm' });
+    expect(hero.hp).toBe(95);
+    expect(ev.some((e) => e.type === 'feature' && e.id === 'retaliate' && e.label === 'Corrosive Form')).toBe(true);
+  });
 });

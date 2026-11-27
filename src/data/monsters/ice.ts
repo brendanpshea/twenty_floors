@@ -443,8 +443,8 @@ export const ICE_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A blue-skinned raider-giant who walks the glacier in a coat of bone and fur and treats the caves as his hall.',
   },
-  // Simplified: drops Burrow (walks at 40 ft.), Swallow (and its acid and fire damage to the swallowed), and the
-  // Heat Aura. Bite keeps its fire damage; the Grappled condition (escape DC 17) is a Strength save-ends with Restrained
+  // Simplified: drops Burrow (walks at 40 ft.), Swallow (and its acid and fire damage to the swallowed). Heat Aura is an
+  // end-of-turn aura (5 ft. = 1 cell, 3d10 fire, no save). Bite keeps its fire damage; the Grappled condition (escape DC 17) is a Strength save-ends with Restrained
   // until the grapple ends; the Large-or-smaller size check is not modelled. Cold and Fire
   // immunities are kept; Tremorsense is not modelled. Bite reach is 10 ft. (2 cells).
   {
@@ -466,6 +466,16 @@ export const ICE_MONSTERS: MonsterDef[] = [
     immunities: ['cold', 'fire'],
     conditionImmunities: [],
     traits: [],
+    auras: [
+      {
+        id: 'heat_aura',
+        name: 'Heat Aura',
+        description: 'Its glowing back radiates a heat that scorches anything standing beside it.',
+        radius: 1,
+        trigger: 'ownerTurnEnd',
+        damage: [{ dice: '3d10', type: 'fire' }],
+      },
+    ],
     actions: [
       {
         id: 'bite',

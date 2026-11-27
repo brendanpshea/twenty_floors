@@ -374,7 +374,9 @@ describe('monster data', () => {
         expect(a.description, `${at} description`).toBeTruthy();
         expect(a.radius, `${at} radius`).toBeGreaterThan(0);
         expect(Number.isInteger(a.radius), `${at} radius is whole cells`).toBe(true);
-        expect(a.save.dc, `${at} dc`).toBeGreaterThan(0);
+        if (a.save) expect(a.save.dc, `${at} dc`).toBeGreaterThan(0);
+        else expect(a.applies, `${at} a save-less aura only deals damage`).toBeUndefined();
+        expect(['targetTurnStart', 'ownerTurnEnd', undefined], `${at} trigger`).toContain(a.trigger);
         expect(a.applies !== undefined || (a.damage?.length ?? 0) > 0, `${at} has an effect`).toBe(true);
         if (a.applies) expect(CONDITIONS, `${at} condition`).toContain(a.applies.condition);
         for (const d of a.damage ?? []) expect(d.dice, `${at} damage`).toMatch(DICE_RE);

@@ -499,7 +499,7 @@ export type CreatureType =
 export type MonsterRole = 'minion' | 'standard' | 'elite' | 'boss';
 
 /** A monster stat block, transcribed from SRD 5.2 into game units. */
-/** A passive emanation: creatures that start their turn within `radius` of the owner make a save or suffer the effect. */
+/** A passive emanation: by default creatures that start their turn within `radius` of the owner make a save or suffer the effect. */
 export interface MonsterAura {
   /** Unique within the monster, e.g. 'stench'. */
   id: string;
@@ -507,8 +507,11 @@ export interface MonsterAura {
   description: string;
   /** Reach in cells (5 ft each), by Chebyshev distance from the monster. */
   radius: number;
-  save: { ability: Ability; dc: number };
-  /** On a failed save. */
+  /** Omitted: no save, the effect simply happens (the damage is then always full). */
+  save?: { ability: Ability; dc: number };
+  /** 'targetTurnStart' (default): a hostile creature starting its turn in reach. 'ownerTurnEnd': at the end of the owner's turn, every living hostile creature in reach. */
+  trigger?: 'targetTurnStart' | 'ownerTurnEnd';
+  /** On a failed save (or always, with no save). */
   applies?: { condition: Condition; rounds?: number };
   /** On a failed save (half on a success only if halfOnSave). */
   damage?: DamagePart[];
@@ -542,8 +545,10 @@ export interface MonsterDef {
   immunities: DamageType[];
   conditionImmunities: Condition[];
   traits: TraitId[];
-  /** Passive emanations that hit hostile creatures starting their turn nearby (Stench, Fear Aura). */
+  /** Passive emanations that hit hostile creatures near the monster (Stench, Fear Aura, Fire Aura). */
   auras?: MonsterAura[];
+  /** Hurt-when-hit: a creature that hits this monster with a melee attack takes the damage (Corrosive Form). Sets the same hidden pool as the Fire Shield potion. */
+  retaliate?: { dice: Dice; damageType: DamageType; /** Feature label, e.g. 'Corrosive Form'. */ name?: string };
   /** Ranges in cells (5 ft = 1). Attack bonuses and DCs as printed. */
   actions: ActionDef[];
   visual: VisualSpec;
