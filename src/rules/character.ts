@@ -25,6 +25,7 @@ import { BACKGROUNDS, featFlags } from './backgrounds';
 import {
   MI_ABILITIES,
   casterFor,
+  getSpell,
   knownSpells,
   spellPools,
   spellToAction,
@@ -34,7 +35,8 @@ import {
 import { CLASSES, classInfo, getClass, masteryKey, type ClassDef } from './classes';
 import { averageDice, rollDice } from './dice';
 import { getItem, itemCatalog, requireItem } from './items';
-import { PASSIVE_FLAGS, applyAbilityPassives, attunedIds, creaturePassives, hasPassive, passiveAcBonus, passiveMaxHp, weaponPassives } from './passives';
+import { scheduledGear } from './gearSchedule';
+import { PASSIVE_FLAGS, hovers, activePassives, applyAbilityPassives, attunedIds, creaturePassives, tickTimedEffects, hasPassive, passiveAcBonus, passiveMaxHp, weaponPassives } from './passives';
 import { SPECIES, getSpecies, speciesFlagPools, type SpeciesDef } from './species';
 import { ABILITIES, abilityMod, clone, flagPool, proficiencyForLevel } from './util';
 
@@ -529,6 +531,58 @@ function trueStrikeAction(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: 
   };
 }
 
+/** The quick slots: four stacks of consumables that can be used in a fight (a stack is as many of one item as the hero carries). */
+export const QUICK_SLOTS = 4;
+
+type WithQuick = PlayerCharacter & { quick?: string[] };
+
+/** The item ids in the quick slots: the hero's own choice (kept to what it still carries), else its first four consumable stacks. */
+export function quickSlotIds(pc: PlayerCharacter): string[] {
+  const carried = (id: string): boolean => getItem(id)?.consumable !== undefined && pc.inventory.some((s) => s.itemId === id && s.quantity > 0);
+  const chosen = (pc as WithQuick).quick;
+  if (chosen) return chosen.filter(carried).slice(0, QUICK_SLOTS);
+  return pc.inventory.filter((s) => carried(s.itemId)).map((s) => s.itemId).slice(0, QUICK_SLOTS);
+}
+
+/** Put a consumable in a quick slot (0-3), or empty the slot with null. The other slots keep what they hold. */
+export function setQuickSlot(pc: PlayerCharacter, slot: number, itemId: string | null): PlayerCharacter {
+  if (slot < 0 || slot >= QUICK_SLOTS) throw new Error('No such quick slot');
+  if (itemId !== null && !getItem(itemId)?.consumable) throw new Error('Only consumables go in a quick slot');
+  if (itemId !== null && !pc.inventory.some((s) => s.itemId === itemId && s.quantity > 0)) throw new Error('You do not carry that');
+  const next = clone(pc) as WithQuick;
+  const row: (string | null)[] = Array.from({ length: QUICK_SLOTS }, (_, i) => quickSlotIds(pc)[i] ?? null);
+  row[slot] = itemId;
+  next.quick = row.filter((id, i): id is string => id !== null && row.indexOf(id) === i);
+  return next;
+}
+
+/** Resource-pool key of an item's spell charges (they refill on a long rest and persist between fights). */
+export const itemChargeKey = (itemId: string, spellId: string): string => `charge:${itemId}:${spellId}`;
+export const itemSpellActionId = (itemId: string, spellId: string): string => `itemspell_${itemId}_${spellId}`;
+
+/** Spells granted by wands, staffs and other items: one action each, with charges that return on a long rest. */
+function grantItemSpells(pc: PlayerCharacter, abilities: AbilityScores, actions: ActionDef[], resources: Record<string, ResourcePool>): void {
+  const mod = Math.max(0, abilityMod(abilities.int), abilityMod(abilities.wis), abilityMod(abilities.cha));
+  const pb = proficiencyForLevel(pc.level);
+  const caster = { ...casterFor('cha', abilities, pc.level), mod, attack: pb + mod, dc: 8 + pb + mod };
+  for (const ap of activePassives(pc)) {
+    const p = ap.passive;
+    if (p.type !== 'castSpell' || p.charges <= 0) continue;
+    const spell = getSpell(p.spellId);
+    const item = getItem(ap.itemId);
+    if (!spell || !item) continue;
+    const base = spellToAction(spell, caster);
+    const key = itemChargeKey(ap.itemId, p.spellId);
+    const action: ActionDef = { ...base, id: itemSpellActionId(ap.itemId, p.spellId), name: `${spell.name} (${item.name})`, uses: { resource: key, amount: 1 } };
+    if (p.saveDc !== undefined && action.save) action.save = { ...action.save, dc: p.saveDc };
+    if (p.attackBonus !== undefined && action.attack) action.attack = { bonus: p.attackBonus };
+    action.description = `${base.description.replace(' Once per long rest.', '')} From ${item.name}: ${p.charges} charge${p.charges === 1 ? '' : 's'}, back after a long rest.`;
+    actions.push(action);
+    const old = pc.resources[key];
+    resources[key] = { name: `${item.name}: ${spell.name}`, current: old ? Math.min(old.current, p.charges) : p.charges, max: p.charges, refresh: 'longRest' };
+  }
+}
+
 /** Extra walking speed from passives, in cells. */
 function passiveSpeed(pc: PlayerCharacter): number {
   return creaturePassives(pc).reduce((n, p) => n + (p.type === 'speedBonus' ? p.cells : 0), 0);
@@ -545,6 +599,10 @@ function applyPassiveFlags(pc: PlayerCharacter, resources: Record<string, Resour
   if (hasPassive(pc, 'displacement')) resources[PASSIVE_FLAGS.displacement] = flagPool('displacement');
   const regen = ps.reduce((n, p) => n + (p.type === 'regeneration' ? p.amount : 0), 0);
   if (regen > 0) resources[PASSIVE_FLAGS.regeneration] = pool('Regeneration', regen);
+  if (hovers(pc)) {
+    resources['_hover'] = flagPool('hover');
+    for (const h of ['fall', 'lava'] as const) resources[PASSIVE_FLAGS.ignorePrefix + h] = flagPool('ignore_' + h);
+  }
   for (const p of ps) if (p.type === 'ignoreHazard') resources[PASSIVE_FLAGS.ignorePrefix + p.hazard] = flagPool('ignore_' + p.hazard);
 }
 
@@ -594,9 +652,10 @@ export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): 
     });
   }
   actions.push(...standardActions());
+  const quick = quickSlotIds(pc);
   for (const stack of pc.inventory) {
     const item = getItem(stack.itemId);
-    if (!item?.consumable || stack.quantity <= 0) continue;
+    if (!item?.consumable || stack.quantity <= 0 || !quick.includes(item.id)) continue;
     const key = `item:${item.id}`;
     resources[key] = { name: item.name, current: stack.quantity, max: stack.quantity, refresh: 'longRest' };
     actions.push({
@@ -630,6 +689,7 @@ export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): 
     }
   }
 
+  grantItemSpells(pc, abilities, actions, resources);
   applyPassiveFlags(pc, resources);
   const armor = pc.equipped.armor ? getItem(pc.equipped.armor)?.armor : undefined;
   const tooWeak = armor?.strRequirement !== undefined && abilities.str < armor.strRequirement;
@@ -684,7 +744,10 @@ export function syncFromCreature(pc: PlayerCharacter, creature: Creature): Playe
     if (stack) stack.quantity = Math.max(0, pool.current);
   }
   next.inventory = next.inventory.filter((s) => s.quantity > 0);
-  return next;
+  // Item spell charges outlive the fight until the next long rest.
+  for (const [key, pool] of Object.entries(creature.resources)) if (key.startsWith('charge:')) next.resources[key] = { ...pool, current: Math.max(0, Math.min(pool.max, pool.current)) };
+  // A fight has been fought: timed effects run down.
+  return tickTimedEffects(next);
 }
 
 // -------------------------------------------------------------------- levelling
@@ -923,6 +986,8 @@ export const ITEM_GATING = {
   armorSlots: 3,
   /** First depth that sells Greater Healing. */
   greaterPotionMinDepth: 3,
+  /** First depth of each higher healing potion (sold when the catalog has it): a potion that heals 7 is no help to a hero of 100 hit points. */
+  potionMinDepth: { potion_superior_healing: 9, potion_supreme_healing: 15 } as Record<string, number>,
   /** First depth at which a magic item of each rarity (rings, cloaks, wands, weapons of slaying...) is sold or found; legendary items are never sold or found in chests. */
   wonderMinDepth: { uncommon: 4, rare: 9, veryRare: 15 } as Partial<Record<ItemRarity, number>>,
   /** Magic items offered per shop once unlocked, and the price cap as a multiple of the floor reward at that depth. */
@@ -931,6 +996,11 @@ export const ITEM_GATING = {
   /** Share of the magic finds of a chest that are one of these items instead of +N gear. */
   chestWonderShare: 0.5,
 };
+
+/** The strongest healing potion in a list (what a sensible buyer stocks up on). */
+export function bestPotion(items: readonly ItemDef[]): ItemDef | undefined {
+  return items.filter((i) => i.consumable?.effect === 'heal' && i.cost > 0).sort((a, b) => averageDice((b.consumable as { dice: string }).dice) - averageDice((a.consumable as { dice: string }).dice))[0];
+}
 
 const isMundane = (i: ItemDef): boolean => !i.magicBonus && i.baseId === undefined;
 
@@ -959,7 +1029,7 @@ function pickSome<T>(items: T[], n: number, rng: Rng): T[] {
  * selection (potions, a few weapons, a few armor upgrades and a shield), plus
  * rare magic stock from the depths listed in ITEM_GATING.
  */
-export function shopStock(depth: number): ItemDef[] {
+export function shopStock(depth: number, pc?: PlayerCharacter): ItemDef[] {
   const g = ITEM_GATING;
   const rng = new Rng(hashSeed(depth, 'shop'));
   const cap = g.shopCostCapBase + g.shopCostCapPerDepth * depth;
@@ -968,6 +1038,7 @@ export function shopStock(depth: number): ItemDef[] {
   const out: ItemDef[] = [];
   out.push(...mundane.filter((i) => i.id === 'potion_healing'));
   if (depth >= g.greaterPotionMinDepth) out.push(...all.filter((i) => i.id === 'potion_greater_healing'));
+  for (const [id, min] of Object.entries(g.potionMinDepth)) if (depth >= min) out.push(...all.filter((i) => i.id === id && i.cost > 0));
   out.push(...pickSome(mundane.filter((i) => i.kind === 'weapon'), g.weaponSlots, rng));
   const armors = mundane.filter((i) => i.kind === 'armor').sort((x, y) => (y.armor?.baseAc ?? 0) - (x.armor?.baseAc ?? 0));
   // The best affordable armors are always offered, so upgrades exist at every tier.
@@ -979,6 +1050,19 @@ export function shopStock(depth: number): ItemDef[] {
     return bonus > 0 && min !== undefined && depth >= min && i.cost > 0 && i.kind !== 'consumable';
   };
   out.push(...pickSome(all.filter(magicOk), g.shopMagicSlots, rng));
+  // The scheduled gear for this level is always on offer (see gearSchedule.ts): with a hero, the upgrade of what it carries; without one, that of every starting kit.
+  const wanted = new Set<string>();
+  const level = pc?.level ?? depth;
+  const carried = pc ? [pc.equipped] : CLASSES.flatMap((c) => c.kits.map((k) => k.equipped));
+  for (const eq of carried) {
+    for (const id of Object.values(scheduledGear(level, eq))) {
+      if (Object.values(eq).includes(id)) continue;
+      wanted.add(id);
+      const base = getItem(id)?.baseId;
+      if (base) wanted.add(base);
+    }
+  }
+  out.push(...all.filter((i) => wanted.has(i.id) && i.cost > 0));
   // Magic items of their own (rings, cloaks, wands, slaying weapons), by rarity unlocked at this depth and within what a hero can afford by then.
   const wonderCap = floorReward(depth) * g.shopWonderCostFactor;
   out.push(...pickSome(wondersAt(depth).filter((i) => i.cost <= wonderCap), g.shopWonderSlots, rng));

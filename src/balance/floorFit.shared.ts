@@ -1,6 +1,6 @@
 import * as nodeFs from 'node:fs';
 import type { CompanionState, PlayerCharacter, ThemeId } from '../core/types';
-import { ENCOUNTER_TUNING, applyLevelUp, companionLongRest, createCharacter, enterFloor, expertPolicy, expertStance, makeExpertPolicy, playerPolicy, requireCompanion, suggestedLevelChoices } from '../rules';
+import { ENCOUNTER_TUNING, bestPotion, shopStock, applyLevelUp, companionLongRest, createCharacter, enterFloor, expertPolicy, expertStance, makeExpertPolicy, playerPolicy, requireCompanion, suggestedLevelChoices } from '../rules';
 import { heroBuild } from './builds';
 import { scheduleGear, simulateFloor } from './index';
 
@@ -11,6 +11,9 @@ export function arriveAt(depth: number, kit = 'a', companionId = 'blink_dog'): {
   if (kit === 'h') pc = hammerKit(pc);
   while (pc.level < depth) pc = applyLevelUp(pc, suggestedLevelChoices(pc));
   pc = enterFloor(scheduleGear(pc));
+  // What the hub's autoShop leaves a hero with: four of the best healing potion on sale at this depth (the starting two on floor 1).
+  const potion = depth > 1 && !(globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env?.['FIT_NO_POTIONS'] ? bestPotion(shopStock(depth, pc)) : undefined;
+  if (potion) pc = { ...pc, inventory: [...pc.inventory.filter((s) => !s.itemId.startsWith('potion')), { itemId: potion.id, quantity: 4 }] };
   if (depth < 4) return { pc };
   return { pc, companion: companionLongRest({ id: companionId, hp: 1, resources: {}, stance: 'close' }, requireCompanion(companionId), pc.level) };
 }

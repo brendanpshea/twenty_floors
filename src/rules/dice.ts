@@ -8,12 +8,13 @@ export interface ParsedDice {
 }
 
 const DICE_RE = /^\s*(\d*)d(\d+)\s*(?:([+-])\s*(\d+))?\s*$/i;
-const FLAT_RE = /^\s*([+-]?\d+)\s*$/;
+const FLAT_RE = /^\s*([+-]?\d+)\s*(?:([+-])\s*(\d+))?\s*$/;
 
 /** Parse "2d6+3", "1d4-1", "d8" or a flat "5". Throws on anything else. */
 export function parseDice(dice: Dice): ParsedDice {
   const flat = FLAT_RE.exec(dice);
-  if (flat) return { count: 0, sides: 0, mod: parseInt(flat[1] as string, 10) };
+  // A flat amount, possibly with a modifier added to it (a weapon that deals 1 damage, plus a Strength bonus: "1+2").
+  if (flat) return { count: 0, sides: 0, mod: parseInt(flat[1] as string, 10) + (flat[2] ? (flat[2] === '-' ? -1 : 1) * parseInt(flat[3] as string, 10) : 0) };
   const m = DICE_RE.exec(dice);
   if (!m) throw new Error(`Invalid dice notation: "${dice}"`);
   const count = m[1] === '' ? 1 : parseInt(m[1] as string, 10);

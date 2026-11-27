@@ -33,6 +33,8 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 1 },
         attack: { bonus: 5 },
         damage: [{ dice: '1d4+3', type: 'bludgeoning' }],
+        // SRD pushes only Medium or smaller targets; the size limit is not modeled.
+        effects: ['mastery:push'],
       },
       {
         id: 'mockery',

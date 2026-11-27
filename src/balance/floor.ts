@@ -27,6 +27,7 @@ import {
   toCreature,
   type PlacedMonster,
   type PolicyFn,
+  averageDice,
 } from '../rules';
 import { SHORT_RESTS_PER_LONG_REST, type CompanionStance, type CompanionState } from '../core/types';
 import { getItem } from '../rules/items';
@@ -287,7 +288,9 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
     healSpell();
     const limit = careless ? 0.5 : 0.4;
     for (let i = 0; i < 2 && cur.hp / cur.maxHp < limit; i++) {
-      const id = cur.inventory.find((st) => st.quantity > 0 && getItem(st.itemId)?.consumable)?.itemId;
+      const id = cur.inventory
+        .filter((st) => st.quantity > 0 && getItem(st.itemId)?.consumable)
+        .sort((a, b) => averageDice((getItem(b.itemId)?.consumable as { dice: string }).dice) - averageDice((getItem(a.itemId)?.consumable as { dice: string }).dice))[0]?.itemId;
       if (!id) return;
       cur = useConsumable(cur, id, rng).pc;
     }

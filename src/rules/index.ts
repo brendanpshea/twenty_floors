@@ -26,6 +26,12 @@ export {
   removeWorn,
   effectiveAbilities,
   isWonder,
+  quickSlotIds,
+  setQuickSlot,
+  QUICK_SLOTS,
+  itemChargeKey,
+  itemSpellActionId,
+  bestPotion,
   wondersAt,
   masteredKinds,
   floorReward,
@@ -63,7 +69,7 @@ export {
 export { createCombat, attacksLeft, combatDepth, pushPreview, ELEVATION_ATTACK_BONUS, BREAK_FREE_ID, BREAK_FREE_DC, type CombatOptions, type PushPreview } from './combat';
 export { SHOVE_PUSH_ID, SHOVE_TRIP_ID } from './actions';
 export { tacticOf, inferTactic, creatureTactic, isFlexible, flexibleAlternative } from './tactics';
-export { TERRAIN_TUNING, fallDice, planPush, pushValue, slamDice, obstacleOf, climbOutCell, coverFor, canShoveSize, exposedToPush, nextToHazard, type PushPlan } from './terrain';
+export { TERRAIN_TUNING, flightPath, fallDice, planPush, pushValue, slamDice, obstacleOf, climbOutCell, coverFor, canShoveSize, exposedToPush, nextToHazard, type PushPlan } from './terrain';
 export { instantiateMonster } from './monster';
 export {
   COMPANION_LEVEL_OFFSET,
@@ -99,6 +105,7 @@ export { createOpenRoomNav } from './testing/openRoomNav';
 export { setItemCatalog, resetItemCatalog, getItem } from './items';
 export { abilityMod, proficiencyForLevel, isHiddenResource } from './util';
 export { compareItem, typicalAc, describePassive } from './compare';
-export { activePassives, itemWorks } from './passives';
+export { activePassives, itemWorks, addTimedEffect, tickTimedEffects, timedEffects, type TimedEffect } from './passives';
+export { GEAR_SCHEDULE, scheduledGear, scheduledArmorBase } from './gearSchedule';
 export { previewRest } from './restPreview';
 export { advise, adviseExplore, type Advice, type AdviseOptions, type ExploreContext } from './advise';

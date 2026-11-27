@@ -443,7 +443,7 @@ describe('monster ranged, spell and area actions', () => {
   const isArea = (a: ActionDef): boolean => a.targeting.kind === 'point';
   const hasRangedOrArea = (m: MonsterDef): boolean => m.actions.some((a) => isRangedAttack(a) || isArea(a) || (a.save !== undefined && a.targeting.kind === 'creature' && !a.targeting.melee));
   /** Effect ids the rules engine implements for monsters (data may use no others). */
-  const KNOWN_EFFECTS = ['spiritGuardians', 'sleep'];
+  const KNOWN_EFFECTS = ['spiritGuardians', 'sleep', 'mastery:push'];
   const KNOWN_EFFECT_PATTERNS = [/^concentration:\d+$/];
 
   it('gives area actions a point target with a positive area and a save, damage or heal', () => {

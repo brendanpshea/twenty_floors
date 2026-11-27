@@ -37,7 +37,7 @@ import { abilityMod, areHostile, chebyshev, hasFlag, isAlive, isFriendlySide } f
 import { chromaticOrbType, fxVal, isSpellAction } from './spells';
 import { SHOVE_PUSH_ID, SHOVE_TRIP_ID, isShove, shovePushAction, shoveTripAction } from './actions';
 import { typeFactor } from './ai';
-import { TERRAIN_TUNING, pushValue, canShoveSize, climbOutCell, coverBonusFor, fallDice, planPush, slamDice } from './terrain';
+import { TERRAIN_TUNING, isDeadly, pushValue, canShoveSize, climbOutCell, coverBonusFor, fallDice, planPush, slamDice } from './terrain';
 import { creatureTactic } from './tactics';
 
 /** Per-combat readers that the CombatApi surface has no room for (see `attacksLeft`). */
@@ -1605,7 +1605,9 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
    */
   function stepFor(c: Creature, from: GridPos, to: GridPos): number {
     const sc = nav.stepCost(from, to);
-    return sc === 2 && hasFlag(c, 'flying') ? 1 : sc;
+    // Narrow flight (a timed effect): a step over a chasm or lava costs one cell; the move may not end there (see validateMove).
+    if (!Number.isFinite(sc) && hasFlag(c, 'hover') && chebyshev(from, to) === 1 && nav.inBounds(to) && (isDeadly(nav.hazardAt(to)) || (isDeadly(nav.hazardAt(from)) && nav.isWalkable(to)))) return 1;
+    return sc === 2 && (hasFlag(c, 'flying') || hasFlag(c, 'hover')) ? 1 : sc;
   }
 
   function validateMove(c: Creature, path: GridPos[]): void {
@@ -1621,6 +1623,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       cost += sc;
       cur = p;
     }
+    if (hasFlag(c, 'hover') && isDeadly(nav.hazardAt(cur))) throw new Error('A flier cannot end its move over a pit or lava');
     if (cost > turn.movementLeft + 1e-9) throw new Error(`Not enough movement: need ${cost}, have ${turn.movementLeft}`);
   }
 

@@ -1,7 +1,10 @@
 import { COMPANION_JOIN_LEVEL, type CharacterBuild, type CompanionStance, type CompanionState, type PlayerCharacter } from '../core/types';
 import {
   applyLevelUp,
+  bestPotion,
   buyItem,
+  canEquip,
+  compareItem,
   companionLongRest,
   computeAc,
   createCharacter,
@@ -16,6 +19,7 @@ import {
   requireCompanion,
   shopStock,
   suggestedLevelChoices,
+  scheduledGear,
 } from '../rules';
 import { simulateFloor, type FloorOptions } from './floor';
 
@@ -29,31 +33,13 @@ const MAX_ATTEMPTS = 8;
  * have supplied by then), not the real economy: `gear: 'shop'` plays the economy as it is.
  */
 export function scheduleGear(pc: PlayerCharacter): PlayerCharacter {
-  const L = pc.level;
   const next: PlayerCharacter = { ...pc, equipped: { ...pc.equipped }, inventory: pc.inventory.map((s) => ({ ...s })) };
-  const give = (id: string): string => {
-    if (!getItem(id)) return id;
+  const want = scheduledGear(pc.level, pc.equipped);
+  for (const [slot, id] of Object.entries(want) as [keyof typeof want, string][]) {
+    if (!getItem(id)) continue;
     if (!next.inventory.some((s) => s.itemId === id)) next.inventory.push({ itemId: id, quantity: 1 });
-    return id;
-  };
-  const base = (id: string): string => getItem(id)?.baseId ?? id;
-  const magic = (baseId: string, n: number): string => (n > 0 && getItem(`${baseId}_plus${n}`) ? `${baseId}_plus${n}` : baseId);
-  const at = (steps: [number, number][]): number => steps.reduce((v, [from, n]) => (L >= from ? n : v), 0);
-  if (next.equipped.armor) {
-    let armor = base(next.equipped.armor);
-    if (['chain_mail', 'splint', 'plate'].includes(armor)) armor = L >= 5 ? 'plate' : L >= 3 ? 'splint' : 'chain_mail';
-    // Medium armor (the Archer's scale mail) climbs too: breastplate at 3, half plate at 5 (the Dexterity bonus caps at +2 in medium armor).
-    else if (['scale_mail', 'breastplate', 'half_plate'].includes(armor)) armor = L >= 5 ? 'half_plate' : L >= 3 ? 'breastplate' : 'scale_mail';
-    next.equipped.armor = give(magic(armor, at([[5, 1], [10, 2], [16, 3]])));
+    next.equipped[slot] = id;
   }
-  const weaponBonus = at([[4, 1], [9, 2], [15, 3]]);
-  for (const slot of ['mainHand', 'ranged'] as const) {
-    const id = next.equipped[slot];
-    if (id) next.equipped[slot] = give(magic(base(id), weaponBonus));
-  }
-  const off = next.equipped.offHand ? getItem(next.equipped.offHand) : undefined;
-  if (off?.kind === 'shield') next.equipped.offHand = give(magic(base(off.id), at([[8, 1], [13, 2]])));
-  else if (off?.weapon) next.equipped.offHand = give(magic(base(off.id), weaponBonus));
   return next;
 }
 
@@ -70,24 +56,30 @@ function potionTotal(pc: PlayerCharacter): number {
   return pc.inventory.filter((s) => s.itemId.startsWith('potion')).reduce((n, s) => n + s.quantity, 0);
 }
 
-/** Buy the best affordable armor upgrade, then healing potions with the rest. */
+/**
+ * The real hub's autoShop, played by the scripted hero: two potions first, then the best affordable upgrade (armor before
+ * weapons before shields, the dearest first, as HubFlow.autoShop does), then potions with what is left.
+ */
 export function shop(pc: PlayerCharacter, nextDepth: number, potionsOnly = false): PlayerCharacter {
   let cur = pc;
-  const stock = shopStock(nextDepth);
-  for (; !potionsOnly; ) {
-    let best: { id: string; gain: number } | undefined;
-    for (const item of stock) {
-      if (item.kind !== 'armor' || item.cost > cur.gold || cur.inventory.some((s) => s.itemId === item.id)) continue;
-      // Heavy armor the hero is too weak for costs speed; the scripted hero does not buy it.
-      if ((item.armor?.strRequirement ?? 0) > finalAbilities(cur.build).str) continue;
-      const gain = computeAc(equipItem(buyItem(cur, item.id), item.id)) - computeAc(cur);
-      if (gain >= 1 && (!best || gain > best.gain)) best = { id: item.id, gain };
+  const stock = shopStock(nextDepth, pc);
+  const potion = bestPotion(stock);
+  const potions = (): number => cur.inventory.filter((x) => getItem(x.itemId)?.consumable).reduce((n, x) => n + x.quantity, 0);
+  const rank: Record<string, number> = { armor: 0, weapon: 1, shield: 2 };
+  for (let guard = 0; guard < 40 && !potionsOnly; guard++) {
+    if (potion && potions() < 2 && cur.gold >= potion.cost) {
+      cur = buyItem(cur, potion.id);
+      continue;
     }
-    if (!best) break;
-    cur = equipItem(buyItem(cur, best.id), best.id);
+    const reserve = potion ? Math.max(0, 2 - potions()) * potion.cost : 0;
+    const options = shopStock(nextDepth, cur)
+      .filter((i) => i.kind !== 'consumable' && i.cost <= cur.gold - reserve && compareItem(cur, i.id)?.verdict === 'upgrade')
+      .sort((a, b) => (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9) || b.cost - a.cost);
+    const pick = options[0];
+    if (!pick || !canEquip(buyItem(cur, pick.id), pick.id).ok) break;
+    cur = equipItem(buyItem(cur, pick.id), pick.id);
   }
-  const potion = stock.find((i) => i.id === 'potion_healing');
-  while (potion && cur.gold >= potion.cost && potionTotal(cur) < MAX_POTIONS) cur = buyItem(cur, potion.id);
+  while (potion && cur.gold >= potion.cost && potions() < (potionsOnly ? MAX_POTIONS : 4)) cur = buyItem(cur, potion.id);
   return cur;
 }
 

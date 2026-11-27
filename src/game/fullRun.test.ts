@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { SaveGame } from '../core/types';
 import { SAVE_KEY } from './deps';
 import { Game } from './game';
+import { getItem } from '../rules';
 import { quickCharacter } from './quickBuild';
 import { makeHarness } from './testing/fakes';
 
@@ -28,6 +29,8 @@ interface Outcome {
   banners: string[];
   /** Why a stuck run stuck: where the hero was and what was around. */
   diag: string;
+  /** One line per death: where, by what, how the fight began. */
+  deathLog: string[];
 }
 
 async function playRun(seed: number, tough = false): Promise<Outcome> {
@@ -37,17 +40,34 @@ async function playRun(seed: number, tough = false): Promise<Outcome> {
   h.ui.showDeath = async (info: { depth: number; killedBy: string }) => {
     h.ui.deaths.push(info);
     totalDeaths++;
+    {
+      const st = game.session?.state;
+      const alive = st ? st.monsters.filter((x) => !x.creature.dead && x.creature.hp > 0) : [];
+      const pots = st ? st.pc.inventory.reduce((n, x) => n + (getItem(x.itemId)?.consumable?.effect === 'heal' ? x.quantity : 0), 0) : 0;
+      const bossUp = alive.some((x) => x.boss);
+      deathLog.push(`floor ${info.depth}: killed by ${info.killedBy}; ${bossUp ? 'boss fight' : 'ordinary room'}; HP at fight start ${fightStart}; ${alive.length} monsters left; potions in pack ${pots}`);
+    }
     const n = (deaths.get(info.depth) ?? 0) + 1;
     deaths.set(info.depth, n);
     return n <= MAX_RETRIES ? 'retry' : 'quit';
   };
+  // How each fight began (hero HP when it started), to say what killed the run.
+  let inFight = false;
+  let fightStart = '';
+  h.ui.onHud = (m) => {
+    if (m.mode === 'combat' && !inFight) {
+      inFight = true;
+      fightStart = `${m.player.hp}/${m.player.maxHp}`;
+    } else if (m.mode !== 'combat') inFight = false;
+  };
+  const deathLog: string[] = [];
   const saves: SaveGame[] = [];
   const orig = h.storage.set.bind(h.storage);
   h.storage.set = (k, v) => {
     if (k === SAVE_KEY) saves.push(JSON.parse(v) as SaveGame);
     orig(k, v);
   };
-  const game = new Game(h.deps);
+  const game: Game = new Game(h.deps);
   const pc = quickCharacter(1);
   // A tough hero (a stand-in for a well-built one) gets the bot past the floors where the starter hero dies, so the
   // deep hubs, the last floor and the victory flow are exercised too.
@@ -81,7 +101,7 @@ async function playRun(seed: number, tough = false): Promise<Outcome> {
   game.stop();
   const reached = Math.max(0, ...h.renderer.plans.map((p) => p.depth));
   expect(h.renderer.errors, `seed ${seed}: renderer misuse`).toEqual([]);
-  return { seed, result, reached, deaths: totalDeaths, levels: saves.length > 0 ? Math.max(...saves.map((x) => x.character.level)) : 1, saves, banners: h.ui.banners, diag };
+  return { seed, result, reached, deaths: totalDeaths, levels: saves.length > 0 ? Math.max(...saves.map((x) => x.character.level)) : 1, saves, banners: h.ui.banners, diag, deathLog };
 }
 
 for (const tough of [false, true]) {
@@ -100,9 +120,10 @@ for (const tough of [false, true]) {
           if (seen.has(sv.depth)) continue;
           seen.add(sv.depth);
           const c = sv.character;
-          const potions = c.inventory.find((x) => x.itemId === 'potion_healing')?.quantity ?? 0;
+          const potions = c.inventory.filter((x) => getItem(x.itemId)?.consumable?.effect === 'heal').map((x) => `${x.quantity} ${x.itemId}`).join(' + ') || 0;
           lines.push(`  floor ${sv.depth}: level ${c.level}, gold ${Math.round(c.gold)}, armor ${c.equipped.armor ?? '-'}, main ${c.equipped.mainHand ?? '-'}, off ${c.equipped.offHand ?? '-'}, ranged ${c.equipped.ranged ?? '-'}, potions ${potions}`);
         }
+        lines.push(...o.deathLog.map((d) => `  death: ${d}`));
         return lines;
       });
       if (process.env['FULL_RUN_REPORT']) writeFileSync(`${process.env['FULL_RUN_REPORT']}${tough ? '.tough' : ''}.gear`, gear.join('\n'));

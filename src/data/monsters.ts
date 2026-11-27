@@ -1570,7 +1570,7 @@ export const MONSTERS: MonsterDef[] = [
     description: 'A scarred sellsword in mismatched plate, steady under pressure and paid to be.',
   },
   // Simplified: Multiattack (two attacks in any combination of Warhammer and Heavy Crossbow) is split into a melee pair
-  // and a ranged pair, as for the Wererat. The Warhammer's push (Large or smaller, 10 ft.) is dropped.
+  // and a ranged pair, as for the Wererat. The Warhammer's push (Large or smaller, 10 ft.) is modeled as mastery:push without the size limit.
   {
     id: 'tough_boss',
     name: 'Tough Boss',
@@ -1618,6 +1618,8 @@ export const MONSTERS: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 1 },
         attack: { bonus: 5 },
         damage: [{ dice: '2d8+3', type: 'bludgeoning' }],
+        // SRD pushes only Large or smaller targets; the size limit is not modeled.
+        effects: ['mastery:push'],
       },
       {
         id: 'heavy_crossbow',

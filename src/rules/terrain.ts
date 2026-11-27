@@ -270,3 +270,38 @@ export function coverBonusFor(nav: NavGrid, creatures: Creature[], from: GridPos
   const c = coverFor(nav, creatures, from, to, except);
   return c === 5 ? TERRAIN_TUNING.coverThreeQuarters : c === 2 ? TERRAIN_TUNING.coverHalf : 0;
 }
+
+/**
+ * Narrow flight: a path for a hovering creature (a timed effect): every step costs one cell, and it may cross chasm and lava cells
+ * (walls stay walls) but not end on one. Breadth-first, 8-way, excluding `from` and including `to`; null when out of reach.
+ */
+export function flightPath(nav: NavGrid, from: GridPos, to: GridPos, maxCost: number, blocked: (p: GridPos) => boolean = () => false): GridPos[] | null {
+  if (isDeadly(nav.hazardAt(to)) || !nav.isWalkable(to) || blocked(to)) return null;
+  const key = (p: GridPos): string => `${p.x},${p.y}`;
+  const prev = new Map<string, GridPos | null>([[key(from), null]]);
+  let frontier: GridPos[] = [from];
+  for (let cost = 1; cost <= maxCost && frontier.length > 0; cost++) {
+    const next: GridPos[] = [];
+    for (const cur of frontier) {
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          if (dx === 0 && dy === 0) continue;
+          const p = { x: cur.x + dx, y: cur.y + dy };
+          if (!nav.inBounds(p) || prev.has(key(p)) || blocked(p)) continue;
+          const over = isDeadly(nav.hazardAt(p));
+          const leaving = isDeadly(nav.hazardAt(cur)) && nav.isWalkable(p);
+          if (!over && !leaving && !Number.isFinite(nav.stepCost(cur, p))) continue;
+          prev.set(key(p), cur);
+          if (p.x === to.x && p.y === to.y) {
+            const path: GridPos[] = [];
+            for (let q: GridPos | null = p; q && key(q) !== key(from); q = prev.get(key(q)) ?? null) path.unshift(q);
+            return path;
+          }
+          next.push(p);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return null;
+}

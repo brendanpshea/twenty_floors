@@ -11,8 +11,44 @@ import { getItem } from './items';
 
 export interface ActivePassive {
   itemId: string;
-  source: 'worn' | 'weapon' | 'armor' | 'shield';
+  source: 'worn' | 'weapon' | 'armor' | 'shield' | 'timed';
   passive: PassiveEffect;
+}
+
+/**
+ * A lasting effect that is not an item: it lasts a number of fights (HOUSE RULE, DESIGN.md: one minute is the current fight, one hour the next three).
+ * It lives on the character as `timed` (a local extension: core/types.ts has no field for it yet).
+ */
+export interface TimedEffect {
+  id: string;
+  name: string;
+  passives: PassiveEffect[];
+  fightsLeft: number;
+  /** Narrow flight (a Potion of Flying, a Fly spell): the bearer crosses chasms and lava without falling (see combat `stepFor`). */
+  hover?: boolean;
+}
+
+type WithTimed = PlayerCharacter & { timed?: TimedEffect[] };
+
+/** Whether a timed effect lets the hero hover over pits and lava. */
+export const hovers = (pc: PlayerCharacter): boolean => timedEffects(pc).some((t) => t.hover === true);
+
+export const timedEffects = (pc: PlayerCharacter): TimedEffect[] => (pc as WithTimed).timed ?? [];
+
+/** Start an effect (one with the same id is replaced, so the duration is renewed, not stacked). */
+export function addTimedEffect(pc: PlayerCharacter, effect: TimedEffect): PlayerCharacter {
+  const next = JSON.parse(JSON.stringify(pc)) as WithTimed;
+  next.timed = [...timedEffects(pc).filter((t) => t.id !== effect.id), { ...effect }];
+  return next;
+}
+
+/** One fight has been fought: every effect has one fight fewer left, and the ended ones go. */
+export function tickTimedEffects(pc: PlayerCharacter): PlayerCharacter {
+  const left = timedEffects(pc);
+  if (left.length === 0) return pc;
+  const next = JSON.parse(JSON.stringify(pc)) as WithTimed;
+  next.timed = left.map((t) => ({ ...t, fightsLeft: t.fightsLeft - 1 })).filter((t) => t.fightsLeft > 0);
+  return next;
 }
 
 /** The ids the hero is attuned to that count (the first ATTUNEMENT_LIMIT). */
@@ -41,11 +77,12 @@ export function activePassives(pc: PlayerCharacter): ActivePassive[] {
     if (!item?.passives || !itemWorks(pc, item)) return;
     for (const passive of item.passives) out.push({ itemId: id, source, passive });
   };
+  for (const t of timedEffects(pc)) for (const passive of t.passives) out.push({ itemId: t.id, source: 'timed', passive });
   for (const id of wornIds(pc)) add(id, 'worn');
-  // Charms and wands without a slot work from the pack while attuned (Stone of Good Luck).
-  for (const id of attunedIds(pc)) {
-    const it = getItem(id);
-    if (it?.kind === 'wondrous' && !it.slot && pc.inventory.some((st) => st.itemId === id && st.quantity > 0)) add(id, 'worn');
+  // Wands, staffs and charms without a slot work from the pack (Stone of Good Luck needs attunement; wands do not).
+  for (const st of pc.inventory) {
+    const it = st.quantity > 0 ? getItem(st.itemId) : undefined;
+    if (it?.kind === 'wondrous' && !it.slot) add(st.itemId, 'worn');
   }
   add(pc.equipped.armor, 'armor');
   add(pc.equipped.mainHand, 'weapon');

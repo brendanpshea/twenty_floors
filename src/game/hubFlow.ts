@@ -4,6 +4,7 @@ import { COMPANION_JOIN_LEVEL } from '../core/types';
 import type { CompanionState, HubIntent, HubShopEntry, HubModel, ItemDef, PlayerCharacter, GameUi } from '../core/types';
 import {
   applyLevelUp,
+  bestPotion,
   buyItem,
   canEquip,
   compareItem,
@@ -88,7 +89,7 @@ export class HubFlow {
         speciesName: this.speciesNames.get(pc.build.speciesId) ?? pc.build.speciesId,
         ac: computeAc(pc),
       },
-      shop: shopStock(this.nextDepth).map((item) => {
+      shop: shopStock(this.nextDepth, pc).map((item) => {
         const entry: HubShopEntry = { item, price: item.cost, affordable: pc.gold >= item.cost };
         // Weapons, armor and shields come with a comparison against what the hero has on, for this hero's real build.
         if (item.kind === 'weapon' || item.kind === 'armor' || item.kind === 'shield') {
@@ -187,8 +188,13 @@ export class HubFlow {
    */
   autoShop(): { bought: string[] } {
     const bought: string[] = [];
-    const potionCount = (): number => this.pc.inventory.find((x) => x.itemId === 'potion_healing')?.quantity ?? 0;
-    const potion = (): HubShopEntry | undefined => this.model().shop.find((e) => e.item.id === 'potion_healing');
+    // Healing potions of any kind count toward the reserve; what is bought is the best kind the shop stocks.
+    const potionCount = (): number => this.pc.inventory.reduce((n, x) => n + (getItem(x.itemId)?.consumable?.effect === 'heal' ? x.quantity : 0), 0);
+    const potion = (): HubShopEntry | undefined => {
+      const shop = this.model().shop;
+      const best = bestPotion(shop.map((e) => e.item));
+      return best ? shop.find((e) => e.item.id === best.id) : undefined;
+    };
     const rank: Record<string, number> = { armor: 0, weapon: 1, shield: 2 };
     for (let guard = 0; guard < 40; guard++) {
       const p = potion();

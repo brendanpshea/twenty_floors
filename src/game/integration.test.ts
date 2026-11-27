@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GridPos, HelpMode, HudModel, SaveGame } from '../core/types';
-import { chestLoot, previewRest } from '../rules';
+import { chestLoot, getItem, previewRest } from '../rules';
 import { SAVE_KEY } from './deps';
 import type { GameOptions, RunState } from './deps';
 import { FloorSession } from './floorSession';
@@ -296,10 +296,15 @@ describe('the shop', () => {
     const hub = new HubFlow(pc, 5, h.audio, 1);
     const startGold = hub.pc.gold;
     const { bought } = hub.autoShop();
-    const potions = hub.pc.inventory.find((x) => x.itemId === 'potion_healing')?.quantity ?? 0;
+    // Healing potions of the best kind the shop stocks.
+    const potions = hub.pc.inventory.reduce((n, x) => n + (getItem(x.itemId)?.consumable?.effect === 'heal' ? x.quantity : 0), 0);
     expect(potions).toBeGreaterThanOrEqual(2);
-    expect(bought).toContain('splint');
-    expect(hub.pc.equipped.armor).toBe('splint');
+    // The best armor upgrade on offer for this hero (the shop always stocks the scheduled one).
+    const stock = hub.model().shop.filter((e) => e.item.kind === 'armor');
+    const worn = hub.pc.equipped.armor as string;
+    expect(bought.some((id) => id === worn)).toBe(true);
+    expect(stock.some((e) => e.compare?.verdict === 'upgrade' && e.price <= hub.pc.gold)).toBe(false);
+    expect(worn).not.toBe('chain_mail');
     expect(bought).not.toContain('club');
     expect(hub.pc.gold).toBeLessThan(startGold);
   });

@@ -774,6 +774,24 @@ export const CONSUMABLES: ItemDef[] = [
     icon: 'potion',
     consumable: { effect: 'heal', dice: '4d4+4' },
   },
+  {
+    id: 'potion_superior_healing',
+    name: 'Potion of Superior Healing',
+    kind: 'consumable',
+    description: 'A deep crimson draught that closes grievous wounds in moments.',
+    cost: 450,
+    icon: 'potion',
+    consumable: { effect: 'heal', dice: '8d4+8' },
+  },
+  {
+    id: 'potion_supreme_healing',
+    name: 'Potion of Supreme Healing',
+    kind: 'consumable',
+    description: 'A radiant, near-glowing draught that can pull a fighter back from the brink.',
+    cost: 1400,
+    icon: 'potion',
+    consumable: { effect: 'heal', dice: '10d4+20' },
+  },
 ];
 
 /**

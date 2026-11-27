@@ -854,6 +854,10 @@ export interface SaveGame {
   shortRestsLeft: number;
   /** The companion travelling with the hero, once one has joined. */
   companion?: CompanionState;
+  /** Guided or standard help, chosen at the start of the run. */
+  help?: HelpMode;
+  /** The player's chest-puzzle rating. */
+  puzzleSkill?: PlayerSkill;
 }
 
 // ---------------------------------------------------------------------------

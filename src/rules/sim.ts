@@ -3,7 +3,7 @@ import type { Command, CombatApi, Creature, GameEvent, MonsterDef, NavGrid, Play
 import { MONSTERS } from '../data/monsters';
 import { chooseCommand, damageAgainst, runAiTurn, runTurnWith } from './ai';
 import { spellCommand } from './spellPolicy';
-import { maxDice } from './dice';
+import { averageDice, maxDice } from './dice';
 import { toCreature } from './character';
 import { attacksLeft, createCombat } from './combat';
 import { instantiateMonster } from './monster';
@@ -78,10 +78,16 @@ export function heroUpkeep(combat: CombatApi, c: Creature): Command | null {
   const needsHeal = missing >= 5 && (c.hp <= c.maxHp * 0.5 || c.hp <= threat * 0.85);
   if (needsHeal && combat.canUse('second_wind').ok) return { type: 'action', actionId: 'second_wind' };
   if (needsHeal && combat.canUse('spell_healing_word').ok) return { type: 'action', actionId: 'spell_healing_word', targetId: c.id };
-  if (needsHeal && (c.hp <= c.maxHp * 0.4 || c.hp <= threat * 0.85)) {
-    for (const a of c.actions) {
-      if (a.id.startsWith('drink_') && combat.canUse(a.id).ok) return { type: 'action', actionId: a.id };
-    }
+  // A healing potion (a bonus action): below half health or when the next round could kill. The potion that fills the gap best is
+  // drunk (the strongest one when the gap is wide, the weakest that covers it when it is narrow), so a hero does not die with
+  // good potions unused nor waste a strong one on a scratch.
+  if (needsHeal && (c.hp <= c.maxHp * 0.5 || c.hp <= threat * 0.85)) {
+    const drinks = c.actions
+      .filter((a) => a.id.startsWith('drink_') && a.heal && combat.canUse(a.id).ok)
+      .map((a) => ({ a, avg: averageDice(a.heal as string) }))
+      .sort((x, y) => Math.min(y.avg, missing) - Math.min(x.avg, missing) || x.avg - y.avg);
+    const pick = drinks[0];
+    if (pick && missing >= pick.avg * 0.6) return { type: 'action', actionId: pick.a.id };
   }
   if (combat.canUse('break_free').ok) return { type: 'action', actionId: 'break_free' };
   // Two-weapon fighting: the off-hand attack follows a main-hand Light attack (a free action with Nick, else the bonus action).

@@ -368,8 +368,9 @@ export function compareItem(pc: PlayerCharacter, itemId: string): ItemComparison
     const text = `${signInt(dAc)} AC${dAc < 0 && replacedShield.value ? ' (no shield)' : ''}`;
     (dAc > 0 ? d.gains : d.losses).push({ weight: Math.abs(dAc) * 8, text });
   }
-  for (const t of passiveGains) d.gains.push({ weight: 12, text: t.charAt(0).toLowerCase() + t.slice(1) });
-  for (const t of passiveLosses) d.losses.push({ weight: 12, text: `loses ${t.charAt(0).toLowerCase()}${t.slice(1)}` });
+  // Worn items are judged by their effects; weapons, armor and shields by their numbers (a special effect is listed, and named in a sidegrade's summary).
+  if (item.kind === 'wondrous') for (const t of passiveGains) d.gains.push({ weight: 12, text: t.charAt(0).toLowerCase() + t.slice(1) });
+  if (item.kind === 'wondrous') for (const t of passiveLosses) d.losses.push({ weight: 12, text: `loses ${t.charAt(0).toLowerCase()}${t.slice(1)}` });
   const dSpeed = now.speed - before.speed;
   if (dSpeed !== 0) (dSpeed > 0 ? d.gains : d.losses).push({ weight: Math.abs(dSpeed) * 5, text: `${signInt(dSpeed * 5)} ft speed` });
   d.gains.sort((x, y) => y.weight - x.weight);
@@ -392,6 +393,7 @@ export function compareItem(pc: PlayerCharacter, itemId: string): ItemComparison
     const type = changes.find((c) => c.label.endsWith('Damage type'));
     if (mastery) summary = `Much the same damage and defence; the mastery changes from ${mastery.from} to ${mastery.to}.`;
     else if (type) summary = `Much the same damage and defence; ${type.to} damage instead of ${type.from}.`;
+    else if (passiveGains.length > 0) summary = `The same numbers as what you have, with ${passiveGains[0]?.charAt(0).toLowerCase()}${passiveGains[0]?.slice(1)}.`;
     else if (item.kind === 'armor') summary = 'The same Armor Class as what you wear.';
     else summary = 'Little difference from what you have now.';
   }
