@@ -1,4 +1,4 @@
-import type { Ability, ActiveCondition, Condition, Creature } from '../core/types';
+import type { Ability, ActiveCondition, Condition, Creature, OngoingDamage } from '../core/types';
 import { hasFlag } from './util';
 
 export const INCAPACITATING: readonly Condition[] = ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'unconscious'];
@@ -106,10 +106,12 @@ export function makeCondition(
   sourceId?: string,
   saveEnds?: { ability: Ability; dc: number },
   thenOnFail?: { condition: Condition },
+  ongoing?: OngoingDamage,
 ): ActiveCondition {
   const ac: ActiveCondition = { condition, rounds };
   if (sourceId !== undefined) ac.sourceId = sourceId;
   if (saveEnds) ac.saveEnds = { ...saveEnds };
   if (thenOnFail) ac.thenOnFail = { ...thenOnFail };
+  if (ongoing) ac.ongoing = { damage: ongoing.damage.map((d) => ({ ...d })), ...(ongoing.when ? { when: ongoing.when } : {}) };
   return ac;
 }

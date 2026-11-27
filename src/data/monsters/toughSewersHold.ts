@@ -272,7 +272,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // Condition immunities keep grappled, paralyzed, poisoned, prone, restrained and unconscious (Exhaustion and Petrified do not
   // exist here). Swim 90 ft. is not used: it walks at 30 ft. Whelm (Recharge 4-6) has no "creatures in its own space"
   // area, so it is a melee Strength save against one target: 4d8+4 bludgeoning (half on a save), Grappled with a
-  // save-ends at the escape DC 14, with Restrained until the grapple ends; the suffocation rider and the 2d8 damage per turn are dropped.
+  // save-ends at the escape DC 14, with Restrained until the grapple ends and 2d8 bludgeoning at the start of each of the elemental's turns while grappled (ongoing, sourceTurnStart); the suffocation rider and the pull-out action are dropped.
   {
     id: 'water_elemental',
     tactic: 'brute',
@@ -324,7 +324,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         recharge: 4,
         save: { ability: 'str', dc: 15, halfOnSave: true },
         damage: [{ dice: '4d8+4', type: 'bludgeoning' }],
-        applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 14 } },
+        applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 14 }, ongoing: { damage: [{ dice: '2d8', type: 'bludgeoning' }], when: 'sourceTurnStart' } },
         alsoApplies: [{ condition: 'restrained', endsWith: true }],
       },
     ],

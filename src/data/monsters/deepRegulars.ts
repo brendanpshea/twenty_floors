@@ -915,7 +915,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // Simplified: Fear Aura is an aura (20 ft. = 4 cells, Wisdom DC 21, Frightened for 1 round, immune for the rest of the fight on a
   // success). Drops Fly (walks at 30 ft.), Diabolical Restoration, Legendary Resistance, Magic Resistance, telepathy and skills. Multiattack is one Bite, two
   // Devilish Claws and one Fiery Mace, all with 10-ft. reach (2 cells). The Bite's Poisoned (Constitution DC 21)
-  // is a save-ends, and its 6d6 poison at the start of each turn and the no-healing rider are dropped. Hellfire
+  // is a save-ends (the attack is followed by the Constitution save, as printed), and while Poisoned the target takes 6d6 poison at the start of each of its turns (ongoing); the no-healing rider and the 1-minute limit are dropped. Hellfire
   // Spellcasting (Recharge 4-6) casts Fireball (level 5 version: 10d6, DC 21, 150 ft. = 30 cells, 20-ft. radius = 4
   // cells) twice, with an option to swap one for Hold Monster or Wall of Fire; it is modelled as a single
   // Fireball (a multiattack cannot repeat an area action), and the swaps are dropped.
@@ -970,7 +970,8 @@ export const DEEP_REGULARS: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 2 },
         attack: { bonus: 14 },
         damage: [{ dice: '3d6+8', type: 'piercing' }],
-        applies: { condition: 'poisoned', saveEnds: { ability: 'con', dc: 21 } },
+        save: { ability: 'con', dc: 21, halfOnSave: false },
+        applies: { condition: 'poisoned', saveEnds: { ability: 'con', dc: 21 }, ongoing: { damage: [{ dice: '6d6', type: 'poison' }] } },
       },
       {
         id: 'devilish_claw',

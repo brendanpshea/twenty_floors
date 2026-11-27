@@ -15,6 +15,7 @@ export const GLOSSARY: Record<string, string> = {
   restrained: 'Held in place. You cannot move, attacks against you have advantage, and yours have disadvantage.',
   paralyzed: 'Cannot move or act. Attacks against you have advantage and hits up close are critical.',
   petrified: 'Turned to stone. You cannot move or act, attacks against you have advantage, you fail Strength and Dexterity saves, and you resist all damage. It lasts until the fight ends.',
+  burning: 'On fire. You take fire damage at the start of each of your turns, and you may put it out with a Dexterity save at the end of each turn.',
   slowed: 'Half speed, no reactions, one action or bonus action per turn, and only one attack when you attack.',
   cover: 'Something in the way that makes a target harder to hit. Half cover adds 2 to Armor Class, three-quarters adds 5.',
   'hit dice': 'Your recovery pool. A short rest spends them to heal; a long rest restores them.',

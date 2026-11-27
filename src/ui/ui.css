@@ -590,6 +590,7 @@
   background: rgba(36, 95, 88, 0.35);
   color: #a6e6dd;
 }
+.tf-chip--burning,
 .tf-chip--stunned,
 .tf-chip--paralyzed,
 .tf-chip--unconscious,

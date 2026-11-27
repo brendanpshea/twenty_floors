@@ -43,9 +43,14 @@ export const HELL_MONSTERS: MonsterDef[] = [
     role: 'standard',
     description: 'A sneering scrap of a devil that stings its prey for the pleasure of watching it squirm.',
   },
-  // Simplified: drops Magic Resistance, Devil's Sight, telepathy and the infernal wound of the Glaive (a
-  // lasting damage-over-time wound the engine cannot express); the Beard's "can't regain Hit Points" rider is
-  // dropped too. The Beard's Poisoned lasts until the start of the devil's next turn (rounds: 1), no save.
+  // Simplified: drops Magic Resistance, Devil's Sight and telepathy; the Beard's "can't regain Hit Points" rider is
+  // dropped. The Beard's Poisoned lasts until the start of the devil's next turn (rounds: 1), no save. The Glaive's
+  // infernal wound (Constitution DC 12 after the hit, then 1d10 lost at the start of each of the target's turns) is
+  // modelled with the Poisoned condition carrying ongoing damage: no condition fits a bleeding wound exactly, and Poisoned
+  // is the nearest (a venomous, sapping hurt). HOUSE RULE: the SRD closes the wound after 1 minute, a healing spell or
+  // a DC 12 Wisdom (Medicine) action; the game has no stanch action, so it ends on a Constitution save (DC 12) at the end
+  // of each of the target's turns. The wound's Poisoned replaces the Beard's (one Poisoned condition per creature), and its
+  // damage is typed necrotic (the SRD says only "loses Hit Points", i.e. unresisted loss).
   {
     id: 'bearded_devil',
     name: 'Bearded Devil',
@@ -95,6 +100,8 @@ export const HELL_MONSTERS: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 2 },
         attack: { bonus: 5 },
         damage: [{ dice: '1d10+3', type: 'slashing' }],
+        save: { ability: 'con', dc: 12, halfOnSave: false },
+        applies: { condition: 'poisoned', saveEnds: { ability: 'con', dc: 12 }, ongoing: { damage: [{ dice: '1d10', type: 'necrotic' }] } },
       },
     ],
     visual: { model: 'imp', scale: 1.3 },
@@ -184,7 +191,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
   },
   // Simplified: drops Fly (walks at 40 ft.), Demonic Restoration, Magic Resistance and telepathy. Spores is a
   // 20-ft. Emanation from the vrock: a self-centred sphere of radius 4 cells, Recharge 6, Poisoned that the
-  // target repeats the save to end (the 1d10 poison at the start of each turn is dropped). Stunning Screech is
+  // target repeats the save to end, and while Poisoned it takes 1d10 poison at the start of each of its turns (ongoing). Stunning Screech is
   // the same sphere, 1/Day (a uses pool), Stunned until the end of the vrock's next turn (rounds: 1); the
   // "demons succeed automatically" clause is dropped.
   {
@@ -239,7 +246,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
         targeting: { kind: 'point', range: 0, area: { shape: 'sphere', size: 4 } },
         recharge: 6,
         save: { ability: 'con', dc: 15, halfOnSave: false },
-        applies: { condition: 'poisoned', saveEnds: { ability: 'con', dc: 15 } },
+        applies: { condition: 'poisoned', saveEnds: { ability: 'con', dc: 15 }, ongoing: { damage: [{ dice: '1d10', type: 'poison' }] } },
       },
       {
         id: 'stunning_screech',
@@ -506,8 +513,11 @@ export const HELL_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A towering four-armed demon with crushing pincers, as fond of tormenting as of killing.',
   },
-  // Simplified: drops Fly (walks at 30 ft.), Diabolical Restoration, Magic Resistance, telepathy and the infernal
-  // wound of the Infernal Tail (a lasting damage-over-time wound). Multiattack (three attacks, Searing Fork or
+  // Simplified: drops Fly (walks at 30 ft.), Diabolical Restoration, Magic Resistance and telepathy. The Infernal Tail's
+  // infernal wound (3d6 lost at the start of each of the target's turns) is modelled with the Poisoned condition
+  // carrying ongoing damage, typed necrotic (no condition fits a bleeding wound; the SRD says only "loses Hit Points").
+  // HOUSE RULE: the SRD closes the wound after 1 minute, a healing spell or a DC 17 Wisdom (Medicine) action; the game has
+  // no stanch action, so it ends on a Constitution save (DC 17) at the end of each of the target's turns. Multiattack (three attacks, Searing Fork or
   // Hurl Flame in any combination, one replaceable by Infernal Tail) is split into melee, ranged and tail
   // versions. Hurl Flame has a 150 ft. range (30 cells, long 31).
   {
@@ -589,6 +599,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 2 },
         save: { ability: 'dex', dc: 17, halfOnSave: false },
         damage: [{ dice: '1d8+6', type: 'necrotic' }],
+        applies: { condition: 'poisoned', saveEnds: { ability: 'con', dc: 17 }, ongoing: { damage: [{ dice: '3d6', type: 'necrotic' }] } },
       },
     ],
     visual: { model: 'imp', tint: 0xff3030, scale: 2.3 },

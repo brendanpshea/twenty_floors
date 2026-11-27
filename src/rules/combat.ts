@@ -703,13 +703,13 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     emit({ type: 'heal', targetId: target.id, amount, hpAfter: target.hp });
   }
 
-  function addCondition(target: Creature, a: NonNullable<ActionDef['applies']>, source: Creature): void {
+  function addCondition(target: Creature, a: NonNullable<ActionDef['applies']> | NonNullable<ActionDef['alsoApplies']>[number], source: Creature): void {
     if (!isAlive(target) || target.conditionImmunities.includes(a.condition)) return;
     let rounds: number | null = a.rounds ?? null;
     // `rounds` counts the source's own following turns: applied during its own turn, the current one does not count.
     if (rounds !== null && source.id === turn.creatureId && source.id !== target.id) rounds += 1;
     target.conditions = target.conditions.filter((x) => x.condition !== a.condition);
-    target.conditions.push(makeCondition(a.condition, rounds, source.id, a.saveEnds, a.thenOnFail));
+    target.conditions.push(makeCondition(a.condition, rounds, source.id, a.saveEnds, 'thenOnFail' in a ? a.thenOnFail : undefined, a.ongoing));
     emit({ type: 'conditionAdded', creatureId: target.id, condition: a.condition });
     if (INCAPACITATING.includes(a.condition)) endConcentration(target, 'incapacitated');
   }
@@ -739,6 +739,18 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     for (const linked of target.conditions.filter((x) => x.endsWith === cond.condition && x.sourceId === cond.sourceId)) removeCondition(target, linked);
     const sl = sleepers.get(target.id);
     if (sl && cond.sourceId === sl.by && (cond.condition === 'incapacitated' || cond.condition === 'unconscious')) sleepers.delete(target.id);
+  }
+
+  /** Continuing damage from conditions (engulfed, burning, a bleeding wound): `when` is 'targetTurnStart' or 'sourceTurnStart'. */
+  function applyOngoing(holder: Creature, when: 'targetTurnStart' | 'sourceTurnStart', starter: Creature): void {
+    for (const cond of [...holder.conditions]) {
+      if (!cond.ongoing || (cond.ongoing.when ?? 'targetTurnStart') !== when || !isAlive(holder)) continue;
+      if (when === 'sourceTurnStart' && cond.sourceId !== starter.id) continue;
+      const src = cond.sourceId !== undefined ? byId.get(cond.sourceId) : undefined;
+      if (!src || !isAlive(src) || !holder.conditions.includes(cond)) continue;
+      log(`${holder.name} takes continuing damage from ${src.name} (${cond.condition}).`);
+      for (const p of cond.ongoing.damage) dealDamage(holder, rollDice(rng, p.dice).total, p.type, src.id, false);
+    }
   }
 
   const isWeaponAttack = (a: ActionDef): boolean =>
@@ -1727,6 +1739,10 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
         if (!isAlive(c)) break;
       }
     }
+    // Continuing damage from conditions: on the holder's own turn, then for every creature held by this one on the source's turn.
+    applyOngoing(c, 'targetTurnStart', c);
+    for (const holder of all) if (holder !== c && isAlive(c)) applyOngoing(holder, 'sourceTurnStart', c);
+    if (!isAlive(c)) return false;
     // Champion: Heroic Warrior gives Heroic Inspiration at the start of any turn begun without it.
     if (hasFlag(c, 'heroicWarrior') && isAlive(c)) {
       const insp = c.resources['inspiration'];
