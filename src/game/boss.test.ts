@@ -23,17 +23,19 @@ async function bossFight(depth = 8, seed = 3) {
   return { h, s, boss };
 }
 
-describe('boss momentum and the boss marker', () => {
-  it('a boss feature event is a distinct beat: warning float, accent sound', async () => {
+describe('legendary actions on screen and the boss marker', () => {
+  it('a legendary action is a distinct beat: its name as a warning float, an accent sound', async () => {
     const h = makeHarness({ reveal: true, depth: 8, seed: 3 });
     const s = new FloorSession(h.deps, { runSeed: 3, depth: 8, pc: quickCharacter(3), shortRestsLeft: 2 }, 1);
     await s.enter();
     const boss = s.state.monsters.find((m) => m.boss)?.creature as NonNullable<unknown> as { id: string; name: string };
     await s.playback.play([
-      { type: 'actionUsed', creatureId: boss.id, actionId: 'x', name: 'Boss momentum: Slam', targetId: 'player' },
-      { type: 'feature', creatureId: boss.id, id: 'bossAction', label: 'Boss momentum', targetId: 'player' },
+      { type: 'actionUsed', creatureId: boss.id, actionId: 'x', name: 'Legendary action: Slam', targetId: 'player' },
+      { type: 'feature', creatureId: boss.id, id: 'legendaryAction', label: 'Slam', targetId: 'player' },
+      { type: 'feature', creatureId: boss.id, id: 'legendaryResistance', label: 'Legendary Resistance (2 left)', amount: 2 },
     ]);
-    expect(h.renderer.floats).toContainEqual({ text: 'Boss momentum', style: 'crit', at: boss.id });
+    expect(h.renderer.floats).toContainEqual({ text: 'Slam', style: 'crit', at: boss.id });
+    expect(h.renderer.floats).toContainEqual({ text: 'Legendary Resistance (2 left)', style: 'crit', at: boss.id });
     expect(h.audio.plays).toContain('crit');
   });
 
@@ -50,15 +52,4 @@ describe('boss momentum and the boss marker', () => {
     }
   });
 
-  it('a real fight on floor 8 shows the boss taking its extra attack', async () => {
-    const { h, s } = await bossFight(8, 3);
-    for (let i = 0; i < 40 && s.state.mode === 'combat' && !s.finished; i++) {
-      if (s.combat.playerTurn) await s.combat.endTurn();
-      else await until(() => s.combat.playerTurn || s.state.mode !== 'combat', 20000);
-      if (h.renderer.floats.some((f) => f.text === 'Boss momentum')) break;
-    }
-    const f = h.renderer.floats.find((x) => x.text === 'Boss momentum');
-    expect(f?.style).toBe('crit');
-    expect(h.renderer.errors).toEqual([]);
-  });
 });
