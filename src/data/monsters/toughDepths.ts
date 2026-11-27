@@ -5,7 +5,6 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
   // Simplified: drops Ethereal Jaunt, Ethereal Sight and Web Walker; keeps Spider Climb. The Bite applies no
   // Poisoned/Paralyzed condition (the SRD only does that when the bite drops the target to 0 HP, which the data
   // cannot express). Climb speed is dropped; the spider walks at 30 ft.
-  // TODO model: Quaternius spider, shimmering ghost-blue; giant_spider body as stand-in.
   {
     id: 'phase_spider',
     name: 'Phase Spider',
@@ -57,7 +56,6 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
   // Simplified: Petrifying Gaze is a bonus-action 30-ft cone (6 cells) that applies Restrained with a
   // Constitution save-ends at DC 12 (the nearest expressible effect for the first failure; the second-failure
   // Petrified state is not modelled, and neither is the reflection clause). It is a plain recharge 4 to 6.
-  // TODO model: Quaternius lizard or giant gecko; giant_rat body scaled up as stand-in.
   {
     id: 'basilisk',
     name: 'Basilisk',
@@ -103,7 +101,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
         applies: { condition: 'restrained', saveEnds: { ability: 'con', dc: 12 } },
       },
     ],
-    visual: { model: 'giant_rat', tint: 0x80d0b0, scale: 1.5 },
+    visual: { model: 'dino', tint: 0x80d0b0, scale: 1.2 },
     themes: ['depths', 'ruin', 'fungal'],
     role: 'elite',
     description: 'A squat, eight-legged lizard with a stony hide whose unblinking eyes lock the limbs of anyone who meets them.',
@@ -111,7 +109,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
   // Simplified: drops Fly (walks at 30 ft). The SRD lets it use Rend or Tail Spike in any combination, so there
   // are separate melee and ranged multiattacks of three attacks each. Tail Spike has a single range of 100 ft
   // plus 200 ft long.
-  // TODO model: lion body with bat wings and a scorpion tail (none available); wolf body as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): lion body with bat wings and a scorpion tail (none available); wolf body as stand-in.
   {
     id: 'manticore',
     name: 'Manticore',
@@ -180,7 +178,6 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
   // 60 ft, 12 cells) applies Grappled with a Strength save-ends at the escape DC 14; the Poisoned condition that
   // comes with it, the destructible tentacles and Reel (the pull) are dropped. Multiattack is two Tentacles then
   // two Bites. Keeps Spider Climb.
-  // TODO model: a stalagmite-like body with tendrils (none available); ogre body as stand-in.
   {
     id: 'roper',
     name: 'Roper',
@@ -231,7 +228,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
         damage: [{ dice: '3d8+4', type: 'piercing' }],
       },
     ],
-    visual: { model: 'ogre', tint: 0xa8c0a0, scale: 1.2 },
+    visual: { model: 'ogre', tint: 0xa8c0a0, scale: 1 },
     themes: ['depths', 'fungal', 'sewers'],
     role: 'elite',
     description: 'A lumpy stone pillar in the cave until its many tendrils shoot out to drag prey across the floor.',
@@ -239,7 +236,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
   // Simplified: drops Earth Glide, Treasure Sense, Tremorsense-based abilities and the burrow speed; Petrified
   // condition immunity is not expressible. The Charge bonus action is dropped. Multiattack is one Bite then
   // three Claws.
-  // TODO model: Quaternius Big arm in use as ogre for earth elementals; ogre body as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Big arm in use as ogre for earth elementals; ogre body as stand-in.
   {
     id: 'xorn',
     name: 'Xorn',
@@ -298,7 +295,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
   // Simplified: drops the burrow speed, Leap (bonus action) and Tremorsense. Deadly Leap is a point-targeted
   // single-cell landing within 15 ft (3 cells) with half damage on a save; it applies Prone on a failure, and
   // the push on a success and the movement cost are not modelled. Multiattack is two Bites.
-  // TODO model: armoured land-shark with a plated back (none available); giant_rat body scaled up as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): armoured land-shark with a plated back (none available); giant_rat body scaled up as stand-in.
   {
     id: 'bulette',
     name: 'Bulette',
@@ -360,7 +357,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
   // Darkness and Faerie Fire are dropped, as are Web Walker and the climb speed. Keeps Spider Climb and Sunlight
   // Sensitivity. Multiattack is three Forelegs; a separate ranged multiattack is three Poison Bursts (120 ft,
   // single range: longRange is range + 1).
-  // TODO model: Quaternius spider with a humanoid upper body (none available); giant_spider scaled up as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius spider with a humanoid upper body (none available); giant_spider scaled up as stand-in.
   {
     id: 'drider',
     name: 'Drider',
@@ -439,7 +436,6 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
   // Simplified: drops Fly (walks at 30 ft). Bite does its normal 2d6+4 (the Advantage bonus dice are dropped).
   // Ram applies Prone for 1 round (no size check). Fire Breath is a separate recharge 5 to 6 action (15-ft cone, 3 cells)
   // rather than a replacement for the Claw inside Multiattack; Multiattack is Ram, Bite, Claw.
-  // TODO model: Quaternius Dragon, orange tint x1.1 (docs/research/roster-options.md); wolf body as stand-in.
   {
     id: 'chimera',
     name: 'Chimera',
@@ -512,7 +508,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
         damage: [{ dice: '7d8', type: 'fire' }],
       },
     ],
-    visual: { model: 'wolf', tint: 0xe05a50, scale: 2.0 },
+    visual: { model: 'dragon', tint: 0xe05a50, scale: 1.65 },
     themes: ['depths', 'ruin', 'peaks', 'foundry', 'ice'],
     role: 'elite',
     description: 'A three-headed patchwork beast of lion, goat and dragon that fights with all three heads at once.',
@@ -523,7 +519,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
   // (reach 10 ft, 2 cells). Moan is a bonus-action 60-ft emanation (sphere of radius 12 cells centered on self)
   // that applies Frightened until the end of the cloaker's next turn (1 round); the 24-hour immunity on a
   // success is not modelled. Keeps the Frightened condition immunity.
-  // TODO model: a manta-like winged cloak with eyes and fangs (none available); shadow body as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a manta-like winged cloak with eyes and fangs (none available); shadow body as stand-in.
   {
     id: 'cloaker',
     name: 'Cloaker',
@@ -593,7 +589,6 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
   // Simplified: drops the climb speed and Swallow. Constrict applies Grappled (Strength save-ends at the escape
   // DC 16; the Restrained that accompanies it is dropped). Multiattack is one Bite then Constrict. Lightning
   // Breath is a recharge 5 to 6 line (90 ft, 18 cells) rather than part of Multiattack.
-  // TODO model: a long serpentine body with many short legs (none available); giant_spider scaled up as stand-in.
   {
     id: 'behir',
     name: 'Behir',
@@ -659,7 +654,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
         damage: [{ dice: '12d10', type: 'lightning' }],
       },
     ],
-    visual: { model: 'giant_spider', tint: 0x60b0f0, scale: 2.2 },
+    visual: { model: 'snake', tint: 0x60b0f0, scale: 7 },
     themes: ['depths'],
     role: 'boss',
     description: 'A serpentine, many-legged horror that coils around its prey and answers resistance with a bolt of lightning.',

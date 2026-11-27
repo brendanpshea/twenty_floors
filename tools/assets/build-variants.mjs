@@ -15,9 +15,11 @@ const getSrc=async k=>{if(!sources[k])throw new Error('unknown source '+k);retur
 for(const v of variants){
   if(only.length&&!only.includes(v.name))continue;
   const baseMeta=meta[v.base];if(!baseMeta)throw new Error('no meta for base '+v.base+' (run build-models.mjs)');
-  const doc=await load(BASE+v.base+'.glb');
+  const baseFile=fs.existsSync(BASE+v.base+'.glb')?BASE+v.base+'.glb':MODELS+v.base+'.glb';
+  const doc=await load(baseFile);
+  for(const n of v.remove||[])find(doc,n).dispose();
   if(v.materials)setMaterialColors(doc,v.materials);
-  for(const r of v.recolor||[])await apply(doc,r.nodes,r.rule,v.name);
+  for(const r of v.recolor||[]){const nodes=r.nodes==='*'?doc.getRoot().listNodes().filter(n=>n.getMesh()).map(n=>n.getName()):r.nodes;await apply(doc,nodes,r.rule,v.name);}
   for(const a of v.attach||[]){
     // each mount merges a fresh copy of the source so repeated parts do not interfere
     const srcDoc=await load(sources[a.src]);

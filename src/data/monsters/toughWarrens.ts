@@ -3,7 +3,7 @@ import type { MonsterDef } from '../../core/types';
 /** Tougher Goblin Warrens monsters (SRD 5.2.1), for use at deeper floors. */
 export const TOUGH_WARRENS: MonsterDef[] = [
   // Simplified: none (Pack Tactics, longsword and longbow kept; the bow's poison damage is a second damage part).
-  // TODO model: a KayKit armoured orc/hobgoblin soldier; goblin_warrior body, scaled up and tinted red, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a KayKit armoured orc/hobgoblin soldier; goblin_warrior body, scaled up and tinted red, as stand-in.
   {
     id: 'hobgoblin_warrior',
     name: 'Hobgoblin Warrior',
@@ -54,7 +54,6 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     description: 'A goblinoid soldier in mismatched plate who fights in tight ranks and shoots with poisoned arrows.',
   },
   // Simplified: the bite does not grant Advantage to the next attack against the target (no way to express it).
-  // TODO model: a Quaternius wolf variant (wolf rig, larger and darker); wolf body as stand-in.
   {
     id: 'worg',
     name: 'Worg',
@@ -92,7 +91,6 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     description: 'A shaggy, wicked-eyed wolf the size of a pony, bred by goblins to carry riders and run down stragglers.',
   },
   // Simplified: none (Pack Tactics kept; Prone applies on any hit, ignoring the Large-or-smaller check).
-  // TODO model: Quaternius wolf scaled up; wolf body as stand-in.
   {
     id: 'dire_wolf',
     name: 'Dire Wolf',
@@ -133,7 +131,7 @@ export const TOUGH_WARRENS: MonsterDef[] = [
   // Simplified: Abduct dropped; Morningstar loses its Advantage against grappled targets. The stat block lets
   // Javelin and Morningstar mix freely in its Multiattack: melee uses two Morningstars, ranged two Javelins
   // (a single melee Javelin attack is also kept). Quick Grapple is a bonus action (Dexterity save, escape DC 13).
-  // TODO model: a KayKit hunched goblinoid ambusher; bugbear_warrior body with a green tint as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a KayKit hunched goblinoid ambusher; bugbear_warrior body with a green tint as stand-in.
   {
     id: 'bugbear_stalker',
     name: 'Bugbear Stalker',
@@ -220,7 +218,6 @@ export const TOUGH_WARRENS: MonsterDef[] = [
   },
   // Simplified: Battleaxe's Prone applies on any hit (no size check); Morningstar's attack Disadvantage rider is
   // dropped; Deafened immunity dropped (no such condition id).
-  // TODO model: a two-headed giant (Quaternius Big, per docs/research/roster-options.md); ogre body, scaled, as stand-in.
   {
     id: 'ettin',
     name: 'Ettin',
@@ -272,13 +269,12 @@ export const TOUGH_WARRENS: MonsterDef[] = [
         damage: [{ dice: '2d8+5', type: 'piercing' }],
       },
     ],
-    visual: { model: 'ogre', tint: 0xd0b090, scale: 1.15 },
+    visual: { model: 'ogre', tint: 0xd0b090, scale: 1 },
     themes: ['warrens', 'depths', 'peaks', 'hold'],
     role: 'elite',
     description: 'A two-headed brute whose heads bicker constantly, yet always agree on whom to hit next.',
   },
   // Simplified: drops Regeneration, Loathsome Limbs (and the Troll Limb) and the Charge bonus action.
-  // TODO model: Quaternius Big arm x1.1, green tint (docs/research/roster-options.md); ogre body as stand-in.
   {
     id: 'troll',
     name: 'Troll',
@@ -319,7 +315,7 @@ export const TOUGH_WARRENS: MonsterDef[] = [
         damage: [{ dice: '2d6+4', type: 'slashing' }],
       },
     ],
-    visual: { model: 'ogre', tint: 0x6ae04a, scale: 1.2 },
+    visual: { model: 'ogre', tint: 0x6ae04a, scale: 1.05 },
     themes: ['warrens', 'depths', 'ice', 'marsh', 'peaks', 'fungal', 'sewers'],
     role: 'elite',
     description: 'A stooped, warty giant with arms too long and a hunger that never lets up.',
@@ -327,7 +323,6 @@ export const TOUGH_WARRENS: MonsterDef[] = [
   // Simplified: Trash Lob's poison lasts until the end of the target's next turn (rounds: 1); Multiattack
   // may mix club and lob in the stat block, here melee is two clubs and ranged is two lobs. Tree Club's Prone
   // applies on any hit (no size check).
-  // TODO model: a huge hill-giant brute (Quaternius Big); ogre body with a sallow tint and a large scale as stand-in.
   {
     id: 'hill_giant',
     name: 'Hill Giant',
@@ -389,7 +384,7 @@ export const TOUGH_WARRENS: MonsterDef[] = [
         applies: { condition: 'poisoned', rounds: 1 },
       },
     ],
-    visual: { model: 'ogre', tint: 0xd8e070, scale: 1.8 },
+    visual: { model: 'ogre', tint: 0xd8e070, scale: 1.4 },
     themes: ['warrens', 'peaks'],
     role: 'boss',
     description: 'A towering warren overlord who rules the goblins by sheer size and throws whatever is closest.',
@@ -397,7 +392,6 @@ export const TOUGH_WARRENS: MonsterDef[] = [
   // Simplified: drops Regeneration, flight (hover), Shape-Shift, Invisibility and Spellcasting (Charm Person, Darkness,
   // Gaseous Form, Sleep: none damaging). Cold resistance is kept. Melee and ranged multiattacks are separate.
   // Nightmare Ray's range is 60 ft with no long range; longRange is range + 1.
-  // TODO model: a horned, blue-skinned ogre-mage (Quaternius Big or a KayKit brute); hero_barbarian body, blue tint, as stand-in.
   {
     id: 'oni',
     name: 'Oni',
@@ -461,7 +455,7 @@ export const TOUGH_WARRENS: MonsterDef[] = [
         applies: { condition: 'frightened', rounds: 1 },
       },
     ],
-    visual: { model: 'hero_barbarian', tint: 0x6a8aff, scale: 1.5 },
+    visual: { model: 'bluedemon', scale: 1.75 },
     themes: ['warrens', 'hold'],
     role: 'boss',
     description: 'A horned, blue-skinned ogre-mage who commands the warrens from the shadows and feeds on fear.',

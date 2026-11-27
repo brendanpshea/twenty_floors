@@ -717,7 +717,80 @@ export interface SaveGame {
   character: PlayerCharacter;
   /** Short rests left before the next long rest (the save is taken fully rested, so normally the maximum). */
   shortRestsLeft: number;
+  /** The companion travelling with the hero, once one has joined. */
+  companion?: CompanionState;
 }
+
+// ---------------------------------------------------------------------------
+// Companions
+// ---------------------------------------------------------------------------
+
+export type CompanionRole = 'healer' | 'blaster' | 'skirmisher';
+
+/**
+ * How the companion behaves in a fight. 'close': stays next to the hero and
+ * engages what threatens them. 'back': keeps its distance and avoids melee.
+ * 'focus': attacks whatever the hero last attacked.
+ */
+export type CompanionStance = 'close' | 'back' | 'focus';
+
+/** One step of a companion's growth. */
+export interface CompanionFeature {
+  /** Companion level at which it unlocks. */
+  level: number;
+  name: string;
+  /** One line for the hub and HUD. */
+  summary: string;
+  /** A spell from src/data/spells.ts this step grants, if any. */
+  spellId?: string;
+  /** Uses per long rest of that spell (omitted for cantrips and passive features). */
+  uses?: number;
+  /** Id of an effect the rules engine implements in code (e.g. 'packFlank', 'blink'). */
+  effect?: string;
+}
+
+/** A companion the hero can travel with. Static data in src/data/companions.ts. */
+export interface CompanionDef {
+  id: string;
+  name: string;
+  role: CompanionRole;
+  /** Two or three sentences for the hub's picker. */
+  description: string;
+  /** The creature's SRD stat block: what it is at companion level 1. */
+  base: MonsterDef;
+  /** Growth, in level order. Companion level = hero level − 2 (minimum 1). */
+  kit: CompanionFeature[];
+  /** How it looks as it grows; the last entry whose `fromLevel` is reached applies. */
+  visualTiers: { fromLevel: number; visual: VisualSpec }[];
+}
+
+/** A companion as shown in the hub picker. Produced by the rules engine. */
+export interface CompanionInfo {
+  id: string;
+  name: string;
+  role: CompanionRole;
+  description: string;
+  /** The level it would have alongside the hero on the next floor. */
+  level: number;
+  maxHp: number;
+  ac: number;
+  /** Lines describing what it can do at that level. */
+  summaries: string[];
+  /** The next thing it will learn, if any. */
+  nextUnlock?: { level: number; summary: string };
+  visual: VisualSpec;
+}
+
+/** The travelling companion's persistent state. Plain JSON; stored in the save game. */
+export interface CompanionState {
+  id: string;
+  hp: number;
+  resources: Record<string, ResourcePool>;
+  stance: CompanionStance;
+}
+
+/** Hero level at which a companion first joins (chosen in the hub before that floor). */
+export const COMPANION_JOIN_LEVEL = 4;
 
 /** Short rests allowed between long rests. */
 export const SHORT_RESTS_PER_LONG_REST = 2;
@@ -962,6 +1035,20 @@ export interface HudModel {
     conditions: Condition[];
     resources: { name: string; current: number; max: number }[];
   };
+  /** The hero's companion, when one is travelling with them. */
+  companion?: {
+    id: string;
+    name: string;
+    role: CompanionRole;
+    level: number;
+    hp: number;
+    maxHp: number;
+    conditions: Condition[];
+    /** True while it is out of the fight at 0 HP (it returns at 1 HP afterwards). */
+    downed: boolean;
+    stance: CompanionStance;
+    resources: { name: string; current: number; max: number }[];
+  };
   /** Present in combat only. */
   combat?: {
     round: number;
@@ -1015,6 +1102,8 @@ export type UiIntent =
   | { type: 'shortRest' }
   /** Long rest at the adjacent rest site. */
   | { type: 'longRest' }
+  /** Change how the companion behaves. Allowed at any time, including mid-fight. */
+  | { type: 'setStance'; stance: CompanionStance }
   | { type: 'openMenu' }
   | { type: 'selectCreature'; creatureId: string };
 
@@ -1040,12 +1129,19 @@ export interface HubModel {
   /** Present when the character has a level to take. */
   levelUp?: LevelUpPreview;
   shop: HubShopEntry[];
+  /**
+   * Present once the hero is about to reach COMPANION_JOIN_LEVEL or beyond.
+   * The player picks one companion, and may swap at every hub visit.
+   * `required` is true when none has been chosen yet: Descend waits for a pick.
+   */
+  companions?: { options: CompanionInfo[]; chosenId: string | null; required: boolean };
 }
 
 export type HubIntent =
   | { type: 'confirmLevelUp'; choices: Record<string, string> }
   | { type: 'buy'; itemId: string }
   | { type: 'equip'; itemId: string }
+  | { type: 'chooseCompanion'; id: string }
   | { type: 'descend' };
 
 /**

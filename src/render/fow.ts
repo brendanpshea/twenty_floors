@@ -103,7 +103,7 @@ export class Fow {
    */
   patch(
     mat: Material,
-    opts: { instanced?: boolean; water?: boolean; flicker?: number; motes?: boolean; occlude?: boolean; hero?: boolean } = {},
+    opts: { instanced?: boolean; water?: boolean; flicker?: number; motes?: boolean; occlude?: boolean; hero?: boolean; /** Instanced props: whatever rises above ~0.7 units sinks like a wall when it stands between the camera and its target. */ occludeProps?: boolean } = {},
   ): void {
     const instanced = !!opts.instanced;
     const w = this.width;
@@ -113,7 +113,7 @@ export class Fow {
       shader.uniforms.uFow = { value: tex };
       shader.uniforms.uFowSize = { value: [w, h] };
       shader.uniforms.uTime = timeUniform;
-      if (opts.occlude) Object.assign(shader.uniforms, occUniforms);
+      if (opts.occlude || opts.occludeProps) Object.assign(shader.uniforms, occUniforms);
       if (opts.hero) Object.assign(shader.uniforms, heroUniforms);
       let v = shader.vertexShader;
       v = v.replace(
@@ -124,6 +124,7 @@ uniform vec2 uFowSize;
 uniform float uTime;
 ${instanced ? '' : 'attribute float cellIdx;'}
 ${opts.hero ? 'uniform vec3 uHeroP; uniform vec3 uHeroC; uniform float uHeroR;' : ''}
+${opts.occludeProps ? 'uniform vec2 uOccT; uniform vec2 uOccD; uniform vec2 uOccP;' : ''}
 ${opts.occlude ? 'attribute float wbase; uniform vec2 uOccT; uniform vec2 uOccD; uniform vec2 uOccP;' : ''}
 float fowVis = 1.0;`,
       );
@@ -169,6 +170,19 @@ if (wbase > -900.0) {
 }`,
         );
       }
+      if (opts.occludeProps) {
+        v = v.replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
+{
+  vec2 dv = instanceMatrix[3].xz - uOccT;
+  float along = dot(dv, uOccD);
+  float lat = abs(dv.x * uOccD.y - dv.y * uOccD.x);
+  float of = (1.0 - smoothstep(uOccP.x * 0.6, uOccP.x, lat)) * smoothstep(-2.0, 1.0, along) * (1.0 - smoothstep(uOccP.y * 0.7, uOccP.y, along));
+  transformed.y -= max(0.0, transformed.y - 0.7) * of * 0.85;
+}`,
+        );
+      }
       if (opts.motes) {
         v = v.replace(
           '#include <begin_vertex>',
@@ -181,6 +195,6 @@ transformed.z += cos(uTime * 0.3 + position.x * 1.3) * 0.8;`,
       shader.vertexShader = v;
     };
     mat.customProgramCacheKey = () =>
-      `fow-${instanced ? 'i' : 'a'}-${opts.water ? 'w' : ''}${opts.motes ? 'm' : ''}${opts.occlude ? 'o' : ''}${opts.hero ? 'h' : ''}${opts.flicker ?? ''}`;
+      `fow-${instanced ? 'i' : 'a'}-${opts.water ? 'w' : ''}${opts.motes ? 'm' : ''}${opts.occlude ? 'o' : ''}${opts.occludeProps ? 'p' : ''}${opts.hero ? 'h' : ''}${opts.flicker ?? ''}`;
   }
 }

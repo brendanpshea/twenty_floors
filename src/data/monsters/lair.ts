@@ -4,8 +4,6 @@ import type { MonsterDef } from '../../core/types';
 export const LAIR_MONSTERS: MonsterDef[] = [
   // Simplified: drops Darkvision, Gear and the passive senses. The Dagger is split into a melee attack and a thrown
   // attack (20/60 ft. = 4/12 cells). Pack Tactics and Sunlight Sensitivity are kept as traits.
-  // TODO model: Quaternius goblin, red tint at x0.8 (docs/research/roster-options.md); goblin_minion body, small and
-  // rust-red, as stand-in.
   {
     id: 'kobold_warrior',
     name: 'Kobold Warrior',
@@ -55,7 +53,7 @@ export const LAIR_MONSTERS: MonsterDef[] = [
   // Simplified: Draconic Origin is chosen as fire (fire resistance, fire damage on the Claw and the breath); drops
   // the Leap bonus action, Blindsight, Darkvision and skills. Dragon's Breath is a 30-ft. cone (6 cells), Recharge 5-6.
   // Claw reach is 10 ft. (2 cells).
-  // TODO model: Quaternius humanoid with dragon features (docs/research/roster-options.md says hero_barbarian,
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius humanoid with dragon features (docs/research/roster-options.md says hero_barbarian,
   // scale-green); hero_barbarian body, scale-green tint, as stand-in.
   {
     id: 'half_dragon',
@@ -117,7 +115,6 @@ export const LAIR_MONSTERS: MonsterDef[] = [
     description: 'A scaled warrior of mixed blood who fights for the dragon and breathes fire like its sire.',
   },
   // Simplified: drops Fly, Swim, Amphibious, Blindsight, Darkvision and skills. Acid Breath is a 30-ft.-long, 5-ft.-wide line (6 cells). Rend reach is 10 ft. (2 cells). Three Rend attacks as printed.
-  // TODO model: Quaternius Dragon Evolved, black tint (docs/research/roster-options.md); goblin_warrior body, scaled up and grey-black, as stand-in.
   {
     id: 'young_black_dragon',
     name: 'Young Black Dragon',
@@ -172,13 +169,12 @@ export const LAIR_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '14d6', type: 'acid' }],
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 9079456, scale: 1.6 },
+    visual: { model: 'dragon_black', scale: 1.35 },
     themes: ['lair', 'marsh'],
     role: 'elite',
     description: 'A swamp-scented dragon of stained black scales that haunts the dripping corners of the lair.',
   },
   // Simplified: drops Fly, Burrow, Blindsight, Darkvision and skills. Lightning Breath is a 60-ft.-long, 5-ft.-wide line (12 cells). Rend reach is 10 ft. (2 cells). Three Rend attacks as printed.
-  // TODO model: Quaternius Dragon Evolved, blue tint; goblin_warrior body, scaled up and blue, as stand-in.
   {
     id: 'young_blue_dragon',
     name: 'Young Blue Dragon',
@@ -233,13 +229,12 @@ export const LAIR_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '10d10', type: 'lightning' }],
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 5939455, scale: 1.85 },
+    visual: { model: 'dragon_blue', scale: 1.4 },
     themes: ['lair'],
     role: 'elite',
     description: 'A vain, crackling dragon of sapphire scales whose roars make the air smell of storms.',
   },
   // Simplified: drops Fly, Climb, Blindsight, Darkvision and skills. Fire Breath is a 30-ft. cone (6 cells). Rend reach is 10 ft. (2 cells). Three Rend attacks as printed. Elite rather than boss, as no legendary actions are modelled.
-  // TODO model: Quaternius Dragon Evolved x1.8, red tint (docs/research/roster-options.md); goblin_boss body, scaled up and red, as stand-in.
   {
     id: 'young_red_dragon',
     name: 'Young Red Dragon',
@@ -294,13 +289,12 @@ export const LAIR_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '16d6', type: 'fire' }],
       },
     ],
-    visual: { model: 'goblin_boss', tint: 16734788, scale: 2.0 },
+    visual: { model: 'dragon_red', scale: 1.5 },
     themes: ['lair', 'foundry'],
     role: 'elite',
     description: 'A hot-tempered young dragon of ember-red scales that guards its first hoard with a rage that outweighs its years.',
   },
   // Simplified: drops Fly, Swim, Amphibious, Blindsight, Darkvision, skills, Legendary Resistance, Legendary Actions and the lair's 4/Day, and the Spellcasting list (Detect Magic, Fear, Speak with Dead, Vitriolic Sphere). Kept: the Multiattack option that replaces one Rend with Acid Arrow (level 3 version, +9, range 90 ft. = 18 cells, longRange = range + 1 because it has one range): 5d4 acid on a hit; the delayed 3d4 end-of-turn acid and the half damage on a miss are dropped. Acid Breath is a 60-ft.-long, 5-ft.-wide line (12 cells). Rend reach is 10 ft. (2 cells). XP is the printed 11,500, not the in-lair 13,000.
-  // TODO model: Quaternius Dragon Evolved, black tint; goblin_warrior body, very large and black, as stand-in.
   {
     id: 'adult_black_dragon',
     name: 'Adult Black Dragon',
@@ -374,13 +368,12 @@ export const LAIR_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '5d4', type: 'acid' }],
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 8026774, scale: 2.3 },
+    visual: { model: 'dragon_black', scale: 2 },
     themes: ['lair', 'marsh'],
     role: 'elite',
     description: 'An immense, skull-faced dragon of oily black scales that has made a stagnant pool of acid out of its lair.',
   },
   // Simplified: drops Fly, Burrow, Blindsight, Darkvision, skills, Legendary Resistance, Legendary Actions and the whole Spellcasting list (Detect Magic, Invisibility, Mage Hand, Scrying, Sending); the Shatter spell that the Multiattack may swap in for a Rend is also dropped, because it is a point-targeted area save that cannot run inside a multiattack. Lightning Breath is a 90-ft.-long, 5-ft.-wide line (18 cells). Rend reach is 10 ft. (2 cells). XP is the printed 15,000, not the in-lair 18,000.
-  // TODO model: Quaternius Dragon Evolved, blue tint; goblin_boss body, very large and blue, as stand-in.
   {
     id: 'adult_blue_dragon',
     name: 'Adult Blue Dragon',
@@ -435,13 +428,12 @@ export const LAIR_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '11d10', type: 'lightning' }],
       },
     ],
-    visual: { model: 'goblin_boss', tint: 4886783, scale: 2.45 },
+    visual: { model: 'dragon_blue', scale: 2.1 },
     themes: ['lair'],
     role: 'elite',
     description: 'A towering desert-hued dragon that drowns its lair in thunder and sits atop heaps of glittering sand and coin.',
   },
   // Simplified: drops Fly, Climb, Blindsight, Darkvision, skills, Legendary Resistance, Legendary Actions and the Spellcasting list (Command, Detect Magic, Fireball). Kept: the Multiattack option that replaces one Rend with Scorching Ray (+12, 2d6 fire per ray, three rays at the one target; range 120 ft. = 24 cells, longRange = range + 1 because it has one range). Fire Breath is a 60-ft. cone (12 cells). Rend reach is 10 ft. (2 cells). XP is the printed 18,000, not the in-lair 20,000.
-  // TODO model: Quaternius Dragon Evolved, red tint; goblin_boss body, huge and red, as stand-in.
   {
     id: 'adult_red_dragon',
     name: 'Adult Red Dragon',
@@ -515,13 +507,12 @@ export const LAIR_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '2d6', type: 'fire' }],
       },
     ],
-    visual: { model: 'goblin_boss', tint: 16728112, scale: 3.0 },
+    visual: { model: 'dragon_red', scale: 2.3 },
     themes: ['lair'],
     role: 'boss',
     description: 'A mountain of red scale and ancient greed whose very breathing warms the cavern like a forge.',
   },
   // Simplified: size is Gargantuan in the SRD; the game has no larger size than huge, so it is huge, with the largest visual scale in the game. Drops Fly, Climb, Blindsight, Darkvision, skills, Legendary Resistance (4/Day), Legendary Actions and the Spellcasting list (Command, Detect Magic, Fireball level 6, Scrying). Kept: the Multiattack option that replaces one Rend with Scorching Ray (level 3 version: four rays, +15, 2d6 fire each, one target; range 120 ft. = 24 cells, longRange = range + 1 because it has one range). Fire Breath is a 90-ft. cone (18 cells). Rend reach is 15 ft. (3 cells). XP is the printed 62,000, not the in-lair 75,000.
-  // TODO model: Quaternius Dragon Evolved, red tint at the largest scale; goblin_boss body, enormous and red, as stand-in.
   {
     id: 'ancient_red_dragon',
     name: 'Ancient Red Dragon',
@@ -595,7 +586,7 @@ export const LAIR_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '2d6', type: 'fire' }],
       },
     ],
-    visual: { model: 'goblin_boss', tint: 16726568, scale: 4.4 },
+    visual: { model: 'dragon_red', scale: 2.7 },
     themes: ['lair'],
     role: 'boss',
     description: 'The oldest and greediest of its kind, a living volcano of scales that has slept on its hoard since before the kingdom above was founded.',

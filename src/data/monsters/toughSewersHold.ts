@@ -9,7 +9,6 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // so a single range); the SRD's "Frightened target only" requirement and its drop-to-0-HP clause for targets at 20 HP or
   // fewer cannot be expressed. Drops Amphibious, Coven Magic, Vile Appearance (aura), Illusory Appearance. Swim 40 ft. is
   // not used: she walks at 30 ft.
-  // TODO model: Witch (Mystery Monthly 5) or a KayKit Mage in a sea-green hag tint (docs/research/roster-options.md); hero_mage as stand-in.
   {
     id: 'sea_hag',
     name: 'Sea Hag',
@@ -52,7 +51,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         damage: [{ dice: '3d8', type: 'psychic' }],
       },
     ],
-    visual: { model: 'hero_mage', tint: 0x50d0c0, scale: 0.9 },
+    visual: { model: 'hag_green', tint: 0x50d0c0, scale: 0.9 },
     themes: ['sewers', 'marsh'],
     role: 'elite',
     description: 'A hunched, seaweed-draped crone who lurks where the tunnels flood and gloats over whatever she drags under.',
@@ -61,7 +60,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // Multiattack (two attacks in any combination of Bite, Claw and Harpoon) is split into a Bite and Claw pair, a Harpoon and Claw pair,
   // and a thrown pair. Bite is Poisoned until the end of its next turn (1 round). Harpoon's pull of up to 15 ft. cannot be
   // expressed and is dropped, as is Amphibious.
-  // TODO model: a fish-man or sea-ogre (no such pack owned); ghoul as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a fish-man or sea-ogre (no such pack owned); ghoul as stand-in.
   {
     id: 'merrow',
     name: 'Merrow',
@@ -159,8 +158,6 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // Simplified: keeps Dissolving Pseudopod (reach 10 ft.), Amorphous and Spider Climb; its climb speed and the armor-damaging
   // rider are dropped. Drops Corrosive Form and Split (reaction). Immunities: acid, cold, lightning, slashing; condition
   // immunities keep charmed, frightened, grappled, prone and restrained (Deafened and Exhaustion do not exist here).
-  // TODO model: Quaternius Slime scaled up with a near-black tint (docs/research/roster-options.md); shadow body as stand-in
-  // with a light purple tint (a truly dark tint would vanish in the sewers).
   {
     id: 'black_pudding',
     name: 'Black Pudding',
@@ -192,7 +189,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         damage: [{ dice: '4d6+3', type: 'acid' }],
       },
     ],
-    visual: { model: 'shadow', tint: 0x9060d0, scale: 1.8 },
+    visual: { model: 'slime_black', scale: 2.8 },
     themes: ['sewers', 'fungal', 'marsh'],
     role: 'elite',
     description: 'A churning heap of black slime that oozes along walls and ceilings, dissolving everything in its path.',
@@ -200,7 +197,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // Simplified: Multiattack is one Bite and one Tail. Bite Grappled (escape DC 15) is a Strength save-ends; the SRD's extra
   // Restrained and its Large-or-smaller check are dropped. Tail Prone lasts 1 round, without the size check. Drops Hold Breath.
   // Swim 50 ft. is not used: it walks at 30 ft.
-  // TODO model: a crocodile (docs/research/roster-options.md drops it for lack of a model); wolf rig scaled up as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a crocodile (docs/research/roster-options.md drops it for lack of a model); wolf rig scaled up as stand-in.
   {
     id: 'giant_crocodile',
     name: 'Giant Crocodile',
@@ -263,7 +260,6 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // exist here). Swim 90 ft. is not used: it walks at 30 ft. Whelm (Recharge 4-6) has no "creatures in its own space"
   // area, so it is a melee Strength save against one target: 4d8+4 bludgeoning (half on a save), Grappled with a
   // save-ends at the escape DC 14; the Restrained and suffocation riders and the 2d8 damage per turn are dropped.
-  // TODO model: Quaternius Slime-style water blob or a KayKit water elemental (no such model owned); shadow body as stand-in.
   {
     id: 'water_elemental',
     name: 'Water Elemental',
@@ -317,7 +313,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 14 } },
       },
     ],
-    visual: { model: 'shadow', tint: 0x4080ff, scale: 1.5 },
+    visual: { model: 'slime_cyan', tint: 0x4080ff, scale: 2.6 },
     themes: ['sewers'],
     role: 'elite',
     description: 'A column of living floodwater that rises from the channel and crashes down on anyone wading nearby.',
@@ -327,7 +323,6 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // save-ends, without the size check. Tentacle Slam hits one target within reach (the SRD hits every grappled creature) and
   // cannot require the target to be grappled; it is a Constitution save for 3d8+3 bludgeoning (half on a save) and Stunned for
   // 1 round.
-  // TODO model: a sewer aberration with tentacles (no such model owned); ogre rig as stand-in.
   {
     id: 'otyugh',
     name: 'Otyugh',
@@ -391,7 +386,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         applies: { condition: 'stunned', rounds: 1 },
       },
     ],
-    visual: { model: 'ogre', tint: 0xb8a850, scale: 1.35 },
+    visual: { model: 'ogre', tint: 0xb8a850, scale: 1.2 },
     themes: ['sewers', 'fungal'],
     role: 'boss',
     description: 'A bloated heap of tentacles and teeth that feeds on the waste of the whole city and anything that wanders in.',
@@ -403,7 +398,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // swim speed is used as its speed (knee-deep sewer water). Consume Memories (30 ft., one range) has no attack roll, so it
   // needs no long range. Drops Amphibious, Eldritch Restoration, Legendary Resistance, Mucus Cloud, Probing Telepathy and
   // the Legendary Actions (Lash, Psychic Drain). XP is the 5,900 not-in-lair value.
-  // TODO model: a giant eel-like horror (no such model owned); shadow rig scaled up with a teal tint as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a giant eel-like horror (no such model owned); shadow rig scaled up with a teal tint as stand-in.
   {
     id: 'aboleth',
     name: 'Aboleth',
@@ -473,8 +468,6 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   },
   // Simplified: Multiattack is two Slams. Hail of Bark (180 ft., a single range) has longRange = range + 1. Drops Animate Trees
   // (summoning) and Siege Monster. Resistances Bludgeoning and Piercing and Vulnerability Fire are plain damage types here.
-  // TODO model: Quaternius Mushroom King x2 in a green-brown tint, or Plant Warrior from Mystery Monthly 6
-  // (docs/research/roster-options.md); ogre rig scaled up as stand-in.
   {
     id: 'treant',
     name: 'Treant',
@@ -525,7 +518,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         damage: [{ dice: '4d10+6', type: 'piercing' }],
       },
     ],
-    visual: { model: 'ogre', tint: 0x90b050, scale: 2.0 },
+    visual: { model: 'mushking_moss', scale: 2.1 },
     themes: ['fungal', 'ruin', 'forest'],
     role: 'boss',
     description: 'A towering, moss-bearded tree-warden that has taken root among the glowing caverns and guards them from intruders.',
@@ -534,7 +527,6 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // Hold Person (1/Day, Paralyzed with a Wisdom save-ends at DC 12) and Spiritual Weapon (2/Day bonus action: a single
   // force attack at range 60 ft., longRange = range + 1, rather than a lingering weapon). Drops Light and Thaumaturgy.
   // Pact Blade has two damage types (slashing and necrotic).
-  // TODO model: hero_mage in a deep red tint (docs/research/roster-options.md); stand-in is the intended model.
   {
     id: 'cultist_fanatic',
     name: 'Cultist Fanatic',
@@ -602,7 +594,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         damage: [{ dice: '1d8+2', type: 'force' }],
       },
     ],
-    visual: { model: 'hero_mage', tint: 0xd05050 },
+    visual: { model: 'mage_cultist' },
     themes: ['hold'],
     role: 'elite',
     description: 'A zealot who has sworn the outlaws\' pact to a darker power and fights with a frightening conviction.',
@@ -610,7 +602,6 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // Simplified: drops the Parry reaction (reactions cannot be expressed). Multiattack (two attacks in any combination of
   // Greatsword and Heavy Crossbow) is split into a melee pair and a ranged pair. Both attacks carry the extra 1d8 radiant as
   // a second damage entry. Heavy Crossbow range 100/400 ft.
-  // TODO model: hero_knight (docs/research/roster-options.md); hero_knight with a tint is the intended model.
   {
     id: 'knight',
     name: 'Knight',
@@ -683,7 +674,6 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   },
   // Simplified: Multiattack (two attacks in any combination of Javelin and Longsword) is split into a Longsword pair and a thrown
   // Javelin pair; the melee Javelin is a separate single attack. Javelin range 30/120 ft. Drops the 6-javelin supply.
-  // TODO model: hero_knight (docs/research/roster-options.md); hero_knight with a tint is the intended model.
   {
     id: 'guard_captain',
     name: 'Guard Captain',
@@ -753,7 +743,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         damage: [{ dice: '3d6+4', type: 'piercing' }],
       },
     ],
-    visual: { model: 'hero_knight', tint: 0x70d890, scale: 1.1 },
+    visual: { model: 'knight_green', tint: 0x70d890, scale: 1.1 },
     themes: ['hold'],
     role: 'elite',
     description: 'A grizzled officer in a dented breastplate who now drills the outlaws like a garrison.',
@@ -761,7 +751,6 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // Simplified: Multiattack (three attacks in any combination of Rapier and Pistol) is split into a melee triple and a ranged
   // triple. Drops the Rapier's advantage on its next attack and the Riposte reaction (reactions cannot be expressed).
   // Captain's Charm (bonus action) is Charmed for 1 round (until the start of its next turn). Pistol range 30/90 ft.
-  // TODO model: hero_rogue with a hat and cutlass prop (docs/research/roster-options.md); hero_rogue tinted as stand-in.
   {
     id: 'pirate_captain',
     name: 'Pirate Captain',
@@ -831,7 +820,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         applies: { condition: 'charmed', rounds: 1 },
       },
     ],
-    visual: { model: 'hero_rogue', tint: 0xf06a30, scale: 1.15 },
+    visual: { model: 'rogue_navy', tint: 0xf06a30, scale: 1.15 },
     themes: ['hold'],
     role: 'boss',
     description: 'A silver-tongued sea-dog turned outlaw chief, who duels with a flourish and a pistol at the ready.',
@@ -840,7 +829,6 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // and a ranged triple. Both attacks carry their poison as a second damage entry (Shortsword also Poisoned until the start
   // of the assassin's next turn, 1 round). Drops Evasion and Cunning Action (Dash, Disengage and Hide; no engine support for
   // Hide). Resistance Poison is a plain damage type. Light Crossbow range 80/320 ft. XP is the SRD value for CR 8.
-  // TODO model: hero_rogue in a dark hood or Rogue_Hooded (docs/research/roster-options.md); hero_rogue tinted as stand-in.
   {
     id: 'assassin',
     name: 'Assassin',
@@ -907,7 +895,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'hero_rogue', tint: 0x9aa8b8, scale: 1.05 },
+    visual: { model: 'hooded_black', scale: 1.05 },
     themes: ['hold'],
     role: 'boss',
     description: 'A hooded killer-for-hire who strikes from the dark with poisoned steel and is gone before the alarm is raised.',

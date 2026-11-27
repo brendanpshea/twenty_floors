@@ -44,7 +44,9 @@ export class Explore {
 
   /** Monsters that join a fight if one starts at the player's current cell, else null. */
   combatTrigger(at?: GridPos): MonsterState[] | null {
-    const { state } = this.ctx;
+    const { state, deps } = this.ctx;
+    // ?peace=1: monsters stand where they were placed and never notice the hero.
+    if (deps.options.peace) return null;
     const p = at ?? state.player.pos;
     const here = state.plan.roomIds[p.y * state.plan.width + p.x] ?? -1;
     const inEntrance = here >= 0 && state.plan.rooms.find((r) => r.id === here)?.role === 'entrance';
@@ -118,13 +120,21 @@ export class Explore {
       this.ctx.hud();
       return;
     }
-    if (pick.entityId === 'player' || !pick.cell) return;
+    if (pick.entityId === 'player') {
+      if (samePos(state.player.pos, state.plan.exit)) this.takeStairs();
+      return;
+    }
+    if (!pick.cell) return;
     await this.walkToCell(pick.cell);
   }
 
   async walkToCell(cell: GridPos): Promise<void> {
     const { state } = this.ctx;
-    if (samePos(cell, state.player.pos)) return;
+    if (samePos(cell, state.player.pos)) {
+      // Standing on the stairs when they open (the boss died next to them): choosing the cell descends.
+      if (samePos(cell, state.plan.exit)) this.takeStairs();
+      return;
+    }
     if (!state.nav.isWalkable(cell) || !state.nav.findPath(state.player.pos, cell, { blocked: blockedAt(state) })) {
       this.ctx.prompt("You can't get there.", 1800);
       return;
@@ -243,12 +253,7 @@ export class Explore {
         }
         if (samePos(step, state.plan.exit)) {
           this.goal = null;
-          if (!state.stairsOpen) this.ctx.prompt('The stairs are sealed. Defeat the floor boss first.', 3500);
-          else {
-            deps.audio.play('descend');
-            this.ctx.finish({ type: 'cleared', pc: state.pc });
-            return;
-          }
+          if (this.takeStairs()) return;
           break;
         }
       }
@@ -258,6 +263,19 @@ export class Explore {
     if (arrived?.chestId) await this.openChest(arrived.chestId);
     if (arrived?.restId) await this.restAt(arrived.restId);
     this.ctx.hud();
+  }
+
+  /** Descend if the hero is on the stairs and they are open; if sealed, say so. Returns true when the floor ended. */
+  private takeStairs(): boolean {
+    const { state, deps } = this.ctx;
+    if (state.finished || state.mode !== 'explore') return false;
+    if (!state.stairsOpen) {
+      this.ctx.prompt('The stairs are sealed. Defeat the floor boss first.', 3500);
+      return false;
+    }
+    deps.audio.play('descend');
+    this.ctx.finish({ type: 'cleared', pc: state.pc });
+    return true;
   }
 
   // --------------------------------------------------------------- chests

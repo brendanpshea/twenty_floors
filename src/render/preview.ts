@@ -3,7 +3,8 @@ import { CellKind } from '../core/types';
 import { planRunThemes, themeForDepth } from '../core/themes';
 import { MONSTERS } from '../data/monsters';
 import { generateFloorReport } from '../gen/generate';
-import { makeFixture } from './fixtures';
+import { Draft, autoLights, makeFixture } from './fixtures';
+import { PROP_TYPES } from './props';
 import { createRenderer } from './index';
 
 const params = new URLSearchParams(location.search);
@@ -141,6 +142,19 @@ function setFog(on: boolean): void {
   refreshButtons();
 }
 
+/** `gallery=1`: a flat lit room with every prop type in a grid (8 per row, 2 cells apart, in PROP_TYPES order, starting at cell 3,3). */
+function galleryPlan(t: ThemeId): FloorPlan {
+  const cols = 8;
+  const w = cols * 2 + 4;
+  const h = Math.ceil(PROP_TYPES.length / cols) * 2 + 4;
+  const d = new Draft(w, h);
+  d.rect(1, 1, w - 2, h - 2);
+  d.wallsAround();
+  PROP_TYPES.forEach((type, i) => d.prop(type, 3 + (i % cols) * 2, 3 + Math.floor(i / cols) * 2, Number(params.get('rot') ?? 0), false));
+  autoLights(d, t);
+  return d.toPlan(t, { x: 2, y: 2 }, { x: w - 3, y: h - 3 }, 1);
+}
+
 // ---- scene setup -------------------------------------------------------------
 async function setup(): Promise<void> {
   if (useGen) {
@@ -151,7 +165,7 @@ async function setup(): Promise<void> {
     plan = report.plan;
     setPiece = report.fallback ? 'fallback layout' : (report.setPiece ?? '');
     genMs = performance.now() - t0;
-  } else plan = makeFixture(theme);
+  } else plan = params.get('gallery') === '1' ? galleryPlan(theme) : makeFixture(theme);
   monsters.clear();
   (window as unknown as { __plan: FloorPlan }).__plan = plan;
   const t1 = performance.now();
@@ -172,7 +186,7 @@ async function setup(): Promise<void> {
   heroCell = { ...plan.entrance };
   renderer.spawnEntity('hero', { model: 'hero_knight' }, heroCell, { faction: 'player', size: 'medium' });
   // The floor's own cast (every monster only for the scripted demo, which names some directly).
-  const cast = params.get('demo') === '1' ? MONSTERS : MONSTERS.filter((m) => m.themes.includes(plan.theme));
+  const cast = params.get('gallery') === '1' ? [] : params.get('demo') === '1' ? MONSTERS : MONSTERS.filter((m) => m.themes.includes(plan.theme));
   cast.forEach((m, i) => {
     const cell = pick(3 + i, 0);
     monsters.set(m.id, { hp: 20, max: 20, cell: { ...cell } });
@@ -185,7 +199,8 @@ async function setup(): Promise<void> {
     renderer.placeEntity('hero', c);
   }
   plan.restSpots.forEach((c, i) => renderer.spawnEntity(`rest${i}`, { model: 'rest_site' }, c, { faction: 'ally', size: 'small' }));
-  const chestCell = pick(2, 3);
+  if (params.get('spent') === '1') plan.restSpots.forEach((_, i) => renderer.setEntityState(`rest${i}`, { dead: true }));
+  const chestCell = params.get('gallery') === '1' ? { x: 1, y: 1 } : pick(2, 3);
   renderer.spawnEntity('chest', { model: 'chest' }, chestCell, { faction: 'ally', size: 'small' });
   monsters.set('chest', { hp: 1, max: 1, cell: chestCell });
   revealed = new Uint8Array(plan.width * plan.height);
@@ -213,6 +228,9 @@ async function setup(): Promise<void> {
     const m = monsters.get('skeleton')!.cell;
     cells.push({ pos: m, style: 'target' });
     for (const o of [[1, 0], [0, 1], [-1, 0], [0, -1]] as const) cells.push({ pos: { x: m.x + o[0], y: m.y + o[1] }, style: 'area' });
+    for (const o of [[1, 1], [-1, 1], [-1, -1], [1, -1]] as const) cells.push({ pos: { x: m.x + o[0], y: m.y + o[1] }, style: 'danger' });
+    const walk = pathTo(heroCell, m);
+    if (walk) for (let i = 0; i < Math.min(4, walk.length - 1); i++) cells.push({ pos: walk[i]!, style: 'path' });
     renderer.setHighlights(cells);
   }
   applyCamera();
@@ -233,7 +251,10 @@ function setOverview(on: boolean): void {
 
 function applyOrbit(): void {
   const cam = params.get('cam') ?? 'a';
-  const fx = params.get('focus');
+  const at = params.get('at');
+  const bossRoom = plan.rooms.find((r) => r.role === 'boss');
+  const atCell: GridPos | undefined = at === 'rest0' ? plan.restSpots[0] : at === 'rest1' ? plan.restSpots[1] : at === 'exit' ? plan.exit : at === 'entrance' ? plan.entrance : at === 'boss' ? bossRoom?.center : undefined;
+  const fx = params.get('focus') ?? (atCell ? `${atCell.x},${atCell.y}` : null);
   const hero = plan.entrance;
   const presets: Record<string, { yaw: number; pitch: number; dist: number }> = {
     a: { yaw: 0.55, pitch: 0.96, dist: 22 },

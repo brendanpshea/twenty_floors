@@ -14,6 +14,9 @@ function classNameOf(id: string): string {
   return classNames.get(id) ?? id;
 }
 
+/** Past this many creatures in a fight the initiative strip drops the defeated. */
+export const MAX_STRIP_WITH_DEAD = 8;
+
 export interface HudInputs {
   state: FloorState;
   combat: CombatApi | null;
@@ -104,6 +107,8 @@ export function buildHudModel(inp: HudInputs): HudModel {
         const c = combat.creature(id);
         if (!c) return [];
         const dead = state.shownDead.has(id);
+        // In a crowd the strip only has room for the living.
+        if (dead && combat.order.length > MAX_STRIP_WITH_DEAD) return [];
         return [
           {
             id,

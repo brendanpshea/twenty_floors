@@ -1,4 +1,4 @@
-import type { Condition, HudAction, HudInitiativeEntry, HudModel, UiIntent } from '../core/types';
+import type { CompanionStance, Condition, HudAction, HudInitiativeEntry, HudModel, UiIntent } from '../core/types';
 import { CELL_FEET } from '../core/types';
 import {
   COST_LABEL,
@@ -74,6 +74,7 @@ interface ActionItem extends ChipItem {
 interface TileItem extends ChipItem {
   el: HTMLButtonElement;
   letter: HTMLElement;
+  glyph: HTMLElement;
   bar: Bar;
   entry: HudInitiativeEntry;
 }
@@ -83,6 +84,14 @@ interface PipItem extends ChipItem {
   pips: HTMLElement;
   count: number;
 }
+
+const STANCES: { id: CompanionStance; label: string; tip: string }[] = [
+  { id: 'close', label: 'Close', tip: 'Stay close: fights beside you and guards you' },
+  { id: 'back', label: 'Back', tip: 'Hang back: keeps its distance and avoids melee' },
+  { id: 'focus', label: 'Focus', tip: 'Focus: attacks whatever you attacked last' },
+];
+
+const ROLE_LABEL = { healer: 'Healer', blaster: 'Blaster', skirmisher: 'Skirmisher' } as const;
 
 export class Hud {
   readonly el: HTMLElement;
@@ -123,6 +132,24 @@ export class Hud {
   private readonly playerCondList: KeyedList<Condition, ChipItem>;
   private readonly resEl = h('div', 'tf-resources');
   private readonly resList: KeyedList<{ name: string; current: number; max: number }, PipItem>;
+
+  // companion
+  private readonly compEl = h('section', 'tf-comp');
+  private readonly compRow = h('button', 'tf-comp-row');
+  private readonly compPortrait = h('span', 'tf-comp-portrait');
+  private readonly compName = h('span', 'tf-comp-name');
+  private readonly compLv = h('span', 'tf-comp-lv');
+  private readonly compBar = makeBar('tf-bar--hp tf-bar--slim');
+  private readonly compHpText = h('div', 'tf-bar-text');
+  private readonly compStanceGlyph = h('span', 'tf-comp-stanceglyph');
+  private readonly compConds = h('div', 'tf-chips');
+  private readonly compCondList: KeyedList<Condition, ChipItem>;
+  private readonly compResEl = h('div', 'tf-resources');
+  private readonly compResList: KeyedList<{ name: string; current: number; max: number }, PipItem>;
+  private readonly compDowned = h('div', 'tf-comp-downed', 'Downed. Back on its feet after the fight.');
+  private readonly stanceEl = h('div', 'tf-stance');
+  private readonly stanceBtns = new Map<CompanionStance, HTMLButtonElement>();
+  private compOpen = false;
 
   // log
   private readonly logEl = h('section', 'tf-log');
@@ -271,7 +298,15 @@ export class Hud {
       (r) => this.createPips(r.name),
       (item, r) => this.updatePips(item, r.current, r.max),
     );
-    bl.append(this.logEl, player);
+    this.buildCompanion();
+    this.compCondList = chipList(this.compConds);
+    this.compResList = new KeyedList(
+      this.compResEl,
+      (r) => r.name,
+      (r) => this.createPips(r.name),
+      (item, r) => this.updatePips(item, r.current, r.max),
+    );
+    bl.append(this.logEl, this.compEl, player);
 
     const bc = h('div', 'tf-bc');
     this.promptEl.setAttribute('role', 'status');
@@ -360,6 +395,75 @@ export class Hud {
   }
 
   // -------------------------------------------------------------------------
+  // Companion
+  // -------------------------------------------------------------------------
+
+  private buildCompanion(): void {
+    this.compEl.hidden = true;
+    const row = this.compRow;
+    row.type = 'button';
+    this.compPortrait.append(createIcon('role-healer'));
+    const main = h('span', 'tf-comp-main');
+    const head = h('span', 'tf-comp-head');
+    head.append(this.compName, this.compLv);
+    this.compBar.el.append(this.compHpText);
+    main.append(head, this.compBar.el);
+    const chev = createIcon('chevron', 'tf-icon tf-comp-chev');
+    row.append(this.compPortrait, main, this.compStanceGlyph, chev);
+    row.addEventListener('click', () => {
+      if (!this.compEl.classList.contains('is-compact')) return;
+      this.compOpen = !this.compOpen;
+      this.compEl.classList.toggle('is-open', this.compOpen);
+      row.setAttribute('aria-expanded', String(this.compOpen));
+    });
+    const more = h('div', 'tf-comp-more');
+    more.append(this.compConds, this.compResEl, this.compDowned);
+    this.stanceEl.setAttribute('role', 'radiogroup');
+    this.stanceEl.setAttribute('aria-label', 'Companion stance');
+    for (const s of STANCES) {
+      const b = h('button', 'tf-stance-btn');
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.dataset['key'] = `stance-${s.id}`;
+      b.append(createIcon(`stance-${s.id}`), h('span', undefined, s.label));
+      b.setAttribute('aria-label', `${s.label}: ${s.tip}`);
+      b.addEventListener('click', () => this.emit({ type: 'setStance', stance: s.id }));
+      this.tip.attach(b, () => ({ title: s.label, body: s.tip }));
+      this.stanceBtns.set(s.id, b);
+      this.stanceEl.append(b);
+    }
+    this.compEl.append(row, more, this.stanceEl);
+  }
+
+  private syncCompanion(m: HudModel): void {
+    const c = m.companion;
+    this.compEl.hidden = !c;
+    this.el.classList.toggle('has-companion', !!c);
+    if (!c) return;
+    const compact = window.matchMedia('(max-width: 820px), (max-height: 520px)').matches;
+    this.compEl.classList.toggle('is-compact', compact);
+    this.compEl.classList.toggle('is-open', compact && this.compOpen);
+    this.compEl.classList.toggle('is-downed', c.downed);
+    swapIcon(this.compPortrait, `role-${c.role}`);
+    setText(this.compName, c.name);
+    setText(this.compLv, `Lv ${c.level}`);
+    setBar(this.compBar, c.downed || c.maxHp <= 0 ? 0 : c.hp / c.maxHp);
+    setText(this.compHpText, c.downed ? 'Downed' : `${c.hp} / ${c.maxHp}`);
+    swapIcon(this.compStanceGlyph, `stance-${c.stance}`);
+    this.compCondList.sync(c.conditions);
+    this.compConds.hidden = c.conditions.length === 0;
+    this.compResList.sync(c.resources);
+    this.compResEl.hidden = c.resources.length === 0;
+    this.compDowned.hidden = !c.downed;
+    setAttr(this.compRow, 'aria-label', `${c.name}, ${ROLE_LABEL[c.role]}, level ${c.level}`);
+    for (const [id, b] of this.stanceBtns) {
+      const on = id === c.stance;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-checked', String(on));
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Visibility
   // -------------------------------------------------------------------------
 
@@ -394,6 +498,7 @@ export class Hud {
 
     this.syncPlayer(m);
     this.syncCombat(m);
+    this.syncCompanion(m);
     this.syncTarget(m);
     this.actions.sync(m.actions);
     this.actionsEl.classList.toggle('is-many', m.actions.length > 5);
@@ -464,6 +569,8 @@ export class Hud {
     const t = m.target;
     this.targetEl.classList.toggle('is-open', !!t);
     if (!t) return;
+    const friendly = !!m.companion && m.companion.name === t.name;
+    this.targetEl.classList.toggle('is-friendly', friendly);
     setText(this.targetName, t.name);
     setText(this.targetAcNum, String(t.ac));
     setBar(this.targetBar, t.maxHp > 0 ? t.hp / t.maxHp : 0);
@@ -472,7 +579,7 @@ export class Hud {
     this.targetConds.hidden = t.conditions.length === 0;
     setText(this.targetDesc, t.description ?? '');
     this.targetDesc.hidden = !t.description;
-    const hit = t.hitChance;
+    const hit = friendly ? undefined : t.hitChance;
     this.targetHit.hidden = hit === undefined;
     if (hit !== undefined) {
       setText(this.targetHit, `Hit chance ${Math.round(hit * 100)}%`);
@@ -545,9 +652,11 @@ export class Hud {
     const el = h('button', 'tf-tile');
     el.type = 'button';
     const letter = h('span', 'tf-tile-letter');
+    const glyph = h('span', 'tf-tile-glyph');
+    glyph.hidden = true;
     const bar = makeBar('tf-bar--mini');
-    el.append(letter, bar.el);
-    const item: TileItem = { el, letter, bar, entry: e };
+    el.append(letter, glyph, bar.el);
+    const item: TileItem = { el, letter, glyph, bar, entry: e };
     el.addEventListener('click', () => this.emit({ type: 'selectCreature', creatureId: item.entry.id }));
     this.tip.attach(el, () => ({
       title: item.entry.name,
@@ -558,9 +667,13 @@ export class Hud {
 
   private updateTile(item: TileItem, e: HudInitiativeEntry): void {
     item.entry = e;
-    const cls = `tf-tile tf-tile--${e.faction}${e.active ? ' is-active' : ''}${e.dead ? ' is-dead' : ''}`;
+    const comp = e.faction === 'ally' && this.model?.companion?.name === e.name ? this.model.companion : undefined;
+    const cls = `tf-tile tf-tile--${e.faction}${comp ? ' is-companion' : ''}${e.active ? ' is-active' : ''}${e.dead ? ' is-dead' : ''}`;
     if (item.el.className !== cls) item.el.className = cls;
     setText(item.letter, (e.name.trim().charAt(0) || '?').toUpperCase());
+    item.letter.hidden = !!comp;
+    item.glyph.hidden = !comp;
+    if (comp) swapIcon(item.glyph, `role-${comp.role}`);
     setBar(item.bar, e.dead ? 0 : e.hpFraction);
     setAttr(item.el, 'aria-label', `${e.name}${e.active ? ', active' : ''}${e.dead ? ', fallen' : ''}`);
     setAttr(item.el, 'aria-current', e.active ? 'true' : null);
@@ -674,6 +787,13 @@ export class Hud {
       return;
     }
     if (e.repeat) return;
+    if ((e.key === 'c' || e.key === 'C') && this.model.companion) {
+      const order = STANCES.map((s) => s.id);
+      const next = order[(order.indexOf(this.model.companion.stance) + 1) % order.length];
+      if (next) this.emit({ type: 'setStance', stance: next });
+      e.preventDefault();
+      return;
+    }
     if (e.key >= '1' && e.key <= '9') {
       const item = [...this.actionsEl.children][Number(e.key) - 1];
       const found = this.findActionByEl(item);

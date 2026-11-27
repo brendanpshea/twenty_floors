@@ -351,5 +351,829 @@
   "height": 2.2,
   "variantOf": "orc",
   "bytes": 153092
+ },
+ "frog": {
+  "height": 0.8,
+  "scale": 0.3166,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 90420,
+  "rawHeight": 2.527
+ },
+ "slime": {
+  "height": 0.8,
+  "scale": 0.4107,
+  "anim": {
+   "idle": "Slime_Idle",
+   "walk": "Slime_Walk",
+   "attack": "Slime_Attack",
+   "death": "Slime_Death"
+  },
+  "bytes": 45860,
+  "rawHeight": 1.948
+ },
+ "snake": {
+  "height": 0.5,
+  "scale": 0.1619,
+  "anim": {
+   "idle": "Snake_Idle",
+   "walk": "Snake_Walk",
+   "attack": "Snake_Attack"
+  },
+  "bytes": 60304,
+  "rawHeight": 3.088
+ },
+ "mushnub": {
+  "height": 0.8,
+  "scale": 0.242,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Bite_Front",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "bytes": 24968,
+  "rawHeight": 3.306
+ },
+ "blob": {
+  "height": 0.9,
+  "scale": 0.2154,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Bite_Front",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "bytes": 47368,
+  "rawHeight": 4.178
+ },
+ "crab": {
+  "height": 0.9,
+  "scale": 0.5913,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Bite_Front",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "bytes": 47996,
+  "rawHeight": 1.522
+ },
+ "bat": {
+  "height": 0.5,
+  "scale": 0.1144,
+  "anim": {
+   "idle": "Bat_Flying",
+   "walk": "Bat_Flying",
+   "attack": "Bat_Attack",
+   "hit": "Bat_Hit",
+   "death": "Bat_Death"
+  },
+  "bytes": 77312,
+  "rawHeight": 4.369
+ },
+ "mushking": {
+  "height": 2,
+  "scale": 0.5802,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 105232,
+  "rawHeight": 3.447
+ },
+ "imp": {
+  "height": 1.3,
+  "scale": 0.4398,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Weapon",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 108028,
+  "rawHeight": 2.956
+ },
+ "bluedemon": {
+  "height": 1.7,
+  "scale": 0.6365,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 99704,
+  "rawHeight": 2.671
+ },
+ "birb": {
+  "height": 1.5,
+  "scale": 0.566,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Bite_Front",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "bytes": 44384,
+  "rawHeight": 2.65
+ },
+ "hywirl": {
+  "height": 1,
+  "scale": 0.3544,
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 66808,
+  "rawHeight": 2.822
+ },
+ "dino": {
+  "height": 1.5,
+  "scale": 0.4896,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 97032,
+  "rawHeight": 3.064
+ },
+ "yeti": {
+  "height": 2.2,
+  "scale": 0.9002,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Bite_Front",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "bytes": 35868,
+  "rawHeight": 2.444
+ },
+ "cat": {
+  "height": 0.9,
+  "scale": 0.4592,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Bite_Front",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "bytes": 33096,
+  "rawHeight": 1.96
+ },
+ "bull": {
+  "height": 1.6,
+  "scale": 0.3465,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Attack_Headbutt",
+   "hit": "Idle_HitReact_Left",
+   "death": "Death"
+  },
+  "bytes": 137388,
+  "rawHeight": 4.617
+ },
+ "pig": {
+  "height": 0.9,
+  "scale": 0.5614,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Headbutt",
+   "death": "Death"
+  },
+  "bytes": 49200,
+  "rawHeight": 1.603
+ },
+ "witch": {
+  "height": 1.8,
+  "scale": 0.8942,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch_Right",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "bytes": 239340,
+  "rawHeight": 2.013
+ },
+ "dragon": {
+  "height": 1.8,
+  "scale": 0.741,
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 67600,
+  "rawHeight": 2.429
+ },
+ "dragonevo": {
+  "height": 2.2,
+  "scale": 0.7537,
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 115688,
+  "rawHeight": 2.919
+ },
+ "goleling": {
+  "height": 1.5,
+  "scale": 0.6361,
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "bytes": 59916,
+  "rawHeight": 2.358
+ },
+ "rogue_hooded": {
+  "height": 1.8,
+  "scale": 0.7995,
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "Dualwield_Melee_Attack_Slice",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "bytes": 250628
+ },
+ "hooded_brown": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "Dualwield_Melee_Attack_Slice",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.7995,
+  "height": 1.8,
+  "variantOf": "rogue_hooded",
+  "bytes": 228928
+ },
+ "dragon_red": {
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.7537,
+  "height": 2.2,
+  "variantOf": "dragonevo",
+  "bytes": 121956
+ },
+ "hooded_black": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "Dualwield_Melee_Attack_Slice",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.7995,
+  "height": 1.8,
+  "variantOf": "rogue_hooded",
+  "bytes": 228696
+ },
+ "hooded_grey": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "Dualwield_Melee_Attack_Slice",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.7995,
+  "height": 1.8,
+  "variantOf": "rogue_hooded",
+  "bytes": 228952
+ },
+ "rogue_brown": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "Dualwield_Melee_Attack_Slice",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.8219,
+  "height": 1.8,
+  "variantOf": "hero_rogue",
+  "bytes": 232868
+ },
+ "rogue_navy": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "Dualwield_Melee_Attack_Slice",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.8219,
+  "height": 1.8,
+  "variantOf": "hero_rogue",
+  "bytes": 232644
+ },
+ "rogue_crimson": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "Dualwield_Melee_Attack_Slice",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.8219,
+  "height": 1.8,
+  "variantOf": "hero_rogue",
+  "bytes": 232784
+ },
+ "mage_cultist": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.6354,
+  "height": 1.9,
+  "variantOf": "hero_mage",
+  "bytes": 236992
+ },
+ "mage_priest": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.6354,
+  "height": 1.9,
+  "variantOf": "hero_mage",
+  "bytes": 230132
+ },
+ "mage_green": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.6354,
+  "height": 1.9,
+  "variantOf": "hero_mage",
+  "bytes": 237076
+ },
+ "barb_red": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.7563,
+  "height": 1.8,
+  "variantOf": "hero_barbarian",
+  "bytes": 246976
+ },
+ "knight_dark": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.7347,
+  "height": 1.8,
+  "variantOf": "hero_knight",
+  "bytes": 249684
+ },
+ "knight_gold": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.7347,
+  "height": 1.8,
+  "variantOf": "hero_knight",
+  "bytes": 250220
+ },
+ "knight_green": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walking_A",
+   "attack": "1H_Melee_Attack_Chop",
+   "hit": "Hit_A",
+   "death": "Death_A",
+   "cast": "Spellcast_Shoot"
+  },
+  "scale": 0.7347,
+  "height": 1.8,
+  "variantOf": "hero_knight",
+  "bytes": 250360
+ },
+ "dragon_black": {
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.7537,
+  "height": 2.2,
+  "variantOf": "dragonevo",
+  "bytes": 121956
+ },
+ "dragon_blue": {
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.7537,
+  "height": 2.2,
+  "variantOf": "dragonevo",
+  "bytes": 121956
+ },
+ "dragon_green": {
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.7537,
+  "height": 2.2,
+  "variantOf": "dragonevo",
+  "bytes": 121960
+ },
+ "dragon_white": {
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.7537,
+  "height": 2.2,
+  "variantOf": "dragonevo",
+  "bytes": 121948
+ },
+ "dragon_silver": {
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.7537,
+  "height": 2.2,
+  "variantOf": "dragonevo",
+  "bytes": 121948
+ },
+ "dragon_gold": {
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.7537,
+  "height": 2.2,
+  "variantOf": "dragonevo",
+  "bytes": 121952
+ },
+ "wyvern": {
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.741,
+  "height": 1.8,
+  "variantOf": "dragon",
+  "bytes": 71116
+ },
+ "frog_green": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.3166,
+  "height": 0.8,
+  "variantOf": "frog",
+  "bytes": 92772
+ },
+ "slime_gray": {
+  "anim": {
+   "idle": "Slime_Idle",
+   "walk": "Slime_Walk",
+   "attack": "Slime_Attack",
+   "death": "Slime_Death"
+  },
+  "scale": 0.4107,
+  "height": 0.8,
+  "variantOf": "slime",
+  "bytes": 47764
+ },
+ "slime_ochre": {
+  "anim": {
+   "idle": "Slime_Idle",
+   "walk": "Slime_Walk",
+   "attack": "Slime_Attack",
+   "death": "Slime_Death"
+  },
+  "scale": 0.4107,
+  "height": 0.8,
+  "variantOf": "slime",
+  "bytes": 47764
+ },
+ "slime_cyan": {
+  "anim": {
+   "idle": "Slime_Idle",
+   "walk": "Slime_Walk",
+   "attack": "Slime_Attack",
+   "death": "Slime_Death"
+  },
+  "scale": 0.4107,
+  "height": 0.8,
+  "variantOf": "slime",
+  "bytes": 47764
+ },
+ "slime_black": {
+  "anim": {
+   "idle": "Slime_Idle",
+   "walk": "Slime_Walk",
+   "attack": "Slime_Attack",
+   "death": "Slime_Death"
+  },
+  "scale": 0.4107,
+  "height": 0.8,
+  "variantOf": "slime",
+  "bytes": 47768
+ },
+ "crab_teal": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Bite_Front",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "scale": 0.5913,
+  "height": 0.9,
+  "variantOf": "crab",
+  "bytes": 49920
+ },
+ "mushnub_violet": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Bite_Front",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "scale": 0.242,
+  "height": 0.8,
+  "variantOf": "mushnub",
+  "bytes": 25616
+ },
+ "mushking_moss": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.5802,
+  "height": 2,
+  "variantOf": "mushking",
+  "bytes": 107640
+ },
+ "hag_green": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch_Right",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "scale": 0.8942,
+  "height": 1.8,
+  "variantOf": "witch",
+  "bytes": 248004
+ },
+ "hag_sea": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch_Right",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "scale": 0.8942,
+  "height": 1.8,
+  "variantOf": "witch",
+  "bytes": 248004
+ },
+ "hag_night": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch_Right",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "scale": 0.8942,
+  "height": 1.8,
+  "variantOf": "witch",
+  "bytes": 248008
+ },
+ "companion_sphinx": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Bite_Front",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "scale": 0.3582,
+  "height": 0.9,
+  "variantOf": "cat",
+  "bytes": 34224
+ },
+ "companion_pseudodragon": {
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.2468,
+  "height": 1.8,
+  "variantOf": "dragon",
+  "bytes": 71116
+ },
+ "companion_blinkdog": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Attack",
+   "hit": "Idle_HitReact_Left",
+   "death": "Death"
+  },
+  "scale": 0.3745,
+  "height": 1,
+  "variantOf": "wolf_smooth",
+  "bytes": 142468
+ },
+ "mephit_ice": {
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.3544,
+  "height": 1,
+  "variantOf": "hywirl",
+  "bytes": 69616
+ },
+ "mephit_fire": {
+  "anim": {
+   "idle": "Flying_Idle",
+   "walk": "Fast_Flying",
+   "attack": "Headbutt",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.3544,
+  "height": 1,
+  "variantOf": "hywirl",
+  "bytes": 69616
+ },
+ "gargoyle_stone": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Punch",
+   "hit": "HitReact",
+   "death": "Death"
+  },
+  "scale": 0.6365,
+  "height": 1.7,
+  "variantOf": "bluedemon",
+  "bytes": 101968
+ },
+ "birb_gold": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Bite_Front",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "scale": 0.566,
+  "height": 1.5,
+  "variantOf": "birb",
+  "bytes": 46552
+ },
+ "birb_grey": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Bite_Front",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "scale": 0.566,
+  "height": 1.5,
+  "variantOf": "birb",
+  "bytes": 46552
+ },
+ "birb_crimson": {
+  "anim": {
+   "idle": "Idle",
+   "walk": "Walk",
+   "attack": "Bite_Front",
+   "hit": "HitRecieve",
+   "death": "Death"
+  },
+  "scale": 0.566,
+  "height": 1.5,
+  "variantOf": "birb",
+  "bytes": 46556
  }
 }

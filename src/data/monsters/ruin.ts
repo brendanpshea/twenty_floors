@@ -7,7 +7,6 @@ export const RUIN_MONSTERS: MonsterDef[] = [
   // Thorn Burst plus a free Charm Monster cast; that is modelled as the two attacks plus a separate bonus-action
   // Charm Monster (30 ft. = 6 cells), which applies Charmed with a Wisdom save-ends at DC 14 (the spell lasts 24
   // hours in the SRD). Thorn Burst has a single range of 60 ft. (12 cells) plus 1 for the long range.
-  // TODO model: a leaf-clad KayKit Druid (Adventurers Extra pack, not owned); hero_mage body, green, as stand-in.
   {
     id: 'dryad',
     name: 'Dryad',
@@ -59,15 +58,13 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         applies: { condition: 'charmed', saveEnds: { ability: 'wis', dc: 14 } },
       },
     ],
-    visual: { model: 'hero_mage', tint: 0x70d880, scale: 0.95 },
+    visual: { model: 'mage_green', scale: 0.95 },
     themes: ['ruin', 'forest'],
     role: 'standard',
     description: 'A spirit of the old trees whose bark-green skin blends into the ivy, and who lures trespassers to her side with a smile.',
   },
   // Simplified: nothing beyond a plain Slam; its Fire vulnerability and Bludgeoning and Piercing resistances are
   // kept as printed (the SRD does not say "nonmagical" for this one).
-  // TODO model: Quaternius Mushroom King or a walking-tree model (docs/research/roster-options.md lists Treant, not
-  // this monster); ogre body, mossy green, as stand-in.
   {
     id: 'awakened_tree',
     name: 'Awakened Tree',
@@ -99,14 +96,14 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '3d6+4', type: 'bludgeoning' }],
       },
     ],
-    visual: { model: 'ogre', tint: 0x80b048, scale: 1.45 },
+    visual: { model: 'mushking_moss', scale: 1.8 },
     themes: ['ruin', 'forest'],
     role: 'elite',
     description: 'An ancient tree woken from its long sleep, which tears its roots from the broken flagstones to drive off anything that disturbs the ruin.',
   },
   // Simplified: drops Fly 80 ft. (walks at its listed 30 ft.). Rend applies Grappled with a Strength save-ends at
   // the escape DC 14; the "Medium or smaller" size limit is not modelled.
-  // TODO model: Quaternius Birb with lion hindquarters (none available); wolf body, sandy gold, as stand-in
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Birb with lion hindquarters (none available); wolf body, sandy gold, as stand-in
   // (docs/research/roster-options.md drops the Griffon for lack of a model).
   {
     id: 'griffon',
@@ -155,7 +152,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     description: 'A lion-bodied hunter with an eagle\'s head and talons, nesting on the highest broken wall of the ruin.',
   },
   // Simplified: drops Climb 40 ft.; walks at 40 ft.
-  // TODO model: a bear-bodied, owl-headed Quaternius-style quadruped (none available, the roster doc drops the
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a bear-bodied, owl-headed Quaternius-style quadruped (none available, the roster doc drops the
   // Owlbear); wolf body, big and brown, as stand-in.
   {
     id: 'owlbear',
@@ -204,8 +201,6 @@ export const RUIN_MONSTERS: MonsterDef[] = [
   },
   // Simplified: drops Fly 80 ft. (walks at its listed 30 ft.). Sting applies Poisoned until the start of its next
   // turn (rounds: 1). Multiattack is Bite then Sting; its reach is the Sting's 10 ft. (2 cells).
-  // TODO model: Quaternius Dragon 3rUm1cN3yp (docs/research/roster-options.md suggests it, usable); goblin_warrior
-  // body, big and green, as stand-in.
   {
     id: 'wyvern',
     name: 'Wyvern',
@@ -260,7 +255,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         applies: { condition: 'poisoned', rounds: 1 },
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 0x90c850, scale: 1.55 },
+    visual: { model: 'wyvern', scale: 1.55 },
     themes: ['ruin', 'lair', 'peaks', 'hold'],
     role: 'elite',
     description: 'A two-legged, bat-winged cousin of true dragons that perches on crumbling arches and strikes with a venomous tail.',
@@ -270,7 +265,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
   // effect for the first failure, and the second-failure Petrified state is not modelled. The SRD Multiattack is
   // two Claws and a Snake Hair, or three Poison Rays, so there are separate melee and ranged multiattacks. Poison
   // Ray has a single range of 150 ft. (30 cells) plus 1 for the long range.
-  // TODO model: a snake-haired woman model (none available); hero_rogue body, green, as stand-in (the roster doc
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a snake-haired woman model (none available); hero_rogue body, green, as stand-in (the roster doc
   // drops the Medusa for lack of a model and a petrified condition).
   {
     id: 'medusa',
@@ -363,8 +358,6 @@ export const RUIN_MONSTERS: MonsterDef[] = [
   // Simplified: drops Climb 40 ft. and Leap. Boulder Toss is a point-targeted 5-ft. radius sphere (1 cell) up to
   // 90 ft. (18 cells) away with Recharge 6; the "Large or smaller" limit on Prone is not modelled (Prone lasts one
   // round).
-  // TODO model: Quaternius Yeti S1E7idPFhe, brown (docs/research/roster-options.md suggests it, usable); ogre body,
-  // tawny brown, as stand-in.
   {
     id: 'giant_ape',
     name: 'Giant Ape',
@@ -417,7 +410,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         applies: { condition: 'prone', rounds: 1 },
       },
     ],
-    visual: { model: 'ogre', tint: 0xc89860, scale: 1.7 },
+    visual: { model: 'yeti', tint: 0xc89860, scale: 1.7 },
     themes: ['ruin', 'forest'],
     role: 'elite',
     description: 'A mountain of tawny fur that clambers over the fallen walls and hurls chunks of masonry at anyone it cannot reach.',
@@ -427,8 +420,6 @@ export const RUIN_MONSTERS: MonsterDef[] = [
   // in one turn, two regrow unless it took fire damage, regains 20 HP), Reactive Heads (extra reactions for
   // opportunity attacks) and Hold Breath are dropped. Drops Swim 40 ft. The Deafened condition immunity is
   // dropped (not a Condition).
-  // TODO model: a multi-headed reptile (none available, the roster doc drops the Hydra); ogre body, big and
-  // teal-green, as stand-in.
   {
     id: 'hydra',
     name: 'Hydra',
@@ -469,15 +460,13 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '1d10+5', type: 'piercing' }],
       },
     ],
-    visual: { model: 'ogre', tint: 0x40d8b0, scale: 1.9 },
+    visual: { model: 'ogre', tint: 0x40d8b0, scale: 1.45 },
     themes: ['ruin', 'marsh', 'fungal'],
     role: 'elite',
     description: 'A many-headed swamp serpent that has slithered up into the ruin\'s flooded cellars and lashes out from every direction at once.',
   },
   // Simplified: drops Fly 80 ft. and Swim 40 ft. (walks at 40 ft.), Amphibious and Blindsight. Poison Breath is a
   // cone from the dragon (30 ft. = 6 cells) with Recharge 5-6.
-  // TODO model: Quaternius Dragon Evolved (docs/research/roster-options.md notes the chunky dragon as a commission);
-  // goblin_boss body, big and bright green, as stand-in.
   {
     id: 'young_green_dragon',
     name: 'Young Green Dragon',
@@ -532,7 +521,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '12d6', type: 'poison' }],
       },
     ],
-    visual: { model: 'goblin_boss', tint: 0x50d870, scale: 1.7 },
+    visual: { model: 'dragon_green', scale: 1.4 },
     themes: ['ruin', 'forest'],
     role: 'elite',
     description: 'A cunning, half-grown forest dragon with moss-green scales, lairing in the thickest tangle of the ruin.',
@@ -543,7 +532,6 @@ export const RUIN_MONSTERS: MonsterDef[] = [
   // Strike at the level 6 version (6d6 fire plus 6d6 radiant; 60 ft. range, 10-ft. radius = 2 cells; 1/Day). The
   // SRD lets it replace any Bite with a Spittle, so there are separate melee and ranged multiattacks (the mixed
   // Bite and Spittle combination is not modelled).
-  // TODO model: a serpent with a humanoid head (none available); giant_spider body, bright gold-green, as stand-in.
   {
     id: 'guardian_naga',
     name: 'Guardian Naga',
@@ -621,7 +609,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'giant_spider', tint: 0xb0e860, scale: 1.8 },
+    visual: { model: 'snake', tint: 0xb0e860, scale: 5 },
     themes: ['ruin', 'library'],
     role: 'elite',
     description: 'A coiled, jewel-scaled guardian with a wise human face that keeps watch over the ruin\'s innermost halls.',
@@ -630,7 +618,6 @@ export const RUIN_MONSTERS: MonsterDef[] = [
   // is dropped. Talons applies Restrained with a Strength save-ends at the escape DC 19 (the SRD gives Grappled
   // plus Restrained until the grapple ends; Restrained covers both, and the "Huge or smaller" limit is not
   // modelled). Swoop (carry and drop) is dropped. Multiattack is two Beaks or a Beak and a Talons.
-  // TODO model: Quaternius Birb, scaled huge (none shipped); giant_rat body, pale sandy, as stand-in.
   {
     id: 'roc',
     name: 'Roc',
@@ -691,7 +678,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         applies: { condition: 'restrained', saveEnds: { ability: 'str', dc: 19 } },
       },
     ],
-    visual: { model: 'giant_rat', tint: 0xf0d8a0, scale: 2.4 },
+    visual: { model: 'birb_gold', scale: 2.8 },
     themes: ['ruin', 'peaks', 'ice'],
     role: 'elite',
     description: 'A bird so vast that its shadow sweeps across the whole ruin, nesting atop the tallest surviving tower.',
@@ -701,8 +688,6 @@ export const RUIN_MONSTERS: MonsterDef[] = [
   // two attacks in any combination, so there are separate melee (Thunderous Mace) and ranged (Thundercloud)
   // multiattacks. Thundercloud has a single range of 240 ft. (48 cells) plus 1 for the long range; its
   // Incapacitated lasts until the end of the target's next turn (rounds: 1).
-  // TODO model: Quaternius Big arm giant x1.5, pale blue (docs/research/roster-options.md suggests it); ogre body,
-  // pale sky-blue, as stand-in.
   {
     id: 'cloud_giant',
     name: 'Cloud Giant',
@@ -766,7 +751,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         applies: { condition: 'incapacitated', rounds: 1 },
       },
     ],
-    visual: { model: 'ogre', tint: 0xa8d4ff, scale: 2.1 },
+    visual: { model: 'ogre', tint: 0xa8d4ff, scale: 1.55 },
     themes: ['ruin', 'peaks'],
     role: 'boss',
     description: 'A sky-dwelling giant whose cloud-pale skin and booming voice are at home among the highest broken towers of the ruin.',
@@ -777,8 +762,6 @@ export const RUIN_MONSTERS: MonsterDef[] = [
   // long range. Lightning Storm is a 10-ft. radius (2 cells) sphere point-targeted up to 500 ft. (100 cells) away
   // (the 40-ft. height is ignored) with Recharge 5-6. Multiattack is two attacks in any combination, so there are
   // separate melee and ranged multiattacks.
-  // TODO model: Quaternius Big arm giant x1.6, storm-blue (docs/research/roster-options.md lists Cloud and Frost
-  // Giants only); ogre body, big and indigo, as stand-in.
   {
     id: 'storm_giant',
     name: 'Storm Giant',
@@ -853,7 +836,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '10d10', type: 'lightning' }],
       },
     ],
-    visual: { model: 'ogre', tint: 0x8c9cff, scale: 2.4 },
+    visual: { model: 'ogre', tint: 0x8c9cff, scale: 1.65 },
     themes: ['ruin', 'peaks'],
     role: 'boss',
     description: 'A towering lord of storms with skin like thunderheads, who calls lightning down on the ruin\'s courtyards at will.',
@@ -864,8 +847,6 @@ export const RUIN_MONSTERS: MonsterDef[] = [
   // on save; range 120 ft. = 24 cells with 25 for the long range) as an at-will action; the SRD lets it replace
   // one Rend with it, but that mixed multiattack is not modelled. XP is the printed 13,000 (not the 15,000 in
   // lair), which is not in data.test.ts's CR to XP table, so the lead needs to add 15: 13000 there.
-  // TODO model: Quaternius Dragon Evolved (docs/research/roster-options.md notes a chunky dragon as a commission);
-  // goblin_boss body, huge and deep green, as stand-in.
   {
     id: 'adult_green_dragon',
     name: 'Adult Green Dragon',
@@ -930,7 +911,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '4d8', type: 'psychic' }],
       },
     ],
-    visual: { model: 'goblin_boss', tint: 0x28e068, scale: 2.3 },
+    visual: { model: 'dragon_green', scale: 2.2 },
     themes: ['ruin'],
     role: 'boss',
     description: 'A vast, sly forest wyrm that has made the roofless great hall its throne room and sees every visitor as a pawn or a meal.',

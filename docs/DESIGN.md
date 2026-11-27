@@ -29,7 +29,7 @@ Clearing a floor grants a level, so clearing floor 20 means reaching level 20.
 | Characters | A real creation engine (species, class, background, abilities), with a small content set to start. |
 | Art | Stylized low-poly. Procedural geometry for architecture, free open glTF models for creatures. |
 | Asset licences | CC0 and CC-BY (any version) are both acceptable. Free assets only: no purchased or commissioned packs for now. Creature variety comes from recolouring and kit parts on the rigs we have (see `docs/research/kitbash-findings.md`). |
-| Later floors | Floors 4 to 20 follow `docs/research/roster-options.md`. The final boss on floor 20 is a red dragon (planned as the Young Red Dragon, which fits the difficulty curve). |
+| Later floors | Floors 4 to 20 follow `docs/research/roster-options.md`. The final boss on floor 20 is the Adult Red Dragon. |
 | Rests | Two kinds, as in the tabletop rules. A **long rest** fully heals and restores everything; it is possible only at the safe rest sites found on each floor (two per floor, each usable once: one about midway, one on the approach to the boss) and in the hub. A **short rest** can be taken anywhere while exploring, as long as no enemy is in view: it spends Hit Dice automatically, without waste, and restores short-rest abilities. Up to two short rests between long rests. |
 | Hosting | Static site on GitHub Pages. Saves in localStorage. No backend. |
 
@@ -77,6 +77,39 @@ Magic weapons, armor and shields (+1 to +3) add their bonus to attack and
 damage or to Armor Class. They do not appear on floors 1 to 3; +1 items enter
 shops and chests from floor 4, +2 from about floor 9, +3 from about floor 15.
 Their prices are placeholders.
+
+## Companions
+
+From level 4 the hero travels with one companion, chosen in the hub before
+floor 4 and swappable at every hub visit. Floors 4 to 20 are tuned for a hero
+plus a companion.
+
+| Companion | Role | Base (SRD 5.2.1 stat block) | Look |
+|---|---|---|---|
+| Sphinx of Wonder | Healer | Tiny celestial | Small winged cat, gold |
+| Pseudodragon | Blaster | Tiny dragon | Cat-sized dragon that grows |
+| Blink Dog | Skirmisher | Medium fey that teleports | Recoloured wolf |
+
+- **Level.** Companion level is the hero's level minus two. The creature's
+  SRD stat block is what it is at companion level 1; one shared table then
+  raises hit points, proficiency and attack bonus, and a role kit unlocks
+  something every two or three levels. This table is our own design.
+- **Kits** reuse the hero's spells and features where possible. Healer:
+  Healing Word, Bless, Cure Wounds, Shield of Faith, then higher-level
+  healing and protection. Blaster: Fire Bolt, Magic Missile, Burning Hands,
+  Sleep, then higher-level area damage. Skirmisher: rogue abilities. Sneak Attack as in the rogue rules: extra
+  damage dice once per turn when the hero is adjacent to the target or when
+  the Blink Dog attacks from hiding, which it does on the attack straight
+  after it blinks. Later, Cunning Action style mobility, Uncanny Dodge and
+  Evasion. Kits run to companion level 18.
+- **Tuning waits.** Encounters are re-tuned once Fighter levels 4 to 20,
+  spells and companions are all in, not piecemeal before.
+- **Control.** The game plays the companion. The player picks a stance at any
+  time: stay close, hang back, or focus the hero's target.
+- **Going down.** At 0 HP the companion is out for the rest of the fight and
+  returns at 1 HP afterwards. A long rest restores it fully; a short rest
+  heals it as it does the hero.
+- **Growth shows.** Its model changes at a few level thresholds.
 
 ## Milestone 1 (vertical slice)
 

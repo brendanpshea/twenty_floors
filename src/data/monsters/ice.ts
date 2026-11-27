@@ -5,8 +5,6 @@ export const ICE_MONSTERS: MonsterDef[] = [
   // Simplified: drops Fly (walks at its 30 ft.), Death Burst (a death trigger) and the once-a-day Fog Cloud
   // spell. Frost Breath is a 15-ft. cone (3 cells) with Recharge 6. Cold and Poison immunities are kept; the
   // Exhaustion immunity is not expressible and Poisoned is kept as a condition immunity.
-  // TODO model: Quaternius Hywirl (docs/research/roster-options.md), blue tint; giant_rat body, small and
-  // icy blue, as stand-in.
   {
     id: 'ice_mephit',
     name: 'Ice Mephit',
@@ -52,14 +50,13 @@ export const ICE_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '3d4', type: 'cold' }],
       },
     ],
-    visual: { model: 'giant_rat', tint: 0xa0e4ff, scale: 0.8 },
+    visual: { model: 'mephit_ice', scale: 0.8 },
     themes: ['ice'],
     role: 'standard',
     description: 'A glittering imp of splintered ice that cackles as it darts between the stalactites.',
   },
   // Simplified: drops Fly, Burrow and Swim (walks at 30 ft.), Ice Walk, Blindsight and skills. Cold Breath is a
   // cone from the wyrmling (15 ft. = 3 cells) with Recharge 5-6.
-  // TODO model: Quaternius Dragon 3rUm1cN3yp, white; goblin_warrior body, pale and large, as stand-in.
   {
     id: 'white_dragon_wyrmling',
     name: 'White Dragon Wyrmling',
@@ -114,13 +111,13 @@ export const ICE_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '5d8', type: 'cold' }],
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 0xe0f4ff, scale: 1.2 },
+    visual: { model: 'dragon_white', scale: 0.8 },
     themes: ['ice'],
     role: 'elite',
     description: 'A snow-scaled young dragon that hunts along the frozen passages and sleeps coiled in drifts.',
   },
   // Simplified: drops Swim (walks at 40 ft.) and skills.
-  // TODO model: Quaternius bear (none available); wolf body, big and white, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius bear (none available); wolf body, big and white, as stand-in.
   {
     id: 'polar_bear',
     name: 'Polar Bear',
@@ -168,7 +165,6 @@ export const ICE_MONSTERS: MonsterDef[] = [
   },
   // Simplified: drops Running Leap. Nimble Escape (Disengage or Hide as a bonus action) is the engine's
   // 'nimbleEscape' trait, which models the Disengage half only.
-  // TODO model: Quaternius big cat (none available); wolf body in a warm tan as stand-in.
   {
     id: 'saber_toothed_tiger',
     name: 'Saber-Toothed Tiger',
@@ -209,14 +205,13 @@ export const ICE_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '2d6+4', type: 'slashing' }],
       },
     ],
-    visual: { model: 'wolf', tint: 0xffd890, scale: 1.3 },
+    visual: { model: 'cat', tint: 0xffd890, scale: 2.4 },
     themes: ['ice'],
     role: 'elite',
     description: 'A stocky, long-fanged cat from some colder age, stalking the drifts for anything slow.',
   },
   // Simplified: Bite's Prone applies for 1 round (the SRD gives a flat Prone to Large or smaller creatures; the
   // size check is not modelled). Cold Breath is a cone from the wolf (15 ft. = 3 cells) with Recharge 5-6.
-  // TODO model: existing wolf, white tint (docs/research/roster-options.md); wolf body here.
   {
     id: 'winter_wolf',
     name: 'Winter Wolf',
@@ -268,7 +263,6 @@ export const ICE_MONSTERS: MonsterDef[] = [
   // Simplified: Gore drops the "moved 20+ feet straight" Prone rider and the Trample bonus action (which needs a
   // Prone target; neither the charge nor that precondition can be expressed), as with the Gorgon. Reach is 10 ft.
   // (2 cells).
-  // TODO model: Quaternius elephant/mammoth (none available); ogre body, huge and shaggy brown, as stand-in.
   {
     id: 'mammoth',
     name: 'Mammoth',
@@ -309,14 +303,13 @@ export const ICE_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '2d10+7', type: 'piercing' }],
       },
     ],
-    visual: { model: 'ogre', tint: 0xd8b48c, scale: 2.0 },
+    visual: { model: 'ogre', tint: 0xd8b48c, scale: 1.5 },
     themes: ['ice'],
     role: 'elite',
     description: 'A shaggy tusked giant of the glacier that shoulders through ice walls without slowing.',
   },
   // Simplified: drops Fly, Burrow and Swim (walks at 40 ft.), Ice Walk, Blindsight and skills. Rend reach is
   // 10 ft. (2 cells). Cold Breath is a cone from the dragon (30 ft. = 6 cells) with Recharge 5-6.
-  // TODO model: Quaternius Dragon 3rUm1cN3yp, white; goblin_warrior body, pale and big, as stand-in.
   {
     id: 'young_white_dragon',
     name: 'Young White Dragon',
@@ -371,7 +364,7 @@ export const ICE_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '9d8', type: 'cold' }],
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 0xcdeeff, scale: 1.9 },
+    visual: { model: 'dragon_white', scale: 1.4 },
     themes: ['ice'],
     role: 'elite',
     description: 'A glacier-blue dragon in its prime, hoarding frozen treasure and the things preserved in ice.',
@@ -380,8 +373,6 @@ export const ICE_MONSTERS: MonsterDef[] = [
   // reach is 10 ft. (2 cells); Great Bow is 150/600 ft. (range 30, long 120). The bow's Speed reduction and the
   // bonus-action War Cry (Temporary Hit Points and Advantage) are not modelled. Role is elite: on its home
   // floors it is a tough regular.
-  // TODO model: Quaternius Big arm (the ogre rig) x1.4, ice tint (docs/research/roster-options.md); ogre body
-  // here.
   {
     id: 'frost_giant',
     name: 'Frost Giant',
@@ -447,7 +438,7 @@ export const ICE_MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'ogre', tint: 0x9fd4ff, scale: 1.75 },
+    visual: { model: 'ogre', tint: 0x9fd4ff, scale: 1.45 },
     themes: ['ice', 'peaks'],
     role: 'elite',
     description: 'A blue-skinned raider-giant who walks the glacier in a coat of bone and fur and treats the caves as his hall.',
@@ -456,8 +447,6 @@ export const ICE_MONSTERS: MonsterDef[] = [
   // Heat Aura. Bite keeps its fire damage; the Grappled condition (escape DC 17) is a Strength save-ends, and
   // the added Restrained while grappled and the Large-or-smaller size check are not modelled. Cold and Fire
   // immunities are kept; Tremorsense is not modelled. Bite reach is 10 ft. (2 cells).
-  // TODO model: Quaternius Snake x4, ice tint (docs/research/roster-options.md); giant_rat body, huge and
-  // icy, as stand-in.
   {
     id: 'remorhaz',
     name: 'Remorhaz',
@@ -493,7 +482,7 @@ export const ICE_MONSTERS: MonsterDef[] = [
         applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 17 } },
       },
     ],
-    visual: { model: 'giant_rat', tint: 0x8fd0f0, scale: 3.2 },
+    visual: { model: 'snake', tint: 0x8fd0f0, scale: 9 },
     themes: ['ice'],
     role: 'boss',
     description: 'A huge burrowing worm whose back glows so hot that glaciers melt around it and the tunnels run with steam.',
@@ -501,7 +490,6 @@ export const ICE_MONSTERS: MonsterDef[] = [
   // Simplified: drops Fly, Burrow and Swim (walks at 40 ft.), Ice Walk, Blindsight, skills, Legendary Resistance
   // and all Legendary Actions (Freezing Burst, Frightful Presence and Pounce: they are not expressible). Rend
   // reach is 10 ft. (2 cells). Cold Breath is a cone from the dragon (60 ft. = 12 cells) with Recharge 5-6.
-  // TODO model: Quaternius Dragon 3rUm1cN3yp, white; goblin_boss body, huge and frost-white, as stand-in.
   {
     id: 'adult_white_dragon',
     name: 'Adult White Dragon',
@@ -556,7 +544,7 @@ export const ICE_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '12d8', type: 'cold' }],
       },
     ],
-    visual: { model: 'goblin_boss', tint: 0xe8faff, scale: 2.7 },
+    visual: { model: 'dragon_white', scale: 2 },
     themes: ['ice'],
     role: 'boss',
     description: 'An ancient-minded dragon of ice and winter wind whose lair is a cathedral of its own frozen victims.',

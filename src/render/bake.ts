@@ -95,6 +95,48 @@ export class Bake {
         }
       }
     }
+    this.bakeLava(look, opaque);
+  }
+
+  /** Molten slag (look.lava) acts as a low orange light: corners within ~3.2 cells of a lava cell warm up. */
+  private bakeLava(look: ThemeLook, opaque: (x: number, y: number) => boolean): void {
+    if (!look.lava) return;
+    const { width: W, height: H, kinds } = this.plan;
+    const lw = this.lw;
+    const lat = this.lat;
+    const c = new Color().setHex(look.lava.color).lerp(WHITE, 0.15);
+    const R = 3.2;
+    const add = new Float32Array(lw * this.lh);
+    for (let cy = 0; cy < H; cy++) {
+      for (let cx = 0; cx < W; cx++) {
+        if (kinds[cy * W + cx] !== CellKind.Chasm) continue;
+        // Only slag that borders something solid matters; skip deep interior cells.
+        let edge = false;
+        for (let dy = -1; dy <= 1 && !edge; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && kinds[(cy + dy) * W + cx + dx] !== CellKind.Chasm) { edge = true; break; }
+        if (!edge) continue;
+        for (let j = Math.max(0, Math.floor(cy - R)); j <= Math.min(H, Math.ceil(cy + R) + 1); j++) {
+          for (let i = Math.max(0, Math.floor(cx - R)); i <= Math.min(W, Math.ceil(cx + R) + 1); i++) {
+            const d = Math.hypot(i - (cx + 0.5), j - (cy + 0.5));
+            if (d >= R) continue;
+            const t = 1 - d / R;
+            add[j * lw + i] = Math.max(add[j * lw + i]!, t * t);
+          }
+        }
+      }
+    }
+    for (let j = 0; j <= H; j++) {
+      for (let i = 0; i <= W; i++) {
+        const a = add[j * lw + i]!;
+        if (a <= 0) continue;
+        const open = !opaque(i - 1, j - 1) || !opaque(i, j - 1) || !opaque(i - 1, j) || !opaque(i, j);
+        if (!open) continue;
+        const f = a * 0.7 * look.lightGain;
+        const o = (j * lw + i) * 3;
+        lat[o] = lat[o]! + c.r * f;
+        lat[o + 1] = lat[o + 1]! + c.g * f;
+        lat[o + 2] = lat[o + 2]! + c.b * f;
+      }
+    }
   }
 
   /** Bresenham over cells; true if no opaque cell lies strictly between the two. */

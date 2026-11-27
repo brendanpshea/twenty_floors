@@ -86,3 +86,21 @@ Recolours are baked into the files, but the game also multiplies each model by a
 - Variant textures are downscaled to 256 px with nearest-neighbour sampling; the KayKit atlas is flat blocks and ramps, so this shows no banding.
 - Models use `EXT_meshopt_compression` (the game sets `MeshoptDecoder`); Draco is not used.
 - `getBounds()` from gltf-transform is wrong for skinned models; real heights are measured in the viewer.
+
+## Floors 4-20 creature models (added later)
+
+Sources (all fetched with `fetch.mjs`, which also appends the licence line it read on the poly.pizza page to `assets-src/fetch_log.txt`):
+
+```
+cd tools/assets
+node fetch.mjs frog:37wofOCOzG slime:LyjSUKHKnh snake:x9x0viZs8V mushnub:LWKmS30Xxl blob:IoWG5F9WUc crab:Gs3yfsV5lB bat:hNO9XvjlKa mushking2:grnFTziU8u bluedemon2:S7jYW6Amye imp:LnfIziKv4o birb:gZ2ExU9OAB hywirl:zjr7CmWGER dino2:wuerCFCWNR yeti:S1E7idPFhe dragon:3rUm1cN3yp dragonevo:LlwD0QNUPj cat:2f54vbV0In bull:a8PIIYwF7r witch:QBEOV9ZUT8
+node build-models.mjs frog slime snake mushnub blob crab bat mushking imp bluedemon birb hywirl dino yeti cat bull witch dragon dragonevo rogue_hooded
+node build-variants.mjs        # all variants (colour variants of the above and of the KayKit heroes, companions)
+node calib2.mjs <keys>         # sets meta scale for NEW models (per-vertex skinned bounding box); do not run calib.mjs on them
+node manifest.mjs && node validate.mjs
+```
+
+- Models flagged `base:true` in `build-models.mjs` (slime, crab, mushnub, mushking, witch, dragonevo, hywirl, birb, rogue_hooded) are only bases: they go to `assets-src/base/` and the game ships their colour variants from `variants.mjs` (material colour edits via `materials:`, KayKit atlas recolours via `recolor` with the hue rules at the bottom of `variants.mjs`, `remove:[nodes]`, `nodes:'*'`). `manifest.mjs` publishes every variant and every file that exists in `public/assets/models/`.
+- `calib.mjs` uses a cheap Box3 that is wrong for skinned models whose armature carries a scale (all Quaternius "CharacterArmature" files); `calib2.mjs` (viewer logs `H2`, a per-vertex box) is right for them. Rendering a model in the viewer prints both `h` and `H2`; trust `H2`.
+- Flying-only models (dragons, mephits) map `Flying_Idle` to idle and `Fast_Flying` to walk. The Quaternius Pig (voxel look) and the Goleling were rejected and are not shipped.
+- Quality checks: `viewer/` renders (use `cam=iso&pitch=50`), `previewshot.mjs` (renderer preview page) and `gamesweep.mjs` (loads several real floors and shoots each wanted monster id) need `npx vite --port 5192` and `PORT=5192`.

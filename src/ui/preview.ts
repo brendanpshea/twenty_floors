@@ -1,7 +1,7 @@
 /** Dev harness for the UI. Open dev/ui-preview.html; see the `?screen=` values in SCREENS. */
 import type { HubIntent, HubModel, HudModel, UiIntent } from '../core/types';
 import { createUi } from './index';
-import { combatHud, creationOptions, exploreHud, makeHubModel } from './mocks';
+import { combatHud, creationOptions, exploreHud, makeCompanionHubModel, makeHubModel, withCompanion } from './mocks';
 
 const rootEl = document.getElementById('ui-root');
 if (!rootEl) throw new Error('#ui-root missing');
@@ -94,6 +94,9 @@ ui.onIntent((i: UiIntent) => {
       hud.hitDice = { ...hud.hitDice, current: hud.hitDice.max };
       log('You rest by the fire and wake fully restored.');
       break;
+    case 'setStance':
+      if (hud.companion) hud.companion = { ...hud.companion, stance: i.stance };
+      break;
     case 'openMenu':
       run('menu');
       return;
@@ -138,6 +141,9 @@ function hubHandler(model: { current: HubModel }): (i: HubIntent) => HubModel {
           m.levelUp = undefined;
         }
         break;
+      case 'chooseCompanion':
+        if (m.companions) m.companions = { ...m.companions, chosenId: i.id };
+        break;
       case 'descend':
         break;
     }
@@ -173,6 +179,22 @@ const SCREENS: Record<string, Runner> = {
     hud = exploreHud();
     hud.canShortRest = true;
     hud.canLongRest = true;
+    pushHud();
+  },
+  'hud-companion': () => {
+    hud = withCompanion(exploreHud(), params.get('c') ?? 'sphinx_of_wonder');
+    pushHud();
+  },
+  'hud-companion-combat': () => {
+    hud = withCompanion(combatHud(), params.get('c') ?? 'sphinx_of_wonder');
+    const c = hud.companion;
+    if (c && params.get('target') === 'companion') {
+      hud.target = { name: c.name, hp: c.hp, maxHp: c.maxHp, ac: 13, conditions: [], description: 'Your companion.' };
+    }
+    pushHud();
+  },
+  'hud-companion-downed': () => {
+    hud = withCompanion(combatHud(), params.get('c') ?? 'pseudodragon', { downed: true, stance: 'back' });
     pushHud();
   },
   'hud-blocked': () => {
@@ -224,6 +246,11 @@ const SCREENS: Record<string, Runner> = {
   hub: () => {
     ui.hideHud();
     const state = { current: makeHubModel() };
+    void ui.showHub(structuredClone(state.current), hubHandler(state)).then(() => say('hub -> descended'));
+  },
+  'hub-companion': () => {
+    ui.hideHud();
+    const state = { current: makeCompanionHubModel(true) };
     void ui.showHub(structuredClone(state.current), hubHandler(state)).then(() => say('hub -> descended'));
   },
   'hub-nolevel': () => {

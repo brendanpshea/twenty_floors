@@ -15,7 +15,7 @@ const gl=new GLTFLoader();gl.setMeshoptDecoder(MeshoptDecoder);
 const sp=2.6;let i=0;
 for(const ks of keys){const [k,kt,ka]=ks.split('@');const e=man.models[k];const g=await gl.loadAsync('/'+e.url);const o=g.scene;const w=new THREE.Group();w.add(o);o.scale.setScalar(P.get('raw')?1:e.scale);w.rotation.y=e.rotationY||0;w.position[P.get('axis')||'x']=(i-(keys.length-1)/2)*sp;sc.add(w);i++;
  const cn=e.animations?.[ka||anim];const mx=new THREE.AnimationMixer(o);if(cn){const cl=THREE.AnimationClip.findByName(g.animations,cn);if(!cl)console.log('MISSING',k,cn);else{mx.clipAction(cl).play();mx.update((kt!==undefined?+kt:t)*cl.duration);}}
- const box=new THREE.Box3().setFromObject(o);console.log(k,'h',(box.max.y-box.min.y).toFixed(2),'minY',box.min.y.toFixed(2));
+ const box=new THREE.Box3().setFromObject(o);console.log(k,'h',(box.max.y-box.min.y).toFixed(2),'minY',box.min.y.toFixed(2));o.updateMatrixWorld(true);o.traverse(x=>{if(x.isSkinnedMesh)x.skeleton.update();});const bp=new THREE.Box3().setFromObject(o,true);console.log(k,'H2',(bp.max.y-bp.min.y).toFixed(3),'minY',bp.min.y.toFixed(2),'w',(bp.max.x-bp.min.x).toFixed(2),'d',(bp.max.z-bp.min.z).toFixed(2));
  const ln=new THREE.Mesh(new THREE.BoxGeometry(0.02,1.8,0.02),new THREE.MeshBasicMaterial({color:0xff0000}));ln.position.set(w.position.x-1.1,0.9,0);sc.add(ln);
  const ar=new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(w.position.x,0.02,0),1.0,0x00ff00);sc.add(ar);}
 const CH=P.get('chk');

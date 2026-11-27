@@ -2,7 +2,7 @@ import { CellKind } from '../core/types';
 import type { FloorPlan, GridPos, LightPlacement, PropPlacement, Room, ThemeId } from '../core/types';
 
 /** Hand-built floors for the renderer preview. They only exercise the renderer; they are not valid generator output. */
-class Draft {
+export class Draft {
   readonly kinds: Uint8Array;
   readonly elev: Int8Array;
   readonly props: PropPlacement[] = [];
@@ -120,7 +120,7 @@ const DOOR = CellKind.Door;
 const WALL = CellKind.Wall;
 
 /** Lights placed with their props, coloured per theme. */
-function autoLights(d: Draft, theme: ThemeId): void {
+export function autoLights(d: Draft, theme: ThemeId): void {
   for (const p of d.props) {
     const { x, y } = p.pos;
     switch (p.type) {

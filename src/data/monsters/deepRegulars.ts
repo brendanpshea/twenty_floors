@@ -11,7 +11,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // for targets of 20 Hit Points or fewer is dropped (it depends on current HP). Hypnotic Pattern (1/Day) is a
   // 30-ft. cube modelled as a sphere of radius 3 cells, 120 ft. (24 cells) away: Charmed for 10 rounds (1 minute);
   // the Incapacitated and Speed 0 parts of the charm are dropped.
-  // TODO model: Quaternius Demon in a dusky rose tint (a winged tempter, docs/research/roster-options.md has no entry);
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon in a dusky rose tint (a winged tempter, docs/research/roster-options.md has no entry);
   // hero_rogue body, orchid, as stand-in.
   {
     id: 'incubus',
@@ -83,7 +83,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // Simplified: drops Leap, Disguise Self, Minor Illusion, Geas, Major Image and Scrying (none damaging). Multiattack
   // is two Claws, or one Claw and Corrupting Touch. The curse of Corrupting Touch (1 hour, Charmed and Poisoned)
   // keeps only Charmed, for 10 rounds (1 minute) to stay in the scale of a fight.
-  // TODO model: Quaternius Demon or a centaur-like serpent-woman (none available); wolf body, large and dusky rose, as
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon or a centaur-like serpent-woman (none available); wolf body, large and dusky rose, as
   // stand-in.
   {
     id: 'lamia',
@@ -159,8 +159,6 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // (level 3 version, 2/Day) is a single-target 60-ft. spell with a Wisdom DC 14 save and Paralyzed as a save-ends;
   // its Humanoid-only limit is not enforced. Lightning Bolt (level 4 version, 2/Day) is a 100-ft. line (20 cells),
   // 9d6 lightning, Dexterity DC 14 for half. Both spells have one use per fight instead of two.
-  // TODO model: Quaternius Snake or a serpent-bodied model (none shipped); giant_spider body, large and teal, as
-  // stand-in.
   {
     id: 'spirit_naga',
     name: 'Spirit Naga',
@@ -245,7 +243,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
         damage: [{ dice: '9d6', type: 'lightning' }],
       },
     ],
-    visual: { model: 'giant_spider', tint: 0x40d8c8, scale: 2.2 },
+    visual: { model: 'snake', tint: 0x40d8c8, scale: 5 },
     themes: ['library', 'crypt'],
     role: 'elite',
     description: 'A serpent with a human head that haunts old libraries and tombs, guarding secrets with curses and lightning.',
@@ -256,7 +254,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // has a 120-ft. range (24 cells, long 25). Wall of Fire (level 7 version, 1/Day) is a one-time 8d8 fire burst
   // in a 10-ft.-radius ringed wall (sphere of 2 cells) up to 120 ft. away, Dexterity DC 16 for half; the lingering
   // wall is dropped.
-  // TODO model: Quaternius Demon in a fire tint, or a Huge flaming genie (none shipped); bugbear_warrior body, large
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon in a fire tint, or a Huge flaming genie (none shipped); bugbear_warrior body, large
   // and amber, as stand-in.
   {
     id: 'efreeti',
@@ -344,7 +342,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // targeted 20-ft.-radius area (sphere of 4 cells) up to 120 ft. away: a failed Strength DC 17 save leaves the target
   // Restrained (save ends) and takes the 6d6 thunder damage once; the moving, concentration-held whirlwind and its
   // per-turn damage are dropped.
-  // TODO model: Quaternius Demon or a Huge cloud-borne genie (none shipped); hero_mage body, large and sky blue, as
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon or a Huge cloud-borne genie (none shipped); hero_mage body, large and sky blue, as
   // stand-in.
   {
     id: 'djinni',
@@ -430,7 +428,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // Prestidigitation, Dispel Magic, Legend Lore, Locate Object, Plane Shift, Remove Curse, Tongues). Mind-
   // Rending Roar is a 300-ft. Emanation from the sphinx (a self-centred sphere of 60 cells), Recharge 5-6,
   // Incapacitated until the start of its next turn (rounds: 1). It does not need to see the targets.
-  // TODO model: a winged lion (none shipped); wolf body, large and golden, as stand-in (the lamia, also a wolf
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a winged lion (none shipped); wolf body, large and golden, as stand-in (the lamia, also a wolf
   // body, is rose and smaller).
   {
     id: 'sphinx_of_lore',
@@ -495,7 +493,6 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // expressed, so it is dropped. Cursed Touch is plain slashing plus necrotic damage (the no-rest curse is
   // dropped). Baleful Command (Recharge 5-6) is a 30-ft. Emanation (a self-centred sphere of 6 cells); it
   // applies Incapacitated until the start of the rakshasa's next turn (rounds: 1) and drops the Frightened half.
-  // TODO model: a tiger-headed humanoid (none shipped); hero_knight body, light amber, as stand-in.
   {
     id: 'rakshasa',
     name: 'Rakshasa',
@@ -551,7 +548,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
         applies: { condition: 'incapacitated', rounds: 1 },
       },
     ],
-    visual: { model: 'hero_knight', tint: 0xffc060, scale: 1.1 },
+    visual: { model: 'knight_gold', tint: 0xffc060, scale: 1.1 },
     themes: ['hold'],
     role: 'boss',
     description: 'A tiger-faced fiend in a nobleman\'s finery whose smooth voice masks a fathomless contempt for the living.',
@@ -563,7 +560,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // long 24). Ice Wall (Recharge 6, Wall of Ice level 8 version) is a one-time Dexterity DC 17 save for 14d6 cold
   // (10d6 plus 2d6 per level above 6) in a 10-ft.-radius globe (sphere of 2 cells) up to 120 ft. away; the wall
   // itself is dropped.
-  // TODO model: Quaternius Demon in a frost tint (docs/research/roster-options.md has no entry); skeleton_warrior body,
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon in a frost tint (docs/research/roster-options.md has no entry); skeleton_warrior body,
   // pale ice blue and large, as stand-in.
   {
     id: 'ice_devil',
@@ -676,7 +673,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // Negative Energy has a single 60-ft. range, so longRange is 13. Spellcasting (Dispel Magic, Thaumaturgy, Animate
   // Dead, Insect Plague) keeps only Harm (1/Day): a 60-ft. single-target Constitution DC 17 save for 14d6 necrotic,
   // half on success; the Hit Point maximum reduction is dropped.
-  // TODO model: skeleton_rogue in bandage tint, or a pale KayKit Mage (docs/research/roster-options.md); skeleton_rogue
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): skeleton_rogue in bandage tint, or a pale KayKit Mage (docs/research/roster-options.md); skeleton_rogue
   // body, bandage-gold and larger, as stand-in.
   {
     id: 'mummy_lord',
@@ -771,7 +768,6 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // Tunneler and Swallow (a bonus-action swallow-and-digest). Bite applies Restrained with a Strength save-ends
   // at the escape DC 19 (the SRD gives Grappled and Restrained until the grapple ends; Restrained covers both,
   // and the Large-or-smaller limit is not modelled).
-  // TODO model: a giant segmented worm (none shipped); shadow body, huge and violet, as stand-in.
   {
     id: 'purple_worm',
     name: 'Purple Worm',
@@ -826,7 +822,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'shadow', tint: 0xb860f0, scale: 2.6 },
+    visual: { model: 'snake', tint: 0xb860f0, scale: 10 },
     themes: ['depths', 'warrens'],
     role: 'elite',
     description: 'A colossal, tunnelling worm that swallows everything in its path and leaves a smooth-walled burrow behind.',
@@ -835,8 +831,6 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // Resistance and the Exhaustion and Petrified immunities (not conditions the engine has). Multiattack (two
   // attacks, Bladed Arm or Fiery Bolt in any combination) is split into melee and ranged versions. Fiery Bolt has a
   // 120-ft. range (24 cells, long 25). Poison Breath is a 60-ft. cone (12 cells), Recharge 6.
-  // TODO model: KayKit Skeleton Golem (docs/research/roster-options.md suggests the Skeletons Extra pack for golems),
-  // else the ogre rig; ogre body, large and steel blue-grey, as stand-in.
   {
     id: 'iron_golem',
     name: 'Iron Golem',
@@ -910,7 +904,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
         damage: [{ dice: '10d10', type: 'poison' }],
       },
     ],
-    visual: { model: 'ogre', tint: 0xb0c8e8, scale: 1.7 },
+    visual: { model: 'ogre', tint: 0xb0c8e8, scale: 1.25 },
     themes: ['foundry'],
     role: 'boss',
     description: 'A giant iron guardian, built to serve and never tire, that can burn or choke anything its master fears.',
@@ -922,7 +916,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // Spellcasting (Recharge 4-6) casts Fireball (level 5 version: 10d6, DC 21, 150 ft. = 30 cells, 20-ft. radius = 4
   // cells) twice, with an option to swap one for Hold Monster or Wall of Fire; it is modelled as a single
   // Fireball (a multiattack cannot repeat an area action), and the swaps are dropped.
-  // TODO model: Quaternius Demon in a deep red tint, huge (roster-options.md style devils); hero_barbarian body,
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon in a deep red tint, huge (roster-options.md style devils); hero_barbarian body,
   // crimson and huge, as stand-in.
   {
     id: 'pit_fiend',
@@ -1013,7 +1007,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // of the lich's next turn (rounds: 1). Of the spells, Fireball (level 5 version) and Lightning Bolt (level 5
   // version) are kept at will, as printed, and Finger of Death (1/Day) as a 60-ft. single target; the zombie it
   // raises is dropped. Fireball range is 150 ft. (30 cells), 20-ft. radius (4 cells).
-  // TODO model: a pale KayKit Mage or Mystery Monthly 5 undead (docs/research/roster-options.md notes the mage
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a pale KayKit Mage or Mystery Monthly 5 undead (docs/research/roster-options.md notes the mage
   // alternatives for the Mummy Lord and Vampire); skeleton_mage body, violet and large, as stand-in.
   {
     id: 'lich',

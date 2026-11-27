@@ -10,7 +10,6 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // Simplified: walks at its 30 ft. speed (it also flies 50 ft. and hovers; flying is not modelled). Drops Incorporeal
   // Movement. Life Drain is plain necrotic damage with no Hit Point maximum reduction. Sunlight Sensitivity uses the
   // trait. Exhaustion and Petrified condition immunities are not expressible.
-  // TODO model: a wispy hooded ghost (the Quaternius Ghost in a paler build); shadow rig as stand-in.
   {
     id: 'specter',
     name: 'Specter',
@@ -50,7 +49,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // Simplified: Gore's charge rider (extra Piercing damage and Prone after moving 20+ ft. straight at the target) is
   // dropped because the engine cannot test a straight-line approach; Gore is its plain piercing hit. Poisoned
   // condition immunity kept; Exhaustion is not expressible.
-  // TODO model: a horned minotaur skeleton (not in the current packs); skeleton_warrior scaled up as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a horned minotaur skeleton (not in the current packs); skeleton_warrior scaled up as stand-in.
   {
     id: 'minotaur_skeleton',
     name: 'Minotaur Skeleton',
@@ -98,7 +97,6 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     description: 'The rattling bones of a labyrinth beast, still charging at anything that moves between the burial niches.',
   },
   // Simplified: none beyond Exhaustion immunity (not expressible). Undead Fortitude uses the trait.
-  // TODO model: a hulking stitched ogre corpse (the Quaternius Big arm in a rotted build); ogre rig as stand-in.
   {
     id: 'ogre_zombie',
     name: 'Ogre Zombie',
@@ -130,7 +128,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
         damage: [{ dice: '2d8+4', type: 'bludgeoning' }],
       },
     ],
-    visual: { model: 'ogre', tint: 0x90d890, scale: 1.0 },
+    visual: { model: 'ogre', tint: 0x90d890, scale: 1 },
     themes: ['crypt'],
     role: 'elite',
     description: 'A giant\'s corpse that kept walking, rotting but still strong enough to flatten a doorway or a hero.',
@@ -140,7 +138,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // halved damage while Bloodied is not modelled); Prone is applied for 1 round with no size check. The SRD's plain
   // Bludgeoning, Piercing and Slashing resistances are kept. Exhaustion and Petrified immunities are not expressible;
   // creature type is 'undead' (the schema has no swarm type).
-  // TODO model: a heap of skittering severed hands; zombie rig scaled down as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a heap of skittering severed hands; zombie rig scaled down as stand-in.
   {
     id: 'swarm_of_crawling_claws',
     name: 'Swarm of Crawling Claws',
@@ -192,7 +190,6 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // ranged action (20/60 ft. = 4/12 cells), with Multiattack split into a melee pair and a ranged pair. The rider that
   // leaves a target at 0 HP Poisoned and Paralyzed for an hour is dropped. Charmed immunity (except from its vampire
   // master) is kept as a plain immunity.
-  // TODO model: a gaunt dagger-wielding servant in dark robes; hero_rogue with a violet tint as stand-in.
   {
     id: 'vampire_familiar',
     name: 'Vampire Familiar',
@@ -258,7 +255,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'hero_rogue', tint: 0xb090ff, scale: 0.9 },
+    visual: { model: 'hooded_black', scale: 0.9 },
     themes: ['crypt', 'library'],
     role: 'elite',
     description: 'A mortal servant bound to a vampire\'s will, quick with a pair of daggers that leak shadow.',
@@ -267,7 +264,6 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // Movement and Create Specter. Life Drain is plain necrotic damage with no Hit Point maximum reduction. The SRD lists
   // its resistances without a "nonmagical" condition, so they are kept as plain types. Exhaustion and Petrified
   // immunities are not expressible.
-  // TODO model: a tattered, floating hooded wraith (existing ghost model in a darker build); shadow rig as stand-in.
   {
     id: 'wraith',
     name: 'Wraith',
@@ -308,7 +304,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // Bite is a melee save-attack with no restriction on who it can target, and its Hit Point maximum reduction and
   // self-healing are dropped. Sunlight Sensitivity uses the trait (disadvantage only; the 20 Radiant damage is
   // dropped). Drops Vampire Weakness (forbiddance, running water, stake) and the Deathless Agility bonus action.
-  // TODO model: a pale, feral vampire spawn (KayKit Vampire family); hero_barbarian with a rose tint as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a pale, feral vampire spawn (KayKit Vampire family); hero_barbarian with a rose tint as stand-in.
   {
     id: 'vampire_spawn',
     name: 'Vampire Spawn',
@@ -377,7 +373,6 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // (the spell's end-on-damage and 24-hour duration are not modelled; no Humanoid restriction; no link to its Bite).
   // CR 13 gives XP 10,000 and a +5
   // proficiency bonus, which are outside what data.test.ts currently accepts (it tops out at +4 and has no CR 13 XP).
-  // TODO model: KayKit Mystery Monthly 5 Vampire (docs/research/roster-options.md; unseen); hero_knight with a crimson tint as stand-in.
   {
     id: 'vampire',
     name: 'Vampire',
@@ -446,7 +441,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
         applies: { condition: 'charmed', saveEnds: { ability: 'wis', dc: 17 } },
       },
     ],
-    visual: { model: 'hero_knight', tint: 0xff4060, scale: 1.2 },
+    visual: { model: 'knight_dark', tint: 0xff4060, scale: 1.2 },
     themes: ['crypt'],
     role: 'boss',
     description: 'An elegant, ancient predator in dark finery, who rules the crypt with charm, cruelty and an endless thirst.',
@@ -457,7 +452,6 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // grapples with Constitution save DC 14 (escape DC 13 as a Strength save-ends); the ongoing 2d6 Thunder and spell
   // block are dropped. Exhaustion and Petrified immunities are not expressible; the SRD's Bludgeoning, Piercing and
   // Slashing resistances have no "nonmagical" condition and are kept as plain types.
-  // TODO model: a swirling, wind-shaped humanoid (the Quaternius Ghost with a translucent tint); shadow rig as stand-in.
   {
     id: 'invisible_stalker',
     name: 'Invisible Stalker',
@@ -518,7 +512,6 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // expressible, so two separate multiattacks). Force Bolt has a single range of 120 ft., modelled as range 24 and
   // longRange 25. The Slow bonus action is dropped (there is no slowed condition). Exhaustion and Petrified immunities
   // are not expressible.
-  // TODO model: a carved stone golem (KayKit Skeleton Golem or similar, unseen); ogre rig as stand-in.
   {
     id: 'stone_golem',
     name: 'Stone Golem',
@@ -581,7 +574,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
         damage: [{ dice: '4d10', type: 'force' }],
       },
     ],
-    visual: { model: 'ogre', tint: 0xb0c8a0, scale: 1.55 },
+    visual: { model: 'ogre', tint: 0xb0c8a0, scale: 1.2 },
     themes: ['library', 'foundry'],
     role: 'boss',
     description: 'A carved guardian built to protect the library\'s deepest vault, patient, pitiless and nearly impossible to stop.',
@@ -592,7 +585,6 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // spells: Lightning Bolt (level 7 version, 12d6; Line 100 ft. long = 20 cells) and Cone of Cold (level 9 version, 12d8;
   // 60 ft. cone = 12 cells), both with the stat block's DC 17. The SRD gives Lightning Bolt 2/Day, but the engine gives
   // every limited-use pool one use per floor, so it is available once. Fly, Teleport, Scrying and the utility spells are dropped.
-  // TODO model: a robed archmage with a staff (hero_mage with a grander build); hero_mage with a violet tint as stand-in.
   {
     id: 'archmage',
     name: 'Archmage',

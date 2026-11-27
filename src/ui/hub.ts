@@ -139,6 +139,57 @@ export function buildHub(
     return s.el;
   }
 
+  const ROLE: Record<string, string> = { healer: 'Healer', blaster: 'Blaster', skirmisher: 'Skirmisher' };
+
+  function companionSection(): HTMLElement | null {
+    const co = model.companions;
+    if (!co) return null;
+    const s = section('Companion', 'tf-comp-sec');
+    s.body.append(
+      h(
+        'p',
+        'tf-hint',
+        co.chosenId === null
+          ? 'An ally joins you from here on. The game plays it; you choose how it fights. You can swap at every rest.'
+          : 'Tap another card to swap companions. The new one joins on the next floor.',
+      ),
+    );
+    const g = h('div', 'tf-cards tf-cards--compact tf-comp-cards');
+    g.setAttribute('role', 'radiogroup');
+    g.setAttribute('aria-label', 'Companion');
+    for (const c of co.options) {
+      const on = c.id === co.chosenId;
+      const card = h('button', `tf-card${on ? ' is-selected' : ''}`);
+      card.type = 'button';
+      card.setAttribute('role', 'radio');
+      card.setAttribute('aria-checked', String(on));
+      card.dataset['key'] = `companion-${c.id}`;
+      const hd = h('div', 'tf-card-head');
+      const glyph = h('span', 'tf-card-glyph tf-comp-glyph');
+      glyph.append(createIcon(`role-${c.role}`));
+      const tick = h('span', 'tf-card-tick');
+      tick.append(createIcon('check'));
+      hd.append(glyph, h('span', 'tf-card-title', c.name), tick);
+      card.append(
+        hd,
+        h('div', 'tf-card-meta', `${ROLE[c.role] ?? c.role} \u00b7 Lv ${c.level} \u00b7 HP ${c.maxHp} \u00b7 AC ${c.ac}`),
+        h('p', 'tf-card-desc', c.description),
+      );
+      if (c.summaries.length) {
+        const ul = h('ul', 'tf-card-list');
+        for (const t of c.summaries) ul.append(h('li', undefined, t));
+        card.append(ul);
+      }
+      if (c.nextUnlock) card.append(h('div', 'tf-card-feat', `At level ${c.nextUnlock.level}: ${c.nextUnlock.summary}`));
+      card.addEventListener('click', () => {
+        if (!on) intent({ type: 'chooseCompanion', id: c.id });
+      });
+      g.append(card);
+    }
+    s.body.append(g);
+    return s.el;
+  }
+
   function characterSection(): HTMLElement {
     const ch = model.character;
     const sum = model.characterSummary;
@@ -237,15 +288,21 @@ export function buildHub(
 
   function renderFoot(): void {
     clear(foot);
-    const pending = !!model.levelUp;
+    const levelPending = !!model.levelUp;
+    const compPending = !levelPending && !!model.companions?.required && model.companions.chosenId === null;
+    const pending = levelPending || compPending;
     const hint = h(
       'p',
       'tf-hub-hint',
-      pending ? 'Confirm your level up before descending.' : 'You are fully rested. The stairs wait.',
+      levelPending
+        ? 'Confirm your level up before descending.'
+        : compPending
+          ? 'Choose a companion before descending.'
+          : 'You are fully rested. The stairs wait.',
     );
     const label = `Descend to Floor ${model.nextDepth}: ${model.nextThemeName}`;
     const go = button('tf-btn tf-btn--primary tf-btn--xl tf-descend', label, () => {
-      if (finished || model.levelUp) return;
+      if (finished || model.levelUp || (model.companions?.required && model.companions.chosenId === null)) return;
       finished = true;
       send({ type: 'descend' });
       done();
@@ -265,6 +322,8 @@ export function buildHub(
       if (lu) left.append(lu);
       left.append(characterSection());
       const right = h('div', 'tf-hub-col');
+      const comp = companionSection();
+      if (comp) right.append(comp);
       right.append(shopSection());
       grid.append(left, right);
       body.append(grid);

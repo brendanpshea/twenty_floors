@@ -1,6 +1,6 @@
 import { SHORT_RESTS_PER_LONG_REST } from '../core/types';
 import type { GameAudio } from '../audio';
-import type { GameUi, PlayerCharacter, QualityLevel, Renderer3D } from '../core/types';
+import type { GameUi, PlayerCharacter, QualityLevel, Renderer3D, ThemeId } from '../core/types';
 
 /** The slice of localStorage the game uses. */
 export interface StorageLike {
@@ -12,7 +12,7 @@ export interface StorageLike {
 export interface GameOptions {
   /** Fixed run seed (?seed=). */
   seed?: number;
-  /** Start a quick-built Fighter directly on this floor (?depth=). */
+  /** Start a quick-built Fighter directly on this floor, 1 to 20, whatever the milestone (?depth=). */
   depth?: number;
   quality?: QualityLevel;
   /** A bot plays (?autoplay=1). Implies a quick-built hero when nothing else is given. */
@@ -21,6 +21,10 @@ export interface GameOptions {
   headless?: boolean;
   /** No fog of war (?reveal=1). */
   reveal?: boolean;
+  /** Force this theme on the dev start floor (?theme=). */
+  theme?: ThemeId;
+  /** Monsters are spawned but never start a fight (?peace=1). For walking and looking at a floor. */
+  peace?: boolean;
 }
 
 export interface GameDeps {

@@ -14,7 +14,10 @@ interface StyleArt {
   dot?: boolean;
 }
 
-const ART: Record<HighlightStyle, StyleArt> = {
+/** Highlight palettes, picked per theme so every style stays legible on the floor colour. */
+export type HighlightPalette = 'default' | 'warm' | 'cool' | 'green';
+
+const BASE_ART: Record<HighlightStyle, StyleArt> = {
   move: { fill: 'rgba(110,175,255,0.17)', line: 'rgba(150,200,255,0.95)', lineWidth: 3 },
   path: { fill: 'rgba(0,0,0,0)', line: 'rgba(255,255,255,1)', lineWidth: 3, dot: true },
   target: { fill: 'rgba(255,60,50,0.16)', line: 'rgba(255,70,55,1)', lineWidth: 5 },
@@ -22,9 +25,31 @@ const ART: Record<HighlightStyle, StyleArt> = {
   danger: { fill: 'rgba(90,0,12,0.34)', line: 'rgba(170,20,30,0.95)', lineWidth: 3, hatch: 'rgba(120,10,20,0.5)' },
 };
 
+const PALETTES: Record<HighlightPalette, Partial<Record<HighlightStyle, Partial<StyleArt>>>> = {
+  default: {},
+  // Red/orange lit floors: blue-green move, magenta target, violet area, bright-rimmed danger.
+  warm: {
+    move: { fill: 'rgba(70,230,255,0.24)', line: 'rgba(150,250,255,1)' },
+    target: { fill: 'rgba(255,60,210,0.24)', line: 'rgba(255,90,225,1)' },
+    area: { fill: 'rgba(170,110,255,0.24)', line: 'rgba(200,150,255,1)', hatch: 'rgba(200,150,255,0.5)' },
+    danger: { fill: 'rgba(20,0,40,0.4)', line: 'rgba(255,235,90,1)', hatch: 'rgba(255,235,90,0.5)' },
+  },
+  // Blue / lavender / white floors: green move so it does not melt into the floor.
+  cool: {
+    move: { fill: 'rgba(60,230,130,0.24)', line: 'rgba(150,255,190,1)' },
+    area: { fill: 'rgba(255,150,40,0.22)', line: 'rgba(255,170,60,1)', hatch: 'rgba(255,170,60,0.55)' },
+    danger: { fill: 'rgba(110,0,20,0.4)', line: 'rgba(255,60,70,1)', hatch: 'rgba(200,20,30,0.55)' },
+  },
+  // Green / murky olive floors: cyan move.
+  green: {
+    move: { fill: 'rgba(60,200,255,0.24)', line: 'rgba(150,230,255,1)' },
+    danger: { fill: 'rgba(110,0,20,0.4)', line: 'rgba(255,60,70,1)', hatch: 'rgba(200,20,30,0.55)' },
+  },
+};
+
 /** 4x4 atlas of tiles, indexed by a 4-bit mask of OUTER edges (N=1, E=2, S=4, W=8). */
-function makeAtlas(style: HighlightStyle): CanvasTexture {
-  const art = ART[style];
+function makeAtlas(style: HighlightStyle, palette: HighlightPalette = 'default'): CanvasTexture {
+  const art: StyleArt = { ...BASE_ART[style], ...PALETTES[palette][style] };
   const c = document.createElement('canvas');
   c.width = c.height = T * 4;
   const g = c.getContext('2d')!;
@@ -95,6 +120,7 @@ export class Highlights {
   private meshes = new Map<HighlightStyle, InstancedMesh>();
   private mats = new Map<HighlightStyle, MeshBasicMaterial>();
   private textures: CanvasTexture[] = [];
+  private palette: HighlightPalette = 'default';
   private geos: PlaneGeometry[] = [];
   private counts: Record<HighlightStyle, number> = { move: 0, path: 0, target: 0, area: 0, danger: 0 };
   private occ: Record<HighlightStyle, Uint8Array> = {
@@ -135,6 +161,20 @@ vMapUv = (vMapUv + vec2(mod(aTile, 4.0), 3.0 - floor(aTile / 4.0))) * 0.25;
       this.mats.set(s, mat);
       this.makeMesh(s, 128);
     }
+  }
+
+  /** Redraw the style atlases in a theme's palette (cheap; once per floor). No-op if unchanged. */
+  setPalette(p: HighlightPalette): void {
+    if (p === this.palette) return;
+    this.palette = p;
+    const old = this.textures;
+    this.textures = [];
+    for (const s of STYLES) {
+      const tex = makeAtlas(s, p);
+      this.textures.push(tex);
+      this.mats.get(s)!.map = tex;
+    }
+    for (const t of old) t.dispose();
   }
 
   /** Tell the highlighter the grid size (call on floor load). */

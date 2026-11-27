@@ -12,5 +12,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // The generator and balance sweeps build hundreds of floors per test; on a
+    // slow laptop several exceed Vitest's 5 s default without anything being wrong.
+    testTimeout: 120_000,
   },
 });

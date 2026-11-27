@@ -2,6 +2,8 @@ import { Game } from './game';
 import type { GameOptions, StorageLike } from './game';
 import { createAudio } from './audio';
 import { createRenderer } from './render';
+import { THEMES } from './core/themes';
+import type { ThemeId } from './core/types';
 import { createUi } from './ui';
 
 function parseOptions(search: string): GameOptions {
@@ -24,6 +26,9 @@ function parseOptions(search: string): GameOptions {
     opts.headless = true;
   }
   if (q.get('reveal') === '1') opts.reveal = true;
+  if (q.get('peace') === '1') opts.peace = true;
+  const theme = q.get('theme');
+  if (theme !== null && Object.hasOwn(THEMES, theme)) opts.theme = theme as ThemeId;
   return opts;
 }
 
@@ -81,7 +86,13 @@ function start(): void {
     newSeed,
     options,
   });
-  window.addEventListener('keydown', (e) => game.handleKey(e.key));
+  window.addEventListener('keydown', (e) => {
+    // Tab cycles targets in the game; keep the browser from moving focus.
+    const t = e.target;
+    const free = t === document.body || t instanceof HTMLCanvasElement || t instanceof HTMLButtonElement;
+    if (e.key === 'Tab' && free && game.session?.acceptsKeys) e.preventDefault();
+    game.handleKey(e.key, e.shiftKey);
+  });
   if (import.meta.env.DEV) (window as unknown as { __tf: unknown }).__tf = { game, renderer, ui, audio };
   game.boot().catch((err) => {
     console.error('Game crashed', err);

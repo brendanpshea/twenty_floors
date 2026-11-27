@@ -7,6 +7,7 @@ import { SHORT_RESTS_PER_FLOOR } from './deps';
 import { FloorSession } from './floorSession';
 import { runHub } from './hubFlow';
 import { quickCharacter } from './quickBuild';
+import { devStartDepth, isDevStart } from './runPlan';
 import { deleteSave, loadQuality, loadSave, runFromSave, writeSave } from './save';
 
 export type RunEnd = 'victory' | 'quit';
@@ -33,8 +34,8 @@ export class Game {
   }
 
   /** Keyboard input (the shell forwards keys here). */
-  handleKey(key: string): void {
-    this.session?.handleKey(key);
+  handleKey(key: string, shift = false): void {
+    this.session?.handleKey(key, shift);
   }
 
   stop(): void {
@@ -44,8 +45,9 @@ export class Game {
   /** Title screen loop. Dev shortcuts (?depth=, ?autoplay=) skip straight into a run. */
   async boot(): Promise<void> {
     const { options, ui, storage } = this.deps;
-    if (options.depth !== undefined || options.autoplay) {
-      const depth = Math.max(1, Math.min(MILESTONE_FLOORS, Math.floor(options.depth ?? 1)));
+    if (isDevStart(options)) {
+      // Dev shortcuts reach any floor, 1 to 20, whatever the milestone; normal play stops at MILESTONE_FLOORS.
+      const depth = devStartDepth(options);
       await this.playRun({
         runSeed: options.seed ?? this.deps.newSeed(),
         depth,
@@ -136,7 +138,7 @@ export class Game {
         deleteSave(storage);
         return 'victory';
       }
-      const pc = await runHub(ui, this.deps.audio, outcome.pc, run.depth, options.autoplay === true && options.headless === true);
+      const pc = await runHub(ui, this.deps.audio, outcome.pc, run.depth, options.autoplay === true && options.headless === true, run.runSeed);
       run = { runSeed: run.runSeed, depth: run.depth + 1, pc, shortRestsLeft: SHORT_RESTS_PER_FLOOR };
     }
   }

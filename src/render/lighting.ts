@@ -1,4 +1,4 @@
-import { Color, DirectionalLight, FogExp2, HemisphereLight, PointLight, Scene, Vector3 } from 'three';
+import { CanvasTexture, Color, DirectionalLight, FogExp2, HemisphereLight, LinearFilter, PointLight, Scene, SRGBColorSpace, Vector3 } from 'three';
 import type { LightPlacement, QualityLevel } from '../core/types';
 import type { ThemeLook } from './themeLooks';
 import { heroUniforms } from './occlusion';
@@ -19,6 +19,26 @@ interface Slot {
   phase: number;
 }
 
+/** A 2x64 vertical gradient, `top` at the top of the screen fading to `horizon` at the bottom (drawn once per floor). */
+function makeSkyTexture(horizon: number, top: number): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 2;
+  c.height = 64;
+  const g = c.getContext('2d')!;
+  const hex = (n: number): string => `#${n.toString(16).padStart(6, '0')}`;
+  const grad = g.createLinearGradient(0, 0, 0, 64);
+  grad.addColorStop(0, hex(top));
+  grad.addColorStop(0.7, hex(horizon));
+  grad.addColorStop(1, hex(horizon));
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 2, 64);
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  t.minFilter = LinearFilter;
+  t.generateMipmaps = false;
+  return t;
+}
+
 /** Hemisphere + one key light + a small pool of real point lights assigned to the nearest placements. */
 export class Lighting {
   readonly hemi = new HemisphereLight(0xffffff, 0x333333, 1);
@@ -37,6 +57,7 @@ export class Lighting {
   private dist: Float32Array = new Float32Array(0);
   private keyOffset = new Vector3(-14, 26, 9);
   private overview = false;
+  private skyTex: CanvasTexture | null = null;
 
   constructor(private readonly scene: Scene) {
     scene.add(this.hemi);
@@ -72,7 +93,10 @@ export class Lighting {
     heroUniforms.uHeroC.value.set(this.tmpColor.r, this.tmpColor.g, this.tmpColor.b).multiplyScalar(look.heroGain);
     this.fog.color.setHex(look.fog);
     this.fog.density = this.overview ? 0 : look.fogDensity;
-    this.scene.background = this.tmpColor.setHex(look.fog).clone();
+    this.skyTex?.dispose();
+    this.skyTex = null;
+    if (look.skyTop !== undefined) this.skyTex = makeSkyTexture(look.fog, look.skyTop);
+    this.scene.background = this.skyTex ?? this.tmpColor.setHex(look.fog).clone();
     this.dirty = true;
   }
 
@@ -186,6 +210,7 @@ export class Lighting {
       s.light.dispose();
     }
     this.key.shadow.map?.dispose();
+    this.skyTex?.dispose();
     this.hemi.dispose();
     this.key.dispose();
   }

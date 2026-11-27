@@ -13,6 +13,8 @@ const KILL_BONUS = 20;
 
 function isOffense(a: ActionDef): boolean {
   if (a.cost !== 'action') return false;
+  // Spells are chosen by the hero policy (spellPolicy.ts), never by the generic AI.
+  if (a.effects?.includes('spell')) return false;
   if (a.effects?.some((e) => UTILITY_EFFECTS.includes(e))) return false;
   if (a.targeting.kind === 'self' && !a.multiattack) return false;
   if (a.targeting.kind === 'creature' && a.targeting.friendly) return false;

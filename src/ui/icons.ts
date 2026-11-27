@@ -29,6 +29,16 @@ const ICONS: Record<string, string> = {
   generic: '<path d="M12 3 L21 12 L12 21 L3 12 Z"/><circle cx="12" cy="12" r="1.6"/>',
   // UI glyphs
   fire: '<path d="M12 3 C13 6 17 8 17 12.5 A5 5 0 0 1 7 12.5 C7 10.5 8 9.5 9 8.5 C9.5 10 10 10.5 10.5 10.5 C11 8 10.5 5.5 12 3 Z"/><path d="M4 21 L20 17"/><path d="M4 17 L20 21"/>',
+  'role-healer':
+    '<path d="M12 20 C4 14 3 9 6.5 6.5 C9 5 11 6 12 8 C13 6 15 5 17.5 6.5 C21 9 20 14 12 20 Z"/>',
+  'role-blaster':
+    '<path d="M12 3 C13 6 17 8 17 12.5 A5 5 0 0 1 7 12.5 C7 10.5 8 9.5 9 8.5 C9.5 10 10 10.5 10.5 10.5 C11 8 10.5 5.5 12 3 Z"/>',
+  'role-skirmisher': '<path d="M4 19 L9 13 L12 16 L19 7"/><path d="M14 7 H19 V12"/><path d="M4 12 H7"/>',
+  'stance-close':
+    '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M3 20 C3 15 13 15 13 20"/><path d="M11 20 C11 15 21 15 21 20"/>',
+  'stance-back': '<circle cx="18" cy="12" r="3"/><path d="M13 12 H3"/><path d="M7 8 L3 12 L7 16"/>',
+  'stance-focus':
+    '<circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5"/><path d="M12 2 V6"/><path d="M12 18 V22"/><path d="M2 12 H6"/><path d="M18 12 H22"/>',
   menu: '<path d="M4 7 H20"/><path d="M4 12 H20"/><path d="M4 17 H20"/>',
   coin: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/>',
   shield: '<path d="M12 3 L20 6 V12 C20 17 16 20 12 22 C8 20 4 17 4 12 V6 Z"/>',

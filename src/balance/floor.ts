@@ -5,6 +5,7 @@ import { MONSTERS } from '../data/monsters';
 import { createNavGrid, generateFloor } from '../gen';
 import {
   buildEncounters,
+  castOutOfCombat,
   chestLoot,
   createCombat,
   playerPolicy,
@@ -202,7 +203,23 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
   };
 
   /** Drink potions between fights when hurt (the game allows potion use outside combat). */
+  /** Between fights the hero casts False Life (temporary HP last until the next long rest) and heals with a spell when hurt. */
+  const castBuffs = (): void => {
+    const r = castOutOfCombat(cur, 'false_life', rng);
+    if (!('error' in r)) cur = r.pc;
+  };
+  const healSpell = (): void => {
+    if (cur.hp / cur.maxHp >= 0.6) return;
+    for (const id of ['cure_wounds', 'healing_word']) {
+      const r = castOutOfCombat(cur, id, rng);
+      if (!('error' in r)) {
+        cur = r.pc;
+        return;
+      }
+    }
+  };
   const maybePotion = (): void => {
+    healSpell();
     const limit = careless ? 0.5 : 0.4;
     for (let i = 0; i < 2 && cur.hp / cur.maxHp < limit; i++) {
       const id = cur.inventory.find((st) => st.quantity > 0 && getItem(st.itemId)?.consumable)?.itemId;
@@ -228,6 +245,7 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
           { roomId: mainCombat[mainCombat.length - 1], used: false, passed: false },
         ];
   let shortRestsLeft = SHORT_RESTS_PER_LONG_REST;
+  castBuffs();
   /** Short rest anywhere between fights (the route is out of enemy view): worthwhile when hurt or resources are spent. */
   const maybeShortRest = (): void => {
     if (shortRestsLeft <= 0) return;
@@ -241,6 +259,7 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
   };
   const longRestHere = (site: Site): void => {
     cur = longRest(cur);
+    castBuffs();
     site.used = true;
     shortRestsLeft = SHORT_RESTS_PER_LONG_REST;
     result.longRestsUsed++;

@@ -224,6 +224,528 @@
         "hit": "HitReact",
         "death": "Death"
       }
+    },
+    "frog": {
+      "url": "assets/models/frog.glb",
+      "scale": 0.3166,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Punch",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "snake": {
+      "url": "assets/models/snake.glb",
+      "scale": 0.1619,
+      "animations": {
+        "idle": "Snake_Idle",
+        "walk": "Snake_Walk",
+        "attack": "Snake_Attack"
+      }
+    },
+    "blob": {
+      "url": "assets/models/blob.glb",
+      "scale": 0.2154,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Bite_Front",
+        "hit": "HitRecieve",
+        "death": "Death"
+      }
+    },
+    "bat": {
+      "url": "assets/models/bat.glb",
+      "scale": 0.1144,
+      "animations": {
+        "idle": "Bat_Flying",
+        "walk": "Bat_Flying",
+        "attack": "Bat_Attack",
+        "hit": "Bat_Hit",
+        "death": "Bat_Death"
+      }
+    },
+    "imp": {
+      "url": "assets/models/imp.glb",
+      "scale": 0.4398,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Weapon",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "bluedemon": {
+      "url": "assets/models/bluedemon.glb",
+      "scale": 0.6365,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Punch",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "dino": {
+      "url": "assets/models/dino.glb",
+      "scale": 0.4896,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Punch",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "yeti": {
+      "url": "assets/models/yeti.glb",
+      "scale": 0.9002,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Bite_Front",
+        "hit": "HitRecieve",
+        "death": "Death"
+      }
+    },
+    "cat": {
+      "url": "assets/models/cat.glb",
+      "scale": 0.4592,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Bite_Front",
+        "hit": "HitRecieve",
+        "death": "Death"
+      }
+    },
+    "bull": {
+      "url": "assets/models/bull.glb",
+      "scale": 0.3465,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Attack_Headbutt",
+        "hit": "Idle_HitReact_Left",
+        "death": "Death"
+      }
+    },
+    "dragon": {
+      "url": "assets/models/dragon.glb",
+      "scale": 0.741,
+      "animations": {
+        "idle": "Flying_Idle",
+        "walk": "Fast_Flying",
+        "attack": "Headbutt",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "hooded_brown": {
+      "url": "assets/models/hooded_brown.glb",
+      "scale": 0.7995,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "Dualwield_Melee_Attack_Slice",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "hooded_black": {
+      "url": "assets/models/hooded_black.glb",
+      "scale": 0.7995,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "Dualwield_Melee_Attack_Slice",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "rogue_brown": {
+      "url": "assets/models/rogue_brown.glb",
+      "scale": 0.8219,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "Dualwield_Melee_Attack_Slice",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "rogue_navy": {
+      "url": "assets/models/rogue_navy.glb",
+      "scale": 0.8219,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "Dualwield_Melee_Attack_Slice",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "mage_cultist": {
+      "url": "assets/models/mage_cultist.glb",
+      "scale": 0.6354,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "mage_priest": {
+      "url": "assets/models/mage_priest.glb",
+      "scale": 0.6354,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "mage_green": {
+      "url": "assets/models/mage_green.glb",
+      "scale": 0.6354,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "barb_red": {
+      "url": "assets/models/barb_red.glb",
+      "scale": 0.7563,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "knight_dark": {
+      "url": "assets/models/knight_dark.glb",
+      "scale": 0.7347,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "knight_gold": {
+      "url": "assets/models/knight_gold.glb",
+      "scale": 0.7347,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "knight_green": {
+      "url": "assets/models/knight_green.glb",
+      "scale": 0.7347,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walking_A",
+        "attack": "1H_Melee_Attack_Chop",
+        "hit": "Hit_A",
+        "death": "Death_A",
+        "cast": "Spellcast_Shoot"
+      }
+    },
+    "dragon_red": {
+      "url": "assets/models/dragon_red.glb",
+      "scale": 0.7537,
+      "animations": {
+        "idle": "Flying_Idle",
+        "walk": "Fast_Flying",
+        "attack": "Headbutt",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "dragon_black": {
+      "url": "assets/models/dragon_black.glb",
+      "scale": 0.7537,
+      "animations": {
+        "idle": "Flying_Idle",
+        "walk": "Fast_Flying",
+        "attack": "Headbutt",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "dragon_blue": {
+      "url": "assets/models/dragon_blue.glb",
+      "scale": 0.7537,
+      "animations": {
+        "idle": "Flying_Idle",
+        "walk": "Fast_Flying",
+        "attack": "Headbutt",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "dragon_green": {
+      "url": "assets/models/dragon_green.glb",
+      "scale": 0.7537,
+      "animations": {
+        "idle": "Flying_Idle",
+        "walk": "Fast_Flying",
+        "attack": "Headbutt",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "dragon_white": {
+      "url": "assets/models/dragon_white.glb",
+      "scale": 0.7537,
+      "animations": {
+        "idle": "Flying_Idle",
+        "walk": "Fast_Flying",
+        "attack": "Headbutt",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "dragon_gold": {
+      "url": "assets/models/dragon_gold.glb",
+      "scale": 0.7537,
+      "animations": {
+        "idle": "Flying_Idle",
+        "walk": "Fast_Flying",
+        "attack": "Headbutt",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "wyvern": {
+      "url": "assets/models/wyvern.glb",
+      "scale": 0.741,
+      "animations": {
+        "idle": "Flying_Idle",
+        "walk": "Fast_Flying",
+        "attack": "Headbutt",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "frog_green": {
+      "url": "assets/models/frog_green.glb",
+      "scale": 0.3166,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Punch",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "slime_gray": {
+      "url": "assets/models/slime_gray.glb",
+      "scale": 0.4107,
+      "animations": {
+        "idle": "Slime_Idle",
+        "walk": "Slime_Walk",
+        "attack": "Slime_Attack",
+        "death": "Slime_Death"
+      }
+    },
+    "slime_ochre": {
+      "url": "assets/models/slime_ochre.glb",
+      "scale": 0.4107,
+      "animations": {
+        "idle": "Slime_Idle",
+        "walk": "Slime_Walk",
+        "attack": "Slime_Attack",
+        "death": "Slime_Death"
+      }
+    },
+    "slime_cyan": {
+      "url": "assets/models/slime_cyan.glb",
+      "scale": 0.4107,
+      "animations": {
+        "idle": "Slime_Idle",
+        "walk": "Slime_Walk",
+        "attack": "Slime_Attack",
+        "death": "Slime_Death"
+      }
+    },
+    "slime_black": {
+      "url": "assets/models/slime_black.glb",
+      "scale": 0.4107,
+      "animations": {
+        "idle": "Slime_Idle",
+        "walk": "Slime_Walk",
+        "attack": "Slime_Attack",
+        "death": "Slime_Death"
+      }
+    },
+    "crab_teal": {
+      "url": "assets/models/crab_teal.glb",
+      "scale": 0.5913,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Bite_Front",
+        "hit": "HitRecieve",
+        "death": "Death"
+      }
+    },
+    "mushnub_violet": {
+      "url": "assets/models/mushnub_violet.glb",
+      "scale": 0.242,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Bite_Front",
+        "hit": "HitRecieve",
+        "death": "Death"
+      }
+    },
+    "mushking_moss": {
+      "url": "assets/models/mushking_moss.glb",
+      "scale": 0.5802,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Punch",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "hag_green": {
+      "url": "assets/models/hag_green.glb",
+      "scale": 0.8942,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Punch_Right",
+        "hit": "HitRecieve",
+        "death": "Death"
+      }
+    },
+    "companion_sphinx": {
+      "url": "assets/models/companion_sphinx.glb",
+      "scale": 0.3582,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Bite_Front",
+        "hit": "HitRecieve",
+        "death": "Death"
+      }
+    },
+    "companion_pseudodragon": {
+      "url": "assets/models/companion_pseudodragon.glb",
+      "scale": 0.2468,
+      "animations": {
+        "idle": "Flying_Idle",
+        "walk": "Fast_Flying",
+        "attack": "Headbutt",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "companion_blinkdog": {
+      "url": "assets/models/companion_blinkdog.glb",
+      "scale": 0.3745,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Attack",
+        "hit": "Idle_HitReact_Left",
+        "death": "Death"
+      }
+    },
+    "mephit_ice": {
+      "url": "assets/models/mephit_ice.glb",
+      "scale": 0.3544,
+      "animations": {
+        "idle": "Flying_Idle",
+        "walk": "Fast_Flying",
+        "attack": "Headbutt",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "mephit_fire": {
+      "url": "assets/models/mephit_fire.glb",
+      "scale": 0.3544,
+      "animations": {
+        "idle": "Flying_Idle",
+        "walk": "Fast_Flying",
+        "attack": "Headbutt",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "gargoyle_stone": {
+      "url": "assets/models/gargoyle_stone.glb",
+      "scale": 0.6365,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Punch",
+        "hit": "HitReact",
+        "death": "Death"
+      }
+    },
+    "birb_gold": {
+      "url": "assets/models/birb_gold.glb",
+      "scale": 0.566,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Bite_Front",
+        "hit": "HitRecieve",
+        "death": "Death"
+      }
+    },
+    "birb_grey": {
+      "url": "assets/models/birb_grey.glb",
+      "scale": 0.566,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Bite_Front",
+        "hit": "HitRecieve",
+        "death": "Death"
+      }
+    },
+    "birb_crimson": {
+      "url": "assets/models/birb_crimson.glb",
+      "scale": 0.566,
+      "animations": {
+        "idle": "Idle",
+        "walk": "Walk",
+        "attack": "Bite_Front",
+        "hit": "HitRecieve",
+        "death": "Death"
+      }
     }
   }
 }

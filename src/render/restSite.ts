@@ -38,7 +38,55 @@ export function buildRestSite(theme: ThemeId): Figure {
   };
   let flameTop = 0.2;
 
-  if (theme === 'warrens' || theme === 'forest' || theme === 'marsh' || theme === 'peaks' || theme === 'lair' || theme === 'fungal' || theme === 'hold' || theme === 'ice' || theme === 'foundry' || theme === 'ruin') {
+  let tall = false;
+  if (theme === 'hold') {
+    // A brazier-lit cot: timber frame, straw mattress, red blanket, pack; iron tripod brazier beside it.
+    for (const [dx, dz] of [[-0.62, -0.3], [0.62, -0.3], [-0.62, 0.3], [0.62, 0.3]] as const) lit.box(0.1, 0.3, 0.1, 0x4a3220, { x: -0.5 + dx, z: dz, y: 0.15 });
+    lit.box(1.5, 0.1, 0.8, 0x5a3a20, { x: -0.5, y: 0.32 });
+    lit.box(1.35, 0.14, 0.7, 0xc4a05a, { x: -0.5, y: 0.44 });
+    lit.box(0.8, 0.07, 0.72, 0x8a2a28, { x: -0.25, y: 0.53, ry: 0.04 });
+    lit.box(0.3, 0.1, 0.5, 0xe0d8c0, { x: -1.0, y: 0.54 });
+    lit.box(0.4, 0.34, 0.3, 0x6a4a2a, { x: -0.5, z: 0.75, y: 0.17, ry: 0.3 });
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + 0.5;
+      lit.box(0.05, 0.8, 0.05, stoneD, { x: 0.95 + Math.cos(a) * 0.16, z: Math.sin(a) * 0.16, y: 0.4, rx: Math.sin(a) * 0.2, rz: -Math.cos(a) * 0.2 });
+    }
+    lit.cyl(0.32, 0.16, 0.16, 8, 0x2c2c32, { x: 0.95, y: 0.82 });
+    flameAt(0.95, 0.88, 0, 1.4);
+    flameAt(1.0, 0.88, 0.05, 0.9);
+    emberAt(0.95, 0.9, 0.1, 0.06);
+    emberAt(0.88, 0.9, -0.08, 0.05);
+    flameTop = 1.3;
+    tall = true;
+  } else if (theme === 'library') {
+    // A reading lamp: small desk with an open book, a tall cold lamp, a stool.
+    for (const [dx, dz] of [[-0.55, -0.28], [0.55, -0.28], [-0.55, 0.28], [0.55, 0.28]] as const) lit.box(0.08, 0.7, 0.08, 0x4a3626, { x: dx, z: dz, y: 0.35 });
+    lit.box(1.35, 0.1, 0.75, 0x6a4a30, { y: 0.75 });
+    lit.box(0.34, 0.03, 0.44, 0xe8e2d0, { x: -0.12, y: 0.82, z: 0.05, ry: 0.15 });
+    lit.box(0.34, 0.03, 0.44, 0xd8d2c0, { x: 0.2, y: 0.82, z: 0.05, ry: -0.15 });
+    lit.box(0.2, 0.04, 0.3, 0x5a3a6a, { x: -0.5, y: 0.81, z: -0.1, ry: 0.4 });
+    lit.cyl(0.04, 0.04, 0.7, 6, 0x6a6a74, { x: 0.5, z: -0.2, y: 1.2 });
+    lit.cyl(0.14, 0.1, 0.06, 7, 0x6a6a74, { x: 0.5, z: -0.2, y: 0.82 });
+    lit.cone(0.2, 0.16, 7, 0x3a5a7a, { x: 0.5, z: -0.2, y: 1.65 });
+    lit.cyl(0.2, 0.2, 0.06, 7, 0x4a3626, { x: -0.2, z: 0.85, y: 0.3 });
+    lit.cyl(0.04, 0.04, 0.3, 5, 0x4a3626, { x: -0.2, z: 0.85, y: 0.15 });
+    flameAt(0.5, 1.42, -0.2, 0.8);
+    emberAt(0.5, 1.45, -0.2, 0.03);
+    flameTop = 1.7;
+    tall = true;
+  } else if (theme === 'ice') {
+    // A warm tent: a small pyramid of ochre canvas with a dark doorway, snow banked round it, a lantern by the flap.
+    lit.cyl(1.0, 1.1, 0.12, 10, 0xe8f0f8, { y: 0.06 });
+    lit.cone(1.0, 1.5, 4, 0xc8702c, { y: 0.87, ry: Math.PI / 4 });
+    lit.cone(0.78, 1.2, 4, 0xe0883a, { y: 0.8, x: 0.06, ry: Math.PI / 4, shade: 1.15 });
+    lit.box(0.4, 0.62, 0.06, 0x2a1810, { x: 0, y: 0.43, z: 0.5, rx: -0.45 });
+    lit.box(0.07, 0.4, 0.07, 0x4a3a2a, { x: 0.95, y: 0.2, z: 0.7 });
+    lit.box(0.18, 0.2, 0.18, 0x2c2c32, { x: 0.95, y: 0.5, z: 0.7 });
+    flameAt(0.95, 0.42, 0.7, 0.7);
+    emberAt(0.95, 0.46, 0.7, 0.04);
+    flameTop = 1.0;
+    tall = true;
+  } else if (theme === 'warrens' || theme === 'forest' || theme === 'marsh' || theme === 'peaks' || theme === 'lair' || theme === 'fungal' || theme === 'foundry' || theme === 'ruin') {
     for (let i = 0; i < 9; i++) {
       const a = (i / 9) * Math.PI * 2;
       lit.ico(0.16, 0, i % 2 ? stoneC : stoneD, { x: Math.cos(a) * 0.5, z: Math.sin(a) * 0.5, y: 0.09, sy: 0.7, ry: i });
@@ -56,7 +104,7 @@ export function buildRestSite(theme: ThemeId): Figure {
     emberAt(-0.12, 0.09, -0.08, 0.06);
     emberAt(0.0, 0.1, 0.18, 0.05);
     flameTop = 0.5;
-  } else if (theme === 'crypt' || theme === 'sewers' || theme === 'library' || theme === 'hell') {
+  } else if (theme === 'crypt' || theme === 'sewers' || theme === 'hell') {
     lit.box(1.3, 0.2, 0.8, stoneD, { y: 0.1 });
     lit.box(1.15, 0.5, 0.65, stoneC, { y: 0.45 });
     lit.box(1.3, 0.1, 0.8, stoneC, { y: 0.74, shade: 1.1 });
@@ -177,7 +225,7 @@ export function buildRestSite(theme: ThemeId): Figure {
     root,
     parts: {},
     materials: [bodyMat],
-    height: theme === 'warrens' || theme === 'forest' || theme === 'marsh' || theme === 'peaks' || theme === 'lair' || theme === 'fungal' || theme === 'hold' || theme === 'ice' || theme === 'foundry' || theme === 'ruin' ? 0.9 : 1.6,
+    height: tall ? 1.7 : theme === 'warrens' || theme === 'forest' || theme === 'marsh' || theme === 'peaks' || theme === 'lair' || theme === 'fungal' || theme === 'hold' || theme === 'ice' || theme === 'foundry' || theme === 'ruin' ? 0.9 : 1.6,
     kind: 'rest',
     tick,
     dispose() {

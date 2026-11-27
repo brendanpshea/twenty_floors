@@ -37,6 +37,13 @@ export class ModelCache {
     if (this.disposed) return null;
     const entry: ModelEntry | undefined = this.manifest.models[key];
     if (!entry) return null;
+    const p = this.fetchEntry(key, entry);
+    const loaded = await p;
+    if (!loaded || this.disposed) return null;
+    return this.instantiate(loaded, entry, tint);
+  }
+
+  private fetchEntry(key: string, entry: ModelEntry): Promise<Loaded | null> {
     const url = new URL(entry.url, document.baseURI).href;
     let p = this.cache.get(url);
     if (!p) {
@@ -49,9 +56,20 @@ export class ModelCache {
         });
       this.cache.set(url, p);
     }
-    const loaded = await p;
-    if (!loaded || this.disposed) return null;
-    return this.instantiate(loaded, entry, tint);
+    return p;
+  }
+
+  /** Warm the cache for these model keys; resolves when all are loaded or after `timeoutMs`, whichever is first (never rejects). */
+  async preload(keys: string[], timeoutMs: number): Promise<void> {
+    await this.manifestReady;
+    if (this.disposed) return;
+    const jobs: Promise<unknown>[] = [];
+    for (const k of new Set(keys)) {
+      const entry = this.manifest.models[k];
+      if (entry) jobs.push(this.fetchEntry(k, entry));
+    }
+    if (jobs.length === 0) return;
+    await Promise.race([Promise.all(jobs), new Promise<void>((r) => setTimeout(r, timeoutMs))]);
   }
 
   private instantiate(loaded: Loaded, entry: ModelEntry, tint: number | undefined): Figure {

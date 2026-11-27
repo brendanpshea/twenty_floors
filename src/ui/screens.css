@@ -1391,3 +1391,20 @@
 .tf-rar--legendary {
   --tf-rar: #f0b050;
 }
+
+/* ---------- Hub companion picker ---------- */
+
+.tf-comp-cards {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+}
+.tf-comp-glyph {
+  color: var(--tf-teal-hi);
+  border-color: var(--tf-teal);
+}
+.tf-comp-glyph .tf-icon {
+  width: 18px;
+  height: 18px;
+}
+.tf-comp-sec .tf-card .tf-card-desc {
+  font-size: 0.85em;
+}

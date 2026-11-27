@@ -32,6 +32,11 @@ export class CombatController {
     private readonly onEnded: () => void,
   ) {}
 
+  /** The creatures the selected action can target right now (empty unless choosing a target). */
+  get targetableIds(): readonly string[] {
+    return this.mode === 'target' ? this.targetable : [];
+  }
+
   get playerTurn(): boolean {
     const c = this.combat;
     return !!c && !c.isOver && c.activeId === 'player' && !this.busy;
@@ -78,9 +83,20 @@ export class CombatController {
   private async advance(): Promise<void> {
     const combat = this.combat;
     if (!combat) return;
-    for (let guard = 0; guard < 400 && !combat.isOver && combat.activeId !== 'player'; guard++) {
-      await this.playback.play(runAiTurn(combat, this.ctx.state.nav));
-      await this.ctx.deps.delay(PAUSE.betweenTurns);
+    const state = this.ctx.state;
+    // Pace the enemies: a crowd in view acts in a quick run instead of a parade (see Playback.beginEnemyRound).
+    const seenEnemies = combat.creatures().filter((c) => c.id !== 'player' && !c.dead && c.hp > 0 && isEntityVisible(state, c.id)).length;
+    this.playback.beginEnemyRound(seenEnemies);
+    try {
+      for (let guard = 0; guard < 400 && !combat.isOver && combat.activeId !== 'player'; guard++) {
+        const actor = combat.activeId;
+        const wasSeen = isEntityVisible(state, actor);
+        await this.playback.play(runAiTurn(combat, state.nav));
+        // No pause for a monster the hero never saw act.
+        if (wasSeen || isEntityVisible(state, actor)) await this.ctx.deps.delay(this.playback.turnGap(PAUSE.betweenTurns));
+      }
+    } finally {
+      this.playback.endEnemyRound();
     }
     if (combat.isOver) await this.finishCombat();
     else this.beginPlayerTurn();
@@ -126,6 +142,7 @@ export class CombatController {
       this.ctx.say('Victory!');
     }
     deps.renderer.followEntity('player');
+    if (state.stairsOpen && samePos(state.player.pos, state.plan.exit)) this.ctx.prompt('You are standing on the stairs. Tap yourself to descend.', 6000);
     if (state.depth === 1 && !state.restHintShown && state.player.hp < state.player.maxHp) {
       state.restHintShown = true;
       this.ctx.prompt('Short rests work anywhere safe (2 between long rests). Campsites give a full long rest, once each.', 9000);

@@ -1,5 +1,5 @@
 import type { GameAudio } from '../audio';
-import { THEMES, themeForDepth } from '../core/themes';
+import { THEMES } from '../core/themes';
 import type { HubIntent, HubModel, ItemDef, PlayerCharacter, GameUi } from '../core/types';
 import {
   applyLevelUp,
@@ -14,6 +14,7 @@ import {
   shopStock,
 } from '../rules';
 import { defaultLevelChoices } from './quickBuild';
+import { floorTheme } from './runPlan';
 
 /** Mutable hub state: the character as the player shapes it between floors. */
 export class HubFlow {
@@ -27,6 +28,7 @@ export class HubFlow {
     character: PlayerCharacter,
     private readonly cleared: number,
     private readonly audio: GameAudio,
+    private readonly runSeed: number,
   ) {
     this.pc = { ...longRest(character) };
     this.pc.gold = Math.round((this.pc.gold + floorReward(cleared)) * 100) / 100;
@@ -47,7 +49,7 @@ export class HubFlow {
     }
     const model: HubModel = {
       nextDepth: this.nextDepth,
-      nextThemeName: THEMES[themeForDepth(this.nextDepth)].name,
+      nextThemeName: THEMES[floorTheme(this.runSeed, this.nextDepth)].name,
       character: pc,
       items,
       characterSummary: {
@@ -108,8 +110,9 @@ export async function runHub(
   character: PlayerCharacter,
   clearedDepth: number,
   headless: boolean,
+  runSeed: number,
 ): Promise<PlayerCharacter> {
-  const hub = new HubFlow(character, clearedDepth, audio);
+  const hub = new HubFlow(character, clearedDepth, audio, runSeed);
   if (!headless) await ui.showHub(hub.model(), (intent) => hub.handle(intent));
   return hub.settle();
 }

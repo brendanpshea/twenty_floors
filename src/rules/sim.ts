@@ -1,6 +1,7 @@
 import { Rng } from '../core/rng';
 import type { Command, CombatApi, Creature, GameEvent, MonsterDef, NavGrid, PlayerCharacter } from '../core/types';
 import { chooseCommand, runAiTurn, runTurnWith } from './ai';
+import { spellCommand } from './spellPolicy';
 import { maxDice } from './dice';
 import { toCreature } from './character';
 import { createCombat } from './combat';
@@ -58,16 +59,31 @@ export function playerPolicy(combat: CombatApi, nav: NavGrid): Command {
   // Heal when the next enemy round could plausibly kill us (or we are below half), and it is worth a bonus action.
   const needsHeal = missing >= 5 && (c.hp <= c.maxHp * 0.5 || c.hp <= threat * 0.85);
   if (needsHeal && combat.canUse('second_wind').ok) return { type: 'action', actionId: 'second_wind' };
+  if (needsHeal && combat.canUse('spell_healing_word').ok) return { type: 'action', actionId: 'spell_healing_word', targetId: c.id };
   if (needsHeal && (c.hp <= c.maxHp * 0.4 || c.hp <= threat * 0.85)) {
     for (const a of c.actions) {
       if (a.id.startsWith('drink_') && combat.canUse(a.id).ok) return { type: 'action', actionId: a.id };
     }
   }
   if (combat.canUse('break_free').ok) return { type: 'action', actionId: 'break_free' };
+  // Two-weapon fighting: the off-hand attack follows a main-hand Light attack (a free action with Nick, else the bonus action).
+  const off = c.actions.find((a) => a.effects?.includes('offhand'));
+  if (off && combat.canUse(off.id).ok) {
+    const t = combat
+      .validTargets(off.id)
+      .map((id) => combat.creature(id) as Creature)
+      .sort((x, y) => x.hp - y.hp)[0];
+    if (t) return { type: 'action', actionId: off.id, targetId: t.id };
+  }
   if (combat.canUse('action_surge').ok) {
     const canHit = c.actions.some((a) => a.attack && combat.validTargets(a.id).length > 0);
     if (canHit) return { type: 'action', actionId: 'action_surge' };
   }
+  if (c.hp <= c.maxHp * 0.35 && combat.canUse('spell_cure_wounds').ok && !combat.turn.actionUsed && !c.actions.some((a) => a.id.startsWith('drink_') && combat.canUse(a.id).ok)) {
+    return { type: 'action', actionId: 'spell_cure_wounds', targetId: c.id };
+  }
+  const cast = spellCommand(combat, c);
+  if (cast) return cast;
   const kite = archerRetreat(combat, nav, c);
   if (kite) return kite;
   return chooseCommand(combat, nav);
@@ -81,8 +97,8 @@ function archerRetreat(combat: CombatApi, nav: NavGrid, c: Creature): Command | 
   if ((globalThis as { __NOKITE?: boolean }).__NOKITE) return null;
   const turn = combat.turn;
   if (!turn.actionUsed || turn.movementLeft <= 0) return null;
-  const main = c.actions.find((a) => a.id.startsWith('atk_'));
-  if (!main || main.targeting.kind !== 'creature' || main.targeting.melee) return null;
+  const main = c.actions.find((a) => a.id.startsWith('atk_') && a.targeting.kind === 'creature' && !a.targeting.melee);
+  if (!main) return null;
   const hostiles = combat.creatures().filter((o) => !o.dead && o.hp > 0 && o.faction === 'enemy');
   if (hostiles.length === 0) return null;
   const minDist = (p: { x: number; y: number }): number => Math.min(...hostiles.map((h) => Math.max(Math.abs(p.x - h.pos.x), Math.abs(p.y - h.pos.y))));

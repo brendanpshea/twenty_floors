@@ -53,6 +53,13 @@ export const FIXTURE_ITEMS: ItemDef[] = [
     mastery: 'vex',
     properties: ['finesse', 'light'],
   }),
+  weapon('scimitar', 'Scimitar', 25, {
+    category: 'martial',
+    melee: true,
+    damage: { dice: '1d6', type: 'slashing' },
+    mastery: 'nick',
+    properties: ['finesse', 'light'],
+  }),
   weapon('dagger', 'Dagger', 2, {
     category: 'simple',
     melee: true,

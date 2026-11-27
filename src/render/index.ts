@@ -22,7 +22,7 @@ import { Highlights } from './highlights';
 import { Lighting } from './lighting';
 import { Markers } from './markers';
 import { ModelCache } from './modelCache';
-import { disableOcclusion, updateOcclusion } from './occlusion';
+import { disableOcclusion, occScale, updateOcclusion } from './occlusion';
 import { Picker } from './picking';
 import type { PickOut } from './picking';
 import { buildProps } from './props';
@@ -202,7 +202,17 @@ class RendererImpl implements RendererWithDebug {
 
   // ---- Renderer3D --------------------------------------------------------
 
+  /**
+   * Warm the model cache so spawnEntity shows real models on the first frame. Resolves when every key has loaded
+   * or after `timeoutMs` (default 2000), whichever comes first. Not part of Renderer3D: callers may call it before spawning.
+   */
+  preloadModels(keys: string[], timeoutMs = 2000): Promise<void> {
+    return this.models.preload(keys, timeoutMs);
+  }
+
   async loadFloor(plan: FloorPlan): Promise<void> {
+    // The default hero is needed on every floor; start fetching it (bounded) while the floor builds.
+    const warm = this.models.preload(['hero_knight', 'chest'], 2000);
     this.disposeFloor();
     const look = LOOKS[plan.theme] ?? LOOKS.crypt;
     this.plan = plan;
@@ -216,14 +226,17 @@ class RendererImpl implements RendererWithDebug {
     this.markers.build(plan, (x, y) => this.groundAt(x, y));
     this.markers.refresh(fow, false);
     this.lighting.setLook(look);
+    occScale.v = look.wallStyle === 'foliage' ? 1.7 : 1;
     this.lighting.setLights(plan.lights, (x, y) => this.groundAt(x, y));
     this.rig.setBounds(plan.width, plan.height, CELL);
     this.picker.setFloor(plan.width, plan.height, floor.topH, floor.wallBase);
     this.gl.toneMappingExposure = 1.0;
     this.applyQuality();
     this.entities.refreshGround();
+    this.highlights.setPalette(look.highlight ?? 'default');
     this.highlights.setGrid(plan.width, plan.height);
     this.highlights.set([], (x, y) => this.groundAt(x, y));
+    await warm;
     // In overview the rig has already framed the new floor (setBounds above).
     if (this.rig.overview) return;
     this.rig.focusOn(plan.entrance.x * CELL + CELL / 2, plan.entrance.y * CELL + CELL / 2, true);

@@ -5,7 +5,7 @@ const [out,query,focus,js]=process.argv.slice(2);
 const b=await puppeteer.launch({executablePath:process.env.EDGE_PATH||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true,args:['--enable-unsafe-swiftshader','--use-angle=swiftshader','--ignore-gpu-blocklist','--window-size=1366,768']});
 const p=await b.newPage();await p.setViewport({width:1366,height:768});
 p.on('pageerror',e=>console.log('ERR',e.message));
-await p.goto('http://localhost:5186/?'+query);
+await p.goto('http://localhost:'+(process.env.PORT||5186)+'/?'+query);
 await new Promise(r=>setTimeout(r,9000));
 const info=await p.evaluate(()=>{const g=window.__tf.game;const s=g.session?.state||g.state;return {keys:Object.keys(g),sk:s?Object.keys(s):null};});
 console.log(JSON.stringify(info));

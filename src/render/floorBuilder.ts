@@ -536,6 +536,8 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
         (a[2] + b[2]) / 2 + DIRS[d]![1] * push,
       ]);
     }
+    // Cells that touch no open ground are the dark interior of the thicket.
+    const interiorK = edgeInfo.some((e) => e.open) ? 1 : 0.6;
     const cyTop = (cs[0]![1] + cs[1]![1] + cs[2]![1] + cs[3]![1]) / 4 + 0.25 + 0.55 * lump * hash2(cx, cy, 75);
     const ctr: Pt3 = [(cx + 0.5) * CELL + (hash2(cx, cy, 78) - 0.5) * 0.4, cyTop, (cy + 0.5) * CELL + (hash2(cx, cy, 79) - 0.5) * 0.4];
     for (let k = 0; k < 8; k++) {
@@ -543,7 +545,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       const q = ring[(k + 1) % 8]!;
       const alb = gAt(hash2(cx * 8 + k, cy, 76));
       const lift = clamp((p[1] + q[1] - 2 * top + 0.8) / 1.6, 0, 1);
-      const sh = 0.82 + 0.32 * lift + 0.12 * hash2(cx * 8 + k, cy, 80);
+      const sh = (0.74 + 0.3 * lift + 0.14 * hash2(cx * 8 + k, cy, 80)) * interiorK;
       setV(va, ctr[0], ctr[1], ctr[2], alb, sh * 1.08);
       setV(vb, p[0], p[1], p[2], alb, sh);
       setV(vc, q[0], q[1], q[2], alb, sh);

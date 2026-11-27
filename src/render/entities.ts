@@ -13,6 +13,7 @@ import {
 import type { AnimationAction, Material, MeshLambertMaterial, Object3D, Quaternion } from 'three';
 import type { AnimName, Faction, GridPos, Size, ThemeId, VisualSpec } from '../core/types';
 import type { ModelCache } from './modelCache';
+import { coversTarget } from './occlusion';
 import { createStandIn } from './standins';
 import type { Figure } from './standins';
 import { CELL, angleDiff, clamp } from './util';
@@ -75,6 +76,8 @@ export class Entity {
   lastFlash = -1;
   lastGlow = -1;
   opacity = 1;
+  /** 1 normally; eases towards 0.3 while this creature would hide the camera target. */
+  occFade = 1;
   lastOpacity = 1;
   seed: number;
   visible = true;
@@ -116,7 +119,7 @@ export class Entity {
     const vs = this.spec.scale ?? 1;
     this.scale = (this.figure.kind === 'model' || this.figure.kind === 'rest' ? 1 : SIZE_SCALE[this.size]) * vs;
     this.height = this.figure.height * this.scale;
-    const r = Math.max(0.8, 0.28 * this.height + 0.35);
+    const r = Math.min(2.4, Math.max(0.8, 0.28 * this.height + 0.35)); // capped so a dragon does not swallow clicks meant for neighbouring cells
     const h = Math.max(1.5, this.height + 0.3);
     this.proxy.scale.set(r, h, r);
     this.proxy.position.y = h / 2;
@@ -545,6 +548,9 @@ export class EntityManager {
     this.selMat.opacity = 0.8 + 0.15 * Math.sin(time * 3);
     for (const e of this.entities.values()) {
       this.updateMovement(e, dt);
+      const hides = !e.dead && e.visible && coversTarget(e.root.position.x, e.root.position.z, e.height);
+      const fadeTo = hides ? 0.3 : 1;
+      if (e.occFade !== fadeTo) e.occFade += Math.sign(fadeTo - e.occFade) * Math.min(Math.abs(fadeTo - e.occFade), dt * 5);
       if (e.figure.mixer) e.figure.mixer.update(dt);
       this.updatePose(e, dt, time);
       if (e.bar) e.bar.quaternion.copy(camQuat);
@@ -838,7 +844,7 @@ export class EntityManager {
       e.bar.position.y = e.height + 0.5;
     }
 
-    this.setFlashOpacity(e, false, flash, glow, opacity, shade);
+    this.setFlashOpacity(e, false, flash, glow, opacity * e.occFade, shade);
   }
 
   private setFlashOpacity(e: Entity, force: boolean, flash = e.lastFlash < 0 ? 0 : e.lastFlash, glow = e.lastGlow < 0 ? 0 : e.lastGlow, opacity = e.lastOpacity, shade = e.lastShade): void {

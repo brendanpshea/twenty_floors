@@ -1,5 +1,6 @@
 /** Mock data for the UI preview page (dev/ui-preview.html). Not used by the game. */
 import type {
+  CompanionInfo,
   ChoiceSlot,
   CreationOptions,
   FeatInfo,
@@ -569,5 +570,95 @@ export function makeHubModel(): HubModel {
       ],
     },
     shop: shopItems.map((it) => ({ item: it, price: it.cost, affordable: it.cost <= 120 })),
+    companions: { options: companionInfos, chosenId: 'pseudodragon', required: false },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Companions (hero level 4, companion level 2)
+// ---------------------------------------------------------------------------
+
+export const companionInfos: CompanionInfo[] = [
+  {
+    id: 'sphinx_of_wonder',
+    name: 'Sphinx of Wonder',
+    role: 'healer',
+    description: 'A tiny winged cat of gold fur and riddling patience. It mends wounds and wards the fragile.',
+    level: 2,
+    maxHp: 17,
+    ac: 13,
+    summaries: ['Healing Word: restores a friend at range (2 uses).', 'Radiant Claws: a small but reliable attack.'],
+    nextUnlock: { level: 3, summary: 'Bless: your attacks and saves gain a bonus die.' },
+    visual: { model: 'sphinx' },
+  },
+  {
+    id: 'pseudodragon',
+    name: 'Pseudodragon',
+    role: 'blaster',
+    description: 'A cat-sized dragon with a stinging tail and a temper. It stays back and lets its magic do the talking.',
+    level: 2,
+    maxHp: 14,
+    ac: 14,
+    summaries: ['Fire Bolt: a ranged attack that burns.', 'Magic Missile: three darts that always hit (2 uses).'],
+    nextUnlock: { level: 3, summary: 'Burning Hands: a cone of flame for groups.' },
+    visual: { model: 'pseudodragon' },
+  },
+  {
+    id: 'blink_dog',
+    name: 'Blink Dog',
+    role: 'skirmisher',
+    description: 'A lean fey hound that vanishes and reappears at your enemy\u2019s flank, snapping at the moment you strike.',
+    level: 2,
+    maxHp: 24,
+    ac: 13,
+    summaries: ['Bite: bonus damage on a target next to you.', 'Blink: teleports out of reach after attacking.'],
+    nextUnlock: { level: 4, summary: 'Flank: sets up advantage on your next attack.' },
+    visual: { model: 'blink_dog' },
+  },
+];
+
+export function withCompanion(m: HudModel, id: string, opts: { downed?: boolean; stance?: 'close' | 'back' | 'focus' } = {}): HudModel {
+  const info = companionInfos.find((c) => c.id === id) ?? companionInfos[0];
+  if (!info) return m;
+  const resources =
+    info.role === 'healer'
+      ? [{ name: 'Healing Word', current: 2, max: 2 }]
+      : info.role === 'blaster'
+        ? [{ name: 'Magic Missile', current: 1, max: 2 }]
+        : [];
+  const downed = !!opts.downed;
+  const out: HudModel = {
+    ...m,
+    companion: {
+      id: info.id,
+      name: info.name,
+      role: info.role,
+      level: info.level,
+      hp: downed ? 0 : Math.round(info.maxHp * 0.7),
+      maxHp: info.maxHp,
+      conditions: [],
+      downed,
+      stance: opts.stance ?? 'close',
+      resources,
+    },
+  };
+  if (out.combat) {
+    out.combat = {
+      ...out.combat,
+      initiative: out.combat.initiative.map((e) =>
+        e.faction === 'ally'
+          ? { ...e, id: 'companion', name: info.name, hpFraction: downed ? 0 : 0.7, dead: downed }
+          : e,
+      ),
+    };
+  }
+  return out;
+}
+
+export function makeCompanionHubModel(required: boolean): HubModel {
+  const m = makeHubModel();
+  m.levelUp = undefined;
+  m.character.level = 4;
+  m.companions = { options: companionInfos, chosenId: required ? null : 'pseudodragon', required };
+  return m;
 }

@@ -50,6 +50,66 @@ const EXPECTED_IDS = [
   'command',
   'entangle',
   'faerie_fire',
+  // Level 2
+  'aid',
+  'lesser_restoration',
+  'prayer_of_healing',
+  'spiritual_weapon',
+  'hold_person',
+  'scorching_ray',
+  'shatter',
+  'misty_step',
+  'mirror_image',
+  'web',
+  'blur',
+  // Level 3
+  'mass_healing_word',
+  'beacon_of_hope',
+  'revivify',
+  'spirit_guardians',
+  'fireball',
+  'lightning_bolt',
+  'haste',
+  'slow',
+  'hypnotic_pattern',
+  // Level 4
+  'death_ward',
+  'guardian_of_faith',
+  'greater_invisibility',
+  'ice_storm',
+  'wall_of_fire',
+  // Level 5
+  'mass_cure_wounds',
+  'flame_strike',
+  'cone_of_cold',
+  'hold_monster',
+];
+
+/** Level 2 to 5 additions that heal or support the caster's side. */
+const HEALING_SUPPORT_IDS = [
+  'aid',
+  'lesser_restoration',
+  'prayer_of_healing',
+  'mass_healing_word',
+  'beacon_of_hope',
+  'revivify',
+  'death_ward',
+  'guardian_of_faith',
+  'mass_cure_wounds',
+];
+
+/** Level 2 to 5 additions that deal damage. */
+const DAMAGE_IDS = [
+  'spiritual_weapon',
+  'scorching_ray',
+  'shatter',
+  'spirit_guardians',
+  'fireball',
+  'lightning_bolt',
+  'ice_storm',
+  'wall_of_fire',
+  'flame_strike',
+  'cone_of_cold',
 ];
 
 const SNAKE_CASE = /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/;
@@ -74,9 +134,9 @@ describe('spell data', () => {
     }
   });
 
-  it('has level 0 or 1 only, and a known school', () => {
+  it('has levels 0 to 5 only, and a known school', () => {
     for (const s of SPELLS) {
-      expect([0, 1], `${s.id} level`).toContain(s.level);
+      expect([0, 1, 2, 3, 4, 5], `${s.id} level`).toContain(s.level);
       expect(SCHOOLS, `${s.id} school`).toContain(s.school);
     }
   });
@@ -90,12 +150,12 @@ describe('spell data', () => {
     }
   });
 
-  it('gives cantrips with damage exactly three scaling dice, and level-1 spells none', () => {
+  it('gives cantrips with damage exactly three scaling dice, and only cantrips scaling', () => {
     for (const s of SPELLS) {
       if (s.level === 0 && s.damage) {
         expect(s.cantripScaling, `${s.id} cantripScaling`).toHaveLength(3);
       }
-      if (s.level === 1) {
+      if (s.level > 0) {
         expect(s.cantripScaling, `${s.id} cantripScaling`).toBeUndefined();
       }
     }
@@ -171,5 +231,27 @@ describe('spell data', () => {
     expect(listed('cleric').filter((s) => s.level === 1).length).toBeGreaterThanOrEqual(6);
     expect(listed('wizard').filter((s) => s.level === 0).length).toBeGreaterThanOrEqual(6);
     expect(listed('wizard').filter((s) => s.level === 1).length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('gives every spell of level 2 or higher only the cleric and wizard lists', () => {
+    for (const s of SPELLS.filter((x) => x.level >= 2)) {
+      expect(s.lists.length, `${s.id} lists`).toBeGreaterThan(0);
+      for (const l of s.lists) {
+        expect(['cleric', 'wizard'], `${s.id} list ${l}`).toContain(l);
+      }
+    }
+  });
+
+  it('has a healing or support spell and a damage spell at each of levels 2 to 5', () => {
+    const byId = new Map(SPELLS.map((s) => [s.id, s] as const));
+    for (const id of [...HEALING_SUPPORT_IDS, ...DAMAGE_IDS]) {
+      expect(byId.has(id), `${id} present`).toBe(true);
+    }
+    for (const level of [2, 3, 4, 5]) {
+      const support = HEALING_SUPPORT_IDS.filter((id) => byId.get(id)!.level === level);
+      const damage = DAMAGE_IDS.filter((id) => byId.get(id)!.level === level);
+      expect(support.length, `level ${level} healing or support`).toBeGreaterThanOrEqual(1);
+      expect(damage.length, `level ${level} damage`).toBeGreaterThanOrEqual(1);
+    }
   });
 });

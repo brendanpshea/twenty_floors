@@ -18,9 +18,24 @@ https://brendanpshea.github.io/twenty_floors/ on every push to `main`
 - Twelve monsters with open models; kitbashed goblin variants.
 - Synthesized sound, pause menu, saves, autoplay bot (`?autoplay=1`).
 
-The creation screen and hub already contain UI for three features whose rules
-are not on `main` yet, so these parts are inert there: background feat choices
-(Magic Initiate), play-style presets, and the ranged weapon slot.
+Added on 27 November (rules in place; the game layer does not use all of it yet):
+
+- Origin feats from backgrounds: Magic Initiate (Cleric, Wizard), Savage
+  Attacker, Alert. A spell engine for 26 cantrips and level 1 spells with
+  concentration and an automatic Shield reaction.
+- Play-style presets (Defender, Great Weapon, Archer) in creation.
+- Weapon sets: main hand, off hand and ranged slot together; two-weapon
+  fighting with the Light property and Nick.
+- Models for 107 of the deeper monsters and for the three companions.
+
+Still to wire in `src/game`: casting while exploring (`castOutOfCombat`),
+a concentration indicator, cast animation and sound, `migrateEquipment` on
+load, and `renderer.preloadModels` before the loading veil drops.
+
+The hub and HUD also contain UI for companions (panel, stance control, hub
+picker). Nothing feeds it yet: companion data is in `src/data/companions.ts`
+with empty kits, and the rules and game work has not started. See "Companions"
+in `docs/DESIGN.md`.
 
 ## Floors 4 to 20: nine more themes (content only, not reachable yet)
 
@@ -189,10 +204,13 @@ Read these with care:
   effects), which the engine does not have.
 - These floors assume the ally; they were not measured for a solo hero.
 
-## Randomized runs: built, not yet used by the game
+## Randomized runs: in use
 
 The owner wants runs to vary: not the same themes on the same floors every
-time. The pieces exist; the game itself still plays the fixed run.
+time. The game now takes each floor's theme from `planRunThemes(runSeed)`
+(`src/game/runPlan.ts`); floors 1 to 3 keep their fixed themes. Dev URL
+parameters reach any floor: `?depth=1..20`, `?theme=<id>`, `?peace=1`
+(monsters never start a fight) and `?reveal=1`.
 
 - **Which theme goes where.** `planRunThemes(runSeed, { fixedFloors })` in
   `src/core/themes.ts` returns the 20 themes of a run. A theme stays one or
@@ -231,28 +249,20 @@ time. The pieces exist; the game itself still plays the fixed run.
   with the model's solo hero, which is the model at its least reliable.
   Check them on the real engine before letting runs randomize those floors.
 
-## Unfinished work: branch `wip/spell-engine`
+## Work in order from here
 
-A snapshot of `src/rules` taken mid-task. **It has two failing tests** and is
-not ready to merge. The task, in order:
+The branch `wip/spell-engine` is superseded: that work is finished and on
+`main`. Remaining, in order (the owner wants one re-tune at the end, not
+piecemeal):
 
-1. Spell engine and origin feats: Magic Initiate (Cleric, Wizard) from the
-   Acolyte and Sage backgrounds, Savage Attacker (Soldier), Alert (Criminal).
-   Spell data is in `src/data/spells.ts` (32 spells). Concentration, automatic
-   Shield reaction, cantrip scaling, `castOutOfCombat`.
-2. Fighter build presets (`ClassInfo.presets`): Defender, Great Weapon, Archer,
-   so an archer gets Dexterity-first stats. Re-measure whether Archery really
-   loses to Defense for the archer in the simulation.
-3. Two-weapon fighting and weapon sets: every character has main hand, off
-   hand and a ranged slot at once (`PlayerCharacter.equipped.ranged`). Light
-   weapons give an off-hand attack; Nick makes it free. Archer kit becomes
-   longbow, shortsword and scimitar.
-
-After that lands, the game layer (`src/game`) still needs to: call
-`castOutOfCombat` for spells used while exploring, show concentration, play a
-cast animation and sound for spell actions, and use the first preset in
-`quickBuild` (it currently takes the first option of every choice, which pairs
-the Archery style with the sword-and-shield kit).
+1. Fighter levels 4 to 20 in `src/rules`, from `src/data/fighter.ts`.
+2. Companion engine in `src/rules`: the shared level table, the three kits
+   (the Blink Dog gets rogue abilities including Sneak Attack), stance-driven
+   behaviour, return at 1 HP after a fight. Spells of levels 2 to 5 are in
+   `src/data/spells.ts` as data only; the engine casts levels 0 and 1.
+3. Game layer: the spell wiring listed above, the companion on the floor, in
+   fights and in saves, level-ups past 3.
+4. Raise `MILESTONE_FLOORS` to 20 and re-tune every floor on the real engine.
 
 ## Known problems
 

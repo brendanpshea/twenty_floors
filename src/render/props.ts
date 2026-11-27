@@ -156,7 +156,9 @@ const BUILDERS: Record<string, Builder> = {
     g.cyl(0.24, 0.17, 0.3, 7, 0xf2ece0, { y: 1.75, shade: 1.4 }); // flare under the cap
     g.cyl(0.62, 0.3, 0.1, 10, 0xb8b0b8, { y: 1.9, shade: 0.7 }); // gills
     glow.sphere(0.88, 10, 5, 0xffffff, { y: 1.9, sy: 0.55, shade: 1.0, top: 0xffffff }); // cap
+    glow.cyl(0.9, 0.86, 0.1, 10, 0xffffff, { y: 1.88, shade: 0.55 }); // darker rim, so the cap reads as a dome
     glow.sphere(0.35, 6, 3, 0xffffff, { y: 2.3, sy: 0.5, shade: 1.6 }); // bright crown
+    for (const [x, z] of [[0.45, 0.2], [-0.35, 0.4], [-0.1, -0.5], [0.3, -0.35]] as const) glow.sphere(0.1, 5, 3, 0xffffff, { x, z, y: 2.12, sy: 0.4, shade: 1.9 }); // spots
     for (const [x, z, h, r] of [[0.55, 0.3, 0.3, 0.13], [-0.4, 0.45, 0.22, 0.1], [-0.35, -0.5, 0.26, 0.12]] as const) {
       g.cyl(0.03, 0.05, h, 5, 0xd8d0b8, { x, z, y: h / 2 });
       glow.sphere(r, 6, 3, 0xffffff, { x, z, y: h + 0.02, sy: 0.55 });
@@ -958,6 +960,9 @@ const BUILDERS: Record<string, Builder> = {
   },
 };
 
+/** Every prop type with its own builder (anything else draws as a rock). */
+export const PROP_TYPES: string[] = Object.keys(BUILDERS);
+
 const ROCK: Builder = (look) => {
   const g = new GeoBuilder();
   g.ico(0.35, 0, look.prop.stone, { y: 0.2, sy: 0.7 });
@@ -997,11 +1002,11 @@ export function buildProps(
   }
 
   const litMat = new MeshLambertMaterial({ vertexColors: true });
-  fow.patch(litMat, { instanced: true });
+  fow.patch(litMat, { instanced: true, occludeProps: true });
   const flameMat = new MeshBasicMaterial({ vertexColors: true });
-  fow.patch(flameMat, { instanced: true, flicker: 0.16 });
+  fow.patch(flameMat, { instanced: true, flicker: 0.16, occludeProps: true });
   const steadyMat = new MeshBasicMaterial({ vertexColors: true });
-  fow.patch(steadyMat, { instanced: true, flicker: 0.07 });
+  fow.patch(steadyMat, { instanced: true, flicker: 0.07, occludeProps: true });
 
   const kindAt = (x: number, y: number): number =>
     x < 0 || y < 0 || x >= plan.width || y >= plan.height ? CellKind.Void : plan.kinds[y * plan.width + x]!;

@@ -3,7 +3,6 @@ import type { MonsterDef } from '../../core/types';
 /** Metallic dragons and the Ancient White Dragon, transcribed from SRD 5.2.1 stat blocks. */
 export const DEEP_DRAGONS: MonsterDef[] = [
   // Simplified: Drops Fly, Burrow, Blindsight, Darkvision and skills (walks at 40 ft.). Rend reach is 10 ft. (2 cells). Three Rend attacks as printed. Fire Breath is a 40-ft.-long, 5-ft.-wide line (8 cells), Recharge 5-6. Sleep Breath (30-ft. cone, 6 cells) is its own action rather than replacing an attack in the Multiattack; its two-stage Incapacitated then Unconscious sequence is reduced to Incapacitated until the end of the target's next turn (Unconscious needs wake-on-damage, which is not modelled). Elite rather than boss, as no legendary actions are modelled.
-  // TODO model: Quaternius Dragon Evolved (docs/research/roster-options.md), brass-yellow tint; goblin_warrior body as stand-in.
   {
     id: 'young_brass_dragon',
     name: 'Young Brass Dragon',
@@ -67,13 +66,12 @@ export const DEEP_DRAGONS: MonsterDef[] = [
         applies: { condition: 'incapacitated', rounds: 1 },
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 0xf0d040, scale: 1.7 },
+    visual: { model: 'dragon_gold', tint: 0xf0d040, scale: 1.35 },
     themes: ['foundry', 'peaks'],
     role: 'elite',
     description: 'A talkative, sun-bright dragon that would rather bore its prey to sleep than fight, but will roast it if pressed.',
   },
   // Simplified: Drops Fly, Climb, Blindsight, Darkvision and skills (walks at 40 ft.). Rend reach is 10 ft. (2 cells). Three Rend attacks as printed. Acid Breath is a 40-ft.-long, 5-ft.-wide line (8 cells), Recharge 5-6. Slowing Breath (Constitution save, no Reactions, halved Speed, one action or bonus action per turn) is dropped: no condition or field expresses it. Elite rather than boss, as no legendary actions are modelled.
-  // TODO model: Quaternius Dragon Evolved (docs/research/roster-options.md), copper-orange tint; goblin_warrior body as stand-in.
   {
     id: 'young_copper_dragon',
     name: 'Young Copper Dragon',
@@ -127,13 +125,12 @@ export const DEEP_DRAGONS: MonsterDef[] = [
         damage: [{ dice: '9d8', type: 'acid' }],
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 0xe87030, scale: 1.6 },
+    visual: { model: 'dragon_gold', tint: 0xe87030, scale: 1.35 },
     themes: ['depths', 'peaks'],
     role: 'elite',
     description: "A sly, wisecracking dragon of rust-orange scales that delights in riddles, traps and a good joke at an intruder's expense.",
   },
   // Simplified: Drops Fly, Swim, Amphibious, Blindsight, Darkvision and skills (walks at 40 ft.). Rend reach is 10 ft. (2 cells). Three Rend attacks as printed. Lightning Breath is a 60-ft.-long, 5-ft.-wide line (12 cells), Recharge 5-6. Repulsion Breath (30-ft. cone, 6 cells) is its own action rather than replacing an attack in the Multiattack; its 40-ft. push is dropped, leaving the Prone condition (rounds: 1). Elite rather than boss, as no legendary actions are modelled.
-  // TODO model: Quaternius Dragon Evolved (docs/research/roster-options.md), bronze tint; goblin_warrior body as stand-in.
   {
     id: 'young_bronze_dragon',
     name: 'Young Bronze Dragon',
@@ -197,13 +194,12 @@ export const DEEP_DRAGONS: MonsterDef[] = [
         applies: { condition: 'prone', rounds: 1 },
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 0xd8a860, scale: 1.8 },
+    visual: { model: 'dragon_gold', tint: 0xd8a860, scale: 1.45 },
     themes: ['ice', 'marsh', 'sewers'],
     role: 'elite',
     description: 'A noble, sea-loving dragon of weathered bronze that guards coasts and waterways with storm and sharp claws.',
   },
   // Simplified: Drops Fly, Blindsight, Darkvision and skills (walks at 40 ft.). Rend reach is 10 ft. (2 cells). Three Rend attacks as printed. Cold Breath is a 30-ft. cone (6 cells), Recharge 5-6. Paralyzing Breath is its own action rather than replacing an attack in the Multiattack; its first failure (Incapacitated until the end of the next turn) is skipped and the target is Paralyzed at once ('paralyzed' with a Constitution save-ends DC 17), the nearest expressible effect; the 1-minute auto-success is not modelled. Elite rather than boss, as no legendary actions are modelled.
-  // TODO model: Quaternius Dragon Evolved (docs/research/roster-options.md), silver tint; goblin_warrior body as stand-in.
   {
     id: 'young_silver_dragon',
     name: 'Young Silver Dragon',
@@ -267,13 +263,12 @@ export const DEEP_DRAGONS: MonsterDef[] = [
         applies: { condition: 'paralyzed', saveEnds: { ability: 'con', dc: 17 } },
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 0xf0f0ff, scale: 2.0 },
+    visual: { model: 'dragon_white', tint: 0xc0ccd8, scale: 1.4 },
     themes: ['ice', 'peaks'],
     role: 'elite',
     description: 'A gleaming, honourable dragon of mirror-bright scales that favours the high cold and the company of mortals, until crossed.',
   },
   // Simplified: Drops Fly, Swim, Amphibious, Blindsight, Darkvision and skills (walks at 40 ft.). Rend reach is 10 ft. (2 cells). Three Rend attacks as printed. Fire Breath is a 30-ft. cone (6 cells), Recharge 5-6. Weakening Breath (Strength save; disadvantage on Strength tests and -1d6 damage) is dropped: no condition or field expresses it. Elite rather than boss, as no legendary actions are modelled.
-  // TODO model: Quaternius Dragon Evolved (docs/research/roster-options.md), gold tint; goblin_warrior body as stand-in.
   {
     id: 'young_gold_dragon',
     name: 'Young Gold Dragon',
@@ -327,13 +322,12 @@ export const DEEP_DRAGONS: MonsterDef[] = [
         damage: [{ dice: '10d10', type: 'fire' }],
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 0xffd030, scale: 2.1 },
+    visual: { model: 'dragon_gold', scale: 1.5 },
     themes: ['foundry', 'lair'],
     role: 'elite',
     description: 'A regal, burnished dragon that sits on a heap of its own treasure and judges all who come to look.',
   },
   // Simplified: drops Fly, Legendary Resistance, Blindsight, Darkvision, skills, the Legendary Actions (Chill, Cold Gale, Pounce), and the Spellcasting at-will Detect Magic, Hold Monster, Shapechange and 1/Day Zone of Truth. Rend reach is 10 ft. (2 cells); Rend has Cold damage as printed. Cold Breath is a 60-ft. cone (12 cells), Recharge 5-6. Paralyzing Breath is its own action (60-ft. cone) with 'paralyzed' and a Constitution save-ends DC 20 (first-failure Incapacitated skipped). Ice Knife is a ranged spell attack (+11, 60 ft.): the 1d10 piercing and the 2d6 cold burst are both applied to the target on a hit (the burst's save and splash are dropped). Ice Storm (1/Day, level 5 version) is once per floor: 20-ft.-radius sphere (4 cells) centred up to 300 ft. (60 cells) away, Dexterity DC 19, 3d10 bludgeoning plus 4d6 cold, half on success; its difficult terrain is dropped.
-  // TODO model: Quaternius Dragon Evolved, silver tint, scaled large (docs/research/roster-options.md has no silver entry); goblin_boss body as stand-in.
   {
     id: 'adult_silver_dragon',
     name: 'Adult Silver Dragon',
@@ -420,13 +414,12 @@ export const DEEP_DRAGONS: MonsterDef[] = [
         damage: [{ dice: '3d10', type: 'bludgeoning' }, { dice: '4d6', type: 'cold' }],
       },
     ],
-    visual: { model: 'goblin_boss', tint: 0xe0e8f8, scale: 2.6 },
+    visual: { model: 'dragon_white', tint: 0xc0ccd8, scale: 2.1 },
     themes: ['ice', 'peaks'],
     role: 'boss',
     description: 'A towering mirror-scaled dragon of the high snows, fair to the honest and terrible to those who threaten the peaks.',
   },
   // Simplified: Gargantuan is expressed as 'huge' (the largest Size). Drops Fly, Burrow, Swim, Ice Walk, Legendary Resistance, Blindsight, Darkvision, skills, and the Legendary Actions (Freezing Burst, Frightful Presence, Pounce). Rend reach is 15 ft. (3 cells), 2d8+8 slashing plus 2d6 cold; three Rend attacks as printed. Cold Breath is a 90-ft. cone (18 cells), Recharge 5-6.
-  // TODO model: Quaternius Dragon Evolved, white tint, very large (docs/research/roster-options.md has no entry); goblin_boss body as stand-in.
   {
     id: 'ancient_white_dragon',
     name: 'Ancient White Dragon',
@@ -481,7 +474,7 @@ export const DEEP_DRAGONS: MonsterDef[] = [
         damage: [{ dice: '14d8', type: 'cold' }],
       },
     ],
-    visual: { model: 'goblin_boss', tint: 0xe8f8ff, scale: 3.2 },
+    visual: { model: 'dragon_white', scale: 2.5 },
     themes: ['ice'],
     role: 'boss',
     description: 'A primeval wyrm of white ice and old hunger, coiled on a hoard buried in the glacier for a thousand winters.',

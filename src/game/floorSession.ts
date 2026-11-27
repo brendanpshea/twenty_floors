@@ -1,18 +1,19 @@
 import { Rng, floorSeed } from '../core/rng';
-import { THEMES, themeForDepth } from '../core/themes';
+import { THEMES } from '../core/themes';
 import { SHORT_RESTS_PER_LONG_REST } from '../core/types';
-import type { GridPos, PickResult, PlayerCharacter, UiIntent } from '../core/types';
+import type { Creature, GridPos, PickResult, PlayerCharacter, UiIntent } from '../core/types';
 import { MONSTERS } from '../data/monsters';
 import { createNavGrid, generateFloor } from '../gen';
 import { buildEncounters, enterFloor, syncFromCreature, toCreature } from '../rules';
 import { CombatController } from './combatController';
 import type { FloorOutcome, GameDeps, RunState } from './deps';
 import { Explore } from './explore';
-import { revealFrom } from './fog';
+import { cellDistance, revealFrom } from './fog';
 import type { FloorState, SessionCtx } from './floorState';
-import { creatureById, isSeen, monsterDef, setEntityVisible } from './floorState';
+import { creatureById, isSeen, livingMonsters, monsterDef, setEntityVisible } from './floorState';
 import { buildHudModel } from './hudModel';
 import { Playback } from './playback';
+import { floorTheme } from './runPlan';
 import { loadQuality, saveQuality } from './save';
 
 /** The player's model, whatever the species. */
@@ -54,7 +55,7 @@ export class FloorSession {
     const { deps, run } = this;
     const { renderer, ui } = deps;
     const depth = run.depth;
-    const theme = themeForDepth(depth);
+    const theme = floorTheme(run.runSeed, depth, deps.options);
     const themeName = THEMES[theme].name;
     ui.setLoading(`Floor ${depth}: ${themeName}`);
 
@@ -253,6 +254,11 @@ export class FloorSession {
 
   // ---------------------------------------------------------------- input
 
+  /** Whether keys are being handled right now (not in a menu, not before entry, not after the floor ended). */
+  get acceptsKeys(): boolean {
+    return !this.inputBlocked;
+  }
+
   private get inputBlocked(): boolean {
     return this.disposed || this.menuOpen || !this.entered || this.state.finished;
   }
@@ -275,9 +281,31 @@ export class FloorSession {
     else this.explore.hover(pick);
   }
 
-  handleKey(key: string): void {
+  handleKey(key: string, shift = false): void {
     if (this.inputBlocked) return;
     if (key === 'Escape') this.handleIntent({ type: 'cancel' });
+    else if (key === 'Tab') this.cycleTarget(shift ? -1 : 1);
+  }
+
+  /**
+   * Tab / Shift+Tab: select the next (or previous) visible living monster, nearest first. While the hero is
+   * choosing a target for an action it cycles only the creatures that action can hit.
+   */
+  cycleTarget(dir: 1 | -1): void {
+    const state = this.state;
+    const here = state.player.pos;
+    const choosing = state.mode === 'combat' ? this.combat.targetableIds : [];
+    const pool = livingMonsters(state)
+      .map((m) => m.creature)
+      .filter((c) => (choosing.length > 0 ? choosing.includes(c.id) : state.entityVisible.get(c.id) === true));
+    if (pool.length === 0) return;
+    pool.sort((a, b) => cellDistance(here, a.pos) - cellDistance(here, b.pos) || a.id.localeCompare(b.id));
+    const at = pool.findIndex((c) => c.id === state.targetId);
+    const next = pool[(at + dir + pool.length) % pool.length] as Creature;
+    state.targetId = next.id;
+    if (state.mode === 'combat' && !this.combat.busy) this.deps.renderer.focusCamera(next.pos);
+    this.deps.audio.play('uiClick');
+    this.pushHud();
   }
 
   handleIntent(intent: UiIntent): void {

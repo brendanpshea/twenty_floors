@@ -4,8 +4,6 @@ import type { MonsterDef } from '../../core/types';
 export const HELL_MONSTERS: MonsterDef[] = [
   // Simplified: drops Fly (walks at its 20 ft.), Magic Resistance, Invisibility, Shape-Shift and skills. The
   // SRD 5.2.1 Sting carries its poison as plain extra Poison damage with no save, so it is kept that way.
-  // TODO model: Quaternius Demon (docs/research/roster-options.md style imp); giant_rat body, tiny and
-  // fire-orange, as stand-in.
   {
     id: 'imp',
     name: 'Imp',
@@ -40,7 +38,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'giant_rat', tint: 0xff6a3a, scale: 0.7 },
+    visual: { model: 'imp', scale: 0.55 },
     themes: ['hell'],
     role: 'standard',
     description: 'A sneering scrap of a devil that stings its prey for the pleasure of watching it squirm.',
@@ -48,7 +46,6 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // Simplified: drops Magic Resistance, Devil's Sight, telepathy and the infernal wound of the Glaive (a
   // lasting damage-over-time wound the engine cannot express); the Beard's "can't regain Hit Points" rider is
   // dropped too. The Beard's Poisoned lasts until the start of the devil's next turn (rounds: 1), no save.
-  // TODO model: Quaternius Demon; hero_barbarian body, light infernal red, as stand-in.
   {
     id: 'bearded_devil',
     name: 'Bearded Devil',
@@ -100,7 +97,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '1d10+3', type: 'slashing' }],
       },
     ],
-    visual: { model: 'hero_barbarian', tint: 0xff8a7a, scale: 1.0 },
+    visual: { model: 'imp', scale: 1.3 },
     themes: ['hell'],
     role: 'elite',
     description: 'A lean, bristling jailer-devil that prods prisoners along the chain gangs with a cruel hooked glaive.',
@@ -109,8 +106,6 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // Diabolical Restoration, Magic Resistance, telepathy, Devil's Sight and skills. Multiattack (Claws and Tail, or
   // two Hurl Flames) is split into two multiattacks. Hurl Flame has a 150 ft. range (30 cells, long 31). The
   // grapple (escape DC 13) is a save-ends Grappled; the Large-or-smaller size limit is not enforced.
-  // TODO model: Quaternius Demon LnfIziKv4o (docs/research/roster-options.md); hero_barbarian body, orange
-  // and slightly larger, as stand-in.
   {
     id: 'barbed_devil',
     name: 'Barbed Devil',
@@ -181,7 +176,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '5d6', type: 'fire' }],
       },
     ],
-    visual: { model: 'hero_barbarian', tint: 0xffa030, scale: 1.2 },
+    visual: { model: 'imp', scale: 1.4 },
     themes: ['hell'],
     role: 'elite',
     description: 'A thorn-covered devil that seizes escaping prisoners in its claws and lets the spines do the rest.',
@@ -191,8 +186,6 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // target repeats the save to end (the 1d10 poison at the start of each turn is dropped). Stunning Screech is
   // the same sphere, 1/Day (a uses pool), Stunned until the end of the vrock's next turn (rounds: 1); the
   // "demons succeed automatically" clause is dropped.
-  // TODO model: Quaternius Birb gZ2ExU9OAB (docs/research/roster-options.md), dark red; giant_spider body, large
-  // and dusty yellow, as stand-in.
   {
     id: 'vrock',
     name: 'Vrock',
@@ -259,7 +252,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
         applies: { condition: 'stunned', rounds: 1 },
       },
     ],
-    visual: { model: 'giant_spider', tint: 0xe0c060, scale: 1.4 },
+    visual: { model: 'birb_crimson', scale: 1.5 },
     themes: ['hell'],
     role: 'elite',
     description: 'A ragged, vulture-shaped demon that shrieks and sheds poison spores over the prisoners below.',
@@ -269,7 +262,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // save-ends Restrained; the Large-or-smaller size limit and the forced 30-ft. pull of Conjure Infernal
   // Chain are dropped. Resistances are the plain damage types as printed (the SRD 5.2.1 block does not say
   // "nonmagical").
-  // TODO model: Quaternius Demon (chain devil, roster-options); skeleton_warrior body, orange, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon (chain devil, roster-options); skeleton_warrior body, orange, as stand-in.
   {
     id: 'chain_devil',
     name: 'Chain Devil',
@@ -329,7 +322,6 @@ export const HELL_MONSTERS: MonsterDef[] = [
   },
   // Simplified: drops Demonic Restoration, Magic Resistance, telepathy, the Stench aura (a poison-on-turn-start
   // emanation) and the Leap bonus action. Three Rend attacks are kept.
-  // TODO model: Quaternius Demon (a hulking toad-demon); wolf body, huge and sickly green, as stand-in.
   {
     id: 'hezrou',
     name: 'Hezrou',
@@ -373,7 +365,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'wolf', tint: 0x90d060, scale: 1.7 },
+    visual: { model: 'frog_green', tint: 0x90d060, scale: 3 },
     themes: ['hell'],
     role: 'elite',
     description: 'A warty, toad-faced brute of a demon that shoulders through the vault wrapped in a sickening reek.',
@@ -381,8 +373,6 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // Simplified: drops Fly (walks at 40 ft.), Diabolical Restoration, Magic Resistance, telepathy and skills. The
   // Infernal Sting's "can't regain Hit Points" rider is dropped; its Poisoned lasts until the start of the
   // devil's next turn (rounds: 1).
-  // TODO model: skeleton_warrior x1.5 with a dark red tint (docs/research/roster-options.md); skeleton_warrior
-  // bone-white and large as stand-in.
   {
     id: 'bone_devil',
     name: 'Bone Devil',
@@ -446,7 +436,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // (Darkness, Detect Magic, Dispel Magic, Confusion, Fly, Power Word Stun) has no damaging spell and is
   // dropped. Pummel needs a creature Grappled by the glabrezu, which is not enforced; the Pincer's grapple
   // (escape DC 15, Medium or smaller) is a save-ends Grappled. Multiattack: two Pincers and Pummel.
-  // TODO model: Quaternius Demon (four-armed, pincered); giant_spider body, large and red-orange, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon (four-armed, pincered); giant_spider body, large and red-orange, as stand-in.
   {
     id: 'glabrezu',
     name: 'Glabrezu',
@@ -507,7 +497,6 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // wound of the Infernal Tail (a lasting damage-over-time wound). Multiattack (three attacks, Searing Fork or
   // Hurl Flame in any combination, one replaceable by Infernal Tail) is split into melee, ranged and tail
   // versions. Hurl Flame has a 150 ft. range (30 cells, long 31).
-  // TODO model: Quaternius Demon (a horned, winged devil); hero_barbarian body, large and bright red, as stand-in.
   {
     id: 'horned_devil',
     name: 'Horned Devil',
@@ -589,7 +578,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '1d8+6', type: 'necrotic' }],
       },
     ],
-    visual: { model: 'hero_barbarian', tint: 0xff3030, scale: 1.6 },
+    visual: { model: 'imp', tint: 0xff3030, scale: 2.3 },
     themes: ['hell'],
     role: 'elite',
     description: 'A huge, horned devil armed with a glowing fork and a hellish arsenal of thrown flame.',
@@ -598,7 +587,6 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // Teleport. Horror Nimbus (bonus action, Recharge 5-6) is a 15-ft. Emanation from the nalfeshnee: a self-
   // centred sphere of radius 3 cells, with Frightened for 10 rounds (1 minute); the "until it takes damage or
   // loses sight" clause and the 24-hour immunity are dropped.
-  // TODO model: Quaternius Demon (a heavy boar-headed brute); ogre body, large and sickly green, as stand-in.
   {
     id: 'nalfeshnee',
     name: 'Nalfeshnee',
@@ -654,7 +642,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
         applies: { condition: 'frightened', rounds: 10 },
       },
     ],
-    visual: { model: 'ogre', tint: 0xb8e070, scale: 1.3 },
+    visual: { model: 'ogre', tint: 0xb8e070, scale: 1.2 },
     themes: ['hell'],
     role: 'elite',
     description: 'A bloated, boar-snouted demon that stuns the mind with a halo of horror before tearing in.',
@@ -664,7 +652,6 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // cells): Restrained is a save-ends against the printed DC 16 (the stat block ends it only by destroying the
   // rope or the erinyes' choice). Multiattack: three Withering Sword attacks and Entangling Rope. The SRD 5.2.1
   // Erinyes has no bow attack.
-  // TODO model: Quaternius Demon (winged, female); hero_knight body, crimson, as stand-in.
   {
     id: 'erinyes',
     name: 'Erinyes',
@@ -719,7 +706,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
         applies: { condition: 'restrained', saveEnds: { ability: 'str', dc: 16 } },
       },
     ],
-    visual: { model: 'hero_knight', tint: 0xff4060, scale: 1.05 },
+    visual: { model: 'knight_dark', tint: 0xff4060, scale: 1.05 },
     themes: ['hell'],
     role: 'boss',
     description: 'A winged, armoured devil-warrior who hunts escapees with sword and snaring rope.',
@@ -728,7 +715,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // Teleport and the Parry reaction. Multiattack: six Pact Blade attacks and Constrict. Constrict's grapple (escape
   // DC 14) and its Restrained are merged into one save-ends Restrained; the Medium-or-smaller limit is not
   // enforced.
-  // TODO model: Quaternius Demon (six-armed snake-bodied); hero_rogue body, large and red-orange, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon (six-armed snake-bodied); hero_rogue body, large and red-orange, as stand-in.
   {
     id: 'marilith',
     name: 'Marilith',
@@ -792,7 +779,6 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // Demonic Restoration, Magic Resistance, truesight, telepathy, skills and Teleport. Flame Whip reaches 30 ft.
   // (6 cells) and keeps its Prone as rounds: 1; the 25-ft. pull is dropped. Lightning Blade's "can't take
   // Reactions" rider is dropped. The stat block's Proficiency Bonus is +6 (CR 19).
-  // TODO model: Quaternius Demon (winged, flaming Huge balor); ogre body, huge and fiery orange-red, as stand-in.
   {
     id: 'balor',
     name: 'Balor',
@@ -850,7 +836,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'ogre', tint: 0xff5020, scale: 1.9 },
+    visual: { model: 'imp', tint: 0xff5020, scale: 3.3 },
     themes: ['hell'],
     role: 'boss',
     description: 'A towering, flame-wreathed demon lord whose whip and lightning blade have broken armies.',

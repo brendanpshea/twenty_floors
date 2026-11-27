@@ -580,7 +580,6 @@ export const MONSTERS: MonsterDef[] = [
   },
 
   // Simplified: the bite is a plain bite (no grapple, no Swallow).
-  // TODO model: Quaternius Frog (docs/research/roster-options.md); giant_rat body as stand-in.
   {
     id: 'giant_frog',
     name: 'Giant Frog',
@@ -612,13 +611,12 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '1d6+2', type: 'piercing' }],
       },
     ],
-    visual: { model: 'giant_rat', tint: 0x5f9a3c, scale: 1.3 },
+    visual: { model: 'frog_green', scale: 1.4 },
     themes: ['sewers', 'marsh'],
     role: 'standard',
     description: 'A bloated green frog that sits in the sewage and leaps at anything that splashes past.',
   },
   // Simplified: drops Corrode Metal (Corrosive Form); keeps Amorphous.
-  // TODO model: Quaternius Slime (docs/research/roster-options.md); shadow body as stand-in.
   {
     id: 'gray_ooze',
     name: 'Gray Ooze',
@@ -650,13 +648,12 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '2d8+1', type: 'acid' }],
       },
     ],
-    visual: { model: 'shadow', tint: 0xb4b8c0, scale: 1.0 },
+    visual: { model: 'slime_gray', scale: 1.2 },
     themes: ['sewers', 'marsh'],
     role: 'standard',
     description: 'A puddle of grey sludge that slides along the drain walls, waiting for a boot to settle into it.',
   },
   // Simplified: the bite is a plain bite with poison damage (no grapple, no Swallow).
-  // TODO model: Quaternius Frog scaled up (docs/research/roster-options.md); giant_rat body as stand-in.
   {
     id: 'giant_toad',
     name: 'Giant Toad',
@@ -691,13 +688,12 @@ export const MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'giant_rat', tint: 0x8a7a3a, scale: 2.0 },
+    visual: { model: 'frog', tint: 0x8a7a3a, scale: 2.4 },
     themes: ['sewers', 'marsh'],
     role: 'standard',
     description: 'A warty brown toad the size of a pony, squatting in the muck with its throat pulsing.',
   },
   // Simplified: drops Split; keeps Amorphous and Spider Climb.
-  // TODO model: Quaternius Slime scaled x1.8 with an ochre tint (docs/research/roster-options.md); shadow body as stand-in.
   {
     id: 'ochre_jelly',
     name: 'Ochre Jelly',
@@ -729,14 +725,13 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '3d6+2', type: 'acid' }],
       },
     ],
-    visual: { model: 'shadow', tint: 0xd0962a, scale: 1.8 },
+    visual: { model: 'slime_ochre', scale: 2.6 },
     themes: ['sewers', 'marsh'],
     role: 'boss',
     description: 'A heaving mound of mustard-coloured slime that oozes up out of the main drain and creeps over the ceiling.',
   },
   // Simplified: fixed humanoid form (no Shape-Shift, no Bite, no lycanthropy curse). Multiattack is
   // split into a melee pair and a ranged pair because the data model has no "any combination".
-  // TODO model: KayKit Rogue_Hooded, human form (docs/research/roster-options.md); hero_rogue as stand-in.
   {
     id: 'wererat',
     name: 'Wererat',
@@ -796,13 +791,12 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '1d6+3', type: 'piercing' }],
       },
     ],
-    visual: { model: 'hero_rogue', tint: 0x8a7258 },
+    visual: { model: 'hooded_brown' },
     themes: ['sewers'],
     role: 'elite',
     description: 'A hooded cutthroat with twitching whiskers who rules the tunnels at the head of a rat gang.',
   },
   // Constrict applies Grappled on a failed save; the escape check is modelled as a Strength save-ends.
-  // TODO model: Quaternius Snake (docs/research/roster-options.md); giant_spider body as stand-in.
   {
     id: 'giant_constrictor_snake',
     name: 'Giant Constrictor Snake',
@@ -854,13 +848,12 @@ export const MONSTERS: MonsterDef[] = [
         applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 14 } },
       },
     ],
-    visual: { model: 'giant_spider', tint: 0x4f7a3a, scale: 1.4 },
+    visual: { model: 'snake', tint: 0x4f7a3a, scale: 6 },
     themes: ['sewers', 'marsh'],
     role: 'elite',
     description: 'A snake as long as a barge, draped through the old pipes and the stagnant water below.',
   },
   // Simplified: an ordinary one-cell ooze with its Pseudopod; drops Engulf, Ooze Cube and Transparent.
-  // TODO model: Quaternius Slime scaled x2.2 with a cyan tint (docs/research/roster-options.md); shadow body as stand-in.
   {
     id: 'gelatinous_cube',
     name: 'Gelatinous Cube',
@@ -892,7 +885,7 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '3d6+2', type: 'acid' }],
       },
     ],
-    visual: { model: 'shadow', tint: 0x58d0e0, scale: 2.0 },
+    visual: { model: 'slime_cyan', scale: 3 },
     themes: ['sewers'],
     role: 'elite',
     description: 'A glassy block of jelly that sweeps down the tunnels, scouring them clean and carrying its meals along inside.',
@@ -901,7 +894,6 @@ export const MONSTERS: MonsterDef[] = [
   // until the end of her next turn). Drops Coven Magic, Mimicry, Dancing Lights, Disguise Self,
   // Invisibility and Minor Illusion. Spell range is 60 ft with no long range; longRange is range + 1
   // only to satisfy the data test, which wants one on every ranged attack.
-  // TODO model: KayKit Mage in a hag tint, or Witch from Mystery Monthly 5 (docs/research/roster-options.md); hero_mage as stand-in.
   {
     id: 'green_hag',
     name: 'Green Hag',
@@ -956,7 +948,7 @@ export const MONSTERS: MonsterDef[] = [
         applies: { condition: 'poisoned', rounds: 1 },
       },
     ],
-    visual: { model: 'hero_mage', tint: 0x4f8a4a },
+    visual: { model: 'hag_green' },
     themes: ['sewers', 'forest', 'marsh'],
     role: 'boss',
     description: 'A warty crone who has made her home in the deepest cistern, cackling over a cauldron of something foul.',
@@ -964,7 +956,6 @@ export const MONSTERS: MonsterDef[] = [
 
   // Simplified: the SRD speed of 5 ft. is kept (one cell, effectively rooted); the Deafened condition
   // immunity is dropped (no such condition). The 5.2.1 stat block has no grapple, so Rotting Touch is plain damage.
-  // TODO model: Quaternius Mushnub (docs/research/roster-options.md); shadow body as stand-in.
   {
     id: 'violet_fungus',
     name: 'Violet Fungus',
@@ -1005,7 +996,7 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '1d8', type: 'necrotic' }],
       },
     ],
-    visual: { model: 'shadow', tint: 0x7a3a9a, scale: 0.9 },
+    visual: { model: 'mushnub_violet', scale: 1.2 },
     themes: ['fungal'],
     role: 'standard',
     description: 'A lumpy purple toadstool that sits perfectly still until something wanders within reach of its dangling tendrils.',
@@ -1013,7 +1004,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: the SRD stat block lists no damage resistance (an earlier brief assumed one), so none is
   // modelled. Tentacles apply Grappled on a hit (no Medium-or-smaller check); escape is a Strength save-ends
   // at the printed DC 12. Climb speed is not modelled.
-  // TODO model: snake model x1.2, grey tint (docs/research/roster-options.md); giant_rat body as stand-in.
   {
     id: 'grick',
     name: 'Grick',
@@ -1065,7 +1055,7 @@ export const MONSTERS: MonsterDef[] = [
         applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 12 } },
       },
     ],
-    visual: { model: 'giant_rat', tint: 0x7c7f86, scale: 1.8 },
+    visual: { model: 'snake', tint: 0x7c7f86, scale: 3 },
     themes: ['fungal'],
     role: 'elite',
     description: 'A pale, rubbery worm of a thing that drops from cave ceilings, beak first, with its tentacles already reaching.',
@@ -1073,7 +1063,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: drops Aberrant Ground and the Gibbering aura. Bite knocks the target prone on a hit
   // (no Medium-or-smaller check, no absorption). Blinding Spittle is a 10-ft-radius sphere (2 cells) within
   // 30 ft; 'blinded' lasts 1 round (until the end of the mouther's next turn).
-  // TODO model: Quaternius Green Spiky Blob (docs/research/roster-options.md); shadow body as stand-in.
   {
     id: 'gibbering_mouther',
     name: 'Gibbering Mouther',
@@ -1118,7 +1107,7 @@ export const MONSTERS: MonsterDef[] = [
         applies: { condition: 'blinded', rounds: 1 },
       },
     ],
-    visual: { model: 'shadow', tint: 0x6aa04a, scale: 1.1 },
+    visual: { model: 'blob', tint: 0x6aa04a, scale: 1.2 },
     themes: ['fungal'],
     role: 'elite',
     description: 'A heap of drooling mouths and staring eyes that slumps across the cave floor, burbling nonsense without pause.',
@@ -1127,7 +1116,6 @@ export const MONSTERS: MonsterDef[] = [
   // the printed DC 14). Paralyzing Tentacles has no "must be Grappled" precondition and applies Paralyzed
   // (which the SRD gives while Poisoned) with a Constitution save-ends at DC 13; the 1-minute auto-success is
   // not modelled. Multiattack is two Pincers then the Tentacles. Drops Amphibious and Sense Magic.
-  // TODO model: Quaternius Crab Enemy (docs/research/roster-options.md); giant_spider body as stand-in.
   {
     id: 'chuul',
     name: 'Chuul',
@@ -1179,14 +1167,13 @@ export const MONSTERS: MonsterDef[] = [
         applies: { condition: 'paralyzed', saveEnds: { ability: 'con', dc: 13 } },
       },
     ],
-    visual: { model: 'giant_spider', tint: 0x4a7a6a, scale: 1.5 },
+    visual: { model: 'crab_teal', scale: 2.6 },
     themes: ['fungal', 'sewers'],
     role: 'boss',
     description: 'A lobster-like horror the size of a cart, armoured in green chitin and lurking where the cavern floods.',
   },
   // Simplified: Bite adds poison damage and 'poisoned' for 1 round; Multiattack is Bite plus Claw. Web Strand is
   // modelled on the Giant Spider's Web (no size limit, no Reel bonus action, no web hit points). Drops Web Walker.
-  // TODO model: existing giant_spider x1.1 with a tint (docs/research/roster-options.md); giant_spider as stand-in.
   {
     id: 'ettercap',
     name: 'Ettercap',
@@ -1259,7 +1246,6 @@ export const MONSTERS: MonsterDef[] = [
   },
   // Simplified: ground-bound (SRD walking speed 10 ft., no flying). Crush is plain bludgeoning damage: the
   // attach and blind-on-advantage rule is not expressible. Drops Darkness Aura.
-  // TODO model: Quaternius Bat (docs/research/roster-options.md); giant_rat body as stand-in.
   {
     id: 'darkmantle',
     name: 'Darkmantle',
@@ -1291,7 +1277,7 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '1d6+3', type: 'bludgeoning' }],
       },
     ],
-    visual: { model: 'giant_rat', tint: 0x3a3050, scale: 0.9 },
+    visual: { model: 'bat', scale: 1.6 },
     themes: ['fungal'],
     role: 'standard',
     description: 'A small, rubbery lump that clings to cave ceilings and drops over the head of the unwary.',
@@ -1299,7 +1285,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: Multiattack is the SRD three Charged Tendrils (Engulf replacement dropped). Drops Engulf,
   // Lightning Absorption and the pull-5-feet rider; Deafened and Exhaustion immunities are not expressible.
   // Proficiency bonus is the SRD +3 (CR 5).
-  // TODO model: Quaternius Mushroom King (docs/research/roster-options.md); ogre as stand-in.
   {
     id: 'shambling_mound',
     name: 'Shambling Mound',
@@ -1343,14 +1328,13 @@ export const MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'ogre', tint: 0x4a6a2a, scale: 1.1 },
+    visual: { model: 'mushking_moss', scale: 1.5 },
     themes: ['fungal', 'ruin', 'forest', 'marsh'],
     role: 'boss',
     description: 'A walking heap of rotting vines and fungus, humming with static, that drags itself through the deepest caverns.',
   },
   // Simplified: Multiattack (two attacks in any combination of Shortsword and Longbow) is split into a melee pair
   // and a ranged pair, as for the Wererat. Skills and senses are not modelled.
-  // TODO model: add a bow prop to the Rogue_Hooded rig (docs/research/roster-options.md); hero_rogue with a tint as stand-in.
   {
     id: 'scout',
     name: 'Scout',
@@ -1410,7 +1394,7 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '1d8+2', type: 'piercing' }],
       },
     ],
-    visual: { model: 'hero_rogue', tint: 0x8fd16a },
+    visual: { model: 'hooded_brown' },
     themes: ['hold'],
     role: 'standard',
     description: 'A lean woodsman in the hold\'s pay who watches the trails and puts arrows where the outlaws point.',
@@ -1477,7 +1461,7 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '1d10+3', type: 'piercing' }],
       },
     ],
-    visual: { model: 'hero_rogue', tint: 0xe070a0 },
+    visual: { model: 'rogue_brown' },
     themes: ['hold'],
     role: 'elite',
     description: 'A swaggering outlaw leader in a feathered hat, quick with a blade and quicker to bark orders.',
@@ -1514,7 +1498,7 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '1d12+3', type: 'slashing' }],
       },
     ],
-    visual: { model: 'hero_barbarian', tint: 0xe8903c },
+    visual: { model: 'barb_red' },
     themes: ['hold'],
     role: 'elite',
     description: 'A frothing brute who fights with no thought for his own skin and a great axe in both fists.',
@@ -1580,14 +1564,13 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '2d10+1', type: 'piercing' }],
       },
     ],
-    visual: { model: 'hero_knight', tint: 0x78b0f0 },
+    visual: { model: 'knight_green' },
     themes: ['hold'],
     role: 'elite',
     description: 'A scarred sellsword in mismatched plate, steady under pressure and paid to be.',
   },
   // Simplified: Multiattack (two attacks in any combination of Warhammer and Heavy Crossbow) is split into a melee pair
   // and a ranged pair, as for the Wererat. The Warhammer's push (Large or smaller, 10 ft.) is dropped.
-  // TODO model: hero_barbarian x1.15 with a two-handed axe prop (docs/research/roster-options.md); hero_barbarian x1.15 with a tint as stand-in.
   {
     id: 'tough_boss',
     name: 'Tough Boss',
@@ -1647,7 +1630,7 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '2d10+2', type: 'piercing' }],
       },
     ],
-    visual: { model: 'hero_barbarian', tint: 0xc070e8, scale: 1.15 },
+    visual: { model: 'barb_red', scale: 1.15 },
     themes: ['hold'],
     role: 'boss',
     description: 'The thick-necked head of a bandit crew who rules by size, and who never fights without his gang around him.',
@@ -1726,7 +1709,7 @@ export const MONSTERS: MonsterDef[] = [
         uses: { resource: 'Divine Aid', amount: 1 },
       },
     ],
-    visual: { model: 'hero_mage', tint: 0xf0e070 },
+    visual: { model: 'mage_priest' },
     themes: ['hold'],
     role: 'elite',
     description: 'A hard-eyed cleric who preaches mercy to the hold\'s outlaws and smites whoever interrupts the sermon.',
@@ -1801,7 +1784,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: drops the Parry reaction (reactions cannot be expressed). The Spear is split into a melee action and a thrown
   // action (20/60 ft.). Multiattack is three Spear attacks; a second melee Multiattack replaces one of them with Shield Bash, and a
   // third makes the three attacks thrown. Shield Bash applies Prone for 1 round on a failed save (no Medium-or-smaller check).
-  // TODO model: hero_knight with a round shield prop (docs/research/roster-options.md); hero_knight with a tint as stand-in.
   {
     id: 'gladiator',
     name: 'Gladiator',
@@ -1881,7 +1863,7 @@ export const MONSTERS: MonsterDef[] = [
         applies: { condition: 'prone', rounds: 1 },
       },
     ],
-    visual: { model: 'hero_knight', tint: 0xe8c840 },
+    visual: { model: 'knight_gold' },
     themes: ['hold'],
     role: 'boss',
     description: 'A champion of the pit with a showman\'s swagger, who has won freedom a hundred times and spends it here.',
@@ -1889,7 +1871,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: Multiattack is two Daggers (the SRD lets one be swapped for Enthralling Panache, which is
   // its own action here); the thrown version has a separate ranged Multiattack. Panache is Charmed for 1
   // round (until the start of the pirate's next turn). Daggers (6) gear is not tracked.
-  // TODO model: hero_rogue tinted (stand-in is the intended model; a hat/cutlass prop would sell the pirate).
   {
     id: 'pirate',
     name: 'Pirate',
@@ -1959,7 +1940,7 @@ export const MONSTERS: MonsterDef[] = [
         applies: { condition: 'charmed', rounds: 1 },
       },
     ],
-    visual: { model: 'hero_rogue', tint: 0x40a8c8 },
+    visual: { model: 'rogue_navy' },
     themes: ['sewers'],
     role: 'standard',
     description: 'A swaggering smuggler in a stolen coat, running contraband through the tunnels and happy to cut a witness short.',
@@ -1967,7 +1948,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: Bite applies Poisoned with a Constitution save-ends at the printed DC 12; the Hit Point maximum
   // reduction and the 24-hour repeat save are dropped. The Deafened condition immunity is not expressible
   // (Blinded, Charmed, Frightened, Stunned and Unconscious are kept). Multiattack is two Bites.
-  // TODO model: wolf tinted (no two-headed model exists); wolf as stand-in.
   {
     id: 'death_dog',
     name: 'Death Dog',
@@ -2018,7 +1998,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: drops the Stench aura (a 5-ft Poisoned emanation) and the Exhaustion immunity. Claw applies
   // Paralyzed for 1 round on a failed Constitution save (no Undead exemption), like the Ghoul. Necrotic
   // resistance and poison immunity are kept, as are the Charmed and Poisoned condition immunities.
-  // TODO model: ghoul tinted greener (the existing ghoul rig); ghoul as stand-in.
   {
     id: 'ghast',
     name: 'Ghast',
@@ -2073,7 +2052,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: walks at its listed 30 ft. (no flying, so Flyby is dropped). The SRD lists no damage resistances
   // for it in 5.2.1. Exhaustion and Petrified condition immunities are not expressible; poison immunity and the
   // Poisoned condition immunity are kept.
-  // TODO model: Quaternius Blue Demon, stone tint (docs/research/roster-options.md); skeleton_rogue as stand-in.
   {
     id: 'gargoyle',
     name: 'Gargoyle',
@@ -2114,7 +2092,7 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '2d4+2', type: 'slashing' }],
       },
     ],
-    visual: { model: 'skeleton_rogue', tint: 0x8890a8, scale: 1.15 },
+    visual: { model: 'gargoyle_stone', scale: 1 },
     themes: ['library'],
     role: 'elite',
     description: 'A grinning stone perch-guardian that sits so still among the shelves you would swear it was carved there.',
@@ -2123,7 +2101,7 @@ export const MONSTERS: MonsterDef[] = [
   // the printed escape DC 13); it also deals its 2d6+3 bludgeoning on the hit. Drops Blinded/suffocation, the
   // per-turn damage, the one-victim limit, the Medium-or-smaller check and the half-damage-while-grappling rule.
   // Exhaustion, Petrified and Deafened immunities are not expressible; the rest are kept.
-  // TODO model: nothing fits (an animated rug); shadow body as stand-in (VisualSpec cannot flatten it).
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): nothing fits (an animated rug); shadow body as stand-in (VisualSpec cannot flatten it).
   {
     id: 'rug_of_smothering',
     name: 'Animated Rug of Smothering',
@@ -2164,7 +2142,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: drops Life Drain's Hit Point maximum reduction and zombie raising (Life Drain is plain necrotic
   // damage with a Constitution save, no condition) and the Exhaustion immunity. Multiattack is split into a melee
   // pair and a ranged pair; Life Drain is its own action. Necrotic Bow range 150/600 ft. is 30/120 cells.
-  // TODO model: skeleton_warrior, green tint (docs/research/roster-options.md); skeleton_warrior as stand-in.
   {
     id: 'wight',
     name: 'Wight',
@@ -2248,7 +2225,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: drops Shape-Shift and Read Thoughts. Slam has no first-round Advantage. Unsettling Visage is its
   // own recharge action (a 15-ft emanation is a 3-cell sphere centred on it), Frightened with a Wisdom save-ends
   // (the 1-minute auto-success is not modelled); the SRD Multiattack's "uses it if available" is not expressible.
-  // TODO model: KayKit Rogue_Hooded, grey tint (docs/research/roster-options.md); hero_rogue as stand-in.
   {
     id: 'doppelganger',
     name: 'Doppelganger',
@@ -2300,7 +2276,7 @@ export const MONSTERS: MonsterDef[] = [
         applies: { condition: 'frightened', saveEnds: { ability: 'wis', dc: 12 } },
       },
     ],
-    visual: { model: 'hero_rogue', tint: 0xc8c0e0 },
+    visual: { model: 'hooded_black', tint: 0xc8c0e0 },
     themes: ['library'],
     role: 'elite',
     description: 'A blank-faced mimic that wears whoever it last saw and fights with unnerving, borrowed strength.',
@@ -2310,7 +2286,6 @@ export const MONSTERS: MonsterDef[] = [
   // recharge 5 as the closest stand-in, while Cone of Cold (1/Day) uses a one-use pool per floor. Arcane Burst has
   // a melee and a ranged form with their own Multiattacks. Arcane Burst range 120 ft. is a single range, so
   // longRange = range + 1. Drops Invisibility, Fly, Misty Step, Protective Magic and the at-will cantrips.
-  // TODO model: hero_mage (docs/research/roster-options.md); hero_mage is the intended model, tinted here.
   {
     id: 'mage',
     name: 'Mage',
@@ -2400,7 +2375,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: Rotting Fist is plain bludgeoning plus necrotic damage (no curse, no max-HP loss, no dust on
   // death). Multiattack is two Rotting Fists then Dreadful Glare, which is Frightened for 1 round (until the end
   // of the mummy's next turn) with no 24-hour immunity. Exhaustion immunity is not expressible.
-  // TODO model: existing ghoul model, bandage tint (docs/research/roster-options.md); ghoul as stand-in.
   {
     id: 'mummy',
     name: 'Mummy',
@@ -2464,7 +2438,6 @@ export const MONSTERS: MonsterDef[] = [
   // from the ghost (no Undead exemption, no 24-hour immunity), Frightened for 1 round. The SRD lists its damage
   // resistances without a "nonmagical" condition, so they are kept as plain types. Exhaustion and Petrified
   // condition immunities are not expressible.
-  // TODO model: existing shadow model, the Quaternius Ghost (docs/research/roster-options.md); shadow as stand-in.
   {
     id: 'ghost',
     name: 'Ghost',
@@ -2523,7 +2496,6 @@ export const MONSTERS: MonsterDef[] = [
   },
   // Simplified: drops Bound, Regeneration, Spell Storing and the Protection reaction; Exhaustion and Petrified
   // condition immunities are not expressible. Fist reach is 10 ft. (2 cells); Multiattack is two Fists.
-  // TODO model: KayKit Skeleton Golem, else the ogre rig (docs/research/roster-options.md); ogre as stand-in.
   {
     id: 'shield_guardian',
     name: 'Shield Guardian',
@@ -2567,7 +2539,7 @@ export const MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'ogre', tint: 0x9ab0d0, scale: 1.25 },
+    visual: { model: 'ogre', tint: 0x9ab0d0, scale: 1.1 },
     themes: ['library', 'foundry'],
     role: 'boss',
     description: 'A hulking construct of stone and iron that obeys an absent master\'s amulet and keeps the library\'s deepest vault.',
@@ -2581,8 +2553,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: it flies (Speed 30 ft., Fly 30 ft.) but walks here at 30 ft. Death Burst (a 5-ft. fire
   // emanation when it dies) is dropped. Fire Breath is a cone from the mephit (15 ft. = 3 cells) with the
   // printed Recharge 6. Exhaustion immunity is not expressible.
-  // TODO model: no good rig; a small Quaternius spirit or imp would suit (docs/research/roster-options.md does
-  // not list it); shadow body tinted orange as stand-in.
   {
     id: 'magma_mephit',
     name: 'Magma Mephit',
@@ -2628,14 +2598,13 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '2d6', type: 'fire' }],
       },
     ],
-    visual: { model: 'shadow', tint: 0xff8a30, scale: 0.8 },
+    visual: { model: 'mephit_fire', scale: 0.8 },
     themes: ['foundry'],
     role: 'standard',
     description: 'A mischievous imp of cooling lava that cackles over the slag pits and sprays sparks at anyone who wanders by.',
   },
   // Simplified: drops False Appearance and the Antimagic Susceptibility trait. Deafened, Exhaustion and
   // Petrified condition immunities are not expressible.
-  // TODO model: hero_knight, dark tint (docs/research/roster-options.md); hero_knight with a steel-violet tint here.
   {
     id: 'animated_armor',
     name: 'Animated Armor',
@@ -2676,14 +2645,14 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '1d6+2', type: 'bludgeoning' }],
       },
     ],
-    visual: { model: 'hero_knight', tint: 0x8088b0 },
+    visual: { model: 'knight_dark' },
     themes: ['foundry'],
     role: 'standard',
     description: 'A suit of plate that marches the forge galleries on its own, long after its last wearer was smelted down.',
   },
   // Simplified: drops Fire Aura (5 fire damage to creatures next to it at the end of its turn) and
   // Illumination. Burning Hammer keeps its extra fire damage.
-  // TODO model: hero_barbarian, red-orange tint (docs/research/roster-options.md); hero_barbarian as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): hero_barbarian, red-orange tint (docs/research/roster-options.md); hero_barbarian as stand-in.
   {
     id: 'azer_sentinel',
     name: 'Azer Sentinel',
@@ -2724,7 +2693,6 @@ export const MONSTERS: MonsterDef[] = [
     description: 'A bronze-skinned dwarf-like guardian whose beard and hair burn like banked coals, sworn to a forge that no longer has a master.',
   },
   // Simplified: Pack Tactics is kept. Fire Breath is a cone from the hound (15 ft. = 3 cells) with Recharge 5-6.
-  // TODO model: existing wolf model, red tint (docs/research/roster-options.md); wolf with a bright orange tint.
   {
     id: 'hell_hound',
     name: 'Hell Hound',
@@ -2786,8 +2754,6 @@ export const MONSTERS: MonsterDef[] = [
   },
   // Simplified: it flies (Fly 60 ft., Climb 30 ft.) but walks here at its listed 30 ft. Fire Breath is a cone
   // from the wyrmling (15 ft. = 3 cells) with Recharge 5-6. Blindsight and skills are not modelled.
-  // TODO model: Quaternius Dragon 3rUm1cN3yp (docs/research/roster-options.md lists it for the Wyvern, not
-  // this monster); goblin_warrior body, large and red-orange, as stand-in.
   {
     id: 'red_dragon_wyrmling',
     name: 'Red Dragon Wyrmling',
@@ -2842,7 +2808,7 @@ export const MONSTERS: MonsterDef[] = [
         damage: [{ dice: '7d6', type: 'fire' }],
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 0xff5030, scale: 1.3 },
+    visual: { model: 'dragon_red', scale: 0.8 },
     themes: ['foundry', 'lair'],
     role: 'elite',
     description: 'A half-grown crimson dragon that has made a warm slag ledge its nursery and treats every visitor as a meal.',
@@ -2853,7 +2819,6 @@ export const MONSTERS: MonsterDef[] = [
   // the end of its next turn) is the nearest expressible effect, so it applies 'restrained' with a
   // Constitution save-ends at DC 15; the second failure's Petrified is not modelled. Exhaustion and Petrified
   // condition immunities are not expressible.
-  // TODO model: no bull model; wolf body, big and silvery, as stand-in (docs/research/roster-options.md does not list it).
   {
     id: 'gorgon',
     name: 'Gorgon',
@@ -2896,7 +2861,7 @@ export const MONSTERS: MonsterDef[] = [
         applies: { condition: 'restrained', saveEnds: { ability: 'con', dc: 15 } },
       },
     ],
-    visual: { model: 'wolf', tint: 0xc0c8e0, scale: 1.8 },
+    visual: { model: 'bull', tint: 0xc0c8e0, scale: 1.3 },
     themes: ['foundry', 'library'],
     role: 'elite',
     description: 'A bull of blackened iron plates that snorts a stone-stiffening mist and thunders through the forge in a straight line.',
@@ -2907,7 +2872,6 @@ export const MONSTERS: MonsterDef[] = [
   // (Flame Spear + Constrict). Constrict applies 'restrained' (the Grappled-and-Restrained pair of the SRD)
   // with a Strength save-ends at the escape DC 14, as the Giant Constrictor Snake does; the "Large or smaller"
   // size limit is dropped.
-  // TODO model: Quaternius Dino wuerCFCWNR, orange tint (docs/research/roster-options.md); giant_spider body as stand-in.
   {
     id: 'salamander',
     name: 'Salamander',
@@ -2996,7 +2960,7 @@ export const MONSTERS: MonsterDef[] = [
         applies: { condition: 'restrained', saveEnds: { ability: 'str', dc: 14 } },
       },
     ],
-    visual: { model: 'giant_spider', tint: 0xff7a10, scale: 1.8 },
+    visual: { model: 'dino', tint: 0xff7a10, scale: 2 },
     themes: ['foundry'],
     role: 'elite',
     description: 'A long, lizard-bodied fire spirit that lounges in the slag and spears intruders with a lance of white-hot metal.',
@@ -3005,7 +2969,7 @@ export const MONSTERS: MonsterDef[] = [
   // through spaces and the fire damage for entering one), Illumination and Water Susceptibility. Burn keeps its
   // fire damage but not the "starts burning" rider. Exhaustion and Petrified condition immunities are not
   // expressible. The three physical resistances are plain in the stat block, so they are kept.
-  // TODO model: existing ghost (shadow) model, orange tint (docs/research/roster-options.md); shadow as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): existing ghost (shadow) model, orange tint (docs/research/roster-options.md); shadow as stand-in.
   {
     id: 'fire_elemental',
     name: 'Fire Elemental',
@@ -3055,7 +3019,6 @@ export const MONSTERS: MonsterDef[] = [
   // cells, longRange = range + 1 because the block gives a single range) and always knocks Prone on a hit (the
   // "Large or smaller" limit is dropped). The block's "Slam or Rock Launch in any combination" is two
   // Multiattacks (melee and ranged). Exhaustion and Petrified condition immunities are not expressible.
-  // TODO model: Quaternius Big arm, grey tint (docs/research/roster-options.md); the ogre rig, sandy and large here.
   {
     id: 'earth_elemental',
     name: 'Earth Elemental',
@@ -3116,7 +3079,7 @@ export const MONSTERS: MonsterDef[] = [
         applies: { condition: 'prone', rounds: 1 },
       },
     ],
-    visual: { model: 'ogre', tint: 0xc8b898, scale: 1.4 },
+    visual: { model: 'ogre', tint: 0xc8b898, scale: 1.1 },
     themes: ['foundry'],
     role: 'elite',
     description: 'A lurching heap of slag-crusted stone and ore that has woken in the foundry walls and wants its floor back.',
@@ -3124,7 +3087,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: drops Aversion to Fire, Berserk, Immutable Form, Lightning Absorption and Magic Resistance. The
   // stat block's immunities are all plain (no "nonmagical" clause), so Lightning and Poison are kept as printed.
   // Exhaustion and Petrified condition immunities are not expressible.
-  // TODO model: Quaternius Big arm (the ogre rig), stitched tint (docs/research/roster-options.md); ogre as stand-in.
   {
     id: 'flesh_golem',
     name: 'Flesh Golem',
@@ -3176,7 +3138,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: drops Deflect Missile. The giant's Multiattack of "Stone Club or Boulder in any combination" is
   // two Multiattacks (melee and thrown). Stone Club reach is 15 ft. (3 cells). Boulder is 60/240 ft. (range 12,
   // long 48) and always knocks Prone on a hit (the "Large or smaller" limit is dropped).
-  // TODO model: Quaternius Big arm (the ogre rig), grey tint (docs/research/roster-options.md does not list it).
   {
     id: 'stone_giant',
     name: 'Stone Giant',
@@ -3237,7 +3198,7 @@ export const MONSTERS: MonsterDef[] = [
         applies: { condition: 'prone', rounds: 1 },
       },
     ],
-    visual: { model: 'ogre', tint: 0xb8b8d0, scale: 1.7 },
+    visual: { model: 'ogre', tint: 0xb8b8d0, scale: 1.45 },
     themes: ['foundry', 'depths', 'peaks'],
     role: 'boss',
     description: 'A grey-skinned giant who carves the foundry\'s statues with his bare hands and throws the rejects at trespassers.',
@@ -3245,7 +3206,6 @@ export const MONSTERS: MonsterDef[] = [
   // Simplified: "Flame Sword or Hammer Throw in any combination" is two Multiattacks (melee and thrown). Flame
   // Sword reach is 10 ft. (2 cells). Hammer Throw is 60/240 ft. (range 12, long 48); its 15-ft. push and
   // Disadvantage rider are dropped, but its fire damage is kept.
-  // TODO model: Quaternius Big arm (the ogre rig) x1.5, red tint (docs/research/roster-options.md); ogre, red and huge.
   {
     id: 'fire_giant',
     name: 'Fire Giant',
@@ -3311,7 +3271,7 @@ export const MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'ogre', tint: 0xff4a2a, scale: 1.95 },
+    visual: { model: 'ogre', tint: 0xff4a2a, scale: 1.5 },
     themes: ['foundry'],
     role: 'boss',
     description: 'A soot-blackened giant with a coal-red beard who treats the foundry as his private forge and everyone else as scrap.',
@@ -3320,7 +3280,6 @@ export const MONSTERS: MonsterDef[] = [
   // three-Slam Multiattack). Slam keeps its acid damage but not the max hit point reduction. The three physical
   // resistances are plain in the stat block, so they are kept. Exhaustion and Petrified condition immunities
   // are not expressible.
-  // TODO model: Quaternius Big arm (the ogre rig) x1.4, clay tint (docs/research/roster-options.md); ogre as stand-in.
   {
     id: 'clay_golem',
     name: 'Clay Golem',
@@ -3364,7 +3323,7 @@ export const MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'ogre', tint: 0xe0a070, scale: 1.55 },
+    visual: { model: 'ogre', tint: 0xe0a070, scale: 1.15 },
     themes: ['foundry'],
     role: 'boss',
     description: 'A kiln-fired colossus of red clay, shaped long ago to guard the foundry\'s heart and never told to stop.',

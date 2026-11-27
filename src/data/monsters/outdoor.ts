@@ -3,7 +3,7 @@ import type { MonsterDef } from '../../core/types';
 /** Monsters of the Wildwood, the Drowned Fen and the Windswept Heights, transcribed from SRD 5.2.1 stat blocks. */
 export const OUTDOOR_MONSTERS: MonsterDef[] = [
   // Simplified: drops Magic Resistance, the 10-ft. push on Hooves and skills. Mockery has a single range of 90 ft. (18 cells), longRange = range + 1; it deals its damage on a failed save only.
-  // TODO model: a KayKit Druid or a horned humanoid (none available); hero_mage body, tan, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a KayKit Druid or a horned humanoid (none available); hero_mage body, tan, as stand-in.
   {
     id: 'satyr',
     name: 'Satyr',
@@ -51,7 +51,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A grinning goat-legged prankster who heckles intruders from the shade of the old trees.',
   },
   // Simplified: drops Climb (walks at 40 ft.) and skills. Claw's Prone applies to any target (the 'Large or smaller' limit is not expressible) until the start of the bear's next turn, as the Wolf's bite does.
-  // TODO model: a bear quadruped (none available; roster-options.md lists it as dropped); wolf body, big and brown, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a bear quadruped (none available; roster-options.md lists it as dropped); wolf body, big and brown, as stand-in.
   {
     id: 'brown_bear',
     name: 'Brown Bear',
@@ -109,7 +109,6 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A shaggy, short-tempered bear that defends its patch of woodland with surprising speed.',
   },
   // Simplified: drops skills. Nimble Escape (Disengage or Hide as a bonus action; only the Disengage half is expressed) is the 'nimbleEscape' trait. Rend's Prone applies to any target until the start of the tiger's next turn.
-  // TODO model: a big-cat quadruped (none available; roster-options.md lists it as dropped); wolf body, orange, as stand-in.
   {
     id: 'tiger',
     name: 'Tiger',
@@ -142,13 +141,13 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
         applies: { condition: 'prone', rounds: 1 },
       },
     ],
-    visual: { model: 'wolf', tint: 0xffa030, scale: 1.35 },
+    visual: { model: 'cat', scale: 2.2 },
     themes: ['forest'],
     role: 'standard',
     description: 'A striped ambusher that stalks the undergrowth and strikes from the long grass.',
   },
   // Simplified: drops Bloodied Fury (advantage on melee attacks while Bloodied) and the charge rider on Gore (extra 2d6 piercing and Prone after a 20-ft. straight run), which depend on movement tracking. The Strength save proficiency (+5) is kept.
-  // TODO model: a boar quadruped (none available); wolf body, big and pinkish grey, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a boar quadruped (none available); wolf body, big and pinkish grey, as stand-in.
   {
     id: 'giant_boar',
     name: 'Giant Boar',
@@ -186,7 +185,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A bristling tusker the size of a pony that charges at anything loud or bright.',
   },
   // Simplified: drops the Trampling Charge bonus action (Recharge 5-6; a move-through attack that cannot be expressed here) and skills. Pike reach is 10 ft. (2 cells). Longbow 150/600 ft. is 30/120 cells. Multiattack is split into a melee and a ranged version because the SRD allows any mix; mixed pike-and-bow turns are dropped.
-  // TODO model: a centaur (none available); hero_knight body, green, large, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a centaur (none available); hero_knight body, green, large, as stand-in.
   {
     id: 'centaur_trooper',
     name: 'Centaur Trooper',
@@ -252,7 +251,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A pike-wielding warrior of the deep woods, as fast as a horse and a good deal less forgiving.',
   },
   // Simplified: Lycanthrope: fixed form, no Shape-Shift and no curse (the bite is plain damage). Statted in its Large wolf-humanoid hybrid form (Scratch, Bite and Longbow at 30 ft.). Drops Shape-Shift, the Bite's curse and skills. Longbow 150/600 ft. is 30/120 cells. Multiattack is split into melee, melee-plus-bite and ranged versions; mixed scratch-and-bow turns are dropped.
-  // TODO model: KayKit Werewolf (Mystery Monthly 4/5, unowned; roster-options.md); wolf body, big and blue-grey, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): KayKit Werewolf (Mystery Monthly 4/5, unowned; roster-options.md); wolf body, big and blue-grey, as stand-in.
   {
     id: 'werewolf',
     name: 'Werewolf',
@@ -337,7 +336,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A wolf-headed brute that hunts as part of a pack and shoots as well as it bites.',
   },
   // Simplified: Lycanthrope: fixed form, no Shape-Shift and no curse (the bite is plain damage). Statted in its Large tiger-humanoid hybrid form (Scratch, Bite and Longbow at 30 ft.). Drops Shape-Shift, the Bite's curse and skills. Prowl (move without opportunity attacks, then Hide) is approximated by the 'nimbleEscape' trait (Disengage as a bonus action). Longbow 150/600 ft. is 30/120 cells. Multiattack is split into melee, melee-plus-bite and ranged versions.
-  // TODO model: a tiger-headed humanoid (none available); hero_barbarian body, orange, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a tiger-headed humanoid (none available); hero_barbarian body, orange, as stand-in.
   {
     id: 'weretiger',
     name: 'Weretiger',
@@ -422,7 +421,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A tiger-striped shapeshifter that stalks travellers through the long grass and then strikes all at once.',
   },
   // Simplified: Lycanthrope: fixed form, no Shape-Shift and no curse (the bite is plain damage). Statted in its Medium boar-humanoid hybrid form (Tusk, Gore and Javelin at 30 ft.). Drops Shape-Shift, Gore's curse, the charge rider on Tusk (extra 2d6 piercing and Prone after a 20-ft. run) and skills. Javelin is thrown 30/120 ft. (6/24 cells); the six-javelin supply is not tracked. Multiattack is split into melee, melee-plus-gore and ranged versions; a melee javelin is a plain action only.
-  // TODO model: a boar-headed humanoid (none available); hero_rogue body, pinkish, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a boar-headed humanoid (none available); hero_rogue body, pinkish, as stand-in.
   {
     id: 'wereboar',
     name: 'Wereboar',
@@ -517,7 +516,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A thick-necked, tusked brute that smashes through thickets with a javelin in each fist.',
   },
   // Simplified: Lycanthrope: fixed form, no Shape-Shift and no curse (the bite is plain damage). Statted in its Large bear-humanoid hybrid form (Rend, Bite and Handaxe at 30 ft.; Climb dropped). Drops Shape-Shift, the Bite's curse and skills. Handaxe is thrown 20/60 ft. (4/12 cells); the four-axe supply is not tracked. Multiattack is split into melee, melee-plus-bite and ranged versions; a melee handaxe is a plain action only.
-  // TODO model: a bear-headed humanoid (none available); hero_barbarian body, brown, big, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a bear-headed humanoid (none available); hero_barbarian body, brown, big, as stand-in.
   {
     id: 'werebear',
     name: 'Werebear',
@@ -612,7 +611,6 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A broad-shouldered guardian of the deep woods who fights on two legs with the strength of a bear.',
   },
   // Simplified: drops Fly and Darkvision; its walking speed is only 10 ft., so it uses its 40 ft. fly speed as its speed. Attach-and-drain is plain damage: each hit deals the 1d6+3 piercing and the 2d4 necrotic drain together, with no attachment.
-  // TODO model: a bat or wasp-like flyer (none available); giant_rat body, tiny and red, as stand-in.
   {
     id: 'stirge',
     name: 'Stirge',
@@ -647,13 +645,13 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'giant_rat', tint: 0xd06060, scale: 0.5 },
+    visual: { model: 'bat', tint: 0xd06060, scale: 0.9 },
     themes: ['marsh'],
     role: 'standard',
     description: 'A fist-sized, blood-hungry flier that homes in on warm bodies near still water.',
   },
   // Simplified: drops Swim (walks at its 20 ft.), Hold Breath and skills. Bite's Grappled (escape DC 12; the SRD also makes the target Restrained) is modelled as a Strength save-ends at DC 12, as the Giant Constrictor Snake does; the 'Medium or smaller' limit is not expressible. The Constitution save proficiency (+3) is kept.
-  // TODO model: a crocodile (none available; roster-options.md lists it as dropped); giant_rat body, large and green, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a crocodile (none available; roster-options.md lists it as dropped); giant_rat body, large and green, as stand-in.
   {
     id: 'crocodile',
     name: 'Crocodile',
@@ -692,7 +690,6 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A long, low shape that waits motionless in the reeds until something comes close enough to seize.',
   },
   // Simplified: an ordinary one-cell creature; drops Swim (walks at 30 ft.), the Swarm trait, Blindsight and the reduced Bites damage while Bloodied (1d4+4 piercing instead of 1d8+4). The plain physical resistances are kept as printed; the Petrified condition immunity is not expressible.
-  // TODO model: Quaternius Snake (docs/research/roster-options.md), small and green; giant_spider body as stand-in.
   {
     id: 'swarm_of_venomous_snakes',
     name: 'Swarm of Venomous Snakes',
@@ -727,13 +724,13 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'giant_spider', tint: 0x80c060, scale: 0.9 },
+    visual: { model: 'snake', tint: 0x80c060, scale: 2.5 },
     themes: ['marsh'],
     role: 'elite',
     description: 'A tangle of marsh vipers that pours across the ground as one hissing, biting thing.',
   },
   // Simplified: drops Vanish (invisibility), Incorporeal Movement, Consume Life, Ephemeral, Illumination, Darkvision and Hover. It moves at its Fly speed of 50 ft. (its walking speed is 5 ft.). Shock is kept. The plain resistances and immunities are copied; the Exhaustion and Petrified condition immunities are not expressible.
-  // TODO model: a small glowing orb or wisp (none available); shadow body, tiny and green-white, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a small glowing orb or wisp (none available); shadow body, tiny and green-white, as stand-in.
   {
     id: 'will_o_wisp',
     name: 'Will-o\'-Wisp',
@@ -771,7 +768,6 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A pale, drifting lantern-flame that lures travellers off the dry path and into the mud.',
   },
   // Simplified: drops Fly and Swim (walks at 30 ft.), Amphibious, Blindsight, Darkvision and skills. Acid Breath is a 15-ft.-long, 5-ft.-wide line (3 cells) from the wyrmling, Recharge 5-6.
-  // TODO model: Quaternius Dragon 3rUm1cN3yp, black; goblin_warrior body, dark slate and large, as stand-in.
   {
     id: 'black_dragon_wyrmling',
     name: 'Black Dragon Wyrmling',
@@ -826,13 +822,12 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '5d8', type: 'acid' }],
       },
     ],
-    visual: { model: 'goblin_warrior', tint: 0x707888, scale: 1.2 },
+    visual: { model: 'dragon_black', scale: 0.8 },
     themes: ['marsh'],
     role: 'elite',
     description: 'A young swamp dragon with a glossy black hide that lurks half-submerged in stagnant water.',
   },
   // Simplified: keeps two claws plus two damaging spell-like actions. Magic Missile (level 4 version, 6 darts: 6d4+6 force, auto-hit) has a single range of 120 ft. (24 cells), longRange = range + 1. Phantasmal Killer (2/Day) is once per floor: Wisdom save DC 14, 4d10 psychic, half on a success (as the level 4 spell); its disadvantage and repeat-damage riders are dropped. Drops Coven Magic, Magic Resistance, Soul Bag, Nightmare Haunting, Detect Magic, Etherealness, Plane Shift, Shape-Shift and skills.
-  // TODO model: KayKit Witch (Mystery Monthly 5, unowned) or Mage with a hag tint (roster-options.md); hero_mage body, purple, as stand-in.
   {
     id: 'night_hag',
     name: 'Night Hag',
@@ -893,13 +888,13 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '4d10', type: 'psychic' }],
       },
     ],
-    visual: { model: 'hero_mage', tint: 0x9070b0, scale: 1.1 },
+    visual: { model: 'hag_green', tint: 0x9070b0, scale: 1.1 },
     themes: ['marsh'],
     role: 'boss',
     description: 'A hunched, cackling crone of the fen who trades in dreams and dread.',
   },
   // Simplified: drops Climb (walks at 40 ft.), skills and the charge rider on Ram (extra 2d4 bludgeoning and Prone after a 20-ft. straight run). The Strength save proficiency (+5) is kept.
-  // TODO model: a goat quadruped (none available); giant_rat body, large and off-white, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a goat quadruped (none available); giant_rat body, large and off-white, as stand-in.
   {
     id: 'giant_goat',
     name: 'Giant Goat',
@@ -937,7 +932,6 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A shaggy, horned climber of high ledges that happily butts anything on its path.',
   },
   // Simplified: drops flight itself, but its walking speed is only 10 ft., so it moves at its Fly speed of 80 ft. (16 cells). Drops skills and languages.
-  // TODO model: a big eagle (none available); giant_rat body, large and golden, as stand-in.
   {
     id: 'giant_eagle',
     name: 'Giant Eagle',
@@ -981,13 +975,13 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
         ],
       },
     ],
-    visual: { model: 'giant_rat', tint: 0xf0d070, scale: 1.6 },
+    visual: { model: 'birb_gold', scale: 1.4 },
     themes: ['peaks'],
     role: 'standard',
     description: 'A huge golden-feathered raptor that guards the high crags and swoops on those who disturb them.',
   },
   // Simplified: drops Fly (it walks at its 20 ft.). Luring Song is a self-centred 300-ft. (60-cell) area: a failed Wisdom save (DC 11) applies Charmed with a Wisdom save-ends at DC 11. It is usable once per floor instead of until Concentration ends; the pull toward the harpy, the Incapacitated rider, the Humanoid/Giant limit and the 24-hour immunity are not expressible.
-  // TODO model: a winged humanoid (none available); hero_rogue body, violet, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a winged humanoid (none available); hero_rogue body, violet, as stand-in.
   {
     id: 'harpy',
     name: 'Harpy',
@@ -1036,7 +1030,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A feathered siren perched on a high ledge, singing to draw travellers off the path.',
   },
   // Simplified: drops Fly and Flyby (walks at 40 ft.) and skills.
-  // TODO model: a hippogriff or griffon (none available); wolf body, large and tawny, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a hippogriff or griffon (none available); wolf body, large and tawny, as stand-in.
   {
     id: 'hippogriff',
     name: 'Hippogriff',
@@ -1083,7 +1077,6 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     description: 'A horse-bodied, eagle-headed beast that nests on the crags and fights fiercely over its territory.',
   },
   // Simplified: drops skills and languages. Its walking speed is only 10 ft., so it moves at its Fly speed of 60 ft. (12 cells). Gouge's Poisoned lasts until the end of its next turn, modelled as rounds: 1.
-  // TODO model: a vulture or big bird (none available); wolf body, grey-violet, as stand-in.
   {
     id: 'giant_vulture',
     name: 'Giant Vulture',
@@ -1116,13 +1109,13 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
         applies: { condition: 'poisoned', rounds: 1 },
       },
     ],
-    visual: { model: 'wolf', tint: 0xa8a0b0, scale: 1.1 },
+    visual: { model: 'birb_grey', scale: 1.3 },
     themes: ['peaks'],
     role: 'standard',
     description: 'A bald, bad-tempered scavenger bird that circles above the weak and the wounded.',
   },
   // Simplified: drops flight itself, but its walking speed is only 10 ft., so it moves at its Fly speed of 90 ft. (18 cells); drops Air Form and Darkvision. Whirlwind (Recharge 4-6) is a self-centred area of radius 1 cell (the SRD hits one Medium or smaller creature in its space): Strength save DC 13, 4d10+2 thunder (half on a success) and Prone until the start of its next turn; the 20-ft. push is dropped. The plain resistances are copied as printed (this stat block has no 'nonmagical' qualifier). The Exhaustion and Petrified immunities are not expressible. Thunderous Slam reach is 10 ft. (2 cells).
-  // TODO model: a swirling vortex (none available); shadow body, large and pale blue, as stand-in.
+  // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a swirling vortex (none available); shadow body, large and pale blue, as stand-in.
   {
     id: 'air_elemental',
     name: 'Air Elemental',
