@@ -70,6 +70,12 @@ const EXPECTED_COUNTS: Record<string, number> = {
   staff_of_fire: 1,
   staff_of_frost: 1,
   circlet_of_blasting: 1,
+  potion_of_resistance: 10,
+  potion_of_giant_strength: 6,
+  potion_of_invulnerability: 1,
+  potion_of_speed: 1,
+  potion_of_flying: 1,
+  oil_of_slipperiness: 1,
   bane_weapon: 72,
 };
 
@@ -84,7 +90,8 @@ const SRD_NAMES = [
   'Frost Brand', 'Sword of Wounding', 'Mace of Disruption', 'Ring of Feather Falling', 'Ring of Water Walking',
   'Boots of the Winterlands', 'Ring of Free Action', 'Cloak of Arachnida', 'Wand of Magic Missiles', 'Wand of Fireballs',
   'Wand of Lightning Bolts', 'Wand of Web', 'Wand of Binding', 'Staff of Healing', 'Staff of Fire', 'Staff of Frost',
-  'Circlet of Blasting',
+  'Circlet of Blasting', 'Potion of Resistance', 'Potion of Giant Strength', 'Potion of Invulnerability', 'Potion of Speed',
+  'Potion of Flying', 'Oil of Slipperiness',
 ];
 
 const byId = new Map(MAGIC_ITEMS.map((i) => [i.id, i] as const));
@@ -130,6 +137,7 @@ function checkPassive(id: string, p: PassiveEffect): void {
     case 'maxHpBonus':
       expect((p.flat ?? 0) + (p.perLevel ?? 0), id).toBeGreaterThan(0);
       break;
+    case 'flight':
     case 'initiativeAdvantage':
     case 'critImmunity':
     case 'displacement':
@@ -201,24 +209,38 @@ describe('magic item catalog', () => {
       expect(i.description.length, `${i.id} description`).toBeGreaterThan(10);
       expect(i.name.length).toBeGreaterThan(0);
       if (i.kind === 'wondrous') expect(i.icon).toBeUndefined();
+      if (i.kind === 'consumable') expect(i.icon).toBe('potion');
       const isMithral = i.id.startsWith('mithral_');
-      const hasEffect = (i.passives?.length ?? 0) > 0 || i.magicBonus !== undefined;
+      const timedPassives = i.consumable?.effect === 'timed' ? i.consumable.passives : [];
+      const hasEffect = (i.passives?.length ?? 0) > 0 || timedPassives.length > 0 || i.magicBonus !== undefined;
       expect(hasEffect || isMithral, `${i.id} has passives or magicBonus`).toBe(true);
       if (i.magicBonus !== undefined) {
         expect([1, 2, 3]).toContain(i.magicBonus);
       }
-      expect(typeof i.attunement, `${i.id} attunement`).toBe('boolean');
+      if (i.kind === 'consumable') expect(i.attunement, i.id).toBeUndefined();
+      else expect(typeof i.attunement, `${i.id} attunement`).toBe('boolean');
     }
   });
 
   it('has structurally valid passives', () => {
     for (const i of MAGIC_ITEMS) {
       for (const p of i.passives ?? []) checkPassive(i.id, p);
+      if (i.consumable?.effect === 'timed') {
+        expect(i.consumable.fights === 1 || i.consumable.fights === 3, `${i.id} fights`).toBe(true);
+        for (const p of i.consumable.passives) checkPassive(i.id, p);
+      }
     }
   });
 
   it('puts worn items in a slot and keeps arms on their base', () => {
     for (const i of MAGIC_ITEMS) {
+      if (i.kind === 'consumable') {
+        expect(i.consumable?.effect, i.id).toBe('timed');
+        expect(i.weapon, i.id).toBeUndefined();
+        expect(i.armor, i.id).toBeUndefined();
+        expect(i.slot, i.id).toBeUndefined();
+        continue;
+      }
       if (i.kind === 'wondrous') {
         expect(i.weapon, i.id).toBeUndefined();
         expect(i.armor, i.id).toBeUndefined();
@@ -341,6 +363,20 @@ describe('SRD values', () => {
     expect(p('wand_of_web')).toEqual([{ type: 'castSpell', spellId: 'web', charges: 5, saveDc: 13 }]);
     expect(p('wand_of_binding')).toEqual([{ type: 'castSpell', spellId: 'hold_person', charges: 2, saveDc: 17 }]);
     expect(p('circlet_of_blasting')).toEqual([{ type: 'castSpell', spellId: 'scorching_ray', charges: 1, attackBonus: 5 }]);
+  });
+});
+
+describe('timed consumables', () => {
+  const c = (id: string) => byId.get(id)?.consumable;
+  it('matches the SRD potions', () => {
+    expect(c('potion_of_giant_strength_storm')).toEqual({ effect: 'timed', fights: 3, passives: [{ type: 'setAbility', ability: 'str', score: 29 }] });
+    expect(byId.get('potion_of_giant_strength_fire')?.rarity).toBe('rare');
+    expect(byId.get('potion_of_giant_strength_hill')?.rarity).toBe('uncommon');
+    expect(byId.get('potion_of_resistance_fire')?.cost).toBe(200);
+    expect(c('potion_of_invulnerability')).toMatchObject({ fights: 1 });
+    const inv = c('potion_of_invulnerability');
+    expect(inv?.effect === 'timed' ? inv.passives.length : 0).toBe(13);
+    expect(c('potion_of_flying')).toEqual({ effect: 'timed', fights: 3, hover: true, passives: [{ type: 'flight' }] });
   });
 });
 

@@ -702,7 +702,7 @@ describe('item data', () => {
           expect(i.weapon.versatileDice, `${i.id} versatile`).toMatch(DICE_RE);
         }
       }
-      if (i.consumable) {
+      if (i.consumable?.effect === 'heal') {
         expect(i.consumable.dice, `${i.id} consumable`).toMatch(DICE_RE);
       }
     }

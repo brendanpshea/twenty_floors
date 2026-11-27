@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { QUICK_SLOTS } from '../core/types';
 import { Rng } from '../core/rng';
 import type { Creature, ItemDef, PlayerCharacter } from '../core/types';
-import { QUICK_SLOTS, createCharacter, quickSlotIds, setQuickSlot, toCreature } from './character';
+import { createCharacter, quickSlotIds, setQuickSlot, toCreature } from './character';
 import { createCombat } from './combat';
 import { instantiateMonster } from './monster';
 import { resetItemCatalog, setItemCatalog } from './items';

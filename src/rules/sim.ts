@@ -7,7 +7,7 @@ import { averageDice, maxDice } from './dice';
 import { toCreature } from './character';
 import { attacksLeft, createCombat } from './combat';
 import { instantiateMonster } from './monster';
-import { flagPool, hasFlag } from './util';
+import { flagPool, hasFlag, isAlive } from './util';
 import { createOpenRoomNav } from './testing/openRoomNav';
 
 export type PolicyFn = (combat: CombatApi, nav: NavGrid) => Command;
@@ -88,6 +88,11 @@ export function heroUpkeep(combat: CombatApi, c: Creature): Command | null {
       .sort((x, y) => Math.min(y.avg, missing) - Math.min(x.avg, missing) || x.avg - y.avg);
     const pick = drinks[0];
     if (pick && missing >= pick.avg * 0.6) return { type: 'action', actionId: pick.a.id };
+  }
+  // Timed consumables (a potion of heroism, of flying...) are used for a boss fight: once, in its first rounds, as a bonus action.
+  if (!combat.turn.bonusUsed && combat.round <= 2 && combat.creatures().some((o) => isAlive(o) && o.faction === 'enemy' && MONSTERS.find((m) => m.id === o.defId)?.role === 'boss')) {
+    const use = c.actions.find((a) => a.id.startsWith('use_') && !c.resources[`_used_${a.id.slice(4)}`] && combat.canUse(a.id).ok);
+    if (use) return { type: 'action', actionId: use.id };
   }
   if (combat.canUse('break_free').ok) return { type: 'action', actionId: 'break_free' };
   // Two-weapon fighting: the off-hand attack follows a main-hand Light attack (a free action with Nick, else the bonus action).

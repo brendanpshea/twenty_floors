@@ -1,5 +1,6 @@
 /** Mock data for the UI preview page (dev/ui-preview.html). Not used by the game. */
 import type {
+  HubItemNote,
   ItemComparison,
   CompanionInfo,
   ChoiceSlot,
@@ -868,5 +869,108 @@ export function withComparisons(m: HubModel): HubModel {
   const known = new Set(m.shop.map((s) => s.item.id));
   for (const it of extra) if (!known.has(it.id)) m.shop.push({ item: it, price: it.cost, affordable: it.cost <= m.character.gold });
   m.shop = m.shop.map((e) => (COMPARES[e.item.id] ? { ...e, compare: COMPARES[e.item.id] } : e));
+  return m;
+}
+
+// ---------------------------------------------------------------------------
+// Pack screen: worn magic items, attunement and quick slots
+// ---------------------------------------------------------------------------
+
+const PACK_ITEMS: ItemDef[] = [
+  item({
+    id: 'cloak_protection',
+    name: 'Cloak of Protection',
+    kind: 'wondrous',
+    description: 'A heavy grey cloak that turns blows aside.',
+    cost: 300,
+    slot: 'cloak',
+    attunement: true,
+    magicBonus: 1,
+    rarity: 'uncommon',
+  }),
+  item({
+    id: 'ring_fire_resistance',
+    name: 'Ring of Fire Resistance',
+    kind: 'wondrous',
+    description: 'A warm copper ring.',
+    cost: 250,
+    slot: 'ring',
+    attunement: true,
+    magicBonus: 0,
+    rarity: 'rare',
+  }),
+  item({
+    id: 'boots_elvenkind',
+    name: 'Boots of Elvenkind',
+    kind: 'wondrous',
+    description: 'Soft boots that make no sound.',
+    cost: 200,
+    slot: 'feet',
+    rarity: 'uncommon',
+    magicBonus: 0,
+  }),
+  item({
+    id: 'potion_flying',
+    name: 'Potion of Flying',
+    kind: 'consumable',
+    description: 'You hover above the ground for a while.',
+    cost: 120,
+    consumable: { effect: 'timed', passives: [{ type: 'flight' }], fights: 3, hover: true },
+  }),
+];
+
+const EFFECTS: Record<string, string[]> = {
+  cloak_protection: ['+1 to Armor Class', '+1 to all saving throws'],
+  ring_fire_resistance: ['Resistance to fire damage'],
+  boots_elvenkind: ['Advantage on stealth checks'],
+  potion_flying: ['Flies for 3 fights'],
+  potion_healing: ['Restores 2d4+2 hit points'],
+};
+
+/** Adds the pack data the game will supply, and recomputes notes from the character after each intent. */
+export function withPack(m: HubModel): HubModel {
+  for (const it of PACK_ITEMS) m.items[it.id] = it;
+  const ch = m.character;
+  const have = (id: string): boolean => ch.inventory.some((s) => s.itemId === id);
+  for (const id of ['cloak_protection', 'ring_fire_resistance', 'boots_elvenkind', 'potion_flying']) {
+    if (!have(id)) ch.inventory.push({ itemId: id, quantity: id === 'potion_flying' ? 2 : 1 });
+  }
+  ch.worn ??= { cloak: 'cloak_protection', feet: 'boots_elvenkind', ring: 'ring_fire_resistance' };
+  ch.attuned ??= ['cloak_protection'];
+  m.quickSlots ??= [{ itemId: 'potion_healing', count: 2 }, null, null, null];
+  return refreshPack(m);
+}
+
+export function refreshPack(m: HubModel): HubModel {
+  const ch = m.character;
+  const worn = ch.worn ?? {};
+  const attuned = ch.attuned ?? [];
+  const wornIds = Object.values(worn);
+  const notes: Record<string, HubItemNote> = {};
+  for (const st of ch.inventory) {
+    const def = m.items[st.itemId];
+    if (!def) continue;
+    const slotKey = Object.entries(worn).find(([, id]) => id === st.itemId)?.[0] as HubItemNote['wornIn'];
+    const needs = !!def.attunement;
+    const isAtt = attuned.includes(st.itemId);
+    const wornNow = wornIds.includes(st.itemId);
+    notes[st.itemId] = {
+      effects: EFFECTS[st.itemId] ?? [],
+      wornIn: slotKey,
+      canEquip: true,
+      needsAttunement: needs,
+      attuned: isAtt,
+      canAttune: needs && !isAtt && attuned.length < 3,
+      inert: needs && wornNow && !isAtt,
+      quickable: def.kind === 'consumable',
+    };
+  }
+  m.itemNotes = notes;
+  m.attunement = { used: attuned.length, limit: 3 };
+  m.quickSlots = (m.quickSlots ?? [null, null, null, null]).map((q) => {
+    if (!q) return null;
+    const st = ch.inventory.find((x) => x.itemId === q.itemId);
+    return st ? { itemId: q.itemId, count: st.quantity } : null;
+  });
   return m;
 }

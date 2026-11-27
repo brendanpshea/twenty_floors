@@ -44,8 +44,7 @@ async function playRun(seed: number, tough = false): Promise<Outcome> {
       const st = game.session?.state;
       const alive = st ? st.monsters.filter((x) => !x.creature.dead && x.creature.hp > 0) : [];
       const pots = st ? st.pc.inventory.reduce((n, x) => n + (getItem(x.itemId)?.consumable?.effect === 'heal' ? x.quantity : 0), 0) : 0;
-      const bossUp = alive.some((x) => x.boss);
-      deathLog.push(`floor ${info.depth}: killed by ${info.killedBy}; ${bossUp ? 'boss fight' : 'ordinary room'}; HP at fight start ${fightStart}; ${alive.length} monsters left; potions in pack ${pots}`);
+      deathLog.push(`floor ${info.depth}: killed by ${info.killedBy}; ${fightHasBoss ? 'FLOOR BOSS fight' : 'ordinary room'} (${fightFoes}); HP at fight start ${fightStart}; ${alive.length} monsters left; potions in pack ${pots}; hero lost turns to paralysis/incapacitation: ${st ? st.log.slice(-40).filter((l) => /Aldric is incapacitated and loses the turn/.test(l)).length : 0}; potions drunk this fight: ${st ? st.log.slice(-60).filter((l) => /^Aldric (drinks|regains)/.test(l)).length : 0}`);
     }
     const n = (deaths.get(info.depth) ?? 0) + 1;
     deaths.set(info.depth, n);
@@ -54,10 +53,16 @@ async function playRun(seed: number, tough = false): Promise<Outcome> {
   // How each fight began (hero HP when it started), to say what killed the run.
   let inFight = false;
   let fightStart = '';
+  let fightHasBoss = false;
+  let fightFoes = '';
   h.ui.onHud = (m) => {
     if (m.mode === 'combat' && !inFight) {
       inFight = true;
       fightStart = `${m.player.hp}/${m.player.maxHp}`;
+      const st0 = game.session?.state;
+      const bossId = st0?.monsters.find((x) => x.boss)?.creature.id;
+      fightHasBoss = !!bossId && (m.combat?.initiative.some((e) => e.id === bossId) ?? false);
+      fightFoes = (m.combat?.initiative ?? []).filter((e) => e.faction === 'enemy').map((e) => e.name).join(', ');
     } else if (m.mode !== 'combat') inFight = false;
   };
   const deathLog: string[] = [];

@@ -1,6 +1,6 @@
 import { Rng } from '../core/rng';
 import type { ActionDef, CombatApi, Condition, Creature, Hazard, HelpMode, HudAction, HudModel } from '../core/types';
-import { advise, adviseExplore, SHOVE_PUSH_ID, SHOVE_TRIP_ID, attacksLeft, companionPrayer, concentratingOn, coverFor, creatureTactic, pushPreview, getCreationOptions, getSpell, isHiddenResource, longRestGain, outOfCombatSpells, shortRestGain, spellPoolKey, syncFromCreature } from '../rules';
+import { timedView, advise, adviseExplore, SHOVE_PUSH_ID, SHOVE_TRIP_ID, attacksLeft, companionPrayer, concentratingOn, coverFor, creatureTactic, pushPreview, getCreationOptions, getSpell, isHiddenResource, longRestGain, outOfCombatSpells, shortRestGain, spellPoolKey, syncFromCreature } from '../rules';
 import type { FloorState, RestSiteState } from './floorState';
 import { companionWantsLongRest, companionWantsShortRest } from './party';
 import { SHOVE_ID } from './combatController';
@@ -79,6 +79,8 @@ function hudAction(
   if (reason !== undefined && !enabled) out.disabledReason = reason;
   const left = usesLeft(c, a);
   if (left !== undefined) out.usesLeft = left;
+  // A consumable from a quick slot is named with its stack: "Potion of Healing ×3".
+  if ((a.id.startsWith('drink_') || a.id.startsWith('use_')) && left !== undefined) out.name = `${a.name} ×${left}`;
   return out;
 }
 
@@ -138,6 +140,7 @@ export function buildHudModel(inp: HudInputs): HudModel {
       resources: Object.entries(player.resources)
         .filter(([key]) => !isHiddenResource(key))
         .map(([, p]) => ({ name: p.name, current: p.current, max: p.max })),
+      ...(timedView(state.pc).length > 0 ? { timed: timedView(state.pc) } : {}),
     },
     actions: [],
     log: [...state.log],
@@ -223,8 +226,9 @@ export function buildHudModel(inp: HudInputs): HudModel {
   if (!inCombat) {
     const hurt = player.hp < player.maxHp;
     model.actions = player.actions
-      .filter((x) => x.id.startsWith('drink_') && (usesLeft(player, x) ?? 1) > 0)
-      .map((x) => hudAction(player, x, hurt && !busy, busy ? 'Wait' : 'You are at full health', false));
+      .filter((x) => (x.id.startsWith('drink_') || x.id.startsWith('use_')) && (usesLeft(player, x) ?? 1) > 0)
+      // A healing potion needs a wound; a timed one (flying, resistance...) can be drunk any time.
+      .map((x) => hudAction(player, x, (hurt || !x.heal) && !busy, busy ? 'Wait' : 'You are at full health', false));
     // The Sphinx's Prayer of Healing, once its level allows and somebody is hurt.
     const prayer = prayerAvailability(state);
     if (prayer) {

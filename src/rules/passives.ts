@@ -1,4 +1,4 @@
-import type { Ability, AbilityScores, ItemDef, PassiveEffect, PlayerCharacter, WornSlot } from '../core/types';
+import type { Ability, AbilityScores, ItemDef, PassiveEffect, PlayerCharacter, TimedEffect, WornSlot } from '../core/types';
 import { ATTUNEMENT_LIMIT } from '../core/types';
 import { getItem } from './items';
 
@@ -15,29 +15,15 @@ export interface ActivePassive {
   passive: PassiveEffect;
 }
 
-/**
- * A lasting effect that is not an item: it lasts a number of fights (HOUSE RULE, DESIGN.md: one minute is the current fight, one hour the next three).
- * It lives on the character as `timed` (a local extension: core/types.ts has no field for it yet).
- */
-export interface TimedEffect {
-  id: string;
-  name: string;
-  passives: PassiveEffect[];
-  fightsLeft: number;
-  /** Narrow flight (a Potion of Flying, a Fly spell): the bearer crosses chasms and lava without falling (see combat `stepFor`). */
-  hover?: boolean;
-}
+/** Timed effects (a potion, a scroll) last a number of fights (DESIGN.md: one minute is the current fight, one hour the next three). */
+export const timedEffects = (pc: PlayerCharacter): TimedEffect[] => pc.timed ?? [];
 
-type WithTimed = PlayerCharacter & { timed?: TimedEffect[] };
-
-/** Whether a timed effect lets the hero hover over pits and lava. */
-export const hovers = (pc: PlayerCharacter): boolean => timedEffects(pc).some((t) => t.hover === true);
-
-export const timedEffects = (pc: PlayerCharacter): TimedEffect[] => (pc as WithTimed).timed ?? [];
+/** Whether the hero hovers (narrow flight): a timed effect with `hover`, or a worn item with the flight passive. */
+export const hovers = (pc: PlayerCharacter): boolean => timedEffects(pc).some((t) => t.hover === true) || activePassives(pc).some((a) => a.passive.type === 'flight');
 
 /** Start an effect (one with the same id is replaced, so the duration is renewed, not stacked). */
 export function addTimedEffect(pc: PlayerCharacter, effect: TimedEffect): PlayerCharacter {
-  const next = JSON.parse(JSON.stringify(pc)) as WithTimed;
+  const next = JSON.parse(JSON.stringify(pc)) as PlayerCharacter;
   next.timed = [...timedEffects(pc).filter((t) => t.id !== effect.id), { ...effect }];
   return next;
 }
@@ -46,7 +32,7 @@ export function addTimedEffect(pc: PlayerCharacter, effect: TimedEffect): Player
 export function tickTimedEffects(pc: PlayerCharacter): PlayerCharacter {
   const left = timedEffects(pc);
   if (left.length === 0) return pc;
-  const next = JSON.parse(JSON.stringify(pc)) as WithTimed;
+  const next = JSON.parse(JSON.stringify(pc)) as PlayerCharacter;
   next.timed = left.map((t) => ({ ...t, fightsLeft: t.fightsLeft - 1 })).filter((t) => t.fightsLeft > 0);
   return next;
 }

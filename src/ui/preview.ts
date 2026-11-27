@@ -1,7 +1,7 @@
 /** Dev harness for the UI. Open dev/ui-preview.html; see the `?screen=` values in SCREENS. */
 import type { HubIntent, HubModel, HudModel, UiIntent } from '../core/types';
 import { createUi } from './index';
-import { combatHud, creationOptions, crowdedInitiative, levelUpFor, withComparisons, exploreHud, makeCompanionHubModel, makeHubModel, withCompanion } from './mocks';
+import { combatHud, creationOptions, crowdedInitiative, levelUpFor, refreshPack, withComparisons, withPack, exploreHud, makeCompanionHubModel, makeHubModel, withCompanion } from './mocks';
 
 const rootEl = document.getElementById('ui-root');
 if (!rootEl) throw new Error('#ui-root missing');
@@ -128,6 +128,12 @@ function hubHandler(model: { current: HubModel }): (i: HubIntent) => HubModel {
       }
       case 'equip': {
         const kind = m.items[i.itemId]?.kind;
+        const wslot = m.items[i.itemId]?.slot;
+        if (wslot) {
+          const key = wslot === 'ring' ? (ch.worn?.ring ? 'ring2' : 'ring') : wslot;
+          ch.worn = { ...(ch.worn ?? {}), [key]: i.itemId };
+          break;
+        }
         if (kind === 'armor') ch.equipped.armor = i.itemId;
         else if (kind === 'shield') ch.equipped.offHand = i.itemId;
         else if (m.items[i.itemId]?.weapon?.melee === false) ch.equipped.ranged = i.itemId;
@@ -142,6 +148,24 @@ function hubHandler(model: { current: HubModel }): (i: HubIntent) => HubModel {
           m.levelUp = undefined;
         }
         break;
+      case 'unequip': {
+        for (const k of Object.keys(ch.worn ?? {}) as (keyof NonNullable<typeof ch.worn>)[]) if (ch.worn?.[k] === i.itemId) delete ch.worn[k];
+        for (const k of Object.keys(ch.equipped) as (keyof typeof ch.equipped)[]) if (ch.equipped[k] === i.itemId) delete ch.equipped[k];
+        ch.attuned = (ch.attuned ?? []).filter((x) => x !== i.itemId);
+        break;
+      }
+      case 'attune':
+        if ((ch.attuned ?? []).length < 3 && !(ch.attuned ?? []).includes(i.itemId)) ch.attuned = [...(ch.attuned ?? []), i.itemId];
+        break;
+      case 'unattune':
+        ch.attuned = (ch.attuned ?? []).filter((x) => x !== i.itemId);
+        break;
+      case 'setQuickSlot': {
+        const q = [...(m.quickSlots ?? [null, null, null, null])];
+        q[i.slot] = i.itemId ? { itemId: i.itemId, count: 1 } : null;
+        m.quickSlots = q;
+        break;
+      }
       case 'chooseCompanion':
         if (m.companions) m.companions = { ...m.companions, chosenId: i.id };
         break;
@@ -149,6 +173,7 @@ function hubHandler(model: { current: HubModel }): (i: HubIntent) => HubModel {
         break;
     }
     m.shop = m.shop.map((s) => ({ ...s, affordable: s.price <= ch.gold }));
+    if (m.itemNotes) refreshPack(m);
     return m;
   };
 }
@@ -289,6 +314,21 @@ const SCREENS: Record<string, Runner> = {
     hud = exploreHud();
     const prayer = { id: 'prayer', name: 'Prayer of Healing', description: 'Heal up to six allies in range for 2d8 each.', icon: 'heal', cost: 'action' as const, enabled: true, selected: false, usesLeft: 1 };
     hud.actions = [...hud.actions.slice(0, 3), prayer].slice(0, Number(params.get('n') ?? 4));
+    pushHud();
+  },
+  'hub-pack': () => {
+    ui.hideHud();
+    const m = withPack(withComparisons(makeHubModel()));
+    m.levelUp = undefined;
+    const state = { current: m };
+    void ui.showHub(structuredClone(m), hubHandler(state)).then(() => say('hub -> descended'));
+  },
+  'hud-timed': () => {
+    hud = exploreHud();
+    hud.player.timed = [
+      { name: 'Flying', fightsLeft: 1, detail: 'You hover and cross pits and lava. It wears off after this fight.' },
+      { name: 'Bless', fightsLeft: 3 },
+    ];
     pushHud();
   },
   'hub-compare': () => {

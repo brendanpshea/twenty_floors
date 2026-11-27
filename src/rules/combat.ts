@@ -17,6 +17,7 @@ import type {
   TurnState,
 } from '../core/types';
 import { MONSTERS } from '../data/monsters';
+import { getItem } from './items';
 import {
   INCAPACITATING,
   attackModeFromConditions,
@@ -796,6 +797,46 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   }
 
   /** Buff and utility spells on one creature (the caster or a friend). Returns true if the action was one. */
+  /**
+   * A timed consumable (a potion of heroism, of flying...) used in the fight: its passives apply from now on, to the hero's own numbers
+   * and flags. (Ability-score passives take effect when the effect is carried into the next fight by `syncFromCreature`.)
+   */
+  function applyTimedUse(c: Creature, itemId: string): void {
+    const def = getItem(itemId);
+    if (!def?.consumable || def.consumable.effect !== 'timed') return;
+    log(`${c.name} uses ${def.name}.`);
+    c.resources[`_used_${itemId}`] = { name: 'used', current: 1, max: 0, refresh: 'longRest' };
+    const flag = (name: string): void => {
+      c.resources[`_${name}`] = { name, current: 1, max: 0, refresh: 'longRest' };
+    };
+    for (const p of def.consumable.passives) {
+      if (p.type === 'acBonus') c.ac += p.amount;
+      else if (p.type === 'saveBonus') c.resources['_saveBonus'] = { name: 'Save bonus', current: (c.resources['_saveBonus']?.current ?? 0) + p.amount, max: 0, refresh: 'longRest' };
+      else if (p.type === 'resistance' && !c.resistances.includes(p.damageType)) c.resistances.push(p.damageType);
+      else if (p.type === 'immunity' && !c.immunities.includes(p.damageType)) c.immunities.push(p.damageType);
+      else if (p.type === 'conditionImmunity' && !c.conditionImmunities.includes(p.condition)) c.conditionImmunities.push(p.condition);
+      else if (p.type === 'speedBonus') {
+        c.speed += p.cells;
+        if (turn.creatureId === c.id) turn.movementLeft += p.cells;
+      } else if (p.type === 'critImmunity') flag('critImmunity');
+      else if (p.type === 'displacement') {
+        flag('displacement');
+        displaced.add(c.id);
+      } else if (p.type === 'ignoreHazard') flag(`ignore_${p.hazard}`);
+      else if (p.type === 'regeneration') c.resources['_regen'] = { name: 'Regeneration', current: p.amount, max: 0, refresh: 'longRest' };
+      else if (p.type === 'flight') {
+        flag('hover');
+        flag('ignore_fall');
+        flag('ignore_lava');
+      }
+    }
+    if (def.consumable.hover) {
+      flag('hover');
+      flag('ignore_fall');
+      flag('ignore_lava');
+    }
+  }
+
   function applyBuffSpell(att: Creature, a: ActionDef, tgt: Creature): boolean {
     const fx = a.effects ?? [];
     if (fx.includes('bless')) {
@@ -1102,6 +1143,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (fx.includes('magicMissile')) return castMagicMissile(att, a, tgt);
     if (fx.includes('bane')) return castBane(att, a, tgt);
     if (fx.includes('command')) return castCommand(att, a, tgt);
+    const timedUse = fx.find((e) => e.startsWith('timedUse:'));
+    if (timedUse) return applyTimedUse(att, timedUse.slice('timedUse:'.length));
     if (applyBuffSpell(att, a, tgt)) return;
     if (a.attack) {
       const outcome = rollAttack(att, tgt, a, reaction, name);
@@ -1756,6 +1799,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     }
     const t = a.multiattack ? ({ kind: 'creature', melee: true, range: 1 } as const) : a.targeting;
     if (t.kind === 'self') {
+      const timedUse = a.effects?.find((e) => e.startsWith('timedUse:'));
+      if (timedUse) return applyTimedUse(c, timedUse.slice('timedUse:'.length));
       if (applyBuffSpell(c, a, c)) return;
       if (a.heal) heal(c, a.heal);
       if (a.applies) addCondition(c, a.applies, c);

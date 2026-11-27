@@ -28,7 +28,6 @@ export {
   isWonder,
   quickSlotIds,
   setQuickSlot,
-  QUICK_SLOTS,
   itemChargeKey,
   itemSpellActionId,
   bestPotion,
@@ -105,7 +104,8 @@ export { createOpenRoomNav } from './testing/openRoomNav';
 export { setItemCatalog, resetItemCatalog, getItem } from './items';
 export { abilityMod, proficiencyForLevel, isHiddenResource } from './util';
 export { compareItem, typicalAc, describePassive } from './compare';
-export { activePassives, itemWorks, addTimedEffect, tickTimedEffects, timedEffects, type TimedEffect } from './passives';
+export { hubItemNotes, hubAttunement, hubQuickSlots, timedView, itemEffectLines } from './hubNotes';
+export { activePassives, itemWorks, addTimedEffect, tickTimedEffects, timedEffects, hovers } from './passives';
 export { GEAR_SCHEDULE, scheduledGear, scheduledArmorBase } from './gearSchedule';
 export { previewRest } from './restPreview';
 export { advise, adviseExplore, type Advice, type AdviseOptions, type ExploreContext } from './advise';

@@ -1515,3 +1515,14 @@
     animation: none;
   }
 }
+
+.tf-chip--timed {
+  border-color: rgba(102, 207, 193, 0.55);
+  background: rgba(36, 95, 88, 0.35);
+  color: #a6e6dd;
+  text-transform: none;
+  pointer-events: auto;
+}
+.tf-timed[hidden] {
+  display: none;
+}
