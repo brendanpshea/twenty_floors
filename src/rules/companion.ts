@@ -121,12 +121,15 @@ export function requireCompanion(id: string): CompanionDef {
   return c;
 }
 
-/** A companion is this many levels below the hero. */
-export const COMPANION_LEVEL_OFFSET = 2;
+/**
+ * A companion gains a level for every this many levels of the hero. It joins at hero level 4 as level 2 and reaches
+ * level 10 beside a level 20 hero, so the hero stays the party's strength and the companion its help.
+ */
+export const COMPANION_LEVEL_PACE = 2;
 
-/** Companion level alongside a hero of this level: two lower, at least 1. */
+/** Companion level alongside a hero of this level: half the hero's, rounded down, at least 1. */
 export function companionLevel(heroLevel: number): number {
-  return Math.max(1, Math.floor(heroLevel) - COMPANION_LEVEL_OFFSET);
+  return Math.max(1, Math.floor(Math.floor(heroLevel) / COMPANION_LEVEL_PACE));
 }
 
 /** Ability scores at a companion level: the stat block's plus the role's bumps, at most 20 (a higher base stays). */

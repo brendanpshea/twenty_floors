@@ -71,7 +71,7 @@ export { tacticOf, inferTactic, creatureTactic, isFlexible, flexibleAlternative 
 export { TERRAIN_TUNING, flightPath, fallDice, planPush, pushValue, slamDice, obstacleOf, climbOutCell, coverFor, canShoveSize, exposedToPush, nextToHazard, type PushPlan } from './terrain';
 export { instantiateMonster } from './monster';
 export {
-  COMPANION_LEVEL_OFFSET,
+  COMPANION_LEVEL_PACE,
   companionLevel,
   companionProgression,
   companionAbilities,

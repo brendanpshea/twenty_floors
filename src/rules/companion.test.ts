@@ -4,20 +4,14 @@ import type { ActionDef, CombatApi, CompanionStance, Creature, GameEvent, GridPo
 import { COMPANIONS } from '../data/companions';
 import { applyLevelUp, createCharacter, suggestedLevelChoices, syncFromCreature, toCreature } from './character';
 import { createCombat } from './combat';
+import * as real from './companion';
 import {
   companionAbilities,
-  companionInfo,
   companionLevel,
-  companionLongRest,
   companionMaxHp,
-  companionNeedsRest,
   companionOptions,
-  companionPrayer,
   companionProgression,
-  companionShortRest,
-  createCompanion,
   kitAt,
-  newCompanionState,
   requireCompanion,
   syncCompanion,
   usesAt,
@@ -31,6 +25,21 @@ import { IMPLEMENTED_SPELL_IDS, getSpell } from './spells';
 import { FIXTURE_ITEMS, ScriptedRng, makeBuild, mon, startCombat } from './testing/fixtures';
 import { createOpenRoomNav } from './testing/openRoomNav';
 import { abilityMod, chebyshev, isAlive } from './util';
+
+/**
+ * These tests were written when a companion was two levels below the hero, and they name the hero level. A companion now
+ * gains a level for every two of the hero's, so each hero level is turned into the one that gives the SAME companion
+ * level as before (hero 12 meant companion 10: now hero 20). Companion levels above 10 cannot be reached in play any
+ * more; the table still defines them and the tests still cover them, with hero levels above 20.
+ */
+const lv = (heroLevel: number): number => Math.max(2, (heroLevel - 2) * real.COMPANION_LEVEL_PACE);
+const createCompanion: typeof real.createCompanion = (def, h, ...rest) => real.createCompanion(def, lv(h), ...rest);
+const newCompanionState: typeof real.newCompanionState = (id, h = 4) => real.newCompanionState(id, lv(h));
+const companionInfo: typeof real.companionInfo = (def, h) => real.companionInfo(def, lv(h));
+const companionShortRest: typeof real.companionShortRest = (state, def, h, rng) => real.companionShortRest(state, def, lv(h), rng);
+const companionLongRest: typeof real.companionLongRest = (state, def, h) => real.companionLongRest(state, def, lv(h));
+const companionPrayer: typeof real.companionPrayer = (pc, state, def, h, rng) => real.companionPrayer(pc, state, def, lv(h), rng);
+const companionNeedsRest: typeof real.companionNeedsRest = (state, def, h) => real.companionNeedsRest(state, def, lv(h));
 
 beforeAll(() => setItemCatalog(FIXTURE_ITEMS));
 afterAll(() => resetItemCatalog());
@@ -88,8 +97,8 @@ describe('companion progression', () => {
     expect(companionProgression(17).proficiencyBonus).toBe(6);
   });
 
-  it('companion level is the hero level minus two, at least 1', () => {
-    expect([1, 2, 3, 4, 5, 20].map(companionLevel)).toEqual([1, 1, 1, 2, 3, 18]);
+  it('companion level is half the hero level, rounded down, at least 1', () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 10, 19, 20].map(companionLevel)).toEqual([1, 1, 1, 2, 2, 3, 3, 5, 9, 10]);
   });
 
   for (const def of COMPANIONS) {
@@ -138,7 +147,7 @@ describe('companion progression', () => {
     it(`${def.name}: every hero level 4 to 20 builds a creature, with its kit actions and uses`, () => {
       for (let h = 4; h <= 20; h++) {
         const c = createCompanion(def, h);
-        const L = companionLevel(h);
+        const L = companionLevel(lv(h));
         expect(c.id).toBe('companion');
         expect(c.faction).toBe('ally');
         expect(c.level).toBe(L);
@@ -786,7 +795,7 @@ describe('companion rests and state', () => {
     expect(createCompanion(def, 8, after).resources['spell:cure_wounds']!.current).toBe(1);
     expect(companionNeedsRest(after, def, 8)).toBe(true);
     const rested = companionLongRest(after, def, 8);
-    expect(rested.hp).toBe(companionMaxHp(def, companionLevel(8)));
+    expect(rested.hp).toBe(companionMaxHp(def, companionLevel(lv(8))));
     expect(rested.resources['spell:cure_wounds']!.current).toBe(rested.resources['spell:cure_wounds']!.max);
     expect(companionNeedsRest(rested, def, 8)).toBe(false);
     const bigger = companionLongRest(after, def, 12); // levelled between floors: pools grow
