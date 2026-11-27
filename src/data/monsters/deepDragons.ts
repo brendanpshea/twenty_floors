@@ -327,7 +327,7 @@ export const DEEP_DRAGONS: MonsterDef[] = [
     role: 'elite',
     description: 'A regal, burnished dragon that sits on a heap of its own treasure and judges all who come to look.',
   },
-  // Simplified: drops Fly, Legendary Resistance, Blindsight, Darkvision, skills, the Legendary Actions (Chill, Cold Gale, Pounce), and the Spellcasting at-will Detect Magic, Hold Monster, Shapechange and 1/Day Zone of Truth. Rend reach is 10 ft. (2 cells); Rend has Cold damage as printed. Cold Breath is a 60-ft. cone (12 cells), Recharge 5-6. Paralyzing Breath is its own action (60-ft. cone) with 'paralyzed' and a Constitution save-ends DC 20 (first-failure Incapacitated skipped). Ice Knife is a ranged spell attack (+11, 60 ft.): the 1d10 piercing and the 2d6 cold burst are both applied to the target on a hit (the burst's save and splash are dropped). Ice Storm (1/Day, level 5 version) is once per floor: 20-ft.-radius sphere (4 cells) centred up to 300 ft. (60 cells) away, Dexterity DC 19, 3d10 bludgeoning plus 4d6 cold, half on success; its difficult terrain is dropped.
+  // Simplified: drops Fly, Legendary Resistance, Blindsight, Darkvision, skills, the Legendary Actions (Chill, Cold Gale, Pounce), and the Spellcasting at-will Detect Magic and Shapechange and 1/Day Zone of Truth; At Will Hold Monster is kept (Wisdom DC 19, 90 ft., Paralyzed with a Wisdom save-ends; concentration is not modelled). Rend reach is 10 ft. (2 cells); Rend has Cold damage as printed. Cold Breath is a 60-ft. cone (12 cells), Recharge 5-6. Paralyzing Breath is its own action (60-ft. cone) with 'paralyzed' and a Constitution save-ends DC 20 (first-failure Incapacitated skipped). Ice Knife is a ranged spell attack (+11, 60 ft.): the 1d10 piercing and the 2d6 cold burst are both applied to the target on a hit (the burst's save and splash are dropped). Ice Storm (1/Day, level 5 version) is once per floor: 20-ft.-radius sphere (4 cells) centred up to 300 ft. (60 cells) away, Dexterity DC 19, 3d10 bludgeoning plus 4d6 cold, half on success; its difficult terrain is dropped.
   {
     id: 'adult_silver_dragon',
     name: 'Adult Silver Dragon',
@@ -412,6 +412,16 @@ export const DEEP_DRAGONS: MonsterDef[] = [
         uses: { resource: 'Ice Storm', amount: 1 },
         save: { ability: 'dex', dc: 19, halfOnSave: true },
         damage: [{ dice: '3d10', type: 'bludgeoning' }, { dice: '4d6', type: 'cold' }],
+      },
+      {
+        id: 'hold_monster',
+        name: 'Hold Monster',
+        description: 'A hissed word of binding locks a creature within 90 feet rigid.',
+        icon: 'spell',
+        cost: 'action',
+        targeting: { kind: 'creature', melee: false, range: 18 },
+        save: { ability: 'wis', dc: 19, halfOnSave: false },
+        applies: { condition: 'paralyzed', saveEnds: { ability: 'wis', dc: 19 } },
       },
     ],
     visual: { model: 'dragon_white', tint: 0xc0ccd8, scale: 2.1 },

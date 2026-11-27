@@ -2,13 +2,15 @@ import type { MonsterDef } from '../../core/types';
 
 /** The cast of the Overgrown Ruin, transcribed from SRD 5.2.1 stat blocks. */
 export const RUIN_MONSTERS: MonsterDef[] = [
-  // Simplified: drops Magic Resistance, Speak with Beasts and Plants, the Spellcasting list (Animal Friendship,
-  // Druidcraft, Entangle, Pass without Trace) and Tree Stride (teleport). The SRD Multiattack is one Vine Lash or
+  // Simplified: drops Magic Resistance, Speak with Beasts and Plants, the rest of the Spellcasting list (Animal Friendship,
+  // Druidcraft, Pass without Trace) and Tree Stride (teleport). Entangle (1/Day: DC 14, 90 ft., 20-ft. square approximated as
+  // a 2-cell-radius sphere, Restrained with a Strength save-ends at the spell DC instead of the Athletics check action; once per floor) is kept. The SRD Multiattack is one Vine Lash or
   // Thorn Burst plus a free Charm Monster cast; that is modelled as the two attacks plus a separate bonus-action
   // Charm Monster (30 ft. = 6 cells), which applies Charmed with a Wisdom save-ends at DC 14 (the spell lasts 24
   // hours in the SRD). Thorn Burst has a single range of 60 ft. (12 cells) plus 1 for the long range.
   {
     id: 'dryad',
+    tactic: 'caster',
     name: 'Dryad',
     size: 'medium',
     type: 'fey',
@@ -56,6 +58,18 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         targeting: { kind: 'creature', melee: false, range: 6 },
         save: { ability: 'wis', dc: 14, halfOnSave: false },
         applies: { condition: 'charmed', saveEnds: { ability: 'wis', dc: 14 } },
+      },
+      {
+        id: 'entangle',
+        name: 'Entangle',
+        description: 'Grasping plants burst from the ground in a 20-foot square within 90 feet and bind whoever stands in it.',
+        icon: 'spell',
+        cost: 'action',
+        // 20-foot square, approximated as a sphere of radius 2 cells (as in src/data/spells.ts).
+        targeting: { kind: 'point', range: 18, area: { shape: 'sphere', size: 2 } },
+        uses: { resource: 'Entangle', amount: 1 },
+        save: { ability: 'str', dc: 14, halfOnSave: false },
+        applies: { condition: 'restrained', saveEnds: { ability: 'str', dc: 14 } },
       },
     ],
     visual: { model: 'mage_green', scale: 0.95 },
@@ -527,7 +541,8 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     description: 'A cunning, half-grown forest dragon with moss-green scales, lairing in the thickest tangle of the ruin.',
   },
   // Simplified: drops Climb 40 ft., Swim 40 ft., Celestial Restoration and the rest of its spell list (Thaumaturgy,
-  // Clairvoyance, Cure Wounds, Geas, True Seeing). Keeps Bite plus two spell-like actions: Poisonous Spittle (a
+  // Clairvoyance, Geas, True Seeing). Keeps Bite plus three spell-like actions (Cure Wounds at level 6, 12d8+4 healing on a
+  // touched ally, 1/Day: the monster AI does not yet use action-cost heals, so it is inert until it does): Poisonous Spittle (a
   // ranged creature save; Blinded until the start of its next turn = rounds: 1; 60 ft. = 12 cells) and Flame
   // Strike at the level 6 version (6d6 fire plus 6d6 radiant; 60 ft. range, 10-ft. radius = 2 cells; 1/Day). The
   // SRD lets it replace any Bite with a Spittle, so there are separate melee and ranged multiattacks (the mixed
@@ -607,6 +622,17 @@ export const RUIN_MONSTERS: MonsterDef[] = [
           { dice: '6d6', type: 'fire' },
           { dice: '6d6', type: 'radiant' },
         ],
+      },
+      {
+        id: 'cure_wounds',
+        name: 'Cure Wounds',
+        description: 'The naga lays a hand on an ally and a wave of golden light closes its wounds (level 6 version).',
+        icon: 'heal',
+        cost: 'action',
+        targeting: { kind: 'creature', melee: true, range: 1, friendly: true },
+        uses: { resource: 'Cure Wounds', amount: 1 },
+        // 2d8 plus 2d8 per slot level above 1 (level 6 = 12d8) plus its Wisdom modifier (+4).
+        heal: '12d8+4',
       },
     ],
     visual: { model: 'snake', tint: 0xb0e860, scale: 5 },

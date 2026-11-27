@@ -55,8 +55,29 @@ export class FakeRenderer implements Renderer3D {
     const end = path[path.length - 1];
     if (e && end) e.pos = { ...end };
   }
+  /** The off-interface hazard effects of the real renderer (makeHarness can take them away to test the fallback). */
+  drops: { id: string; into: string }[] = [];
+  rises: { id: string; at: GridPos }[] = [];
+  async dropEntity(id: string, into: 'fall' | 'lava'): Promise<void> {
+    this.need(id, 'dropEntity');
+    this.drops.push({ id, into });
+    const e = this.entities.get(id);
+    if (e) e.visible = false;
+  }
+  async riseEntity(id: string, at: GridPos): Promise<void> {
+    this.need(id, 'riseEntity');
+    this.rises.push({ id, at: { ...at } });
+    const e = this.entities.get(id);
+    if (e) {
+      e.pos = { ...at };
+      e.visible = true;
+    }
+  }
+  /** Entities put somewhere without walking (teleports, spawns), in order. */
+  placed: string[] = [];
   placeEntity(id: string, pos: GridPos): void {
     this.need(id, 'placeEntity');
+    this.placed.push(id);
     const e = this.entities.get(id);
     if (e) e.pos = { ...pos };
   }
@@ -231,8 +252,13 @@ export interface Harness {
   deps: GameDeps;
 }
 
-export function makeHarness(options: GameOptions = {}, script: FakeUiScript = {}): Harness {
+export function makeHarness(options: GameOptions = {}, script: FakeUiScript = {}, extras: { hazardFx?: boolean } = {}): Harness {
   const renderer = new FakeRenderer();
+  if (extras.hazardFx === false) {
+    // An older renderer without the drop and rise effects: the game falls back to hiding and placing.
+    (renderer as { dropEntity?: unknown }).dropEntity = undefined;
+    (renderer as { riseEntity?: unknown }).riseEntity = undefined;
+  }
   const ui = new FakeUi(script);
   const audio = new FakeAudio();
   const storage = new MemoryStorage();

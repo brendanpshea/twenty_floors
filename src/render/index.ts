@@ -12,6 +12,7 @@ import type {
   Size,
   VisualSpec,
 } from '../core/types';
+import { CellKind } from '../core/types';
 import { CameraRig } from './camera';
 import { EntityManager } from './entities';
 import { FloatText } from './floatText';
@@ -28,6 +29,7 @@ import type { PickOut } from './picking';
 import { buildProps } from './props';
 import type { PropField } from './props';
 import { LOOKS } from './themeLooks';
+import type { ThemeLook } from './themeLooks';
 import { CELL, STEP } from './util';
 
 const PIXEL_RATIO: Record<QualityLevel, number> = { low: 1, medium: 1.5, high: 2 };
@@ -82,6 +84,8 @@ class RendererImpl implements RendererWithDebug {
   private fow: Fow | null = null;
   private fowActive = false;
   private plan: FloorPlan | null = null;
+  private look: ThemeLook | null = null;
+  private lavaSurfaceY: number | null = null;
   private pickCb: ((p: PickResult) => void) | null = null;
   private hoverCb: ((p: PickResult) => void) | null = null;
   private running = false;
@@ -131,6 +135,7 @@ class RendererImpl implements RendererWithDebug {
       models: this.models,
       shadowsOn: () => this.lighting.shadowsEnabled,
       theme: () => this.plan?.theme ?? 'crypt',
+      lavaY: () => this.lavaSurfaceY,
     });
     this.rig = new CameraRig(canvas);
     this.picker = new Picker(this.rig.camera, canvas, this.entities);
@@ -169,6 +174,34 @@ class RendererImpl implements RendererWithDebug {
     return (p.elevation[y * p.width + x] ?? 0) * STEP;
   }
 
+  /**
+   * Where highlight quads sit: Chasm cells (drop or lava) hover at the rim, the highest walkable neighbour (null = ordinary cell);
+   * water and ice quads sit on the surface instead of the wading depth underneath.
+   */
+  private hazardRim = (x: number, y: number): number | null => {
+    const p = this.plan;
+    if (!p || x < 0 || y < 0 || x >= p.width || y >= p.height) return null;
+    if (p.kinds[y * p.width + x] !== CellKind.Chasm) return null;
+    let best = -Infinity;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= p.width || ny >= p.height) continue;
+        const k = p.kinds[ny * p.width + nx];
+        if (k === CellKind.Floor || k === CellKind.Door || k === CellKind.Water) best = Math.max(best, this.groundAt(nx, ny) + (k === CellKind.Water ? 0.3 : 0));
+      }
+    }
+    return best === -Infinity ? (p.elevation[y * p.width + x] ?? 0) * STEP + 1 : best;
+  };
+
+  private highlightGround = (x: number, y: number): number => {
+    const g = this.groundAt(x, y);
+    const p = this.plan;
+    if (p && x >= 0 && y >= 0 && x < p.width && y < p.height && p.kinds[y * p.width + x] === CellKind.Water) return g + (this.look?.ice ? 0.15 : 0.3);
+    return g;
+  };
+
   private heightAtWorld(wx: number, wz: number): number {
     const p = this.plan;
     if (!p) return 0;
@@ -206,6 +239,20 @@ class RendererImpl implements RendererWithDebug {
    * Warm the model cache so spawnEntity shows real models on the first frame. Resolves when every key has loaded
    * or after `timeoutMs` (default 2000), whichever comes first. Not part of Renderer3D: callers may call it before spawning.
    */
+  /**
+   * Off-interface helper for terrain hazards: the creature tips and falls straight down out of sight over ~0.5 s
+   * (shrinking slightly), then is hidden (`visible` false). into 'lava': it sinks to the slag with an orange flash and
+   * a burst of embers. Resolves when it is gone. Call `riseEntity` (or setEntityState visible) to bring it back.
+   */
+  dropEntity(id: string, into: 'fall' | 'lava'): Promise<void> {
+    return this.entities.drop(id, into);
+  }
+
+  /** Off-interface: the creature reappears at the rim cell `at`, climbing up from below over ~0.4 s. Resolves when done. */
+  riseEntity(id: string, at: GridPos): Promise<void> {
+    return this.entities.rise(id, at);
+  }
+
   preloadModels(keys: string[], timeoutMs = 2000): Promise<void> {
     return this.models.preload(keys, timeoutMs);
   }
@@ -216,6 +263,16 @@ class RendererImpl implements RendererWithDebug {
     this.disposeFloor();
     const look = LOOKS[plan.theme] ?? LOOKS.crypt;
     this.plan = plan;
+    this.look = look;
+    this.lavaSurfaceY = null;
+    if (look.lava) {
+      let low = 0;
+      for (let i = 0; i < plan.width * plan.height; i++) {
+        const k = plan.kinds[i];
+        if (k === CellKind.Floor || k === CellKind.Door || k === CellKind.Water) low = Math.min(low, (plan.elevation[i] ?? 0) * STEP);
+      }
+      this.lavaSurfaceY = low - look.lava.depth;
+    }
     const fow = new Fow(plan.width, plan.height);
     this.fow = fow;
     this.fowActive = false;
@@ -235,7 +292,7 @@ class RendererImpl implements RendererWithDebug {
     this.entities.refreshGround();
     this.highlights.setPalette(look.highlight ?? 'default');
     this.highlights.setGrid(plan.width, plan.height);
-    this.highlights.set([], (x, y) => this.groundAt(x, y));
+    this.highlights.set([], this.highlightGround, this.hazardRim);
     await warm;
     // In overview the rig has already framed the new floor (setBounds above).
     if (this.rig.overview) return;
@@ -298,7 +355,7 @@ class RendererImpl implements RendererWithDebug {
   }
 
   setHighlights(cells: CellHighlight[]): void {
-    this.highlights.set(cells, (x, y) => this.groundAt(x, y));
+    this.highlights.set(cells, this.highlightGround, this.hazardRim);
   }
 
   setRevealed(mask: Uint8Array): void {

@@ -4,6 +4,7 @@ import { MAX_GRID, NEI4, NEI8, isWalkKind } from './grid';
 import { LIGHT_TYPES } from './layout';
 import { buildCost, createNavGrid, floodReach } from './nav';
 import { restSetProblems } from './rest';
+import { entryDoorways, roomThresholds } from './roomview';
 
 export const PROP_BLOCKING: Record<string, boolean> = {
   torch: false,
@@ -264,6 +265,83 @@ export function validateFloor(plan: FloorPlan): string[] {
     if (r.role === 'boss' && (c.boss !== 1 || c.monster < 2 || c.monster > 4 || c.chest)) fail(`boss room ${r.id} spawns ${JSON.stringify(c)}`);
     if (r.role === 'treasure' && (c.chest !== 1 || c.monster || c.boss)) fail(`treasure room ${r.id} spawns ${JSON.stringify(c)}`);
     if (r.role === 'entrance' && (c.monster || c.boss || c.chest)) fail('entrance room has spawns');
+  }
+
+  // Formations: every monster has a post, every room with monsters a formation, and the posts keep their promise.
+  const POSTS = ['front', 'back', 'flank', 'high', 'hidden', 'guard', 'escort'];
+  const FORMATIONS = ['shieldWall', 'snipers', 'ambush', 'camp', 'gauntlet', 'pincer', 'den', 'chokehold', 'throne', 'lair', 'scattered'];
+  const withMonsters = new Set<number>();
+  for (const s of plan.spawns) {
+    if (s.role === 'chest') continue;
+    withMonsters.add(s.roomId);
+    if (!s.post || !POSTS.includes(s.post)) fail(`monster slot at ${s.pos.x},${s.pos.y} has no valid post`);
+  }
+  for (const r of rooms) {
+    const has = withMonsters.has(r.id);
+    if (has && (!r.formation || !FORMATIONS.includes(r.formation))) fail(`room ${r.id} has monsters but formation ${r.formation}`);
+    if (!has && r.formation) fail(`room ${r.id} has a formation but no monsters`);
+  }
+  if (cellOk(plan.entrance) && nav.isWalkable(plan.entrance)) {
+    const entranceRoomId = entranceRoom?.id ?? -1;
+    const roomCells = new Map<number, number[]>();
+    const cellsOf = (id: number): number[] => {
+      let c = roomCells.get(id);
+      if (!c) {
+        c = [];
+        for (let i = 0; i < n; i++) if (plan.roomIds[i] === id && isWalkKind(plan.kinds[i] as number)) c.push(i);
+        roomCells.set(id, c);
+      }
+      return c;
+    };
+    const entries = new Map<number, number[]>();
+    const entryOf = (id: number): number[] => {
+      let e = entries.get(id);
+      if (!e) {
+        e = entryDoorways(plan.kinds, plan.elevation, plan.roomIds, w, h, plan.entrance.y * w + plan.entrance.x, id, roomThresholds(plan.kinds, plan.roomIds, w, h, id, cellsOf(id)));
+        entries.set(id, e);
+      }
+      return e;
+    };
+    for (const s of plan.spawns) {
+      if (s.role === 'chest' || !s.post) continue;
+      const sp = s.pos;
+      if (s.post === 'hidden') {
+        for (const t of entryOf(s.roomId)) {
+          if (nav.hasLineOfSight({ x: t % w, y: (t / w) | 0 }, sp)) {
+            fail(`hidden slot at ${sp.x},${sp.y} is in sight of a doorway`);
+            break;
+          }
+        }
+      } else if (s.post === 'high') {
+        // Above a doorway the hero arrives by, or across a drop from one.
+        let ok = false;
+        for (const t of entryOf(s.roomId)) {
+          if ((plan.elevation[sp.y * w + sp.x] as number) > (plan.elevation[t] as number)) {
+            ok = true;
+            break;
+          }
+          const mx = t % w;
+          const my = (t / w) | 0;
+          const steps = Math.max(Math.abs(sp.x - mx), Math.abs(sp.y - my));
+          for (let k = 1; k < steps && !ok; k++) {
+            const x = Math.round(mx + ((sp.x - mx) * k) / steps);
+            const y = Math.round(my + ((sp.y - my) * k) / steps);
+            if (plan.kinds[y * w + x] === CellKind.Chasm) ok = true;
+          }
+          if (ok) break;
+        }
+        if (!ok) fail(`high slot at ${sp.x},${sp.y} is not above a doorway or across a drop`);
+      } else if (s.post === 'guard' && entranceRoomId >= 0) {
+        // A guard may stand near a doorway, but a fight must not start while the hero is still in the entrance room.
+        for (const c of nav.reachable(sp, 7)) {
+          const i = c.pos.y * w + c.pos.x;
+          if (plan.roomIds[i] === entranceRoomId && nav.hasLineOfSight(c.pos, sp)) {
+            fail(`guard slot at ${sp.x},${sp.y} is within 7 cells and sight of the entrance room`);
+            break;
+          }
+        }
+      }
+    }
   }
 
   // Props and lights.

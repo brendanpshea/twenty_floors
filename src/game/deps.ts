@@ -1,6 +1,6 @@
 import { SHORT_RESTS_PER_LONG_REST } from '../core/types';
 import type { GameAudio } from '../audio';
-import type { GameUi, PlayerCharacter, QualityLevel, Renderer3D, ThemeId } from '../core/types';
+import type { CompanionStance, CompanionState, GameUi, PlayerCharacter, QualityLevel, Renderer3D, ThemeId } from '../core/types';
 
 /** The slice of localStorage the game uses. */
 export interface StorageLike {
@@ -23,6 +23,16 @@ export interface GameOptions {
   reveal?: boolean;
   /** Force this theme on the dev start floor (?theme=). */
   theme?: ThemeId;
+  /** Hero level of a dev start, independent of ?depth (?level=). */
+  level?: number;
+  /** Companion of a dev start (?companion=sphinx_of_wonder|pseudodragon|blink_dog). */
+  companion?: string;
+  /** Starting stance of the dev-start companion (?stance=). */
+  stance?: CompanionStance;
+  /** Let a normal run continue past the milestone, to this floor, 3 to 20 (?floors=). Dev only. */
+  floors?: number;
+  /** The autoplay bot plays with the expert policy (?expert=1), for watching smart play. */
+  expert?: boolean;
   /** Build preset for a dev-start hero (?preset=defender|greatweapon|archer). */
   preset?: string;
   /** Background for a dev-start hero (?background=soldier|criminal|sage|acolyte). */
@@ -51,10 +61,12 @@ export interface RunState {
   depth: number;
   pc: PlayerCharacter;
   shortRestsLeft: number;
+  /** The companion travelling with the hero (from level 4), as of the last hub. */
+  companion?: CompanionState;
 }
 
 export type FloorOutcome =
-  | { type: 'cleared'; pc: PlayerCharacter }
+  | { type: 'cleared'; pc: PlayerCharacter; companion?: CompanionState }
   | { type: 'dead'; killedBy: string }
   | { type: 'abandon' };
 

@@ -454,7 +454,8 @@ describe('conditions', () => {
     expect(ogre.size).toBe('large');
     const { combat } = arena([h, ogre]);
     expect(combat.availableActions().map((a) => a.id)).not.toContain('break_free');
-    expect(combat.availableActions().length).toBe(h.actions.length);
+    // The hero's own actions plus the two generated Shove actions.
+    expect(combat.availableActions().length).toBe(h.actions.length + 2);
     h.conditions.push({ condition: 'restrained', rounds: null });
     expect(combat.availableActions().map((a) => a.id)).toContain('break_free');
     h.conditions.length = 0;
@@ -703,7 +704,9 @@ describe('Last Stand (house rule) and Vex', () => {
     const ev = combat.execute({ type: 'action', actionId: 'smash', targetId: 'player' });
     const i = ev.findIndex((e) => e.type === 'damage');
     expect(ev[i]).toMatchObject({ hpAfter: 1 });
-    expect(ev[i + 1]).toMatchObject({ type: 'log', text: 'Last Stand! Sim clings on at 1 HP.'.replace('Sim', h.name) });
+    // The structured feature event comes right before its log line.
+    expect(ev[i + 1]).toMatchObject({ type: 'feature', id: 'lastStand', creatureId: 'player' });
+    expect(ev[i + 2]).toMatchObject({ type: 'log', text: 'Last Stand! Sim clings on at 1 HP.'.replace('Sim', h.name) });
     expect(h.hp).toBe(1);
     expect(h.dead).toBe(false);
     expect(h.resources['lastStand']?.current).toBe(0);

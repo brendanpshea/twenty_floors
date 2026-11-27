@@ -1,5 +1,6 @@
 import type { GridPos, NavGrid, ReachableCell } from '../../core/types';
 import { MAX_STEP_UP } from '../../core/types';
+import { cellsBetween } from '../terrain';
 
 export interface OpenRoomOptions {
   /** Solid cells (block movement and sight). */
@@ -7,15 +8,35 @@ export interface OpenRoomOptions {
   /** Cells that block movement but not sight. */
   chasms?: GridPos[];
   elevation?: (p: GridPos) => number;
+  /** Cells of lava: like chasms they block movement and not sight, and a creature forced into one burns. */
+  lava?: GridPos[];
+  /** Walkable ice cells (hazard 'ice'): a pushed creature landing on one slides a cell further. */
+  ice?: GridPos[];
+  /** Walkable shallow water cells (hazard 'water', difficult terrain: entering costs 2). */
+  water?: GridPos[];
+  /** Cells of fire (a brazier): not walkable; a creature pushed against one is slammed for fire damage. */
+  fire?: GridPos[];
+  /** Cells of spikes (stalagmites): not walkable; a creature pushed against one is slammed for piercing damage. */
+  spikes?: GridPos[];
+  /** Blocking props (not walkable, sight passes): half cover (+2) for a target behind one. */
+  props?: GridPos[];
+  /** Overrides the computed cover entirely (props and this are the only sources of cover in the arena). */
+  cover?: (attacker: GridPos, target: GridPos) => 0 | 2 | 5;
 }
 
 /** A tiny rectangular NavGrid for tests and the balance simulation. The real one lives in src/gen. */
 export function createOpenRoomNav(width: number, height: number, opts: OpenRoomOptions = {}): NavGrid {
   const walls = new Set((opts.walls ?? []).map((p) => p.y * width + p.x));
   const chasms = new Set((opts.chasms ?? []).map((p) => p.y * width + p.x));
+  const lava = new Set((opts.lava ?? []).map((p) => p.y * width + p.x));
+  const ice = new Set((opts.ice ?? []).map((p) => p.y * width + p.x));
+  const water = new Set((opts.water ?? []).map((p) => p.y * width + p.x));
+  const fire = new Set((opts.fire ?? []).map((p) => p.y * width + p.x));
+  const spikes = new Set((opts.spikes ?? []).map((p) => p.y * width + p.x));
+  const props = new Set((opts.props ?? []).map((p) => p.y * width + p.x));
   const key = (p: GridPos): number => p.y * width + p.x;
   const inBounds = (p: GridPos): boolean => p.x >= 0 && p.y >= 0 && p.x < width && p.y < height;
-  const isWalkable = (p: GridPos): boolean => inBounds(p) && !walls.has(key(p)) && !chasms.has(key(p));
+  const isWalkable = (p: GridPos): boolean => inBounds(p) && !walls.has(key(p)) && !chasms.has(key(p)) && !lava.has(key(p)) && !props.has(key(p)) && !fire.has(key(p)) && !spikes.has(key(p));
   const elevationAt = (p: GridPos): number => opts.elevation?.(p) ?? 0;
 
   const stepCost = (from: GridPos, to: GridPos): number => {
@@ -27,7 +48,7 @@ export function createOpenRoomNav(width: number, height: number, opts: OpenRoomO
       if (!isWalkable({ x: from.x + dx, y: from.y }) || !isWalkable({ x: from.x, y: from.y + dy })) return Infinity;
     }
     if (Math.abs(elevationAt(to) - elevationAt(from)) > MAX_STEP_UP) return Infinity;
-    return 1;
+    return water.has(key(to)) ? 2 : 1;
   };
 
   const hasLineOfSight = (a: GridPos, b: GridPos): boolean => {
@@ -102,6 +123,20 @@ export function createOpenRoomNav(width: number, height: number, opts: OpenRoomO
     stepCost,
     hasLineOfSight,
     elevationAt,
+    hazardAt: (p) => {
+      if (!inBounds(p)) return 'none';
+      const k = key(p);
+      if (chasms.has(k)) return 'fall';
+      if (lava.has(k)) return 'lava';
+      if (ice.has(k)) return 'ice';
+      if (water.has(k)) return 'water';
+      return 'none';
+    },
+    obstacleAt: (p) => (inBounds(p) ? (fire.has(key(p)) ? 'fire' : spikes.has(key(p)) ? 'spikes' : 'none') : 'none'),
+    coverBetween: (a, b) => {
+      if (opts.cover) return opts.cover(a, b);
+      return cellsBetween(a, b).some((p) => props.has(key(p))) ? 2 : 0;
+    },
     findPath(from, to, o) {
       const { cost, parent } = search(from, o?.maxCost ?? Infinity, o?.blocked, to);
       if (!cost.has(key(to))) return null;

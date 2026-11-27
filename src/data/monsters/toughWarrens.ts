@@ -389,11 +389,12 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     role: 'boss',
     description: 'A towering warren overlord who rules the goblins by sheer size and throws whatever is closest.',
   },
-  // Simplified: drops Regeneration, flight (hover), Shape-Shift, Invisibility and Spellcasting (Charm Person, Darkness,
-  // Gaseous Form, Sleep: none damaging). Cold resistance is kept. Melee and ranged multiattacks are separate.
+  // Simplified: drops Regeneration, flight (hover), Shape-Shift, Invisibility and Spellcasting except Sleep (1/Day, DC 13, once per
+  // floor, first-level version; Charm Person, Darkness and Gaseous Form dropped: no engine support). Cold resistance is kept. Melee and ranged multiattacks are separate.
   // Nightmare Ray's range is 60 ft with no long range; longRange is range + 1.
   {
     id: 'oni',
+    tactic: 'caster',
     name: 'Oni',
     size: 'large',
     type: 'fiend',
@@ -453,6 +454,18 @@ export const TOUGH_WARRENS: MonsterDef[] = [
         attack: { bonus: 5 },
         damage: [{ dice: '2d6+2', type: 'psychic' }],
         applies: { condition: 'frightened', rounds: 1 },
+      },
+      {
+        id: 'sleep',
+        name: 'Sleep',
+        description: 'A lulling whisper: creatures in a 5-foot radius within 60 feet fall Incapacitated, then asleep if they fail a second save.',
+        icon: 'spell',
+        cost: 'action',
+        targeting: { kind: 'point', range: 12, area: { shape: 'sphere', size: 1 } },
+        uses: { resource: 'Sleep', amount: 1 },
+        save: { ability: 'wis', dc: 13, halfOnSave: false },
+        applies: { condition: 'incapacitated', rounds: 10, saveEnds: { ability: 'wis', dc: 13 } },
+        effects: ['sleep', 'concentration:10'],
       },
     ],
     visual: { model: 'bluedemon', scale: 1.75 },

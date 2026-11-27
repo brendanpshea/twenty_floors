@@ -1,4 +1,4 @@
-import type { HubIntent, HubModel, ItemDef } from '../core/types';
+import type { ChoiceSlot, HubIntent, HubModel, ItemDef } from '../core/types';
 import { button, clear, h, prettifyId, rebuildPreserving } from './dom';
 import { createIcon } from './icons';
 
@@ -83,6 +83,99 @@ export function buildHub(
     return { el, body: b };
   }
 
+  type Taken = (slot: ChoiceSlot, optionId: string) => 'above' | 'below' | null;
+
+  /** Up to six options: cards. */
+  function cardPicker(slot: ChoiceSlot, taken: Taken): HTMLElement {
+    const g = h('div', 'tf-cards tf-cards--compact');
+    g.setAttribute('role', 'radiogroup');
+    g.setAttribute('aria-label', slot.name);
+    for (const o of slot.options) {
+      const on = picks[slot.key] === o.id;
+      const where = taken(slot, o.id);
+      const c = h('button', `tf-card${on ? ' is-selected' : ''}${where ? ' is-taken' : ''}`);
+      c.type = 'button';
+      c.setAttribute('role', 'radio');
+      c.setAttribute('aria-checked', String(on));
+      if (where) c.setAttribute('aria-disabled', 'true');
+      c.dataset['key'] = `lu-${slot.key}-${o.id}`;
+      const hd = h('div', 'tf-card-head');
+      const tick = h('span', 'tf-card-tick');
+      tick.append(createIcon('check'));
+      hd.append(h('span', 'tf-card-title', o.name), tick);
+      c.append(hd, h('p', 'tf-card-desc', o.description));
+      if (where) c.append(h('div', 'tf-card-note', `Chosen ${where}`));
+      c.addEventListener('click', () => {
+        if (where) return;
+        picks[slot.key] = o.id;
+        render();
+      });
+      g.append(c);
+    }
+    return g;
+  }
+
+  /** More than six options: a searchable, scrollable list of 44 px rows with the chosen option described below. */
+  function listPicker(slot: ChoiceSlot, taken: Taken): HTMLElement {
+    const wrap = h('div', 'tf-picker');
+    const rows: { el: HTMLButtonElement; name: string }[] = [];
+    if (slot.options.length > 12) {
+      const input = h('input', 'tf-input tf-picker-search');
+      input.type = 'search';
+      input.placeholder = `Search ${slot.options.length} options`;
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      input.setAttribute('aria-label', `Search ${slot.name}`);
+      input.dataset['key'] = `lu-search-${slot.key}`;
+      input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        let shown = 0;
+        for (const r of rows) {
+          const match = q === '' || r.name.includes(q);
+          r.el.hidden = !match;
+          if (match) shown++;
+        }
+        empty.hidden = shown > 0;
+      });
+      wrap.append(input);
+    }
+    const list = h('div', 'tf-picker-list');
+    list.setAttribute('role', 'radiogroup');
+    list.setAttribute('aria-label', slot.name);
+    const empty = h('div', 'tf-hint tf-picker-empty', 'No matches.');
+    empty.hidden = true;
+    for (const o of slot.options) {
+      const on = picks[slot.key] === o.id;
+      const where = taken(slot, o.id);
+      const r = h('button', `tf-picker-row${on ? ' is-selected' : ''}${where ? ' is-taken' : ''}`);
+      r.type = 'button';
+      r.setAttribute('role', 'radio');
+      r.setAttribute('aria-checked', String(on));
+      if (where) r.setAttribute('aria-disabled', 'true');
+      r.dataset['key'] = `lu-${slot.key}-${o.id}`;
+      const tick = h('span', 'tf-picker-tick');
+      tick.append(createIcon('check'));
+      r.append(h('span', 'tf-picker-name', o.name), where ? h('span', 'tf-picker-note', `Chosen ${where}`) : tick);
+      r.addEventListener('click', () => {
+        if (where) return;
+        picks[slot.key] = o.id;
+        render();
+      });
+      list.append(r);
+      rows.push({ el: r, name: o.name.toLowerCase() });
+    }
+    list.append(empty);
+    wrap.append(list);
+    const chosen = slot.options.find((o) => o.id === picks[slot.key]);
+    wrap.append(h('div', `tf-picker-desc${chosen ? '' : ' is-empty'}`, chosen ? chosen.description : 'Select an option to read what it does.'));
+    // Bring the chosen row into view after a re-render.
+    queueMicrotask(() => {
+      const sel = list.querySelector<HTMLElement>('.is-selected');
+      if (sel) list.scrollTop = Math.max(0, sel.offsetTop - list.clientHeight / 2 + sel.offsetHeight / 2);
+    });
+    return wrap;
+  }
+
   function levelUpSection(): HTMLElement | null {
     const lu = model.levelUp;
     if (!lu) return null;
@@ -101,41 +194,37 @@ export function buildHub(
       for (const f of lu.featureSummaries) ul.append(h('li', undefined, f));
       s.body.append(ul);
     }
-    for (const slot of lu.choices) {
-      const grp = h('div', 'tf-lu-choice');
-      grp.append(h('h3', 'tf-sub-title', slot.name));
-      const g = h('div', 'tf-cards tf-cards--compact');
-      g.setAttribute('role', 'radiogroup');
-      g.setAttribute('aria-label', slot.name);
-      for (const o of slot.options) {
-        const on = picks[slot.key] === o.id;
-        const c = h('button', `tf-card${on ? ' is-selected' : ''}`);
-        c.type = 'button';
-        c.setAttribute('role', 'radio');
-        c.setAttribute('aria-checked', String(on));
-        c.dataset['key'] = `lu-${slot.key}-${o.id}`;
-        const hd = h('div', 'tf-card-head');
-        const tick = h('span', 'tf-card-tick');
-        tick.append(createIcon('check'));
-        hd.append(h('span', 'tf-card-title', o.name), tick);
-        c.append(hd, h('p', 'tf-card-desc', o.description));
-        c.addEventListener('click', () => {
-          picks[slot.key] = o.id;
-          render();
-        });
-        g.append(c);
+    const slots = lu.choices;
+    const taken = (slot: ChoiceSlot, optionId: string): 'above' | 'below' | null => {
+      if (!slot.group) return null;
+      const idx = slots.indexOf(slot);
+      for (let i = 0; i < slots.length; i++) {
+        const o = slots[i];
+        if (!o || o === slot || o.group !== slot.group) continue;
+        if (picks[o.key] === optionId) return i < idx ? 'above' : 'below';
       }
-      grp.append(g);
+      return null;
+    };
+    for (const slot of slots) {
+      const grp = h('div', 'tf-lu-choice');
+      const head = h('div', 'tf-lu-choice-head');
+      const chosen = slot.options.find((o) => o.id === picks[slot.key]);
+      head.append(h('h3', 'tf-sub-title', slot.name));
+      head.append(h('span', `tf-lu-status${chosen ? ' is-done' : ''}`, chosen ? chosen.name : 'Choose one'));
+      grp.append(head);
+      if (slot.options.length > 6) grp.append(listPicker(slot, taken));
+      else grp.append(cardPicker(slot, taken));
       s.body.append(grp);
     }
-    const ready = lu.choices.every((c) => picks[c.key] !== undefined);
+    const missing = lu.choices.filter((c) => picks[c.key] === undefined);
+    const ready = missing.length === 0;
     const confirm = button('tf-btn tf-btn--primary', 'Confirm Level Up', () => {
       intent({ type: 'confirmLevelUp', choices: { ...picks } });
     });
     confirm.dataset['key'] = 'confirm-levelup';
     confirm.disabled = !ready;
     s.body.append(confirm);
-    if (!ready) s.body.append(h('p', 'tf-hint', 'Make your choices to continue.'));
+    if (!ready) s.body.append(h('p', 'tf-hint', `Still to choose: ${missing.map((c) => c.name).join(', ')}.`));
     return s.el;
   }
 

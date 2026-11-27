@@ -1636,8 +1636,9 @@ export const MONSTERS: MonsterDef[] = [
     description: 'The thick-necked head of a bandit crew who rules by size, and who never fights without his gang around him.',
   },
   // Simplified: Multiattack (two attacks in any combination of Mace and Radiant Flame) is split into a melee pair and a
-  // ranged pair, as for the Wererat. Drops Spellcasting (Light, Thaumaturgy, Spirit Guardians). Divine Aid is reduced to Healing Word:
-  // the 2d4+3 healing (Wisdom modifier included) is applied to the priest itself, once per floor (not 3/day), as a bonus action.
+  // ranged pair, as for the Wererat. Spellcasting keeps Spirit Guardians (1/Day: DC 13, 3d8 radiant, 15-ft radius, concentration; once per
+  // floor) and drops Light and Thaumaturgy (utility). Divine Aid is reduced to Healing Word (2d4+3, Wisdom modifier included) on any ally
+  // within 60 ft. or the priest itself, once per floor (not 3/day), as a bonus action; Bless, Dispel Magic and Lesser Restoration are dropped.
   // Radiant Flame has a single printed range (60 ft.); the long range is one cell more so the data rule for ranged attacks holds.
   // No new model needed: hero_mage with a tint (docs/research/roster-options.md).
   {
@@ -1701,12 +1702,24 @@ export const MONSTERS: MonsterDef[] = [
       {
         id: 'healing_word',
         name: 'Healing Word',
-        description: 'A whispered prayer that knits the priest\'s own wounds closed.',
+        description: 'A whispered prayer that knits an ally\'s wounds closed, the priest\'s own included.',
         icon: 'special',
         cost: 'bonus',
-        targeting: { kind: 'self' },
+        targeting: { kind: 'creature', melee: false, range: 12, friendly: true },
         heal: '2d4+3',
         uses: { resource: 'Divine Aid', amount: 1 },
+      },
+      {
+        id: 'spirit_guardians',
+        name: 'Spirit Guardians',
+        description: 'Spectral guardians swirl around the priest in a 15-foot radius, burning and slowing every enemy that enters or ends its turn there.',
+        icon: 'spell',
+        cost: 'action',
+        targeting: { kind: 'point', range: 0, area: { shape: 'sphere', size: 3 } },
+        uses: { resource: 'Spirit Guardians', amount: 1 },
+        save: { ability: 'wis', dc: 13, halfOnSave: true },
+        damage: [{ dice: '3d8', type: 'radiant' }],
+        effects: ['spiritGuardians', 'concentration:100'],
       },
     ],
     visual: { model: 'mage_priest' },
@@ -1786,6 +1799,7 @@ export const MONSTERS: MonsterDef[] = [
   // third makes the three attacks thrown. Shield Bash applies Prone for 1 round on a failed save (no Medium-or-smaller check).
   {
     id: 'gladiator',
+    tactic: 'brute',
     name: 'Gladiator',
     size: 'medium',
     type: 'humanoid',

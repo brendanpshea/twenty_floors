@@ -262,6 +262,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // save-ends at the escape DC 14; the Restrained and suffocation riders and the 2d8 damage per turn are dropped.
   {
     id: 'water_elemental',
+    tactic: 'brute',
     name: 'Water Elemental',
     size: 'large',
     type: 'elemental',
@@ -831,6 +832,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // Hide). Resistance Poison is a plain damage type. Light Crossbow range 80/320 ft. XP is the SRD value for CR 8.
   {
     id: 'assassin',
+    tactic: 'skirmisher',
     name: 'Assassin',
     size: 'medium',
     type: 'humanoid',

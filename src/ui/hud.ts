@@ -1,4 +1,4 @@
-import type { CompanionStance, Condition, HudAction, HudInitiativeEntry, HudModel, UiIntent } from '../core/types';
+import type { CompanionStance, Condition, MonsterTactic, HudAction, HudInitiativeEntry, HudModel, UiIntent } from '../core/types';
 import { CELL_FEET } from '../core/types';
 import {
   COST_LABEL,
@@ -105,6 +105,16 @@ export function tileLabel(name: string, faction: string): string {
   return suffix ? `${base}\u00b7${suffix}` : base;
 }
 
+const TACTICS: Record<MonsterTactic, { label: string; icon: string; tip: string }> = {
+  brute: { label: 'Brute', icon: 'slam', tip: 'Closes in and hits hard; will shove you toward edges' },
+  skirmisher: { label: 'Skirmisher', icon: 'dash', tip: 'Strikes and withdraws; looks for the unguarded' },
+  archer: { label: 'Archer', icon: 'ranged', tip: 'Keeps its distance and uses cover' },
+  caster: { label: 'Caster', icon: 'spell', tip: 'Spells and area attacks from the back' },
+  leader: { label: 'Leader', icon: 'star', tip: 'Stays behind its guards' },
+  lurker: { label: 'Lurker', icon: 'eye', tip: 'Waits unseen and ambushes' },
+  guard: { label: 'Guard', icon: 'shield', tip: 'Holds its post' },
+};
+
 const ROLE_LABEL = { healer: 'Healer', blaster: 'Blaster', skirmisher: 'Skirmisher' } as const;
 
 export class Hud {
@@ -133,6 +143,16 @@ export class Hud {
   private readonly targetCondList: KeyedList<Condition, ChipItem>;
   private readonly targetDesc = h('div', 'tf-target-desc');
   private readonly targetHit = h('div', 'tf-target-hit');
+  private readonly targetTags = h('div', 'tf-target-tags');
+  private readonly coverChip = h('span', 'tf-tag-chip tf-tag-chip--cover');
+  private readonly coverText = h('span', 'tf-cover-full');
+  private readonly coverShort = h('span', 'tf-cover-short');
+  private readonly tacticChip = h('span', 'tf-tag-chip tf-tag-chip--tactic');
+  private readonly tacticIcon = h('span', 'tf-tag-icon');
+  private readonly tacticText = h('span');
+  private tacticKey: MonsterTactic | '' = '';
+  private readonly pushLine = h('div', 'tf-target-push');
+  private readonly pushText = h('span');
 
   // player
   private readonly playerName = h('div', 'tf-player-name');
@@ -165,6 +185,8 @@ export class Hud {
   private readonly stanceBtns = new Map<CompanionStance, HTMLButtonElement>();
   private compOpen = false;
   private lastActiveTile = '';
+  private readonly atkEl = h('span', 'tf-atk');
+  private atkMax = -1;
   private readonly concEl = h('div', 'tf-conc');
   private readonly concName = h('span', 'tf-conc-name');
   private readonly concRounds = h('span', 'tf-conc-rounds');
@@ -261,7 +283,19 @@ export class Hud {
     this.targetAc.append(h('span', 'tf-ac-label', 'AC'), this.targetAcNum);
     tHead.append(this.targetName, this.targetAc);
     this.targetBar.el.append(this.targetHpText);
-    this.targetEl.append(tHead, this.targetBar.el, this.targetConds, this.targetDesc, this.targetHit);
+    this.coverChip.append(createIcon('cover'), this.coverText, this.coverShort);
+    this.tip.attach(this.coverChip, () => ({
+      title: this.coverText.textContent ?? 'Cover',
+      body: 'Cover adds to Armor Class and Dexterity saves against you from here',
+    }));
+    this.tacticChip.append(this.tacticIcon, this.tacticText);
+    this.tip.attach(this.tacticChip, () => {
+      const t = this.tacticKey ? TACTICS[this.tacticKey] : undefined;
+      return t ? { title: t.label, body: t.tip } : null;
+    });
+    this.targetTags.append(this.coverChip, this.tacticChip);
+    this.pushLine.append(createIcon('warn'), this.pushText);
+    this.targetEl.append(tHead, this.targetBar.el, this.targetConds, this.targetTags, this.pushLine, this.targetDesc, this.targetHit);
     this.targetCondList = chipList(this.targetConds);
 
     top.append(tl, this.initWrap, this.targetEl);
@@ -334,7 +368,13 @@ export class Hud {
     const bc = h('div', 'tf-bc');
     this.promptEl.setAttribute('role', 'status');
     const actionPip = h('div', 'tf-tres');
-    actionPip.append(this.pipAction, h('span', 'tf-tres-label', 'Action'));
+    actionPip.append(this.pipAction, h('span', 'tf-tres-label', 'Action'), this.atkEl);
+    this.atkEl.hidden = true;
+    this.tip.attach(this.atkEl, () => ({
+      title: 'Attacks left this turn',
+      sub: this.model?.combat?.attacksLeft ? `${this.model.combat.attacksLeft.current} of ${this.model.combat.attacksLeft.max}` : undefined,
+      body: 'Each attack you make with the Attack action uses one.',
+    }));
     const bonusPip = h('div', 'tf-tres');
     bonusPip.append(this.pipBonus, h('span', 'tf-tres-label', 'Bonus'));
     const move = h('div', 'tf-tres tf-tres--move');
@@ -590,6 +630,18 @@ export class Hud {
         list.scrollLeft = el.offsetLeft - (list.clientWidth - el.offsetWidth) / 2;
       }
     }
+    const atk = c.attacksLeft;
+    this.atkEl.hidden = !atk;
+    if (atk) {
+      if (this.atkMax !== atk.max) {
+        this.atkMax = atk.max;
+        this.atkEl.replaceChildren();
+        for (let i = 0; i < atk.max; i++) this.atkEl.append(createIcon('melee', 'tf-icon tf-atk-pip'));
+      }
+      const kids = this.atkEl.children;
+      for (let i = 0; i < kids.length; i++) kids[i]?.classList.toggle('is-spent', i >= atk.current);
+      setAttr(this.atkEl, 'aria-label', `Attacks left this turn: ${atk.current} of ${atk.max}`);
+    }
     this.pipAction.classList.toggle('is-spent', !c.actionAvailable);
     this.pipBonus.classList.toggle('is-spent', !c.bonusAvailable);
     this.pipAction.setAttribute('aria-label', c.actionAvailable ? 'Action available' : 'Action used');
@@ -619,6 +671,32 @@ export class Hud {
     this.targetConds.hidden = t.conditions.length === 0;
     setText(this.targetDesc, t.description ?? '');
     this.targetDesc.hidden = !t.description;
+    // Tactical info (enemies only)
+    const cover = !friendly && (t.cover === 2 || t.cover === 5) ? t.cover : 0;
+    this.coverChip.hidden = cover === 0;
+    if (cover) {
+      setText(this.coverText, cover === 2 ? 'Half cover +2' : 'Three-quarters cover +5');
+      setText(this.coverShort, cover === 2 ? '½ cover +2' : '¾ cover +5');
+    }
+    const tac = !friendly && t.tactic ? t.tactic : undefined;
+    this.tacticChip.hidden = !tac;
+    if (tac) {
+      this.tacticKey = tac;
+      setText(this.tacticText, TACTICS[tac].label);
+      swapIcon(this.tacticIcon, TACTICS[tac].icon);
+    }
+    this.targetTags.hidden = cover === 0 && !tac;
+    const push = !friendly ? t.pushInto : undefined;
+    this.pushLine.hidden = !push || push.hazard === 'none';
+    if (push && push.hazard !== 'none') {
+      const text =
+        push.hazard === 'fall'
+          ? `Shove \u2192 falls: ${push.damage}`
+          : push.hazard === 'lava'
+            ? `Shove \u2192 lava: ${push.damage}`
+            : `Shove \u2192 ${push.hazard}`;
+      setText(this.pushText, text);
+    }
     const hit = friendly ? undefined : t.hitChance;
     this.targetHit.hidden = hit === undefined;
     if (hit !== undefined) {

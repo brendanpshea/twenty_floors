@@ -296,3 +296,110 @@ describe('NavGrid.reachable', () => {
     }
   });
 });
+
+describe('NavGrid.hazardAt', () => {
+  it('reads chasm and water from the plan, as lava / ice when the plan says so', () => {
+    const rows = ['#####', '#.:~#', '#####'];
+    const plain = createNavGrid(mini(rows));
+    expect(plain.hazardAt(p(1, 1))).toBe('none');
+    expect(plain.hazardAt(p(2, 1))).toBe('fall');
+    expect(plain.hazardAt(p(3, 1))).toBe('water');
+    expect(plain.hazardAt(p(0, 0))).toBe('none');
+    expect(plain.hazardAt(p(-1, 5))).toBe('none');
+    const themed = createNavGrid({ ...mini(rows), chasmHazard: 'lava', waterHazard: 'ice' });
+    expect(themed.hazardAt(p(2, 1))).toBe('lava');
+    expect(themed.hazardAt(p(3, 1))).toBe('ice');
+  });
+});
+
+describe('NavGrid.coverBetween', () => {
+  const pillar = (x: number, y: number): PropPlacement => ({ type: 'pillar', pos: p(x, y), rotation: 0, blocking: true });
+  const room = ['###########', '#.........#', '#.........#', '#.........#', '#.........#', '#.........#', '###########'];
+
+  it('is 0 across open floor, for every pair of cells', () => {
+    const nav = createNavGrid(mini(room));
+    for (let ay = 1; ay <= 5; ay++) {
+      for (let ax = 1; ax <= 9; ax++) {
+        for (let ty = 1; ty <= 5; ty++) {
+          for (let tx = 1; tx <= 9; tx++) {
+            expect(nav.coverBetween(p(ax, ay), p(tx, ty))).toBe(0);
+          }
+        }
+      }
+    }
+  });
+
+  it('is 5 for a target directly behind a pillar, 2 beside it, and 0 in front of it', () => {
+    const nav = createNavGrid(mini(room, undefined, [pillar(4, 3)]));
+    expect(nav.coverBetween(p(1, 3), p(5, 3))).toBe(5);
+    expect(nav.coverBetween(p(1, 3), p(4, 2))).toBe(2);
+    expect(nav.coverBetween(p(1, 3), p(4, 4))).toBe(2);
+    expect(nav.coverBetween(p(1, 3), p(3, 3))).toBe(0);
+    expect(nav.coverBetween(p(1, 1), p(9, 1))).toBe(0);
+    // The attacker beside the pillar is covered too, and a pillar that is not in the way gives nothing.
+    expect(nav.coverBetween(p(1, 5), p(9, 5))).toBe(0);
+  });
+
+  it('props never block sight, only give cover; non-blocking props give nothing', () => {
+    const plan = mini(room, undefined, [pillar(4, 3)]);
+    const nav = createNavGrid(plan);
+    expect(nav.hasLineOfSight(p(1, 3), p(5, 3))).toBe(true);
+    const rubble = createNavGrid(mini(room, undefined, [{ type: 'rubble', pos: p(4, 3), rotation: 0, blocking: false }]));
+    expect(rubble.coverBetween(p(1, 3), p(5, 3))).toBe(0);
+  });
+
+  it('gives half cover where a wall corner clips the line (exactly one corner cell solid)', () => {
+    const nav = createNavGrid(mini(['#####', '#.#.#', '#...#', '#####']));
+    expect(nav.hasLineOfSight(p(1, 1), p(3, 1))).toBe(false);
+    // Diagonal past one wall cell: sight passes, half cover.
+    expect(nav.hasLineOfSight(p(1, 1), p(2, 2))).toBe(true);
+    expect(nav.coverBetween(p(1, 1), p(2, 2))).toBe(2);
+    // Both corner cells solid: no sight, so no cover value.
+    const shut = createNavGrid(mini(['####', '#.##', '##.#', '####']));
+    expect(shut.coverBetween(p(1, 1), p(2, 2))).toBe(0);
+  });
+
+  it('gives half cover for a target round a doorway edge and none straight through it', () => {
+    const wall = ['###########', '#.........#', '#.........#', '#####.#####', '#.........#', '#.........#', '###########'];
+    const nav = createNavGrid(mini(wall));
+    expect(nav.coverBetween(p(5, 4), p(5, 2))).toBe(0);
+    expect(nav.hasLineOfSight(p(5, 4), p(4, 1))).toBe(true);
+    expect(nav.coverBetween(p(5, 4), p(4, 1))).toBeGreaterThanOrEqual(2);
+    expect(nav.coverBetween(p(5, 4), p(6, 1))).toBeGreaterThanOrEqual(2);
+  });
+
+  it('is symmetric for mirror-symmetric geometry', () => {
+    const nav = createNavGrid(mini(room, undefined, [pillar(5, 3)]));
+    for (const [ax, ay, tx, ty] of [
+      [1, 3, 9, 3],
+      [2, 1, 8, 5],
+      [2, 5, 8, 1],
+    ] as const) {
+      expect(nav.coverBetween(p(ax, ay), p(tx, ty))).toBe(nav.coverBetween(p(tx, ty), p(ax, ay)));
+    }
+  });
+
+  it('is defined for any cells, including out of bounds and the same cell', () => {
+    const nav = createNavGrid(mini(room));
+    expect(nav.coverBetween(p(2, 2), p(2, 2))).toBe(0);
+    expect(nav.coverBetween(p(-3, 2), p(2, 2))).toBe(0);
+    expect(nav.coverBetween(p(0, 0), p(2, 2))).toBe(0);
+  });
+});
+
+describe('NavGrid.obstacleAt', () => {
+  const prop = (type: string, x: number, y: number, blocking = true): PropPlacement => ({ type, pos: p(x, y), rotation: 0, blocking });
+  it('names fire and spike props and nothing else', () => {
+    const nav = createNavGrid(
+      mini(['#######', '#.....#', '#######'], undefined, [prop('brazier', 1, 1), prop('stalagmite', 2, 1), prop('pillar', 3, 1), prop('torch', 4, 1, false), prop('ice_spike', 5, 1)]),
+    );
+    expect(nav.obstacleAt!(p(1, 1))).toBe('fire');
+    expect(nav.obstacleAt!(p(2, 1))).toBe('spikes');
+    expect(nav.obstacleAt!(p(3, 1))).toBe('none');
+    expect(nav.obstacleAt!(p(4, 1))).toBe('none');
+    expect(nav.obstacleAt!(p(5, 1))).toBe('spikes');
+    expect(nav.obstacleAt!(p(0, 0))).toBe('none');
+    expect(nav.obstacleAt!(p(-4, 9))).toBe('none');
+    expect(nav.isWalkable(p(1, 1))).toBe(false);
+  });
+});

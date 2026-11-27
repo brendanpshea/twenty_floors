@@ -48,7 +48,10 @@ export {
   isSpellAction,
   type Caster,
 } from './spells';
-export { createCombat, attacksLeft, ELEVATION_ATTACK_BONUS, BREAK_FREE_ID, BREAK_FREE_DC } from './combat';
+export { createCombat, attacksLeft, combatDepth, pushPreview, ELEVATION_ATTACK_BONUS, BREAK_FREE_ID, BREAK_FREE_DC, type CombatOptions, type PushPreview } from './combat';
+export { SHOVE_PUSH_ID, SHOVE_TRIP_ID } from './actions';
+export { tacticOf, inferTactic, creatureTactic, isFlexible, flexibleAlternative } from './tactics';
+export { planPush, pushValue, slamDice, obstacleOf, climbOutCell, coverFor, canShoveSize, exposedToPush, nextToHazard, type PushPlan } from './terrain';
 export { instantiateMonster } from './monster';
 export {
   COMPANION_LEVEL_OFFSET,
@@ -77,7 +80,8 @@ export {
 export { createPartyDriver, type PartyDriver } from './party';
 export { chooseCompanionCommand, runCompanionTurn, heroLastTarget, isChokepoint, isChasmEdge } from './companionAi';
 export { chooseCommand, runAiTurn, runTurnWith, MAX_AI_STEPS } from './ai';
-export { buildEncounters, ENCOUNTER_TUNING, bossMinionLimit, bossMinionChanceAt, minMonstersAt, maxMonstersAt, levelBudgetAt, roomBudget, type EncounterTuning, type PlacedMonster } from './encounters';
+export { assignSlots, buildEncounters, ENCOUNTER_TUNING, bossMinionLimit, bossMinionChanceAt, minMonstersAt, maxMonstersAt, levelBudgetAt, roomBudget, type EncounterTuning, type PlacedMonster } from './encounters';
+export { expertPolicy, makeExpertPolicy, expertStance, type ExpertOptions } from './expertPolicy';
 export { simulateFight, simulateOne, playerPolicy, type PolicyFn, type SimOptions, type SimResult, type SingleFight } from './sim';
 export { createOpenRoomNav } from './testing/openRoomNav';
 export { setItemCatalog, resetItemCatalog, getItem } from './items';

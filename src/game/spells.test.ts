@@ -76,7 +76,7 @@ describe('casting between fights', () => {
     expect(h.renderer.anims.some((x) => x.id === 'player' && x.anim === 'cast')).toBe(true);
     expect(h.renderer.floats.some((f) => f.style === 'heal' && f.text.startsWith('+'))).toBe(true);
     expect(st.log.some((l) => l.includes('Cure Wounds'))).toBe(true);
-    expect(h.audio.plays).toContain('heal');
+    expect(h.audio.plays).toContain('healSpell');
     st.player.hp = 5;
     s.pushHud();
     a = h.ui.hud?.actions.find((x) => x.id === id);
@@ -116,7 +116,7 @@ describe('spells in a fight', () => {
     await s.combat.tap({ entityId: mon.id, cell: mon.pos });
     expect(h.renderer.anims.find((x) => x.id === 'player')?.anim).toBe('cast');
     expect(h.renderer.anims.filter((x) => x.id === 'player' && x.anim === 'attack')).toHaveLength(0);
-    expect(h.audio.plays).toContain('buff');
+    expect(h.audio.plays).toContain('spellCast');
     expect(s.state.log.some((l) => l.includes('Fire Bolt'))).toBe(true);
     expect(h.renderer.errors).toEqual([]);
   });
@@ -281,5 +281,21 @@ describe('the bot', () => {
     await runBot(s, { maxSteps: 3 });
     expect(s.state.log.some((l) => l.includes('casts Cure Wounds'))).toBe(true);
     expect(s.state.player.hp).toBeGreaterThan(4);
+  });
+});
+
+describe('the area preview', () => {
+  it('marks the hero and says so when the hero is inside the area', async () => {
+    const { h, s } = await enter({ background: 'sage', spell: 'sleep' });
+    const monId = await startFight(s, h, 1);
+    const mon = s.state.monsters.find((m) => m.creature.id === monId)?.creature as unknown as { pos: GridPos };
+    await s.combat.selectAction('spell_sleep');
+    s.combat.hover({ cell: mon.pos, entityId: null });
+    const me = s.state.player.pos;
+    expect(h.renderer.highlights.some((c) => c.style === 'danger' && c.pos.x === me.x && c.pos.y === me.y)).toBe(true);
+    expect(s.state.prompt).toContain('You are in the area');
+    // Nothing is refused: the cast still goes ahead.
+    await s.combat.tap({ cell: mon.pos, entityId: null });
+    expect(s.state.log.some((l) => l.includes('casts Sleep'))).toBe(true);
   });
 });

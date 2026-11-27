@@ -1,5 +1,6 @@
 import { Rng, hashSeed } from '../core/rng';
 import type { FloorPlan, ThemeId } from '../core/types';
+import { roomFeatures, type RoomFeatures } from './features';
 import { GenFail } from './grid';
 import { buildGraph, fallbackGraph } from './graph';
 import type { Layout } from './layout';
@@ -37,6 +38,8 @@ export interface GenerateReport {
   restTiers: number[];
   /** Name of the set piece built on this floor, if any. */
   setPiece?: string;
+  /** The terrain a room offers (hazard edge, cover, chokepoint, height); computed on demand. */
+  features(roomId: number): RoomFeatures;
 }
 
 const MAX_ATTEMPTS = 24;
@@ -111,14 +114,15 @@ export function generateFloorReport(opts: GenerateOptions): GenerateReport {
       const info: FinalizeReport = { restTiers: [] };
       const plan = finalize(layout, req, rng.fork('post'), info);
       const errs = validateFloor(plan);
-      if (errs.length === 0) return { plan, attempts: attempt + 1, fallback: false, failures, restTiers: info.restTiers, setPiece: info.setPiece };
+      if (errs.length === 0) return { plan, attempts: attempt + 1, fallback: false, failures, restTiers: info.restTiers, setPiece: info.setPiece, features: (id) => roomFeatures(plan, id) };
       failures.push(`invalid: ${errs[0]}`);
     } catch (e) {
       if (!(e instanceof GenFail)) throw e;
       failures.push(e.message);
     }
   }
-  return { plan: fallbackPlan(req), attempts: MAX_ATTEMPTS, fallback: true, failures, restTiers: [] };
+  const plan = fallbackPlan(req);
+  return { plan, attempts: MAX_ATTEMPTS, fallback: true, failures, restTiers: [], features: (id) => roomFeatures(plan, id) };
 }
 
 /** A fixed six-room crypt-style layout; used only if every attempt failed. */

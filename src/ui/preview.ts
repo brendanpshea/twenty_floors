@@ -1,7 +1,7 @@
 /** Dev harness for the UI. Open dev/ui-preview.html; see the `?screen=` values in SCREENS. */
 import type { HubIntent, HubModel, HudModel, UiIntent } from '../core/types';
 import { createUi } from './index';
-import { combatHud, creationOptions, crowdedInitiative, exploreHud, makeCompanionHubModel, makeHubModel, withCompanion } from './mocks';
+import { combatHud, creationOptions, crowdedInitiative, levelUpFor, exploreHud, makeCompanionHubModel, makeHubModel, withCompanion } from './mocks';
 
 const rootEl = document.getElementById('ui-root');
 if (!rootEl) throw new Error('#ui-root missing');
@@ -203,6 +203,22 @@ const SCREENS: Record<string, Runner> = {
     hud.concentration = { spellName: 'Bless', roundsLeft: 8 };
     pushHud();
   },
+  'hud-target-cover': () => {
+    hud = combatHud();
+    if (hud.target) hud.target = { ...hud.target, name: 'Goblin Archer', faction: 'enemy', cover: 2, tactic: 'archer', description: 'Keeps behind the pillar and picks its shots.' };
+    pushHud();
+  },
+  'hud-target-shove': () => {
+    hud = combatHud();
+    const shove = { id: 'shove', name: 'Shove', description: 'Push a creature up to 5 feet away. A creature shoved off an edge falls.', icon: 'shove', cost: 'action' as const, enabled: true, selected: true };
+    hud.actions = [...hud.actions.slice(0, 3), shove, ...hud.actions.slice(3)];
+    hud.prompt = 'Choose a creature to shove';
+    if (hud.target) {
+      hud.target = { ...hud.target, faction: 'enemy', cover: 5, tactic: 'brute', pushInto: { hazard: 'fall', damage: '3d6' } };
+      delete hud.target.hitChance;
+    }
+    pushHud();
+  },
   'hud-blocked': () => {
     hud = exploreHud();
     hud.canShortRest = false;
@@ -211,6 +227,7 @@ const SCREENS: Record<string, Runner> = {
   },
   'hud-combat': () => {
     hud = combatHud();
+    if (params.get('attacks') && hud.combat) hud.combat.attacksLeft = { current: Number(params.get('attacks')), max: 2 };
     const n = Number(params.get('n') ?? 0);
     if (n > 0 && hud.combat) {
       const act = Number(params.get('active') ?? 0);
@@ -260,6 +277,19 @@ const SCREENS: Record<string, Runner> = {
     ui.hideHud();
     const state = { current: makeHubModel() };
     void ui.showHub(structuredClone(state.current), hubHandler(state)).then(() => say('hub -> descended'));
+  },
+  'hub-levelup': () => {
+    ui.hideHud();
+    const m = makeHubModel();
+    m.levelUp = levelUpFor(Number(params.get('level') ?? 4));
+    const state = { current: m };
+    void ui.showHub(structuredClone(m), hubHandler(state)).then(() => say('hub -> descended'));
+  },
+  'hud-explore-actions': () => {
+    hud = exploreHud();
+    const prayer = { id: 'prayer', name: 'Prayer of Healing', description: 'Heal up to six allies in range for 2d8 each.', icon: 'heal', cost: 'action' as const, enabled: true, selected: false, usesLeft: 1 };
+    hud.actions = [...hud.actions.slice(0, 3), prayer].slice(0, Number(params.get('n') ?? 4));
+    pushHud();
   },
   'hub-companion': () => {
     ui.hideHud();

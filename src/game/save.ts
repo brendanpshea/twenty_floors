@@ -1,5 +1,5 @@
-import type { PlayerCharacter, QualityLevel, SaveGame } from '../core/types';
-import { migrateEquipment } from '../rules';
+import type { CompanionState, PlayerCharacter, QualityLevel, SaveGame } from '../core/types';
+import { getCompanion, migrateEquipment } from '../rules';
 import { QUALITY_KEY, SAVE_KEY } from './deps';
 import type { RunState, StorageLike } from './deps';
 
@@ -29,6 +29,15 @@ function validCharacter(c: unknown): c is PlayerCharacter {
   );
 }
 
+/** A saved companion, or undefined when it is missing or not one we know (the save is still good without it). */
+function validCompanion(c: unknown): CompanionState | undefined {
+  if (!isRecord(c) || typeof c['id'] !== 'string' || !getCompanion(c['id'])) return undefined;
+  const stance = c['stance'];
+  if (!finite(c['hp']) || !isRecord(c['resources'])) return undefined;
+  if (stance !== 'close' && stance !== 'back' && stance !== 'focus') return undefined;
+  return c as unknown as CompanionState;
+}
+
 /** Parse and validate a save. Anything corrupt or from another version counts as no save. */
 export function parseSave(raw: string | null): SaveGame | null {
   if (!raw) return null;
@@ -39,7 +48,11 @@ export function parseSave(raw: string | null): SaveGame | null {
     if (!finite(depth) || !Number.isInteger(depth) || depth < 1 || depth > 20) return null;
     if (!finite(data['runSeed']) || !finite(data['shortRestsLeft'])) return null;
     if (!validCharacter(data['character'])) return null;
-    return data as unknown as SaveGame;
+    const save = data as unknown as SaveGame;
+    const companion = validCompanion(data['companion']);
+    if (companion) save.companion = companion;
+    else delete save.companion;
+    return save;
   } catch {
     return null;
   }
@@ -61,6 +74,7 @@ export function writeSave(storage: StorageLike, run: RunState): void {
     character: run.pc,
     shortRestsLeft: run.shortRestsLeft,
   };
+  if (run.companion) save.companion = run.companion;
   try {
     storage.set(SAVE_KEY, JSON.stringify(save));
   } catch (e) {
@@ -77,13 +91,15 @@ export function deleteSave(storage: StorageLike): void {
 }
 
 export function runFromSave(save: SaveGame): RunState {
-  return {
+  const out: RunState = {
     runSeed: save.runSeed,
     depth: save.depth,
     // Older saves held a bow in the main hand; move it to the ranged slot.
     pc: migrateEquipment(JSON.parse(JSON.stringify(save.character)) as PlayerCharacter),
     shortRestsLeft: save.shortRestsLeft,
   };
+  if (save.companion) out.companion = JSON.parse(JSON.stringify(save.companion)) as CompanionState;
+  return out;
 }
 
 export function loadQuality(storage: StorageLike): QualityLevel | null {

@@ -1,5 +1,5 @@
 import type { Rng } from '../core/rng';
-import type { Creature, FloorPlan, GridPos, MonsterDef, NavGrid, PlayerCharacter } from '../core/types';
+import type { CompanionDef, CompanionState, Creature, FloorPlan, GridPos, MonsterDef, NavGrid, PlayerCharacter } from '../core/types';
 import { MONSTERS } from '../data/monsters';
 import type { GameDeps } from './deps';
 import type { FloorOutcome } from './deps';
@@ -23,6 +23,16 @@ export interface RestSiteState {
   used: boolean;
 }
 
+/** The companion on this floor. Its creature is id 'companion', faction 'ally'. */
+export interface CompanionRuntime {
+  def: CompanionDef;
+  /** Persistent state (hit points, uses, stance), synced after every fight and rest. */
+  state: CompanionState;
+  creature: Creature;
+  /** Out of the current fight at 0 HP; revived at 1 HP after it. */
+  downed: boolean;
+}
+
 export type FloorMode = 'explore' | 'combat';
 
 /** Everything about the floor in play. Plain data, shared by the controllers. */
@@ -36,6 +46,8 @@ export interface FloorState {
   pc: PlayerCharacter;
   player: Creature;
   monsters: MonsterState[];
+  /** The travelling companion, once the hero is level 4 or more and has picked one. */
+  companion: CompanionRuntime | null;
   chests: ChestState[];
   restSites: RestSiteState[];
   /** The "you spot a safe place to rest" hint has been shown. */
@@ -56,6 +68,8 @@ export interface FloorState {
   shownDead: Set<string>;
   shownActive: string | null;
   lastHitBy: string;
+  /** Creatures that are down in a pit or lava right now: out of sight until they climb out (or for good). */
+  fallen: Set<string>;
   /** The visibility last pushed to the renderer for each entity. */
   entityVisible: Map<string, boolean>;
   finished: boolean;
@@ -87,6 +101,7 @@ export function monsterDef(defId: string): MonsterDef | undefined {
 
 export function creatureById(state: FloorState, id: string): Creature | undefined {
   if (id === 'player') return state.player;
+  if (id === 'companion') return state.companion?.creature;
   return state.monsters.find((m) => m.creature.id === id)?.creature;
 }
 
@@ -96,7 +111,7 @@ export function isSeen(state: FloorState, p: GridPos): boolean {
 
 /** Whether the player can currently see an entity (the player always can). */
 export function isEntityVisible(state: FloorState, id: string): boolean {
-  if (id === 'player') return true;
+  if (id === 'player' || id === 'companion') return true;
   const c = creatureById(state, id);
   if (c) return isSeen(state, c.pos);
   const chest = state.chests.find((ch) => ch.id === id);
@@ -111,7 +126,10 @@ export function livingMonsters(state: FloorState): MonsterState[] {
 
 /** Cells that block walking: living monsters and chests. */
 export function blockedAt(state: FloorState): (p: GridPos) => boolean {
+  // Walking never stops at the companion (the hero swaps places with it); in a fight it is a body like any other.
+  const comp = state.mode === 'combat' && state.companion && !state.companion.downed ? state.companion.creature : null;
   return (p) =>
+    (comp !== null && comp.pos.x === p.x && comp.pos.y === p.y) ||
     state.monsters.some((m) => !m.creature.dead && m.creature.hp > 0 && m.creature.pos.x === p.x && m.creature.pos.y === p.y) ||
     state.chests.some((c) => c.pos.x === p.x && c.pos.y === p.y) ||
     state.restSites.some((r) => r.pos.x === p.x && r.pos.y === p.y);

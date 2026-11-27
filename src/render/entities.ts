@@ -1,4 +1,9 @@
 import {
+  AdditiveBlending,
+  BufferAttribute,
+  BufferGeometry,
+  Points,
+  PointsMaterial,
   CircleGeometry,
   DynamicDrawUsage,
   InstancedMesh,
@@ -78,6 +83,8 @@ export class Entity {
   opacity = 1;
   /** 1 normally; eases towards 0.3 while this creature would hide the camera target. */
   occFade = 1;
+  /** Falling into / climbing out of a hazard (dropEntity / riseEntity). */
+  fx: { mode: 'drop' | 'rise'; lava: boolean; t: number; dur: number; sink: number; resolve: () => void } | null = null;
   lastOpacity = 1;
   seed: number;
   visible = true;
@@ -134,6 +141,8 @@ export interface EntityHost {
   models: ModelCache;
   shadowsOn(): boolean;
   theme(): ThemeId;
+  /** World Y of the lava surface, or null on floors without lava. */
+  lavaY?(): number | null;
 }
 
 /** Owns all entities: spawning, movement, procedural and clip animation, overlays. */
@@ -170,7 +179,7 @@ export class EntityManager {
     let n = 0;
     if (!this.host.shadowsOn()) {
       for (const e of this.entities.values()) {
-        if (!e.visible || n >= 128 || e.figure.kind === 'rest') continue;
+        if (!e.visible || n >= 128 || e.figure.kind === 'rest' || e.fx?.mode === 'drop') continue;
         const sc = Math.max(0.6, e.height * 0.33) * (0.5 + 0.5 * e.lastOpacity);
         const o = n * 16;
         arr[o] = sc; arr[o + 1] = 0; arr[o + 2] = 0; arr[o + 3] = 0;
@@ -317,6 +326,83 @@ export class EntityManager {
     e.moving = false;
     e.cell = { x: pos.x, y: pos.y };
     this.snapToCell(e);
+  }
+
+  /** Tip and fall straight down out of sight (~0.5 s), then hide. 'lava' sinks to the slag with an orange flash and embers. */
+  drop(id: string, into: 'fall' | 'lava'): Promise<void> {
+    const e = this.entities.get(id);
+    if (!e || !e.visible) return Promise.resolve();
+    const lava = into === 'lava';
+    const lavaY = lava ? this.host.lavaY?.() ?? null : null;
+    // Lava swallows the body at the surface; a fall drops well below the floor.
+    const sink = lavaY !== null ? Math.max(1.2, e.root.position.y - lavaY) + e.height : lava ? 2.5 + e.height : 7 + e.height;
+    if (e.fx) e.fx.resolve();
+    return new Promise<void>((resolve) => {
+      e.fx = { mode: 'drop', lava, t: 0, dur: 0.5, sink, resolve };
+      if (lava) this.spawnEmbers(e.root.position.x, lavaY ?? e.root.position.y - 1.5, e.root.position.z, 0.15);
+    });
+  }
+
+  /** Reappear at `at` climbing up from below over ~0.4 s. */
+  rise(id: string, at: GridPos): Promise<void> {
+    const e = this.entities.get(id);
+    if (!e) return Promise.resolve();
+    if (e.fx) e.fx.resolve();
+    this.place(id, at);
+    e.visible = true;
+    e.root.visible = true;
+    this.pickDirty = true;
+    return new Promise<void>((resolve) => {
+      e.fx = { mode: 'rise', lava: false, t: 0, dur: 0.4, sink: 2.2, resolve };
+    });
+  }
+
+  private embers: { pts: Points; pos: Float32Array; vel: Float32Array; t: number; delay: number } | null = null;
+
+  private spawnEmbers(x: number, y: number, z: number, delay: number): void {
+    if (!this.embers) {
+      const N = 14;
+      const pos = new Float32Array(N * 3);
+      const geo = new BufferGeometry();
+      geo.setAttribute('position', new BufferAttribute(pos, 3));
+      const mat = new PointsMaterial({ color: 0xff9a30, size: 0.22, transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false, fog: false });
+      const pts = new Points(geo, mat);
+      pts.frustumCulled = false;
+      pts.visible = false;
+      this.host.group.add(pts);
+      this.embers = { pts, pos, vel: new Float32Array(N * 3), t: 99, delay: 0 };
+    }
+    const em = this.embers;
+    const N = em.pos.length / 3;
+    for (let i = 0; i < N; i++) {
+      em.pos[i * 3] = x;
+      em.pos[i * 3 + 1] = y;
+      em.pos[i * 3 + 2] = z;
+      const a = (i / N) * Math.PI * 2 + i;
+      em.vel[i * 3] = Math.cos(a) * (0.6 + 0.8 * ((i * 37) % 7) / 7);
+      em.vel[i * 3 + 1] = 2.2 + 1.8 * ((i * 53) % 5) / 5;
+      em.vel[i * 3 + 2] = Math.sin(a) * (0.6 + 0.8 * ((i * 29) % 7) / 7);
+    }
+    em.t = 0;
+    em.delay = delay;
+    em.pts.visible = false;
+  }
+
+  private updateEmbers(dt: number): void {
+    const em = this.embers;
+    if (!em || em.t > 1.1) return;
+    em.t += dt;
+    const t = em.t - em.delay;
+    if (t < 0) return;
+    em.pts.visible = t < 0.9;
+    (em.pts.material as PointsMaterial).opacity = Math.max(0, 1 - t / 0.9);
+    for (let i = 0; i < em.pos.length / 3; i++) {
+      em.vel[i * 3 + 1]! -= 7 * dt;
+      em.pos[i * 3] = em.pos[i * 3]! + em.vel[i * 3]! * dt;
+      em.pos[i * 3 + 1] = em.pos[i * 3 + 1]! + em.vel[i * 3 + 1]! * dt;
+      em.pos[i * 3 + 2] = em.pos[i * 3 + 2]! + em.vel[i * 3 + 2]! * dt;
+    }
+    em.pts.geometry.getAttribute('position').needsUpdate = true;
   }
 
   move(id: string, path: GridPos[]): Promise<void> {
@@ -555,6 +641,7 @@ export class EntityManager {
       this.updatePose(e, dt, time);
       if (e.bar) e.bar.quaternion.copy(camQuat);
     }
+    this.updateEmbers(dt);
     this.updateBlobs();
   }
 
@@ -818,6 +905,37 @@ export class EntityManager {
 
     if (e.flash > 0) e.flash = Math.max(0, e.flash - dt * 3);
     if (e.chestWantOpen) e.chestOpen = Math.min(1, e.chestOpen + dt * 2.2);
+
+    if (e.fx) {
+      const fx = e.fx;
+      fx.t += dt;
+      const u = Math.min(1, fx.t / fx.dur);
+      if (fx.mode === 'drop') {
+        const g = u * u; // gravity: slow start, fast finish
+        bobY -= g * fx.sink;
+        rotX += g * 1.1;
+        sxz *= 1 - 0.25 * g;
+        sy *= 1 - 0.25 * g;
+        if (fx.lava && u > 0.3) flash = Math.max(flash, 0.9 * (1 - u));
+        if (u >= 1) {
+          e.fx = null;
+          e.visible = false;
+          e.root.visible = false;
+          this.pickDirty = true;
+          fx.resolve();
+        }
+      } else {
+        const ease = 1 - (1 - u) * (1 - u);
+        bobY -= (1 - ease) * fx.sink;
+        rotX += (1 - ease) * 0.5;
+        sxz *= 0.85 + 0.15 * ease;
+        sy *= 0.85 + 0.15 * ease;
+        if (u >= 1) {
+          e.fx = null;
+          fx.resolve();
+        }
+      }
+    }
 
     // apply
     const b = e.body;

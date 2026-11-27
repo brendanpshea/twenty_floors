@@ -4,6 +4,7 @@ import { getCompanion } from './companion';
 import { hasCondition } from './conditions';
 import { averageDice } from './dice';
 import { concentratingOn, isSpellAction } from './spells';
+import { exposedToPush, nextToHazard } from './terrain';
 import { areHostile, chebyshev, isAlive, isFriendlySide } from './util';
 
 /**
@@ -73,8 +74,9 @@ export function isChokepoint(nav: NavGrid, p: GridPos): boolean {
   return arcs >= 2;
 }
 
-/** A cell next to an open drop (not walkable, yet sight passes over it: a chasm). */
+/** A cell next to an open drop or lava (hazard cells), or to a pit-like gap (not walkable, yet sight passes over it). */
 export function isChasmEdge(nav: NavGrid, p: GridPos): boolean {
+  if (nextToHazard(nav, p)) return true;
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as [number, number][]) {
     const q = { x: p.x + dx, y: p.y + dy };
     const beyond = { x: p.x + 2 * dx, y: p.y + 2 * dy };
@@ -292,6 +294,8 @@ function positionScore(ctx: Ctx, p: GridPos, cost: number, range: number): numbe
   let s = -cost * 0.25;
   if (isChokepoint(nav, p)) s -= 6;
   if (isChasmEdge(nav, p)) s -= 5;
+  // Never where an enemy could shove it into the drop (or lava): worse than merely standing at an edge.
+  if (exposedToPush(nav, p, enemies)) s -= 4;
   const dHero = hero ? chebyshev(p, hero.pos) : 0;
   const near = minDist(p, enemies);
   const canStrike = enemies.some((e) => chebyshev(p, e.pos) <= range && (chebyshev(p, e.pos) <= 1 || nav.hasLineOfSight(p, e.pos)));

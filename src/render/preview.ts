@@ -233,6 +233,19 @@ async function setup(): Promise<void> {
     if (walk) for (let i = 0; i < Math.min(4, walk.length - 1); i++) cells.push({ pos: walk[i]!, style: 'path' });
     renderer.setHighlights(cells);
   }
+  if (params.get('hazard') === '1') {
+    // Danger markers on every chasm / lava cell near the hero, plus a few water cells.
+    const cells: CellHighlight[] = [];
+    for (let y = heroCell.y - 6; y <= heroCell.y + 6; y++) {
+      for (let x = heroCell.x - 6; x <= heroCell.x + 6; x++) {
+        if (x < 0 || y < 0 || x >= plan.width || y >= plan.height) continue;
+        const k = plan.kinds[y * plan.width + x];
+        if (k === CellKind.Chasm && (x + y) % 2 === 0) cells.push({ pos: { x, y }, style: 'danger' });
+        if (k === CellKind.Water) cells.push({ pos: { x, y }, style: 'move' });
+      }
+    }
+    renderer.setHighlights(cells);
+  }
   applyCamera();
   refreshButtons();
 }

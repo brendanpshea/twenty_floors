@@ -37,12 +37,14 @@ interface Item {
   x: number;
   y: number;
   z: number;
+  /** Anchor the text was requested at (before stacking offsets). */
+  ax: number;
+  az: number;
 }
 
 /** Pooled canvas-texture billboards for rising, fading text. */
 export class FloatText {
   private pool: Item[] = [];
-  private counter = 0;
 
   constructor(
     private readonly parent: Group,
@@ -58,7 +60,7 @@ export class FloatText {
       sprite.visible = false;
       sprite.renderOrder = 20;
       parent.add(sprite);
-      this.pool.push({ sprite, mat, tex, canvas, active: false, t: 0, life: 1, rise: 1, scale: 1, pop: false, x: 0, y: 0, z: 0 });
+      this.pool.push({ sprite, mat, tex, canvas, active: false, t: 0, life: 1, rise: 1, scale: 1, pop: false, x: 0, y: 0, z: 0, ax: 0, az: 0 });
     }
   }
 
@@ -81,9 +83,16 @@ export class FloatText {
     ctx.fillStyle = def.fill;
     ctx.fillText(text, W / 2, H / 2, W - 16);
     item.tex.needsUpdate = true;
-    const n = this.counter++;
-    item.x = x + ((n % 3) - 1) * 0.35;
-    item.y = y + (n % 2) * 0.25;
+    // Texts spawned at the same anchor within ~1 s stack upwards and alternate sideways, so each stays readable.
+    const same = this.pool.filter((p) => p !== item && p.active && p.t < 1.0 && Math.abs(p.ax - x) < 0.6 && Math.abs(p.az - z) < 0.6);
+    const k = same.length;
+    // At most ~4 per anchor on screen: the older ones fade out quickly.
+    same.sort((a, b) => a.t - b.t);
+    for (let i = 3; i < same.length; i++) same[i]!.life = Math.min(same[i]!.life, same[i]!.t + 0.25);
+    item.ax = x;
+    item.az = z;
+    item.x = x + (k === 0 ? 0 : k % 2 ? 0.45 : -0.45) * Math.min(1.5, 0.6 + k * 0.3);
+    item.y = y + k * 0.6;
     item.z = z;
     item.t = 0;
     item.life = def.life;

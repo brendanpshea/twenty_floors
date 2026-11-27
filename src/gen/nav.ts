@@ -1,5 +1,7 @@
 import type { FloorPlan, GridPos, NavGrid, ReachableCell } from '../core/types';
 import { CellKind, MAX_STEP_UP } from '../core/types';
+import { lineOfSight } from './sight';
+import { PROP_OBSTACLE } from './obstacles';
 
 /** 0 = blocked, 1 = normal, 2 = water. Blocking props make a cell blocked. */
 export function buildCost(plan: FloorPlan): Uint8Array {
@@ -131,6 +133,11 @@ export function createNavGrid(plan: FloorPlan): NavGrid {
   const cost = buildCost(plan);
   const elev = plan.elevation;
   const kinds = plan.kinds;
+  const chasmHazard = plan.chasmHazard ?? 'fall';
+  const waterHazard = plan.waterHazard ?? 'water';
+
+  // Hazardous blocking props by cell (0 none, 1 fire, 2 spikes), built on first use.
+  let obstacle: Uint8Array | null = null;
 
   // Scratch buffers reused across queries so hover-time pathing does not allocate.
   const g = new Float32Array(n);
@@ -143,6 +150,87 @@ export function createNavGrid(plan: FloorPlan): NavGrid {
   const inb = (p: GridPos): boolean => p.x >= 0 && p.y >= 0 && p.x < w && p.y < h;
   const blocksSight = (i: number): boolean => kinds[i] === CellKind.Wall || kinds[i] === CellKind.Void;
 
+  // Cells that stop an attack's path for cover: walls, rock and blocking props (props never stop
+  // sight). Built on the first cover query, so grids made only for pathing do not pay for it.
+  let solid: Uint8Array | null = null;
+  const isSolid = (x: number, y: number): boolean => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return true;
+    if (solid === null) {
+      solid = new Uint8Array(n);
+      for (let i = 0; i < n; i++) solid[i] = kinds[i] === CellKind.Wall || kinds[i] === CellKind.Void ? 1 : 0;
+      for (const p of plan.props) {
+        if (p.blocking && p.pos.x >= 0 && p.pos.y >= 0 && p.pos.x < w && p.pos.y < h) solid[p.pos.y * w + p.pos.x] = 1;
+      }
+    }
+    return solid[y * w + x] === 1;
+  };
+
+  /**
+   * Walks the segment from the centre of cell (cx, cy) to the point (bx, by), given in tenths of a
+   * cell (the centre of cell (x, y) is (10x, 10y)) and ending inside cell (ex, ey). Returns 0 if
+   * nothing solid lies between, 1 if something does, 2 if it only squeezes past a corner where
+   * exactly one of the two cells meeting there is solid. Integer arithmetic, no allocation.
+   */
+  function trace(cx: number, cy: number, bx: number, by: number, ex: number, ey: number): number {
+    const dx = bx - cx * 10;
+    const dy = by - cy * 10;
+    const adx = dx < 0 ? -dx : dx;
+    const ady = dy < 0 ? -dy : dy;
+    const sx = dx < 0 ? -1 : 1;
+    const sy = dy < 0 ? -1 : 1;
+    let x = cx;
+    let y = cy;
+    let nx = 5; // tenths from the start to the next vertical cell boundary
+    let ny = 5;
+    let result = 0;
+    for (let guard = w + h + 4; (x !== ex || y !== ey) && guard > 0; guard--) {
+      let stepX: boolean;
+      let stepY: boolean;
+      if (adx === 0) {
+        stepX = false;
+        stepY = true;
+      } else if (ady === 0) {
+        stepX = true;
+        stepY = false;
+      } else {
+        const c = nx * ady - ny * adx;
+        stepX = c <= 0;
+        stepY = c >= 0;
+      }
+      if (stepX && stepY) {
+        const sa = isSolid(x + sx, y);
+        const sb = isSolid(x, y + sy);
+        if (sa && sb) return 1;
+        if (sa || sb) result = 2;
+      }
+      if (stepX) {
+        x += sx;
+        nx += 10;
+      }
+      if (stepY) {
+        y += sy;
+        ny += 10;
+      }
+      if ((x !== ex || y !== ey) && isSolid(x, y)) return 1;
+    }
+    return result;
+  }
+
+  function coverBetween(a: GridPos, t: GridPos): 0 | 2 | 5 {
+    if (!inb(a) || !inb(t) || (a.x === t.x && a.y === t.y)) return 0;
+    if (!hasLineOfSight(a, t)) return 0;
+    const centre = trace(a.x, a.y, t.x * 10, t.y * 10, t.x, t.y);
+    let blocked = 0;
+    for (let k = 0; k < 4; k++) {
+      const bx = t.x * 10 + (k & 1 ? 4 : -4);
+      const by = t.y * 10 + (k & 2 ? 4 : -4);
+      if (trace(a.x, a.y, bx, by, t.x, t.y) === 1) blocked++;
+    }
+    if (blocked >= 3) return 5;
+    if (blocked >= 1 || centre !== 0) return 2;
+    return 0;
+  }
+
   function stepCost(from: GridPos, to: GridPos): number {
     if (!inb(from) || !inb(to)) return Infinity;
     const dx = to.x - from.x;
@@ -154,43 +242,7 @@ export function createNavGrid(plan: FloorPlan): NavGrid {
 
   function hasLineOfSight(a: GridPos, b: GridPos): boolean {
     if (!inb(a) || !inb(b)) return false;
-    let ax = a.x;
-    let ay = a.y;
-    let bx = b.x;
-    let by = b.y;
-    // Canonical endpoint order makes the test symmetric.
-    if (ay * w + ax > by * w + bx) {
-      [ax, bx] = [bx, ax];
-      [ay, by] = [by, ay];
-    }
-    if (blocksSight(ay * w + ax) || blocksSight(by * w + bx)) return false;
-    const nx = Math.abs(bx - ax);
-    const ny = Math.abs(by - ay);
-    const sx = bx > ax ? 1 : -1;
-    const sy = by > ay ? 1 : -1;
-    let x = ax;
-    let y = ay;
-    let ix = 0;
-    let iy = 0;
-    while (ix < nx || iy < ny) {
-      const d = (1 + 2 * ix) * ny - (1 + 2 * iy) * nx;
-      if (d === 0) {
-        // Exactly through a corner: blocked only if both side cells block.
-        if (blocksSight(y * w + x + sx) && blocksSight((y + sy) * w + x)) return false;
-        x += sx;
-        y += sy;
-        ix++;
-        iy++;
-      } else if (d < 0) {
-        x += sx;
-        ix++;
-      } else {
-        y += sy;
-        iy++;
-      }
-      if ((x !== bx || y !== by) && blocksSight(y * w + x)) return false;
-    }
-    return true;
+    return lineOfSight(kinds, w, a.x, a.y, b.x, b.y);
   }
 
   function findPath(
@@ -314,6 +366,26 @@ export function createNavGrid(plan: FloorPlan): NavGrid {
     stepCost,
     hasLineOfSight,
     elevationAt: (p) => (inb(p) ? (elev[p.y * w + p.x] as number) : 0),
+    hazardAt: (p) => {
+      if (!inb(p)) return 'none';
+      const k = kinds[p.y * w + p.x];
+      if (k === CellKind.Chasm) return chasmHazard;
+      if (k === CellKind.Water) return waterHazard;
+      return 'none';
+    },
+    coverBetween,
+    obstacleAt: (p) => {
+      if (!inb(p)) return 'none';
+      if (obstacle === null) {
+        obstacle = new Uint8Array(n);
+        for (const q of plan.props) {
+          const k = q.blocking ? PROP_OBSTACLE[q.type] : undefined;
+          if (k && q.pos.x >= 0 && q.pos.y >= 0 && q.pos.x < w && q.pos.y < h) obstacle[q.pos.y * w + q.pos.x] = k === 'fire' ? 1 : 2;
+        }
+      }
+      const o = obstacle[p.y * w + p.x];
+      return o === 1 ? 'fire' : o === 2 ? 'spikes' : 'none';
+    },
     findPath,
     reachable,
   };

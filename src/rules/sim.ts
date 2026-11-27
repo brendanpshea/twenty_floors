@@ -55,6 +55,20 @@ export interface SingleFight {
  */
 export function playerPolicy(combat: CombatApi, nav: NavGrid): Command {
   const c = combat.creature(combat.activeId) as Creature;
+  const upkeep = heroUpkeep(combat, c);
+  if (upkeep) return upkeep;
+  const cast = spellCommand(combat, c);
+  if (cast) return cast;
+  const kite = archerRetreat(combat, nav, c);
+  if (kite) return kite;
+  return chooseCommand(combat, nav);
+}
+
+/**
+ * What every scripted hero does before thinking about the enemy (shared by the naive and the expert policy): heal when
+ * the next enemy round could kill, break free, the off-hand attack of two-weapon fighting, Action Surge, Cure Wounds.
+ */
+export function heroUpkeep(combat: CombatApi, c: Creature): Command | null {
   const threat = incomingMax(combat, c);
   const missing = c.maxHp - c.hp;
   // Heal when the next enemy round could plausibly kill us (or we are below half), and it is worth a bonus action.
@@ -83,11 +97,7 @@ export function playerPolicy(combat: CombatApi, nav: NavGrid): Command {
   if (c.hp <= c.maxHp * 0.35 && combat.canUse('spell_cure_wounds').ok && !combat.turn.actionUsed && !c.actions.some((a) => a.id.startsWith('drink_') && combat.canUse(a.id).ok)) {
     return { type: 'action', actionId: 'spell_cure_wounds', targetId: c.id };
   }
-  const cast = spellCommand(combat, c);
-  if (cast) return cast;
-  const kite = archerRetreat(combat, nav, c);
-  if (kite) return kite;
-  return chooseCommand(combat, nav);
+  return null;
 }
 
 /**
@@ -118,7 +128,7 @@ function shouldSurge(combat: CombatApi, c: Creature): boolean {
  * Archers shoot, then use the rest of their movement to back away from
  * enemies that are not yet adjacent (so no opportunity attack is provoked).
  */
-function archerRetreat(combat: CombatApi, nav: NavGrid, c: Creature): Command | null {
+export function archerRetreat(combat: CombatApi, nav: NavGrid, c: Creature): Command | null {
   if ((globalThis as { __NOKITE?: boolean }).__NOKITE) return null;
   const turn = combat.turn;
   if (!turn.actionUsed || turn.movementLeft <= 0 || attacksLeft(combat) > 0) return null;

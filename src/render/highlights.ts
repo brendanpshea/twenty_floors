@@ -3,7 +3,9 @@ import type { Group } from 'three';
 import type { CellHighlight, HighlightStyle } from '../core/types';
 import { CELL } from './util';
 
-const STYLES: HighlightStyle[] = ['move', 'path', 'target', 'area', 'danger'];
+/** 'drop' is internal: a danger marker over a chasm / lava cell (hatched, with downward chevrons), hovering at the rim. */
+type HlKey = HighlightStyle | 'drop';
+const STYLES: HlKey[] = ['move', 'path', 'target', 'area', 'danger', 'drop'];
 const T = 64;
 
 interface StyleArt {
@@ -48,7 +50,53 @@ const PALETTES: Record<HighlightPalette, Partial<Record<HighlightStyle, Partial<
 };
 
 /** 4x4 atlas of tiles, indexed by a 4-bit mask of OUTER edges (N=1, E=2, S=4, W=8). */
-function makeAtlas(style: HighlightStyle, palette: HighlightPalette = 'default'): CanvasTexture {
+function makeDropAtlas(palette: HighlightPalette): CanvasTexture {
+  const art: StyleArt = { ...BASE_ART.danger, ...PALETTES[palette].danger };
+  const c = document.createElement('canvas');
+  c.width = c.height = T * 4;
+  const g = c.getContext('2d')!;
+  // Tile 0 (top-left) holds the whole marker.
+  g.beginPath();
+  g.rect(0, 0, T, T);
+  g.clip();
+  g.fillStyle = 'rgba(12,4,8,0.62)';
+  g.fillRect(2, 2, T - 4, T - 4);
+  g.fillStyle = art.fill;
+  g.fillRect(2, 2, T - 4, T - 4);
+  g.strokeStyle = art.hatch ?? art.line;
+  g.lineWidth = 3;
+  for (let i = -T; i < T; i += 10) {
+    g.beginPath();
+    g.moveTo(i, T);
+    g.lineTo(i + T, 0);
+    g.stroke();
+  }
+  g.strokeStyle = art.line;
+  g.lineWidth = 5;
+  g.strokeRect(3, 3, T - 6, T - 6);
+  // Two downward chevrons: dark outline under a bright stroke so they read on any hatch colour.
+  for (const dy of [10, 26]) {
+    g.beginPath();
+    g.moveTo(14, 14 + dy - 4);
+    g.lineTo(T / 2, 14 + dy + 10);
+    g.lineTo(T - 14, 14 + dy - 4);
+    g.lineJoin = 'miter';
+    g.strokeStyle = 'rgba(10,0,6,0.95)';
+    g.lineWidth = 11;
+    g.stroke();
+    g.strokeStyle = 'rgba(255,245,225,1)';
+    g.lineWidth = 6;
+    g.stroke();
+  }
+  const t = new CanvasTexture(c);
+  t.minFilter = LinearFilter;
+  t.magFilter = LinearFilter;
+  t.generateMipmaps = false;
+  return t;
+}
+
+function makeAtlas(style: HlKey, palette: HighlightPalette = 'default'): CanvasTexture {
+  if (style === 'drop') return makeDropAtlas(palette);
   const art: StyleArt = { ...BASE_ART[style], ...PALETTES[palette][style] };
   const c = document.createElement('canvas');
   c.width = c.height = T * 4;
@@ -117,13 +165,14 @@ function makeAtlas(style: HighlightStyle, palette: HighlightPalette = 'default')
 
 /** Instanced flat quads above cells (one InstancedMesh per style, atlas tile chosen per instance). */
 export class Highlights {
-  private meshes = new Map<HighlightStyle, InstancedMesh>();
-  private mats = new Map<HighlightStyle, MeshBasicMaterial>();
+  private meshes = new Map<HlKey, InstancedMesh>();
+  private mats = new Map<HlKey, MeshBasicMaterial>();
   private textures: CanvasTexture[] = [];
   private palette: HighlightPalette = 'default';
   private geos: PlaneGeometry[] = [];
-  private counts: Record<HighlightStyle, number> = { move: 0, path: 0, target: 0, area: 0, danger: 0 };
-  private occ: Record<HighlightStyle, Uint8Array> = {
+  private counts: Record<HlKey, number> = { move: 0, path: 0, target: 0, area: 0, danger: 0, drop: 0 };
+  private occ: Record<HlKey, Uint8Array> = {
+    drop: new Uint8Array(0),
     move: new Uint8Array(0),
     path: new Uint8Array(0),
     target: new Uint8Array(0),
@@ -184,7 +233,7 @@ vMapUv = (vMapUv + vec2(mod(aTile, 4.0), 3.0 - floor(aTile / 4.0))) * 0.25;
     for (const s of STYLES) this.occ[s] = new Uint8Array(w * h);
   }
 
-  private makeMesh(style: HighlightStyle, capacity: number): InstancedMesh {
+  private makeMesh(style: HlKey, capacity: number): InstancedMesh {
     const old = this.meshes.get(style);
     if (old) {
       this.parent.remove(old);
@@ -204,11 +253,20 @@ vMapUv = (vMapUv + vec2(mod(aTile, 4.0), 3.0 - floor(aTile / 4.0))) * 0.25;
     return m;
   }
 
-  /** `groundAt` returns the world Y of the walkable surface of a cell. */
-  set(cells: CellHighlight[], groundAt: (x: number, y: number) => number): void {
+  /**
+   * `groundAt` returns the world Y of the walkable surface of a cell. `hazardAt` returns the rim height for chasm / lava
+   * cells (markers hover there instead of at the pit bottom) and null for ordinary cells; a 'danger' highlight on a hazard
+   * cell is drawn as the hatched drop marker.
+   */
+  set(cells: CellHighlight[], groundAt: (x: number, y: number) => number, hazardAt?: (x: number, y: number) => number | null): void {
     const { w, h } = this;
-    const need: Record<HighlightStyle, number> = { move: 0, path: 0, target: 0, area: 0, danger: 0 };
-    for (const c of cells) need[c.style]++;
+    const need: Record<HlKey, number> = { move: 0, path: 0, target: 0, area: 0, danger: 0, drop: 0 };
+    const keyOf = (c: CellHighlight): { key: HlKey; hy: number | null } => {
+      const hy = hazardAt ? hazardAt(c.pos.x, c.pos.y) : null;
+      return { key: hy !== null && c.style === 'danger' ? 'drop' : c.style, hy };
+    };
+    const keys = cells.map(keyOf);
+    for (const k of keys) need[k.key]++;
     for (const s of STYLES) {
       let m = this.meshes.get(s)!;
       if (need[s] > m.instanceMatrix.count) m = this.makeMesh(s, Math.max(need[s], m.instanceMatrix.count * 2));
@@ -216,11 +274,13 @@ vMapUv = (vMapUv + vec2(mod(aTile, 4.0), 3.0 - floor(aTile / 4.0))) * 0.25;
       m.count = 0;
       this.occ[s].fill(0);
     }
-    for (const c of cells) {
-      if (c.pos.x >= 0 && c.pos.y >= 0 && c.pos.x < w && c.pos.y < h) this.occ[c.style][c.pos.y * w + c.pos.x] = 1;
-    }
-    for (const c of cells) {
-      const style = c.style;
+    cells.forEach((c, ci) => {
+      if (c.pos.x >= 0 && c.pos.y >= 0 && c.pos.x < w && c.pos.y < h) this.occ[keys[ci]!.key][c.pos.y * w + c.pos.x] = 1;
+    });
+    for (let ci = 0; ci < cells.length; ci++) {
+      const c = cells[ci]!;
+      const style = keys[ci]!.key;
+      const hy = keys[ci]!.hy;
       const m = this.meshes.get(style)!;
       const i = this.counts[style]++;
       const a = m.instanceMatrix.array as Float32Array;
@@ -229,11 +289,11 @@ vMapUv = (vMapUv + vec2(mod(aTile, 4.0), 3.0 - floor(aTile / 4.0))) * 0.25;
       a[o + 4] = 0; a[o + 5] = 1; a[o + 6] = 0; a[o + 7] = 0;
       a[o + 8] = 0; a[o + 9] = 0; a[o + 10] = 1; a[o + 11] = 0;
       a[o + 12] = c.pos.x * CELL + CELL / 2;
-      a[o + 13] = groundAt(c.pos.x, c.pos.y) + 0.07;
+      a[o + 13] = hy !== null ? hy + (style === 'drop' ? 0.4 : 0.1) : groundAt(c.pos.x, c.pos.y) + 0.07;
       a[o + 14] = c.pos.y * CELL + CELL / 2;
       a[o + 15] = 1;
       let mask = 0;
-      if (style !== 'path') {
+      if (style !== 'path' && style !== 'drop') {
         const g = this.occ[style];
         const x = c.pos.x;
         const y = c.pos.y;
@@ -258,6 +318,7 @@ vMapUv = (vMapUv + vec2(mod(aTile, 4.0), 3.0 - floor(aTile / 4.0))) * 0.25;
     this.mats.get('target')!.opacity = 0.8 + 0.2 * pulse;
     this.mats.get('area')!.opacity = 0.85 + 0.15 * pulse;
     this.mats.get('danger')!.opacity = 0.8 + 0.2 * Math.sin(time * 3);
+    this.mats.get('drop')!.opacity = 0.85 + 0.15 * pulse;
   }
 
   dispose(): void {

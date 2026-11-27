@@ -694,3 +694,109 @@ export function crowdedInitiative(n: number, active = 0): HudInitiativeEntry[] {
     dead: c.hp === 0,
   }));
 }
+
+// ---------------------------------------------------------------------------
+// Level-up previews with large choices
+// ---------------------------------------------------------------------------
+
+const ABIL: [string, string][] = [
+  ['str', 'Strength'],
+  ['dex', 'Dexterity'],
+  ['con', 'Constitution'],
+  ['int', 'Intelligence'],
+  ['wis', 'Wisdom'],
+  ['cha', 'Charisma'],
+];
+
+function asiOptions(): { id: string; name: string; description: string }[] {
+  const out: { id: string; name: string; description: string }[] = [];
+  for (const [id, name] of ABIL) out.push({ id: `${id}2`, name: `+2 ${name}`, description: `Your ${name} score increases by 2 (to a maximum of 20).` });
+  for (let i = 0; i < ABIL.length; i++) {
+    for (let j = i + 1; j < ABIL.length; j++) {
+      const a = ABIL[i];
+      const b = ABIL[j];
+      if (!a || !b) continue;
+      out.push({ id: `${a[0]}1${b[0]}1`, name: `+1 ${a[1]} and +1 ${b[1]}`, description: `Your ${a[1]} and ${b[1]} scores each increase by 1 (to a maximum of 20).` });
+    }
+  }
+  return out;
+}
+
+const WEAPONS = [
+  'Club', 'Dagger', 'Greatclub', 'Handaxe', 'Javelin', 'Light Hammer', 'Mace', 'Quarterstaff', 'Sickle', 'Spear',
+  'Dart', 'Light Crossbow', 'Shortbow', 'Sling', 'Battleaxe', 'Flail', 'Glaive', 'Greataxe', 'Greatsword', 'Halberd',
+  'Lance', 'Longsword', 'Maul', 'Morningstar', 'Pike', 'Rapier', 'Scimitar', 'Shortsword', 'Trident', 'War Pick',
+  'Warhammer', 'Whip', 'Blowgun', 'Hand Crossbow', 'Heavy Crossbow', 'Longbow', 'Musket', 'Pistol',
+];
+const MASTERIES = ['Cleave', 'Graze', 'Nick', 'Push', 'Sap', 'Slow', 'Topple', 'Vex'];
+
+function masteryOptions(): { id: string; name: string; description: string }[] {
+  return WEAPONS.map((w, i) => {
+    const mastery = MASTERIES[i % MASTERIES.length] ?? 'Graze';
+    return { id: w.toLowerCase().replace(/ /g, '_'), name: w, description: `Mastery property: ${mastery}. Use it with this weapon when you hit.` };
+  });
+}
+
+export function levelUpFor(level: number): NonNullable<HubModel['levelUp']> {
+  if (level === 7) {
+    return {
+      fromLevel: 6,
+      toLevel: 7,
+      hpGain: 10,
+      featureSummaries: [
+        'Second Fighting Style: choose another style.',
+        'Extra Attack improves: you attack three times with the Attack action.',
+        'Tactical Mind: spend Second Wind to add 1d10 to a failed check.',
+      ],
+      choices: [
+        {
+          key: 'fightingStyle2',
+          name: 'Second Fighting Style',
+          options: [
+            { id: 'archery', name: 'Archery', description: '+2 to attack rolls with ranged weapons.' },
+            { id: 'defense', name: 'Defense', description: '+1 AC while wearing armor.' },
+            { id: 'dueling', name: 'Dueling', description: '+2 damage with a one-handed melee weapon and nothing in the other hand.' },
+            { id: 'two_weapon', name: 'Two-Weapon Fighting', description: 'Add your ability modifier to the damage of your off-hand attack.' },
+          ],
+        },
+      ],
+    };
+  }
+  if (level === 19) {
+    return {
+      fromLevel: 18,
+      toLevel: 19,
+      hpGain: 10,
+      featureSummaries: ['Epic Boon: a legendary gift that reshapes your hero.', 'Indomitable improves: reroll a failed save three times per long rest.'],
+      choices: [
+        {
+          key: 'epic_boon',
+          name: 'Epic Boon',
+          options: [
+            { id: 'combat_prowess', name: 'Boon of Combat Prowess', description: 'Once per turn, turn a miss with a melee attack into a hit.' },
+            { id: 'dimensional_travel', name: 'Boon of Dimensional Travel', description: 'Teleport up to 30 feet when you take the Attack action.' },
+            { id: 'fate', name: 'Boon of Fate', description: 'Add or subtract 2d4 from a roll made by you or a creature nearby.' },
+            { id: 'irresistible_offense', name: 'Boon of Irresistible Offense', description: 'Your attacks ignore resistance and deal extra damage on a natural 20.' },
+            { id: 'skill', name: 'Boon of Skill', description: 'You gain proficiency in all skills.' },
+            { id: 'speed', name: 'Boon of Speed', description: 'Your speed increases by 30 feet and you are never slowed.' },
+          ],
+        },
+      ],
+    };
+  }
+  return {
+    fromLevel: 3,
+    toLevel: 4,
+    hpGain: 10,
+    featureSummaries: [
+      'Ability Score Improvement: raise your abilities.',
+      'Weapon Mastery: learn the mastery property of one more weapon.',
+      'Your companion joins you from here on.',
+      'Fighting Spirit: a burst of focus once per short rest.',
+    ],
+    choices: [
+      { key: 'asi', name: 'Ability Score Improvement', options: asiOptions() },
+      { key: 'mastery_new', name: 'New weapon mastery', options: masteryOptions() },
+    ],
+  };
+}

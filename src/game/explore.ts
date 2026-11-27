@@ -1,6 +1,24 @@
 import type { CellHighlight, GridPos, PickResult } from '../core/types';
 import { CellKind, SHORT_RESTS_PER_LONG_REST } from '../core/types';
-import { castOutOfCombat, chestLoot, getItem, isHiddenResource, longRest, longRestGain, rollDice, syncFromCreature, takeShortRest } from '../rules';
+import {
+  castOutOfCombat,
+  chestLoot,
+  companionPrayer,
+  companionShortRest,
+  getItem,
+  isChasmEdge,
+  isChokepoint,
+  isHiddenResource,
+  longRest,
+  nextToHazard,
+  longRestGain,
+  rollDice,
+  syncFromCreature,
+  takeShortRest,
+} from '../rules';
+import type { Rng } from '../core/rng';
+import { PRAYER_ID } from './hudModel';
+import { companionSpot, companionWantsLongRest, longRested, rebuildCompanion } from './party';
 import { adjacentRestSite, shortRestBlock } from './hudModel';
 import { cellDistance } from './fog';
 import type { MonsterState, SessionCtx } from './floorState';
@@ -76,6 +94,8 @@ export class Explore {
     let targetId: string | null = null;
     if (pick.entityId && state.monsters.some((m) => m.creature.id === pick.entityId) && isEntityVisible(state, pick.entityId)) {
       targetId = pick.entityId;
+    } else if (pick.entityId === 'companion' && state.companion) {
+      targetId = 'companion';
     }
     const key = pick.cell ? `${pick.cell.x},${pick.cell.y}` : '';
     if (targetId !== state.targetId) {
@@ -117,6 +137,11 @@ export class Explore {
         : undefined);
     if (mon && isEntityVisible(state, mon.creature.id)) {
       state.targetId = mon.creature.id;
+      this.ctx.hud();
+      return;
+    }
+    if (pick.entityId === 'companion') {
+      state.targetId = 'companion';
       this.ctx.hud();
       return;
     }
@@ -185,7 +210,7 @@ export class Explore {
       this.ctx.prompt('This site has been used.', 2500);
       return;
     }
-    if (!longRestGain(syncFromCreature(state.pc, state.player))) {
+    if (!longRestGain(syncFromCreature(state.pc, state.player)) && !companionWantsLongRest(state)) {
       this.ctx.deps.audio.play('uiError');
       this.ctx.prompt('You are already rested.', 2500);
       return;
@@ -240,7 +265,8 @@ export class Explore {
           break;
         }
         deps.audio.play(state.plan.kinds[step.y * state.plan.width + step.x] === CellKind.Water ? 'stepWater' : 'step');
-        await this.ctx.guard(deps.renderer.moveEntity('player', [step]), 1200);
+        const followed = this.companionFollows(pos);
+        await this.ctx.guard(Promise.all([deps.renderer.moveEntity('player', [step]), followed]), 1200);
         state.player.pos = { x: step.x, y: step.y };
         this.ctx.reveal();
 
@@ -260,6 +286,7 @@ export class Explore {
     } finally {
       this.walking = false;
     }
+    this.stepAside();
     if (arrived?.chestId) await this.openChest(arrived.chestId);
     if (arrived?.restId) await this.restAt(arrived.restId);
     this.ctx.hud();
@@ -274,7 +301,7 @@ export class Explore {
       return false;
     }
     deps.audio.play('descend');
-    this.ctx.finish({ type: 'cleared', pc: state.pc });
+    this.ctx.finish(state.companion ? { type: 'cleared', pc: state.pc, companion: state.companion.state } : { type: 'cleared', pc: state.pc });
     return true;
   }
 
@@ -321,6 +348,7 @@ export class Explore {
       const r = takeShortRest(before, rng);
       state.pc = r.pc;
       state.shortRestsLeft -= 1;
+      const companionGain = this.restCompanion(false, rng);
       deps.audio.play('rest');
       deps.ui.banner('Short rest');
       await deps.delay(500);
@@ -330,6 +358,7 @@ export class Explore {
       const restored = Object.entries(r.pc.resources)
         .filter(([k, p]) => !isHiddenResource(k) && p.current > (before.resources[k]?.current ?? 0))
         .map(([, p]) => p.name);
+      if (companionGain > 0) this.ctx.say(`${state.companion?.def.name ?? 'Your companion'} recovers ${companionGain} HP.`);
       const dice = r.hitDiceSpent === 1 ? '1 Hit Die' : `${r.hitDiceSpent} Hit Dice`;
       this.ctx.say(
         `${r.pc.build.name} takes a short rest, spends ${dice} and recovers ${r.healed} HP.${restored.map((n) => ` ${n} restored.`).join('')}`,
@@ -357,7 +386,7 @@ export class Explore {
       this.ctx.prompt('This site has been used.', 2500);
       return;
     }
-    if (!longRestGain(syncFromCreature(state.pc, state.player))) {
+    if (!longRestGain(syncFromCreature(state.pc, state.player)) && !companionWantsLongRest(state)) {
       deps.audio.play('uiError');
       this.ctx.prompt('You are already rested.', 2500);
       return;
@@ -371,6 +400,7 @@ export class Explore {
       state.pc = longRest(syncFromCreature(state.pc, state.player));
       state.shortRestsLeft = SHORT_RESTS_PER_LONG_REST;
       this.ctx.rebuildPlayer();
+      this.restCompanion(true);
       const gained = state.player.hp - before;
       deps.renderer.setEntityState(site.id, { dead: true });
       deps.renderer.setEntityState('player', { hpFraction: state.player.hp / state.player.maxHp });
@@ -431,13 +461,123 @@ export class Explore {
       state.pc = result.pc;
       this.ctx.rebuildPlayer();
       this.ctx.hud();
-      deps.audio.play(result.healed !== undefined ? 'heal' : 'buff');
+      deps.audio.play('spellCast');
+      if (result.healed !== undefined) deps.audio.play('healSpell', { delay: 0.35 });
       await this.ctx.guard(deps.renderer.playAnim('player', 'cast'), 1200);
       const hp = state.player;
       deps.renderer.setEntityState('player', { hpFraction: hp.hp / hp.maxHp });
       if (result.healed !== undefined) deps.renderer.floatText('player', `+${result.healed}`, 'heal');
       else deps.renderer.floatText('player', spellId === 'false_life' ? `+${hp.tempHp} temp HP` : 'Mage Armor', 'info');
       this.ctx.say(result.log);
+    } finally {
+      this.resting = false;
+    }
+    this.ctx.hud();
+  }
+
+  // ------------------------------------------------------------ companion
+
+  /**
+   * The companion takes the cell the hero is leaving, so it trails one step behind and the hero may walk through it
+   * (they swap). Far behind or cut off, it appears beside the hero instead. Resolves when its move has played.
+   */
+  private companionFollows(heroFrom: GridPos): Promise<void> {
+    const { state, deps } = this.ctx;
+    const rt = state.companion;
+    if (!rt || rt.downed) return Promise.resolve();
+    const c = rt.creature;
+    if (samePos(c.pos, heroFrom)) return Promise.resolve();
+    const d = cellDistance(c.pos, heroFrom);
+    const path = d <= 1 ? [heroFrom] : d <= 3 ? state.nav.findPath(c.pos, heroFrom, { maxCost: 4 }) : null;
+    if (!path || path.length === 0) {
+      const spot = companionSpot(state, heroFrom, heroFrom, 2);
+      if (spot) {
+        c.pos = spot;
+        deps.renderer.placeEntity('companion', spot);
+      }
+      return Promise.resolve();
+    }
+    c.pos = { x: heroFrom.x, y: heroFrom.y };
+    return deps.renderer.moveEntity('companion', path);
+  }
+
+  /** When the hero stops: a companion in a doorway, a corridor or on a drop edge steps to a better cell. */
+  stepAside(): void {
+    const { state, deps } = this.ctx;
+    const rt = state.companion;
+    if (!rt || rt.downed || state.mode !== 'explore' || state.finished) return;
+    const c = rt.creature;
+    const awkward = isChokepoint(state.nav, c.pos) || isChasmEdge(state.nav, c.pos) || nextToHazard(state.nav, c.pos) || samePos(c.pos, state.player.pos);
+    if (!awkward) return;
+    const spot = companionSpot(state, state.player.pos, c.pos, 3);
+    if (!spot) return;
+    if ((isChokepoint(state.nav, spot) || isChasmEdge(state.nav, spot) || nextToHazard(state.nav, spot)) && !samePos(c.pos, state.player.pos)) return;
+    const path = state.nav.findPath(c.pos, spot, { maxCost: 5 });
+    c.pos = spot;
+    if (path && path.length > 0) void deps.renderer.moveEntity('companion', path);
+    else deps.renderer.placeEntity('companion', spot);
+  }
+
+  /** A rest also rests the companion. Returns the hit points a short rest gave it (a long rest: the gain). */
+  private restCompanion(long: boolean, rng?: Rng): number {
+    const { state, deps } = this.ctx;
+    const rt = state.companion;
+    if (!rt) return 0;
+    let healed = 0;
+    const before = rt.creature.hp;
+    if (long) {
+      const next = longRested(state);
+      if (next) rt.state = next;
+    } else if (rng) {
+      const r = companionShortRest({ ...rt.state, hp: rt.creature.hp }, rt.def, state.pc.level, rng.fork('companion'));
+      rt.state = r.state;
+      healed = r.healed;
+    }
+    rebuildCompanion(state);
+    deps.renderer.setEntityState('companion', { hpFraction: rt.creature.hp / rt.creature.maxHp });
+    const gain = rt.creature.hp - before;
+    if (gain > 0) deps.renderer.floatText('companion', `+${gain}`, 'heal');
+    return long ? gain : healed;
+  }
+
+  private prayers = 0;
+
+  /** The Sphinx's Prayer of Healing between fights: heals the hero and the companion. */
+  async prayer(): Promise<void> {
+    const { state, deps } = this.ctx;
+    const rt = state.companion;
+    if (!rt || this.walking || this.resting || state.mode !== 'explore' || state.finished) return;
+    const result = companionPrayer(
+      syncFromCreature(state.pc, state.player),
+      { ...rt.state, hp: rt.creature.hp },
+      rt.def,
+      state.pc.level,
+      state.floorRng.fork(`prayer:${this.prayers++}`),
+    );
+    if ('error' in result) {
+      deps.audio.play('uiError');
+      this.ctx.prompt(result.error, 2500);
+      return;
+    }
+    this.resting = true;
+    try {
+      const heroBefore = state.player.hp;
+      const compBefore = rt.creature.hp;
+      state.pc = result.pc;
+      rt.state = result.state;
+      this.ctx.rebuildPlayer();
+      rebuildCompanion(state);
+      this.ctx.hud();
+      deps.audio.play('spellCast');
+      deps.audio.play('healSpell', { delay: 0.35 });
+      await this.ctx.guard(deps.renderer.playAnim('companion', 'cast'), 1200);
+      deps.renderer.setEntityState('player', { hpFraction: state.player.hp / state.player.maxHp });
+      deps.renderer.setEntityState('companion', { hpFraction: rt.creature.hp / rt.creature.maxHp });
+      if (state.player.hp > heroBefore) deps.renderer.floatText('player', `+${state.player.hp - heroBefore}`, 'heal');
+      if (rt.creature.hp > compBefore) deps.renderer.floatText('companion', `+${rt.creature.hp - compBefore}`, 'heal');
+      this.ctx.say(
+        `${rt.def.name} casts Prayer of Healing: ${state.pc.build.name} regains ${state.player.hp - heroBefore} and ${rt.def.name} ${rt.creature.hp - compBefore} hit points.`,
+      );
     } finally {
       this.resting = false;
     }

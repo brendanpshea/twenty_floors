@@ -1,11 +1,29 @@
-import type { ActionDef, CellHighlight, CombatApi, Command, GridPos, PickResult } from '../core/types';
-import { createCombat, playerPolicy, runAiTurn, syncFromCreature } from '../rules';
+import type { ActionDef, CellHighlight, CombatApi, Command, CompanionStance, GameEvent, GridPos, PickResult } from '../core/types';
+import {
+  SHOVE_PUSH_ID,
+  SHOVE_TRIP_ID,
+  attacksLeft,
+  createCombat,
+  createPartyDriver,
+  exposedToPush,
+  expertPolicy,
+  planPush,
+  playerPolicy,
+  type PushPlan,
+  syncCompanion,
+  syncFromCreature,
+} from '../rules';
+import type { PartyDriver } from '../rules';
 import { cellDistance } from './fog';
 import type { MonsterState, SessionCtx } from './floorState';
 import { blockedAt, isEntityVisible, samePos } from './floorState';
+import { companionSpot, rebuildCompanion } from './party';
 import type { Playback } from './playback';
 
 type Mode = 'move' | 'target' | 'point';
+
+/** The single action-bar entry that stands for Shove: Push and Shove: Trip (see HudModel and selectAction). */
+export const SHOVE_ID = 'shove';
 
 /** Pause lengths, in ms. The injected `delay` makes tests instant. */
 const PAUSE = { intro: 650, betweenTurns: 140, autoEnd: 700 } as const;
@@ -24,6 +42,11 @@ export class CombatController {
   private autoEndToken = 0;
   private fightNo = 0;
   private hoverEnt: string | null = null;
+  /** Plays the companion's and the monsters' turns (the stance can change mid-fight). */
+  private driver: PartyDriver | null = null;
+  /** The prompt to show while aiming, so it can come back after an area warning. */
+  private pointPrompt: string | null = null;
+  private areaWarning = '';
 
   constructor(
     private readonly ctx: SessionCtx,
@@ -56,9 +79,12 @@ export class CombatController {
     deps.renderer.setHighlights([]);
     deps.ui.banner('Combat!');
     this.ctx.say('Combat begins!');
-    const fighters = [state.player, ...monsters.map((m) => m.creature)];
+    const comp = state.companion;
+    if (comp) this.placeCompanion();
+    const fighters = [state.player, ...(comp ? [comp.creature] : []), ...monsters.map((m) => m.creature)];
+    this.driver = createPartyDriver(comp?.state.stance ?? 'close');
     const rng = state.floorRng.fork(`combat:${this.attempt}:${this.fightNo++}`);
-    const combat = createCombat(fighters, state.nav, rng);
+    const combat = createCombat(fighters, state.nav, rng, { depth: state.depth });
     this.combat = combat;
     state.shownHp.clear();
     state.shownDead.clear();
@@ -79,6 +105,49 @@ export class CombatController {
     }
   }
 
+  /** The stance the companion's driver is playing with (for tests and the HUD). */
+  get driverStance(): CompanionStance | undefined {
+    return this.driver?.stance;
+  }
+
+  setStance(stance: CompanionStance): void {
+    if (this.driver) this.driver.stance = stance;
+  }
+
+  /** Put the companion on a free cell beside the hero (and off the hero's own cell) as the fight starts. */
+  private placeCompanion(): void {
+    const { state, deps } = this.ctx;
+    const rt = state.companion;
+    if (!rt) return;
+    const c = rt.creature;
+    const near = cellDistance(c.pos, state.player.pos) <= 2 && !samePos(c.pos, state.player.pos);
+    const clash = state.monsters.some((m) => !m.creature.dead && samePos(m.creature.pos, c.pos));
+    if (!near || clash) {
+      const spot = companionSpot(state, state.player.pos, c.pos, 2) ?? companionSpot(state, state.player.pos, c.pos, 5);
+      if (spot) {
+        c.pos = spot;
+        deps.renderer.placeEntity('companion', spot);
+      }
+    }
+    rt.downed = false;
+  }
+
+  /** After a won fight: save the companion's state, and stand a downed one back up at 1 HP. */
+  private reviveCompanion(): void {
+    const { state, deps } = this.ctx;
+    const rt = state.companion;
+    if (!rt) return;
+    const wasDown = rt.downed || rt.creature.dead || rt.creature.hp <= 0;
+    rt.state = syncCompanion(rt.state, rt.creature);
+    rebuildCompanion(state);
+    deps.renderer.setEntityState('companion', { dead: false, selected: false, hpFraction: rt.creature.hp / rt.creature.maxHp });
+    if (wasDown) {
+      deps.audio.play('companionUp');
+      deps.renderer.floatText('companion', 'Back on its feet', 'heal');
+      this.ctx.say(`${rt.creature.name} is back on its feet.`);
+    }
+  }
+
   /** Enemy turns until it is the player's turn again, or the fight ends. */
   private async advance(): Promise<void> {
     const combat = this.combat;
@@ -86,12 +155,13 @@ export class CombatController {
     const state = this.ctx.state;
     // Pace the enemies: a crowd in view acts in a quick run instead of a parade (see Playback.beginEnemyRound).
     const seenEnemies = combat.creatures().filter((c) => c.id !== 'player' && !c.dead && c.hp > 0 && isEntityVisible(state, c.id)).length;
+    const driver = this.driver ?? createPartyDriver('close');
     this.playback.beginEnemyRound(seenEnemies);
     try {
       for (let guard = 0; guard < 400 && !combat.isOver && combat.activeId !== 'player'; guard++) {
         const actor = combat.activeId;
         const wasSeen = isEntityVisible(state, actor);
-        await this.playback.play(runAiTurn(combat, state.nav));
+        await this.playback.play(driver.playTurn(combat, state.nav));
         // No pause for a monster the hero never saw act.
         if (wasSeen || isEntityVisible(state, actor)) await this.ctx.deps.delay(this.playback.turnGap(PAUSE.betweenTurns));
       }
@@ -119,6 +189,7 @@ export class CombatController {
     deps.renderer.setEntityState('player', { selected: false });
     state.pc = syncFromCreature(state.pc, state.player);
     state.player.conditions = [];
+    const comp = state.companion;
     const won = combat.winner === 'player' && state.player.hp > 0;
     this.combat = null;
     state.shownHp.clear();
@@ -131,6 +202,7 @@ export class CombatController {
       return;
     }
     state.mode = 'explore';
+    if (comp) this.reviveCompanion();
     const sealedBefore = !state.stairsOpen;
     if (sealedBefore && !state.monsters.some((m) => m.boss && !m.creature.dead)) state.stairsOpen = true;
     if (sealedBefore && state.stairsOpen) {
@@ -202,6 +274,9 @@ export class CombatController {
     this.mode = 'move';
     this.selectedActionId = null;
     this.ctx.prompt(undefined);
+    this.pointPrompt = null;
+    this.areaWarning = '';
+    this.driver?.noteHeroEvents(events as GameEvent[]);
     await this.playback.play(events);
     if (combat.isOver || combat.activeId !== 'player') await this.advance();
     else this.refreshReach();
@@ -254,7 +329,8 @@ export class CombatController {
     // Movement mode.
     if (ent) {
       this.ctx.state.targetId = ent;
-      if (ent === 'player') {
+      if (ent === 'player' || ent === 'companion') {
+        // Yourself and your companion are looked at, never attacked.
         this.ctx.hud();
         return;
       }
@@ -291,12 +367,47 @@ export class CombatController {
     const path = this.pathTo(cell);
     if (!path) return;
     this.ctx.prompt(undefined);
+    this.warnEdge(cell);
     await this.run(() => this.perform({ type: 'move', path }));
   }
 
   async selectAction(actionId: string): Promise<void> {
     if (!this.playerTurn) return;
     const combat = this.combat as CombatApi;
+    // One "Shove" button: the first press aims a push, the second switches to Trip, the third cancels.
+    if (actionId === SHOVE_ID) {
+      if (this.selectedActionId === SHOVE_TRIP_ID) {
+        this.cancel();
+        return;
+      }
+      actionId = this.selectedActionId === SHOVE_PUSH_ID ? SHOVE_TRIP_ID : SHOVE_PUSH_ID;
+      if (!combat.availableActions().some((x) => x.id === actionId)) return;
+      const check = combat.canUse(actionId);
+      if (!check.ok) {
+        this.ctx.deps.audio.play('uiError');
+        this.ctx.prompt(check.reason ?? "You can't shove now.", 2200);
+        return;
+      }
+      const valid = combat.validTargets(actionId);
+      if (valid.length === 0) {
+        this.ctx.deps.audio.play('uiError');
+        this.ctx.prompt('No one to shove within reach.', 2000);
+        return;
+      }
+      this.ctx.deps.audio.play('uiClick');
+      this.mode = 'target';
+      this.selectedActionId = actionId;
+      this.setTargetable(valid);
+      this.ctx.prompt(
+        actionId === SHOVE_PUSH_ID
+          ? 'Shove: push the target one cell away. Press Shove again for Trip, Esc to cancel.'
+          : 'Shove: knock the target prone. Press Shove again to cancel.',
+      );
+      this.autoEndToken++;
+      this.renderHighlights();
+      this.ctx.hud();
+      return;
+    }
     if (this.selectedActionId === actionId) {
       this.cancel();
       return;
@@ -330,7 +441,9 @@ export class CombatController {
       case 'point':
         this.mode = 'point';
         this.selectedActionId = actionId;
-        this.ctx.prompt(`${a.name}: choose where to aim. Tap empty floor or press Esc to cancel.`);
+        this.pointPrompt = `${a.name}: choose where to aim. Tap empty floor or press Esc to cancel.`;
+        this.areaWarning = '';
+        this.ctx.prompt(this.pointPrompt);
         break;
     }
     this.autoEndToken++;
@@ -345,6 +458,8 @@ export class CombatController {
 
   cancel(): void {
     if (!this.playerTurn) return;
+    this.pointPrompt = null;
+    this.areaWarning = '';
     this.mode = 'move';
     this.selectedActionId = null;
     this.setTargetable([]);
@@ -359,7 +474,7 @@ export class CombatController {
     if (!this.playerTurn) return;
     await this.run(async () => {
       const combat = this.combat as CombatApi;
-      await this.perform(playerPolicy(combat, this.ctx.state.nav));
+      await this.perform((this.ctx.deps.options.expert ? expertPolicy : playerPolicy)(combat, this.ctx.state.nav));
     });
   }
 
@@ -369,8 +484,8 @@ export class CombatController {
     const ent = this.creatureAtPick(pick) ?? null;
     const prevTarget = state.targetId;
     state.targetId = ent;
-    this.hoverEnt = ent !== 'player' ? ent : null;
-    this.previewActionId = this.mode === 'move' && ent && ent !== 'player' ? this.quickAttackFor(ent) : null;
+    this.hoverEnt = ent !== 'player' && ent !== 'companion' ? ent : null;
+    this.previewActionId = this.mode === 'move' && ent && ent !== 'player' && ent !== 'companion' ? this.quickAttackFor(ent) : null;
     const cell = pick.cell;
     const changed = !sameCell(cell, this.hoverCell) || ent !== prevTarget;
     this.hoverCell = cell ? { ...cell } : null;
@@ -509,10 +624,75 @@ export class CombatController {
         const c = combat.creature(id);
         if (c) out.push({ pos: c.pos, style: 'target' });
       }
+      // With a push aimed: where the hovered or selected target would land ('danger' when that is a pit or lava).
+      out.push(...this.pushLanding());
     } else if (this.mode === 'point' && this.selectedActionId && this.hoverCell) {
-      for (const pos of combat.areaCells(this.selectedActionId, this.hoverCell)) out.push({ pos, style: 'area' });
+      const state = this.ctx.state;
+      const comp = state.companion && !state.companion.downed ? state.companion.creature : null;
+      const warn: string[] = [];
+      for (const pos of combat.areaCells(this.selectedActionId, this.hoverCell)) {
+        // The caster's own cell and the companion's are marked: it is the player's call, but they should see it.
+        const self = samePos(pos, state.player.pos);
+        const friend = comp !== null && samePos(pos, comp.pos);
+        if (self) warn.push('You are');
+        else if (friend) warn.push('Your companion is');
+        out.push({ pos, style: self || friend ? 'danger' : 'area' });
+      }
+      this.warnArea(warn.length === 0 ? '' : warn.length > 1 ? 'You and your companion are in the area' : `${warn[0]} in the area`);
     }
     r.setHighlights(out);
+  }
+
+  /**
+   * Highlights for the push aimed at the hovered or selected target: the cell it would land in ('danger' when that
+   * is a pit or lava, 'path' otherwise); when a fire or spikes obstacle would stop it, the obstacle cell is 'danger'
+   * and the cell it stops in is 'path'. (The obstacle field of the plan arrives with the rules; absent, it is ignored.)
+   */
+  pushLanding(): CellHighlight[] {
+    const combat = this.combat;
+    const state = this.ctx.state;
+    const act = this.selectedActionId;
+    const id = state.targetId;
+    if (!combat || !act || !id || act !== SHOVE_PUSH_ID || !this.targetable.includes(id)) return [];
+    const t = combat.creature(id);
+    if (!t) return [];
+    const me = state.player.pos;
+    const occupied = (p: GridPos): boolean => combat.creatures().some((o) => o.id !== t.id && !o.dead && o.hp > 0 && samePos(o.pos, p));
+    const plan = planPush(state.nav, occupied, t.pos, Math.sign(t.pos.x - me.x), Math.sign(t.pos.y - me.y), 1) as PushPlan & {
+      obstacle?: { kind: string; at: GridPos };
+    };
+    const out: CellHighlight[] = [];
+    const last = plan.path[plan.path.length - 1];
+    if (plan.obstacle) {
+      out.push({ pos: plan.obstacle.at, style: 'danger' });
+      out.push({ pos: last ?? t.pos, style: 'path' });
+    } else if (last) {
+      out.push({ pos: last, style: plan.hazard !== undefined ? 'danger' : 'path' });
+    }
+    return out;
+  }
+
+  private edgeWarnedTurn = -1;
+
+  /**
+   * A soft warning when the hero steps next to a drop or lava and an enemy could get behind them to shove: once per
+   * turn at most, and never a refusal.
+   */
+  private warnEdge(cell: GridPos): void {
+    const combat = this.combat;
+    const state = this.ctx.state;
+    if (!combat || this.edgeWarnedTurn === combat.round) return;
+    const foes = combat.creatures().filter((c) => c.faction === 'enemy' && !c.dead && c.hp > 0);
+    if (!exposedToPush(state.nav, cell, foes)) return;
+    this.edgeWarnedTurn = combat.round;
+    this.ctx.prompt('Edge: you could be shoved off.', 3500);
+  }
+
+  /** Show (or clear) the "you are in the area" prompt while aiming. */
+  private warnArea(text: string): void {
+    if (text === this.areaWarning) return;
+    this.areaWarning = text;
+    this.ctx.prompt(text !== '' ? text : (this.pointPrompt ?? undefined));
   }
 
   /** Nothing worth doing is left this turn. */
@@ -525,8 +705,10 @@ export class CombatController {
     const useful = (a: ActionDef): boolean => {
       if (a.effects?.includes('dash') || a.effects?.includes('dodge') || a.effects?.includes('disengage')) return false;
       if (a.cost === 'bonus') return !!a.heal && !a.damage ? player.hp < player.maxHp : true;
-      if (a.cost === 'free') return turn.actionUsed;
-      if (a.cost === 'action') return !turn.actionUsed;
+      // Action Surge (free) is worth it once the attacks are spent; the off-hand attack (free for Nick) as soon as it can be made.
+      if (a.cost === 'free') return a.effects?.includes('offhand') ? true : turn.actionUsed && attacksLeft(combat) === 0;
+      // Extra Attack: weapon attacks go on while any are left, even though the action is spent.
+      if (a.cost === 'action') return !turn.actionUsed || (isWeaponAttack(a) && attacksLeft(combat) > 0);
       return false;
     };
     return combat.availableActions().some((a) => useful(a) && combat.canUse(a.id).ok && hasWhere(combat, a));
@@ -542,6 +724,11 @@ export class CombatController {
     })();
   }
 
+}
+
+/** A weapon attack (the kind Extra Attack repeats). */
+function isWeaponAttack(a: ActionDef): boolean {
+  return a.id.startsWith('atk_') || a.id.startsWith('throw_') || a.id === 'unarmed' || a.effects?.includes('weaponAttack') === true;
 }
 
 function hasWhere(combat: CombatApi, a: ActionDef): boolean {

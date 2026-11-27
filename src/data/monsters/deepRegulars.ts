@@ -677,6 +677,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // body, bandage-gold and larger, as stand-in.
   {
     id: 'mummy_lord',
+    tactic: 'caster',
     name: 'Mummy Lord',
     size: 'medium',
     type: 'undead',

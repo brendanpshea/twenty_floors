@@ -111,6 +111,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
   // Simplified: drops skills. Nimble Escape (Disengage or Hide as a bonus action; only the Disengage half is expressed) is the 'nimbleEscape' trait. Rend's Prone applies to any target until the start of the tiger's next turn.
   {
     id: 'tiger',
+    tactic: 'brute',
     name: 'Tiger',
     size: 'large',
     type: 'beast',
@@ -188,6 +189,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a centaur (none available); hero_knight body, green, large, as stand-in.
   {
     id: 'centaur_trooper',
+    tactic: 'archer',
     name: 'Centaur Trooper',
     size: 'large',
     type: 'fey',

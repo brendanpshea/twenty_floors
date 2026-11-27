@@ -1,6 +1,9 @@
-import type { ActionDef, CombatApi, Condition, Creature, HudAction, HudModel } from '../core/types';
-import { concentratingOn, getCreationOptions, getSpell, isHiddenResource, longRestGain, outOfCombatSpells, shortRestGain, spellPoolKey, syncFromCreature } from '../rules';
+import { Rng } from '../core/rng';
+import type { ActionDef, CombatApi, Condition, Creature, Hazard, HudAction, HudModel } from '../core/types';
+import { SHOVE_PUSH_ID, SHOVE_TRIP_ID, attacksLeft, companionPrayer, concentratingOn, coverFor, creatureTactic, pushPreview, getCreationOptions, getSpell, isHiddenResource, longRestGain, outOfCombatSpells, shortRestGain, spellPoolKey, syncFromCreature } from '../rules';
 import type { FloorState, RestSiteState } from './floorState';
+import { companionWantsLongRest, companionWantsShortRest } from './party';
+import { SHOVE_ID } from './combatController';
 import { creatureById, isEntityVisible, livingMonsters, monsterDef } from './floorState';
 
 let classNames: Map<string, string> | null = null;
@@ -12,6 +15,21 @@ function hitDieOf(id: string): number {
 function classNameOf(id: string): string {
   if (!classNames) classNames = new Map(getCreationOptions().classes.map((c) => [c.id, c.name]));
   return classNames.get(id) ?? id;
+}
+
+/** The explore action for the companion's Prayer of Healing. */
+export const PRAYER_ID = 'companion_prayer';
+
+/** Whether Prayer of Healing is on offer (the companion knows it) and would do something right now. */
+export function prayerAvailability(state: FloorState): { ok: boolean; uses: number; reason?: string } | null {
+  const rt = state.companion;
+  if (!rt || rt.downed) return null;
+  const probe = companionPrayer(syncFromCreature(state.pc, state.player), rt.state, rt.def, state.pc.level, new Rng(1));
+  if ('error' in probe) {
+    if (probe.error.includes('does not know')) return null;
+    return { ok: false, uses: rt.state.resources['spell:prayer_of_healing']?.current ?? 0, reason: probe.error };
+  }
+  return { ok: true, uses: rt.state.resources['spell:prayer_of_healing']?.current ?? 0 };
 }
 
 /** Action-id prefix of a spell cast between fights (the explore HUD). */
@@ -62,6 +80,41 @@ function hudAction(
   return out;
 }
 
+/**
+ * Shove: Push and Shove: Trip come from the engine as two actions; the bar shows one "Shove" after the weapon
+ * attacks. Pressing it aims a push, pressing it again switches to Trip (see CombatController.selectAction).
+ */
+export function mergeShove(actions: HudAction[], selectedActionId: string | null): HudAction[] {
+  const push = actions.find((a) => a.id === SHOVE_PUSH_ID);
+  const trip = actions.find((a) => a.id === SHOVE_TRIP_ID);
+  if (!push && !trip) return actions;
+  const rest = actions.filter((a) => a.id !== SHOVE_PUSH_ID && a.id !== SHOVE_TRIP_ID);
+  const base = (push ?? trip) as HudAction;
+  const pushing = selectedActionId === SHOVE_PUSH_ID;
+  const tripping = selectedActionId === SHOVE_TRIP_ID;
+  const merged: HudAction = {
+    id: SHOVE_ID,
+    name: pushing ? 'Shove: Push' : tripping ? 'Shove: Trip' : 'Shove',
+    description:
+      'Replace one attack: the target (no more than one size larger) makes a Strength or Dexterity save or is pushed one cell away (a drop or lava behind it hurts). Press again to knock it Prone instead.',
+    cost: 'action',
+    enabled: (push?.enabled ?? false) || (trip?.enabled ?? false),
+    selected: pushing || tripping,
+  };
+  if (base.icon !== undefined) merged.icon = base.icon;
+  if (!merged.enabled) {
+    const why = base.disabledReason;
+    if (why !== undefined) merged.disabledReason = why;
+  }
+  let at = -1;
+  rest.forEach((a, i) => {
+    if (a.id.startsWith('atk_') || a.id.startsWith('throw_') || a.id.startsWith('offhand_')) at = i;
+  });
+  if (at < 0) at = actions.indexOf(base) - 1;
+  rest.splice(at + 1, 0, merged);
+  return rest;
+}
+
 export function buildHudModel(inp: HudInputs): HudModel {
   const { state, combat, selectedActionId, busy } = inp;
   const player = state.player;
@@ -92,19 +145,39 @@ export function buildHudModel(inp: HudInputs): HudModel {
     restSitesLeft: state.restSites.filter((r) => !r.used).length,
     canLongRest: canLongRest(state, busy),
   };
+  const comp = state.companion;
+  if (comp) {
+    const c = comp.creature;
+    const down = comp.downed || state.shownDead.has('companion');
+    model.companion = {
+      id: comp.def.id,
+      name: comp.def.name,
+      role: comp.def.role,
+      level: c.level,
+      hp: inCombat ? Math.max(0, state.shownHp.get('companion') ?? c.hp) : c.hp,
+      maxHp: c.maxHp,
+      conditions: down ? [] : conditionsOf(c),
+      downed: inCombat ? down : false,
+      stance: comp.state.stance,
+      resources: Object.entries(c.resources)
+        .filter(([key]) => !isHiddenResource(key))
+        .map(([, p]) => ({ name: p.name, current: p.current, max: p.max })),
+    };
+  }
   const blocked = shortRestBlock(state);
   if (blocked !== undefined && state.mode === 'explore') model.shortRestBlockedReason = blocked;
   if (state.prompt !== undefined) model.prompt = state.prompt;
 
   if (inCombat && combat) {
     const activeId = state.shownActive ?? combat.activeId;
-    const playerTurn = activeId === 'player' && !busy && !combat.isOver;
+    // A hero who has just been struck down is not taking a turn (the defeat is still being played).
+    const playerTurn = activeId === 'player' && !busy && !combat.isOver && !state.shownDead.has('player');
     model.combat = {
       round: combat.round,
       playerTurn,
       movementLeft: playerTurn ? combat.turn.movementLeft : 0,
       speed: player.speed,
-      actionAvailable: playerTurn && !combat.turn.actionUsed,
+      actionAvailable: playerTurn && (!combat.turn.actionUsed || attacksLeft(combat) > 0),
       bonusAvailable: playerTurn && !combat.turn.bonusUsed,
       initiative: combat.order.flatMap((id) => {
         const c = combat.creature(id);
@@ -124,11 +197,16 @@ export function buildHudModel(inp: HudInputs): HudModel {
         ];
       }),
     };
+    const perAction = player.resources['_attacks']?.current ?? 1;
+    if (playerTurn && perAction > 1) model.combat.attacksLeft = { current: attacksLeft(combat), max: perAction };
     if (playerTurn) {
-      model.actions = combat.availableActions().map((a) => {
-        const check = combat.canUse(a.id);
-        return hudAction(player, a, check.ok, check.reason, a.id === selectedActionId);
-      });
+      model.actions = mergeShove(
+        combat.availableActions().map((a) => {
+          const check = combat.canUse(a.id);
+          return hudAction(player, a, check.ok, check.reason, a.id === selectedActionId);
+        }),
+        selectedActionId,
+      );
     } else {
       model.actions = player.actions.map((a) => hudAction(player, a, false, busy ? 'Wait for your turn' : 'Not your turn', false));
     }
@@ -144,6 +222,21 @@ export function buildHudModel(inp: HudInputs): HudModel {
     model.actions = player.actions
       .filter((x) => x.id.startsWith('drink_') && (usesLeft(player, x) ?? 1) > 0)
       .map((x) => hudAction(player, x, hurt && !busy, busy ? 'Wait' : 'You are at full health', false));
+    // The Sphinx's Prayer of Healing, once its level allows and somebody is hurt.
+    const prayer = prayerAvailability(state);
+    if (prayer) {
+      model.actions.push({
+        id: PRAYER_ID,
+        name: 'Prayer of Healing',
+        description: 'Your companion prays: restores 2d8 plus its casting modifier to you and to itself. Once per long rest.',
+        icon: 'spell',
+        cost: 'action',
+        enabled: prayer.ok && !busy && !state.finished,
+        selected: false,
+        usesLeft: prayer.uses,
+        ...(prayer.ok || busy ? {} : { disabledReason: prayer.reason }),
+      });
+    }
     // Spells that work between fights (cures, False Life, Mage Armor), next to the potions.
     const synced = syncFromCreature(state.pc, player);
     for (const sp of outOfCombatSpells(synced)) {
@@ -176,10 +269,27 @@ export function buildHudModel(inp: HudInputs): HudModel {
     };
     const desc = target.id === 'player' ? undefined : monsterDef(target.defId)?.description;
     if (desc) t.description = desc;
+    const enemy = target.faction === 'enemy';
+    if (inCombat && combat && enemy) {
+      // Cover against the hero from where the hero stands, and how the monster fights.
+      t.cover = coverFor(state.nav, combat.creatures(), player.pos, target.pos, [player.id, target.id]);
+      const tactic = creatureTactic(target);
+      if (tactic) t.tactic = tactic;
+      if (selectedActionId) {
+        // pushPreview may name hazards beyond fall and lava (water, ice, fire, spikes), with or without damage.
+        const push = pushPreview(combat, selectedActionId, target.id) as { hazard: Hazard; damage?: string } | null;
+        if (push) {
+          const into = { hazard: push.hazard } as NonNullable<NonNullable<HudModel['target']>['pushInto']>;
+          if (push.damage) into.damage = push.damage;
+          t.pushInto = into;
+        }
+      }
+    }
     const chanceAction = selectedActionId ?? inp.previewActionId ?? null;
     // Only attack rolls have a hit chance (a save spell or an area has none to show).
     const chanceDef = chanceAction ? player.actions.find((x) => x.id === chanceAction) : undefined;
-    if (inCombat && combat && chanceAction && chanceDef?.attack !== undefined && target.id !== 'player' && !busy) {
+    const isShoveAction = chanceAction === SHOVE_PUSH_ID || chanceAction === SHOVE_TRIP_ID;
+    if (inCombat && combat && chanceAction && (chanceDef?.attack !== undefined || isShoveAction) && target.id !== 'player' && !busy) {
       const chance = combat.hitChance(chanceAction, target.id);
       if (chance !== null) t.hitChance = chance;
     }
@@ -208,7 +318,7 @@ export function shortRestBlock(state: FloorState): string | undefined {
   if (state.shortRestsLeft <= 0) return 'No short rests left';
   if (enemyInView(state)) return 'An enemy is in view';
   const gain = shortRestGain(syncFromCreature(state.pc, state.player));
-  if (!gain.hp && !gain.resources) return 'Nothing to recover';
+  if (!gain.hp && !gain.resources && !companionWantsShortRest(state)) return 'Nothing to recover';
   return undefined;
 }
 
@@ -219,5 +329,5 @@ export function canShortRest(state: FloorState, busy: boolean): boolean {
 /** Exploring, adjacent to an unused site, and a long rest would restore something. */
 export function canLongRest(state: FloorState, busy: boolean): boolean {
   if (state.mode !== 'explore' || busy || state.finished || !adjacentRestSite(state)) return false;
-  return longRestGain(syncFromCreature(state.pc, state.player));
+  return longRestGain(syncFromCreature(state.pc, state.player)) || companionWantsLongRest(state);
 }

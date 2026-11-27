@@ -39,6 +39,11 @@ const ICONS: Record<string, string> = {
   'stance-back': '<circle cx="18" cy="12" r="3"/><path d="M13 12 H3"/><path d="M7 8 L3 12 L7 16"/>',
   'stance-focus':
     '<circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5"/><path d="M12 2 V6"/><path d="M12 18 V22"/><path d="M2 12 H6"/><path d="M18 12 H22"/>',
+  shove:
+    '<path d="M4 15 V9"/><path d="M7 14 V7"/><path d="M10 14 V6"/><path d="M13 14 V8"/><path d="M4 15 C4 19 7 21 10 21 C13 21 14 19 14 16 V14"/><path d="M17 8 H21"/><path d="M17 12 H21"/><path d="M17 16 H21"/>',
+  cover: '<path d="M12 3 L19 6 V11 C19 15 16 17 12 19 C8 17 5 15 5 11 V6 Z"/><path d="M2 21 H22"/>',
+  eye: '<path d="M2 12 C5 6 19 6 22 12 C19 18 5 18 2 12 Z"/><circle cx="12" cy="12" r="3"/>',
+  warn: '<path d="M12 3 L22 20 H2 Z"/><path d="M12 9 V14"/><path d="M12 17 V17.5"/>',
   menu: '<path d="M4 7 H20"/><path d="M4 12 H20"/><path d="M4 17 H20"/>',
   coin: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/>',
   shield: '<path d="M12 3 L20 6 V12 C20 17 16 20 12 22 C8 20 4 17 4 12 V6 Z"/>',

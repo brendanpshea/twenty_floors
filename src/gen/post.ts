@@ -2,8 +2,12 @@ import type { Rng } from '../core/rng';
 import type { FloorPlan, GridPos, LightPlacement, Room, SpawnSlot, ThemeId } from '../core/types';
 import { GenFail, Grid, K, NEI8, isWalkKind } from './grid';
 import { LIGHT_TYPES, PropLayer, type DecorCtx, type Layout, type RoomInfo } from './layout';
-import { buildCost, floodReach } from './nav';
+import { roomFeatures } from './features';
+import { buildFormation } from './formations';
+import { buildCost, createNavGrid, floodReach } from './nav';
 import { REST_LIGHT, dressNook, placeRestSpots } from './rest';
+import { buildView, entranceFields, refreshReach, type StageEnv } from './roomview';
+import { enrichRoom, seedHazards } from './stage';
 import { addWalls } from './walls';
 
 export interface FloorRequest {
@@ -74,25 +78,47 @@ export function finalize(layout: Layout, req: FloorRequest, rng: Rng, report?: F
   };
   layout.decorate(ctx);
 
-  const spawns = placeSpawns(g, infos, props, doorDist, edge, entrance, exit, rng.fork('spawns'), req.depth);
-
+  const lava = req.theme === 'foundry' || req.theme === 'hell' || req.theme === 'lair';
   const plan: FloorPlan = {
     seed: req.seed,
     depth: req.depth,
     theme: req.theme,
     width: w,
     height: h,
+    chasmHazard: lava ? 'lava' : 'fall',
+    waterHazard: req.theme === 'ice' ? 'ice' : 'water',
     kinds: g.kinds,
     elevation: g.elev,
     roomIds: g.room,
     rooms,
     entrance,
     exit,
-    spawns,
+    spawns: [],
     props: props.list,
     lights: [],
     restSpots: [],
   };
+
+  const nav = createNavGrid(plan);
+  const fields = entranceFields(g, infos);
+  const env: StageEnv = {
+    g,
+    plan,
+    props,
+    infos,
+    doorDist,
+    edge,
+    nav,
+    entrance,
+    exit,
+    theme: req.theme,
+    depth: req.depth,
+    entranceDist: fields.entranceDist,
+    entranceCells: fields.entranceCells,
+    nearEntrance: fields.nearEntrance,
+  };
+  const spawns = placeSpawns(env, rng.fork('spawns'), rooms);
+  plan.spawns = spawns;
 
   const rest = placeRestSpots(g, plan, props, infos, rng.fork('rest'));
   const dressRng = rng.fork('restdress');
@@ -289,100 +315,32 @@ function farthestFromDoor(g: Grid, room: RoomInfo, doorDist: Int16Array, edge: U
 // ---------------------------------------------------------------------------
 // Spawn slots
 
-function spread(rng: Rng, cand: number[], k: number, w: number, avoid: number[]): number[] {
-  const chosen: number[] = [];
-  const pts = [...avoid];
-  const used = new Set<number>();
-  const dist2 = (a: number, b: number): number => ((a % w) - (b % w)) ** 2 + (((a / w) | 0) - ((b / w) | 0)) ** 2;
-  while (chosen.length < k) {
-    let best = -1;
-    let bs = -Infinity;
-    for (const c of cand) {
-      if (used.has(c)) continue;
-      let d = 100;
-      for (const p of pts) d = Math.min(d, dist2(c, p));
-      if (pts.length > 0 && d < 4) continue; // not adjacent to another slot
-      const score = Math.min(Math.sqrt(d), 6) + rng.next() * 1.5;
-      if (score > bs) {
-        bs = score;
-        best = c;
-      }
-    }
-    if (best < 0) break;
-    chosen.push(best);
-    used.add(best);
-    pts.push(best);
-  }
-  return chosen;
-}
-
-function placeSpawns(
-  g: Grid,
-  infos: RoomInfo[],
-  props: PropLayer,
-  doorDist: Int16Array,
-  edge: Uint8Array,
-  entrance: GridPos,
-  exit: GridPos,
-  rng: Rng,
-  depth: number,
-): SpawnSlot[] {
+function placeSpawns(env: StageEnv, rng: Rng, rooms: FloorPlan['rooms']): SpawnSlot[] {
+  const { g, infos, props, doorDist, edge, entrance, exit, depth } = env;
   const out: SpawnSlot[] = [];
   const ei = g.idx(entrance.x, entrance.y);
   const xi = g.idx(exit.x, exit.y);
-  const slot = (i: number, roomId: number, role: SpawnSlot['role']): void => {
-    out.push({ pos: { x: i % g.w, y: (i / g.w) | 0 }, roomId, role });
-  };
+  const used = new Map<string, number>();
   for (const r of infos) {
     if (r.role === 'entrance' || r.role === 'passage') continue;
-    const usable = (i: number): boolean => i !== ei && i !== xi && props.occ[i] !== 2 && !props.keepFree[i];
-    const floorCells = r.cells.filter((i) => g.kinds[i] === K.Floor && usable(i));
-    const all = floorCells.concat(r.cells.filter((i) => g.kinds[i] === K.Water && usable(i)));
-    // Prefer cells far from doorways; relax the margin until enough remain.
-    const pool = (need: number): number[] => {
-      for (const src of [floorCells, all]) {
-        for (let minD = 3; minD >= 0; minD--) {
-          const c = src.filter((i) => (doorDist[i] as number) >= minD);
-          if (c.length >= need * 2 || (minD === 0 && c.length >= need)) return c;
-        }
+    if (r.role === 'combat' || r.role === 'boss') {
+      const rr = rng.fork(`room:${r.id}`);
+      let view = buildView(env, r);
+      const rf = roomFeatures(env.plan, r.id, r.cells);
+      if (enrichRoom(view, rr.fork('terrain'), rf)) refreshReach(view);
+      const boss = r.role === 'boss';
+      const want = boss ? clamp(2 + (depth >= 4 ? 1 : 0) + (rr.chance(0.4) ? 1 : 0), 2, 4) : clamp(3 + rr.int(0, 1) + (r.cells.length >= 60 ? 1 : 0) + (depth >= 6 ? 1 : 0), 3, 6);
+      const res = buildFormation(view, rr, used, boss, want);
+      used.set(res.name, (used.get(res.name) ?? 0) + 1);
+      seedHazards(view, rr.fork('hazards'), res.picks.map((p) => p.i));
+      (rooms[r.id] as FloorPlan['rooms'][number]).formation = res.name;
+      for (const p of res.picks) {
+        out.push({ pos: { x: p.i % g.w, y: (p.i / g.w) | 0 }, roomId: r.id, role: p.boss ? 'boss' : 'monster', post: p.post });
       }
-      return all;
-    };
-    if (r.role === 'combat') {
-      const want = clamp(3 + rng.int(0, 1) + (r.cells.length >= 60 ? 1 : 0) + (depth >= 6 ? 1 : 0), 3, 6);
-      let picks: number[] = [];
-      // Prefer cells far from doorways; relax the margin if the room cannot host enough slots.
-      // Where dry floor that far in is too scarce (flooded rooms), standing in water beats standing at the door.
-      search: for (const minD of [3, 2, 1, 0]) {
-        for (const src of floorCells.length >= 2 * want ? [floorCells, all] : [all]) {
-          const cand = src.filter((i) => (doorDist[i] as number) >= minD);
-          const got = spread(rng, cand, want, g.w, []);
-          if (got.length > picks.length) picks = got;
-          if (picks.length >= Math.min(want, 4)) break search;
-        }
-      }
-      if (picks.length < 3) throw new GenFail(`combat room ${r.id} has too few slots`);
-      for (const i of picks) slot(i, r.id, 'monster');
-    } else if (r.role === 'boss') {
-      const cand = pool(4);
-      const cx = r.center.x;
-      const cy = r.center.y;
-      let bi = -1;
-      let bd = Infinity;
-      for (const i of cand) {
-        const d = ((i % g.w) - cx) ** 2 + (((i / g.w) | 0) - cy) ** 2;
-        if (d < bd) {
-          bd = d;
-          bi = i;
-        }
-      }
-      if (bi < 0) throw new GenFail('no boss slot');
-      slot(bi, r.id, 'boss');
-      const want = clamp(2 + (depth >= 4 ? 1 : 0) + (rng.chance(0.4) ? 1 : 0), 2, 4);
-      const picks = spread(rng, cand, want, g.w, [bi]);
-      if (picks.length < 2) throw new GenFail('boss room has too few slots');
-      for (const i of picks) slot(i, r.id, 'monster');
     } else if (r.role === 'treasure') {
+      const usable = (i: number): boolean => i !== ei && i !== xi && props.occ[i] !== 2 && !props.keepFree[i];
+      const floorCells = r.cells.filter((i) => g.kinds[i] === K.Floor && usable(i));
+      const all = floorCells.concat(r.cells.filter((i) => g.kinds[i] === K.Water && usable(i)));
       const cand = floorCells.length ? floorCells : all;
       let bi = -1;
       let bs = -Infinity;
@@ -394,7 +352,7 @@ function placeSpawns(
         }
       }
       if (bi < 0) throw new GenFail('no chest slot');
-      slot(bi, r.id, 'chest');
+      out.push({ pos: { x: bi % g.w, y: (bi / g.w) | 0 }, roomId: r.id, role: 'chest' });
     }
   }
   return out;

@@ -59,6 +59,11 @@ export interface Room {
   neighbors: number[];
   /** Steps along the room graph from the entrance room (entrance = 0). */
   distanceFromEntrance: number;
+  /**
+   * For rooms with monsters: the name of the formation its spawn slots are
+   * laid out in (e.g. 'shieldWall', 'ambush', 'snipers', 'camp', 'throne').
+   */
+  formation?: string;
 }
 
 export type SpawnRole = 'monster' | 'boss' | 'chest';
@@ -68,6 +73,8 @@ export interface SpawnSlot {
   pos: GridPos;
   roomId: number;
   role: SpawnRole;
+  /** For monster and boss slots: the part this position plays in the room's formation. */
+  post?: SpawnPost;
 }
 
 export interface PropPlacement {
@@ -103,6 +110,10 @@ export interface FloorPlan {
   theme: ThemeId;
   width: number;
   height: number;
+  /** What this floor's Chasm cells are: an open drop (default) or lava. */
+  chasmHazard?: 'fall' | 'lava';
+  /** What this floor's Water cells are: shallow water (default) or ice. */
+  waterHazard?: 'water' | 'ice';
   /** CellKind per cell. */
   kinds: Uint8Array;
   /** Elevation step per cell (meaningful for non-Void cells). */
@@ -130,6 +141,49 @@ export interface FloorPlan {
   restSpots: GridPos[];
 }
 
+/**
+ * What a cell does to a creature. 'fall': a pit or open drop; a creature
+ * forced into it takes falling damage and climbs back out at the edge.
+ * 'lava': the same, as fire damage. 'water': shallow water, difficult
+ * terrain. 'ice': slippery; a creature pushed across it slides one cell
+ * further.
+ */
+export type Hazard = 'none' | 'fall' | 'lava' | 'water' | 'ice';
+
+/** Where a formation wants a monster to stand, used to match monsters to spawn slots by tactic. */
+export type SpawnPost =
+  /** Holding the line between the entrance and the rest. */
+  | 'front'
+  /** Behind the line, with a view of the approach. */
+  | 'back'
+  /** Off to a side, to come at intruders from an angle. */
+  | 'flank'
+  /** On a ledge, dais or far side of a gap. */
+  | 'high'
+  /** Out of sight from the doorways until intruders are close. */
+  | 'hidden'
+  /** Beside a doorway, bridge end or other chokepoint. */
+  | 'guard'
+  /** Next to the boss or the room's centrepiece. */
+  | 'escort';
+
+/** How a monster fights; decides its post in a formation and its behaviour. */
+export type MonsterTactic =
+  /** Walks up and hits hard; shoves enemies into hazards when it can. */
+  | 'brute'
+  /** Fast and evasive: flanks, strikes and withdraws. */
+  | 'skirmisher'
+  /** Keeps its distance, uses cover and high ground. */
+  | 'archer'
+  /** Spells and area effects from the back. */
+  | 'caster'
+  /** Stays behind its guards and directs; dangerous when cornered. */
+  | 'leader'
+  /** Waits unseen and ambushes. */
+  | 'lurker'
+  /** Holds a chokepoint and does not chase far. */
+  | 'guard';
+
 /** Movement and sight queries over a floor. Implemented in src/gen/nav.ts. */
 export interface NavGrid {
   readonly width: number;
@@ -147,6 +201,22 @@ export interface NavGrid {
   hasLineOfSight(a: GridPos, b: GridPos): boolean;
   /** Elevation step at a cell. */
   elevationAt(p: GridPos): number;
+  /** The hazard a cell is, for any in-bounds cell (walkable or not). */
+  hazardAt(p: GridPos): Hazard;
+  /**
+   * Cover a creature at `target` has against an attack from `attacker`, as
+   * the SRD's bonus to Armor Class and Dexterity saves: 0 (none), 2 (half
+   * cover: a blocking prop or a wall corner partly in the way) or 5
+   * (three-quarters cover). Only meaningful when there is line of sight.
+   */
+  coverBetween(attacker: GridPos, target: GridPos): 0 | 2 | 5;
+  /**
+   * Whether the cell holds something that hurts a creature thrown against it:
+   * 'fire' (a campfire, brazier, forge) or 'spikes' (stalagmites, ice spikes,
+   * crystals, a weapon rack, a palisade). Such cells are not walkable; a
+   * creature pushed into one stops short and takes damage.
+   */
+  obstacleAt?(p: GridPos): 'none' | 'fire' | 'spikes';
   /**
    * Cheapest path from `from` to `to`, excluding `from` and including `to`,
    * or null if unreachable. `blocked` marks cells that cannot be entered
@@ -434,6 +504,8 @@ export interface MonsterDef {
   /** Themes whose encounter tables include this monster. */
   themes: ThemeId[];
   role: MonsterRole;
+  /** How it fights. When omitted the rules engine infers it from the stat block. */
+  tactic?: MonsterTactic;
   /** One sentence of flavor for the inspect panel. */
   description: string;
 }
@@ -864,6 +936,23 @@ export type GameEvent =
       hpAfter: number;
     }
   | { type: 'heal'; targetId: string; amount: number; hpAfter: number }
+  /**
+   * A named feature or reaction took effect: Sneak Attack, Cleave,
+   * Indomitable, Shield, Burst of Ingenuity, concentration starting or
+   * ending, an ambush, and so on. Emitted next to the ordinary events so the
+   * game can show a float and play a sound without parsing log text. `id` is
+   * a stable camelCase key ('sneakAttack', 'cleave', 'indomitable', 'shield',
+   * 'concentrationStart', 'concentrationEnd', 'peerlessAim', 'heroicRally',
+   * 'burstOfIngenuity', 'uncannyDodge', 'evasion', 'ambush', 'tacticalShift',
+   * 'lastStand', 'savageAttacker'); `label` is the short text to display.
+   */
+  | { type: 'feature'; creatureId: string; id: string; label: string; targetId?: string; amount?: number }
+  /**
+   * A creature was forced into a hazard. Followed by its damage event and,
+   * if it survives, a `move` event whose path is the single cell it climbs
+   * back out onto.
+   */
+  | { type: 'hazard'; creatureId: string; hazard: Hazard; at: GridPos; sourceId?: string }
   | { type: 'conditionAdded'; creatureId: string; condition: Condition }
   | { type: 'conditionRemoved'; creatureId: string; condition: Condition }
   | { type: 'death'; creatureId: string }
@@ -1077,6 +1166,12 @@ export interface HudModel {
     description?: string;
     /** Whose side it is on; the panel reads as friendly for 'ally' and 'player'. */
     faction?: Faction;
+    /** Cover it has against the hero from where the hero stands: the bonus to its AC and Dexterity saves. */
+    cover?: 0 | 2 | 5;
+    /** With a push selected: the hazard the target would be shoved into, and the expected damage. */
+    pushInto?: { hazard: Hazard; damage: Dice };
+    /** How it fights, once the hero has seen it act or stands close enough to judge. */
+    tactic?: MonsterTactic;
     /** 0..1 hit chance with the selected action, if one is selected. */
     hitChance?: number;
   };

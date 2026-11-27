@@ -12,17 +12,19 @@ export function instantiateMonster(def: MonsterDef, id: string, pos: GridPos): C
   if (def.traits.includes('aggressive') && !actions.some((a) => a.id === 'aggressive')) {
     actions.push(aggressiveAction());
   }
-  // Limited-use abilities: the data gives only the amount per use, so each pool holds one use per floor.
+  // Limited-use abilities. HOUSE RULE (data convention): on a monster's action `uses.amount` is the number of uses per floor
+  // ("2/Day" is 2) and each use takes 1 from the pool, so a pool is as big as the largest amount among the actions that share it.
   const resources: Record<string, ResourcePool> = {};
   for (const a of actions) {
-    if (a.uses && !resources[a.uses.resource]) {
-      resources[a.uses.resource] = {
-        name: a.uses.resource,
-        current: a.uses.amount,
-        max: a.uses.amount,
-        refresh: 'floor',
-      };
+    if (!a.uses) continue;
+    const n = Math.max(1, a.uses.amount);
+    const pool = resources[a.uses.resource];
+    if (pool) {
+      pool.current = pool.max = Math.max(pool.max, n);
+    } else {
+      resources[a.uses.resource] = { name: a.uses.resource, current: n, max: n, refresh: 'floor' };
     }
+    a.uses = { resource: a.uses.resource, amount: 1 };
   }
   return {
     id,

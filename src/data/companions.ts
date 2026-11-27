@@ -54,7 +54,7 @@ export const COMPANIONS: CompanionDef[] = [
           ],
         },
       ],
-      visual: { model: 'companion_sphinx', scale: 0.9 },
+      visual: { model: 'companion_sphinx', scale: 1.4 },
       themes: [],
       role: 'standard',
       description: 'A tiny winged cat with a human face that answers questions for those who can solve its riddles.',
@@ -77,9 +77,9 @@ export const COMPANIONS: CompanionDef[] = [
       { level: 18, name: 'Brilliant Burst', summary: 'Burst of Ingenuity adds 4 instead of 2.', effect: 'burstGreater' },
     ],
     visualTiers: [
-      { fromLevel: 1, visual: { model: 'companion_sphinx', scale: 0.9 } },
-      { fromLevel: 7, visual: { model: 'companion_sphinx', scale: 1.1 } },
-      { fromLevel: 13, visual: { model: 'companion_sphinx', scale: 1.3 } },
+      { fromLevel: 1, visual: { model: 'companion_sphinx', scale: 1.4 } },
+      { fromLevel: 7, visual: { model: 'companion_sphinx', scale: 1.7 } },
+      { fromLevel: 13, visual: { model: 'companion_sphinx', scale: 2.0 } },
     ],
   },
 
@@ -149,7 +149,7 @@ export const COMPANIONS: CompanionDef[] = [
           applies: { condition: 'poisoned', rounds: 600 },
         },
       ],
-      visual: { model: 'companion_pseudodragon', scale: 0.8 },
+      visual: { model: 'companion_pseudodragon', scale: 1.5 },
       themes: [],
       role: 'standard',
       description: 'A small, cheerful dragon that lives in the high branches and hunts with a sting.',
@@ -170,9 +170,9 @@ export const COMPANIONS: CompanionDef[] = [
       { level: 18, name: 'Draconic Resilience', summary: 'Resistance to fire damage.', effect: 'fireResistance' },
     ],
     visualTiers: [
-      { fromLevel: 1, visual: { model: 'companion_pseudodragon', scale: 0.8 } },
-      { fromLevel: 7, visual: { model: 'companion_pseudodragon', scale: 1.2 } },
-      { fromLevel: 13, visual: { model: 'companion_pseudodragon', scale: 1.7 } },
+      { fromLevel: 1, visual: { model: 'companion_pseudodragon', scale: 1.5 } },
+      { fromLevel: 7, visual: { model: 'companion_pseudodragon', scale: 2.0 } },
+      { fromLevel: 13, visual: { model: 'companion_pseudodragon', scale: 2.6 } },
     ],
   },
 

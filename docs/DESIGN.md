@@ -77,6 +77,37 @@ damage or to Armor Class. They do not appear on floors 1 to 3; +1 items enter
 shops and chests from floor 4, +2 from about floor 9, +3 from about floor 15.
 Their prices are placeholders.
 
+## Making it a thinking game
+
+The owner wants intellectual challenge, not hack and slash. Decided so far:
+
+- **Terrain is a weapon.** Any creature can Shove (the SRD's unarmed-strike
+  option: push 5 ft or knock prone). A creature forced into a chasm falls,
+  takes 1d6 damage per floor depth, and climbs back out at the edge, prone;
+  lava does the same as fire damage. This applies to everyone: monsters can
+  shove the hero in. Ice makes a pushed creature slide a cell further. Cover
+  follows the SRD (+2 or +5 to AC and Dexterity saves). Monsters understand
+  hazards: they avoid edges and use them against the hero.
+- **Monsters fight in roles and formations.** Each monster has a tactic
+  (brute, skirmisher, archer, caster, leader, lurker, guard) and each room a
+  formation that places them: a shield wall with archers behind, snipers
+  across a gap, an ambush, a camp, a boss with an escort. The player reads the
+  room from the doorway and chooses an approach. There is no preview of enemy
+  moves.
+- **All treasure is in chests, and chests are locked by puzzles.** Generated
+  logic puzzles with one solution, sized to a per-player rating. The timer
+  sets the quality of the loot. A puzzle can be skipped for a reduced reward.
+- **Gold has to buy more than healing potions.** SRD gear with tactical uses
+  (oil, alchemist's fire, holy water, caltrops, nets), spell scrolls, other
+  potions, services; limited stock and limited carrying.
+- **Later:** NPCs and monsters who offer a game instead of a fight (chess
+  problems, word games, riddles, wagers), built on the same puzzle system.
+- **Skill should pay.** Balance compares a naive scripted hero with one that
+  uses terrain and targets sensibly; thinking should win by a wide margin.
+
+Order: terrain and formations first, then the shop, then chest puzzles, then
+NPC games. Encounters are re-tuned after terrain and formations are in.
+
 ## Companions
 
 From level 4 the hero travels with one companion, chosen in the hub before

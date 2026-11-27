@@ -18,7 +18,7 @@ export function runThemes(runSeed: number): readonly ThemeId[] {
 
 /** Whether the dev shortcuts (?depth=, ?theme=, ?autoplay=) start the run. */
 export function isDevStart(options: GameOptions): boolean {
-  return options.depth !== undefined || options.theme !== undefined || options.autoplay === true;
+  return options.depth !== undefined || options.theme !== undefined || options.level !== undefined || options.companion !== undefined || options.autoplay === true;
 }
 
 /** The floor a dev start begins on. */

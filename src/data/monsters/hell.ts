@@ -108,6 +108,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // grapple (escape DC 13) is a save-ends Grappled; the Large-or-smaller size limit is not enforced.
   {
     id: 'barbed_devil',
+    tactic: 'brute',
     name: 'Barbed Devil',
     size: 'medium',
     type: 'fiend',
@@ -188,6 +189,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // "demons succeed automatically" clause is dropped.
   {
     id: 'vrock',
+    tactic: 'skirmisher',
     name: 'Vrock',
     size: 'large',
     type: 'fiend',
@@ -265,6 +267,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon (chain devil, roster-options); skeleton_warrior body, orange, as stand-in.
   {
     id: 'chain_devil',
+    tactic: 'brute',
     name: 'Chain Devil',
     size: 'medium',
     type: 'fiend',

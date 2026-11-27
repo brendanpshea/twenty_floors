@@ -1365,3 +1365,103 @@
 .tf-conc-rounds {
   color: var(--tf-dim);
 }
+
+/* Attack pips (Extra Attack) */
+.tf-atk {
+  display: inline-flex;
+  gap: 1px;
+  margin-left: 2px;
+  color: var(--tf-gold-hi);
+  pointer-events: auto;
+}
+.tf-atk[hidden] {
+  display: none;
+}
+.tf-atk-pip {
+  width: 15px;
+  height: 15px;
+  transition: opacity var(--tf-ease), filter var(--tf-ease);
+}
+.tf-atk-pip.is-spent {
+  opacity: 0.25;
+  filter: grayscale(1);
+}
+
+/* ---------- Target: cover, tactic and shove ---------- */
+
+.tf-target-tags {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 5px;
+}
+.tf-target-tags[hidden],
+.tf-target-push[hidden],
+.tf-tag-chip[hidden] {
+  display: none;
+}
+.tf-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0.12em 0.6em;
+  border: 1px solid var(--tf-line-soft);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 0.74em;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+.tf-tag-chip .tf-icon,
+.tf-tag-icon .tf-icon {
+  width: 13px;
+  height: 13px;
+}
+.tf-tag-icon {
+  display: inline-grid;
+}
+.tf-tag-chip--cover {
+  border-color: rgba(102, 207, 193, 0.5);
+  color: var(--tf-teal-hi);
+  overflow: hidden;
+}
+.tf-tag-chip--cover span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tf-tag-chip--tactic {
+  border-color: rgba(227, 154, 61, 0.5);
+  color: var(--tf-amber);
+}
+.tf-target-push {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid rgba(226, 74, 80, 0.6);
+  border-radius: 6px;
+  background: rgba(163, 39, 46, 0.28);
+  color: #ffb4b6;
+  font-weight: 700;
+  font-size: 0.9em;
+  letter-spacing: 0.03em;
+}
+.tf-target-push .tf-icon {
+  width: 16px;
+  height: 16px;
+  color: #ff8a8e;
+  flex: none;
+}
+
+.tf-cover-short {
+  display: none;
+}
+@media (max-width: 820px), (max-height: 520px) {
+  .tf-cover-full {
+    display: none;
+  }
+  .tf-cover-short {
+    display: inline;
+  }
+}

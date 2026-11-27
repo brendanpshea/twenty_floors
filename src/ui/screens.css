@@ -1408,3 +1408,117 @@
 .tf-comp-sec .tf-card .tf-card-desc {
   font-size: 0.85em;
 }
+
+/* ---------- Level-up pickers ---------- */
+
+.tf-lu-choice {
+  margin-top: 4px;
+}
+.tf-lu-choice-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tf-lu-status {
+  padding: 0.1em 0.7em;
+  border: 1px solid var(--tf-amber);
+  border-radius: 999px;
+  color: var(--tf-amber);
+  font-size: 0.75em;
+  letter-spacing: 0.04em;
+}
+.tf-lu-status.is-done {
+  border-color: var(--tf-teal-lo);
+  color: var(--tf-teal-hi);
+}
+.tf-levelup .tf-card-list {
+  margin-bottom: 6px;
+}
+.tf-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tf-picker-search {
+  min-height: 44px;
+  font-size: 1em;
+  text-align: left;
+  font-family: var(--tf-sans);
+}
+.tf-picker-list {
+  position: relative;
+  max-height: min(260px, 38vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  border: 1px solid var(--tf-line-soft);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  scrollbar-width: thin;
+  scrollbar-color: var(--tf-gold-lo) transparent;
+}
+.tf-picker-row {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 1px solid rgba(201, 164, 92, 0.1);
+  background: transparent;
+  color: var(--tf-text);
+  text-align: left;
+  cursor: pointer;
+}
+.tf-picker-row[hidden] {
+  display: none;
+}
+.tf-picker-row:hover {
+  background: rgba(201, 164, 92, 0.1);
+}
+.tf-picker-row.is-selected {
+  background: rgba(201, 164, 92, 0.2);
+  color: var(--tf-gold-hi);
+}
+.tf-picker-row.is-taken {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.tf-picker-tick {
+  display: none;
+  color: var(--tf-gold-hi);
+}
+.tf-picker-row.is-selected .tf-picker-tick {
+  display: grid;
+}
+.tf-picker-tick .tf-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.4;
+}
+.tf-picker-note {
+  font-size: 0.72em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--tf-faint);
+}
+.tf-picker-empty {
+  padding: 10px 12px;
+}
+.tf-picker-desc {
+  padding: 8px 12px;
+  border-left: 3px solid var(--tf-gold);
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.9em;
+  color: var(--tf-text);
+}
+.tf-picker-desc.is-empty {
+  border-left-color: var(--tf-line-soft);
+  color: var(--tf-faint);
+  font-style: italic;
+}

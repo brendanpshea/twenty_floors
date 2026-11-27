@@ -111,6 +111,8 @@ export interface FloorStats {
   companionDowns: number;
   /** Runs that reached this floor only because an earlier floor was skipped after too many failed attempts (`keepGoing`). */
   forced: number;
+  /** Whether each run seed cleared this floor on its first attempt (for paired comparisons between policies). */
+  firstTryBySeed: Record<number, boolean>;
 }
 
 export interface RunSummary {
@@ -138,6 +140,7 @@ function emptyStats(depth: number): FloorStats {
     rooms: {},
     companionDowns: 0,
     forced: 0,
+    firstTryBySeed: {},
   };
 }
 
@@ -188,6 +191,7 @@ export function simulateRun(build: CharacterBuild, runSeeds: number[], opts: Run
           ...(companionOpt && entryComp ? { companion: { id: companionOpt.id, ...(companionOpt.stance ? { stance: companionOpt.stance } : {}), state: entryComp } } : {}),
         });
         st.attempts++;
+        if (attempt === 0) st.firstTryBySeed[runSeed] = r.cleared;
         st.companionDowns += r.companionDowns ?? 0;
         st.potionsUsed += r.potionsUsed;
         st.shortRestsUsed += r.shortRestsUsed;

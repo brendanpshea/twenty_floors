@@ -27,6 +27,15 @@ function parseOptions(search: string): GameOptions {
   }
   if (q.get('reveal') === '1') opts.reveal = true;
   if (q.get('peace') === '1') opts.peace = true;
+  if (q.get('expert') === '1') opts.expert = true;
+  const level = num('level');
+  if (level !== undefined) opts.level = level;
+  const floors = num('floors');
+  if (floors !== undefined) opts.floors = floors;
+  const companion = q.get('companion');
+  if (companion) opts.companion = companion;
+  const stance = q.get('stance');
+  if (stance === 'close' || stance === 'back' || stance === 'focus') opts.stance = stance;
   const preset = q.get('preset');
   if (preset) opts.preset = preset;
   const background = q.get('background');

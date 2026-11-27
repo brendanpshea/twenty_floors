@@ -6,6 +6,7 @@ import {
   getCreationOptions,
   migrateEquipment,
   previewLevelUp,
+  suggestedLevelChoices,
   validateBuild,
 } from '../rules';
 
@@ -56,15 +57,9 @@ export function quickBuild(name = 'Aldric', opts: QuickOptions = {}): CharacterB
   return build;
 }
 
-/** Take the first option of every choice a level-up asks for. */
+/** The level-up picks a sensible hero takes (every slot filled, including the Ability Score Improvement). */
 export function defaultLevelChoices(pc: PlayerCharacter): Record<string, string> {
-  const preview = previewLevelUp(pc);
-  const choices: Record<string, string> = {};
-  for (const slot of preview?.choices ?? []) {
-    const first = slot.options[0];
-    if (first) choices[slot.key] = first.id;
-  }
-  return choices;
+  return suggestedLevelChoices(pc);
 }
 
 /** A quick-built hero levelled up to `level` (as far as the rules allow). */

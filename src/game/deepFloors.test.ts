@@ -7,6 +7,7 @@ import { getCreationOptions } from '../rules';
 import type { RunState } from './deps';
 import { SAVE_KEY } from './deps';
 import { FloorSession } from './floorSession';
+import { blockedAt } from './floorState';
 import { Game } from './game';
 import { quickBuild, quickCharacter } from './quickBuild';
 import { floorTheme, runThemes } from './runPlan';
@@ -150,13 +151,20 @@ describe('dev access to deep floors', () => {
     const st = s.state;
     expect(st.monsters.length).toBeGreaterThan(0);
     for (const m of st.monsters) expect(h.renderer.entities.get(m.creature.id)?.visible).toBe(true);
-    // Walk next to a monster in a non-entrance room: peace keeps the fight away.
-    const target = st.monsters[0]?.creature.pos as GridPos;
-    const near = [-1, 0, 1].flatMap((dy) => [-1, 0, 1].map((dx) => ({ x: target.x + dx, y: target.y + dy }))).find(
-      (p) => (p.x !== target.x || p.y !== target.y) && st.nav.isWalkable(p) && st.nav.findPath(st.player.pos, p),
-    );
+    // Walk next to a monster (one we can actually reach: guards may stand in the way): peace keeps the fight away.
+    const blocked = blockedAt(st);
+    let near: GridPos | undefined;
+    for (const m of st.monsters) {
+      const t = m.creature.pos;
+      near = [-1, 0, 1]
+        .flatMap((dy) => [-1, 0, 1].map((dx) => ({ x: t.x + dx, y: t.y + dy })))
+        .find((p) => (p.x !== t.x || p.y !== t.y) && st.nav.isWalkable(p) && !blocked(p) && st.nav.findPath(st.player.pos, p, { blocked }));
+      if (near) break;
+    }
     expect(near).toBeDefined();
     await s.explore.walkToCell(near as GridPos);
+    // The way may cross the sealed stairs, where a walk stops; carry on from there.
+    if (st.player.pos.x !== (near as GridPos).x || st.player.pos.y !== (near as GridPos).y) await s.explore.walkToCell(near as GridPos);
     expect(st.player.pos).toEqual(near);
     expect(st.mode).toBe('explore');
     expect(s.explore.combatTrigger()).toBeNull();

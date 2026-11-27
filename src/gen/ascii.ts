@@ -1,5 +1,6 @@
 import type { FloorPlan } from '../core/types';
 import { CellKind } from '../core/types';
+import { PROP_OBSTACLE } from './obstacles';
 
 /** Letters used when `propLetters` is on. */
 const PROP_LETTER: Record<string, string> = {
@@ -18,11 +19,15 @@ const PROP_LETTER: Record<string, string> = {
 
 const DIGITS = '0123456789abcdefghijklmnopqrstuvwxyz';
 
+const POST_LETTER: Record<string, string> = { front: 'f', back: 'b', flank: 'k', high: 'h', hidden: 'x', guard: 'g', escort: 'e' };
+
 /**
  * Debug dump. Legend: '#' wall, '.' floor, ':' chasm, '~' water, '+' door,
- * '<' entrance, '>' exit, 'm' monster slot, 'B' boss slot, 'c' chest slot,
- * 'o' blocking prop, 'R' rest spot, ' ' void. With `withElevation`, a second grid follows
- * where walkable cells show their elevation step (0-9 then a-z).
+ * '<' entrance, '>' exit, 'B' boss slot, 'c' chest slot, 'o' blocking prop, 'R' rest
+ * spot, '*' a fire prop and '^' a spiked one (both hurt a creature pushed into them), ' ' void. Monster slots show their post: 'f' front, 'b' back, 'k' flank, 'h' high,
+ * 'x' hidden, 'g' guard, 'e' escort ('m' for a slot without a post). With `withElevation`, a
+ * second grid follows where walkable cells show their elevation step (0-9 then a-z). A
+ * `-- rooms --` legend at the end lists every room's role and formation.
  */
 export function floorToAscii(plan: FloorPlan, withElevation = false, propLetters = false): string {
   const { width: w, height: h } = plan;
@@ -53,16 +58,20 @@ export function floorToAscii(plan: FloorPlan, withElevation = false, propLetters
     rows.push(row);
   }
   for (const p of plan.props) {
-    if (p.blocking) (rows[p.pos.y] as string[])[p.pos.x] = propLetters ? (PROP_LETTER[p.type] ?? 'o') : 'o';
+    if (p.blocking) {
+      const ob = PROP_OBSTACLE[p.type];
+      (rows[p.pos.y] as string[])[p.pos.x] = ob === 'fire' ? '*' : ob === 'spikes' ? '^' : propLetters ? (PROP_LETTER[p.type] ?? 'o') : 'o';
+    }
   }
   for (const s of plan.spawns) {
-    (rows[s.pos.y] as string[])[s.pos.x] = s.role === 'boss' ? 'B' : s.role === 'chest' ? 'c' : 'm';
+    (rows[s.pos.y] as string[])[s.pos.x] = s.role === 'boss' ? 'B' : s.role === 'chest' ? 'c' : (POST_LETTER[s.post ?? ''] ?? 'm');
   }
   for (const r of plan.restSpots ?? []) (rows[r.y] as string[])[r.x] = 'R';
   (rows[plan.entrance.y] as string[])[plan.entrance.x] = '<';
   (rows[plan.exit.y] as string[])[plan.exit.x] = '>';
   const main = rows.map((r) => r.join('').trimEnd()).join('\n');
-  if (!withElevation) return main;
+  const legend = `\n\n-- rooms --\n${plan.rooms.map((r) => `${r.id} ${r.role}${r.formation ? ` ${r.formation}` : ''}`).join('\n')}`;
+  if (!withElevation) return main + legend;
   const elev: string[] = [];
   for (let y = 0; y < h; y++) {
     let line = '';
@@ -75,5 +84,5 @@ export function floorToAscii(plan: FloorPlan, withElevation = false, propLetters
     }
     elev.push(line.trimEnd());
   }
-  return `${main}\n\n-- elevation --\n${elev.join('\n')}`;
+  return `${main}\n\n-- elevation --\n${elev.join('\n')}${legend}`;
 }

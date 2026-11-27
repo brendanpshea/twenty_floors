@@ -4,7 +4,8 @@ import { Rng } from '../core/rng';
 import { THEMES, THEME_RANGE } from '../core/themes';
 import type { Creature, GridPos, HudModel, ThemeId } from '../core/types';
 import { MONSTERS } from '../data/monsters';
-import { createCombat, instantiateMonster, playerPolicy, runAiTurn, toCreature } from '../rules';
+import { createCombat, instantiateMonster, newCompanionState, playerPolicy, runAiTurn, toCreature } from '../rules';
+import { COMPANION_IDS } from './party';
 import { runBot } from './autoplay';
 import { FloorSession } from './floorSession';
 import { quickCharacter } from './quickBuild';
@@ -65,7 +66,11 @@ async function smokeFloor(theme: ThemeId, depth: number, seed: number, hero: Qui
     failures.push({ theme, depth, seed, where, message });
   };
   const h = makeHarness({ theme, depth, seed });
-  const session = new FloorSession(h.deps, { runSeed: seed, depth, pc: quickCharacter(depth, hero), shortRestsLeft: 2 }, 1);
+  // The hero is as strong as the floor expects (level = depth), with a companion from level 4 (cycled by seed and depth).
+  const pc = quickCharacter(depth, hero);
+  const companionId = COMPANION_IDS[(seed + depth) % COMPANION_IDS.length] as string;
+  const run = { runSeed: seed, depth, pc, shortRestsLeft: 2, ...(pc.level >= 4 ? { companion: newCompanionState(companionId, pc.level) } : {}) };
+  const session = new FloorSession(h.deps, run, 1);
   try {
     await session.enter();
   } catch (e) {
@@ -78,6 +83,15 @@ async function smokeFloor(theme: ThemeId, depth: number, seed: number, hero: Qui
   if (plan.theme !== theme) fail('theme', `plan theme is ${plan.theme}`);
   if (!nav.isWalkable(s.player.pos) || s.player.pos.x !== plan.entrance.x || s.player.pos.y !== plan.entrance.y) {
     fail('entrance', `hero at ${s.player.pos.x},${s.player.pos.y} is not on the walkable entrance ${plan.entrance.x},${plan.entrance.y}`);
+  }
+  if (pc.level >= 4) {
+    const c = s.companion?.creature;
+    if (!c) fail('companion', 'no companion on the floor');
+    else {
+      if (!nav.isWalkable(c.pos)) fail('companion', `spawned on a non-walkable cell ${c.pos.x},${c.pos.y}`);
+      if (c.pos.x === s.player.pos.x && c.pos.y === s.player.pos.y) fail('companion', 'stands on the hero');
+      if (c.actions.length === 0 || !(c.maxHp > 0) || typeof c.visual.model !== 'string') fail('companion', `bad stats or visual for ${companionId}`);
+    }
   }
   if (!nav.findPath(plan.entrance, plan.exit)) fail('exit', 'the exit is not reachable from the entrance');
   if (s.restSites.length === 0) fail('rest', 'no rest sites spawned');
@@ -137,6 +151,9 @@ async function smokeFloor(theme: ThemeId, depth: number, seed: number, hero: Qui
   h.ui.onHud = (hud: HudModel) => {
     if (hud.mode !== 'combat' || !hud.combat) return;
     if (hud.combat.playerTurn && hud.actions.length === 0) badHud.push('no actions on the hero turn');
+    if (pc.level >= 4 && !hud.companion) badHud.push('no companion in the HUD');
+    if (pc.level >= 4 && !hud.combat.initiative.some((e) => e.id === 'companion')) badHud.push('companion missing from the initiative strip');
+    if (hud.player.resources.some((r) => r.name.startsWith('_') || r.name === '')) badHud.push('hidden resource shown');
     if (hud.combat.playerTurn && !hud.combat.initiative.some((e) => e.active && e.id === 'player')) badHud.push('no active initiative entry on the hero turn');
     if (hud.combat.initiative.length < 2) badHud.push('initiative shorter than two');
     if (hud.player.hp < 0 || hud.player.hp > hud.player.maxHp) badHud.push(`hero hp out of range ${hud.player.hp}`);

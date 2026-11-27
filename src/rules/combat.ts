@@ -35,9 +35,61 @@ import {
 import { averageDice, formatDice, parseDice, rollDice } from './dice';
 import { abilityMod, areHostile, chebyshev, hasFlag, isAlive, isFriendlySide } from './util';
 import { chromaticOrbType, fxVal, isSpellAction } from './spells';
+import { SHOVE_PUSH_ID, SHOVE_TRIP_ID, isShove, shovePushAction, shoveTripAction } from './actions';
+import { canShoveSize, climbOutCell, coverFor, planPush, slamDice } from './terrain';
+import { creatureTactic } from './tactics';
 
 /** Per-combat readers that the CombatApi surface has no room for (see `attacksLeft`). */
 const attackReaders = new WeakMap<CombatApi, () => number>();
+const depthReaders = new WeakMap<CombatApi, number>();
+const navReaders = new WeakMap<CombatApi, NavGrid>();
+
+/** The floor depth this combat was created for (hazard damage is 1d6 per depth); 1 when none was given. */
+export function combatDepth(combat: CombatApi): number {
+  return depthReaders.get(combat) ?? 1;
+}
+
+/**
+ * What a shove or push would do to a target: the hazard it would be forced into and the damage dice (1d6 per floor
+ * depth), or null when the action does not push or nothing lies behind the target. For the HUD's target panel.
+ * Considers Shove: Push (5 ft), the Push mastery and Thunderwave (10 ft), from the ACTIVE creature's position.
+ */
+export function pushPreview(combat: CombatApi, actionId: string, targetId: string): PushPreview | null {
+  const nav = navReaders.get(combat);
+  const c = combat.creature(combat.activeId);
+  const t = combat.creature(targetId);
+  const a = c ? findAction(c, actionId) : undefined;
+  if (!nav || !c || !t || !a) return null;
+  const fx = a.effects ?? [];
+  const cells = fx.includes('shove:push') ? 1 : fx.includes('mastery:push') || fx.includes('thunderwavePush') ? 2 : 0;
+  if (cells === 0 || (t.size === 'huge' && !fx.includes('shove:push'))) return null;
+  const plan = planPush(nav, (p) => combat.creatures().some((o) => isAlive(o) && o.id !== t.id && o.pos.x === p.x && o.pos.y === p.y), t.pos, Math.sign(t.pos.x - c.pos.x), Math.sign(t.pos.y - c.pos.y), cells);
+  const d = combatDepth(combat);
+  if (plan.hazard) return { hazard: plan.hazard.kind, damage: `${d}d6` };
+  if (plan.obstacle) return { hazard: plan.obstacle.kind, damage: `${slamDice(d)}d6` };
+  if (plan.water) return { hazard: 'water', prone: true };
+  if (plan.slid) return { hazard: 'ice' };
+  return null;
+}
+
+/** What a push would do to its target; see `pushPreview`. */
+export interface PushPreview {
+  /** 'fall' and 'lava': into the drop or the fire; 'fire' and 'spikes': slammed against it; 'water': knocked Prone; 'ice': slides one more cell. */
+  hazard: 'fall' | 'lava' | 'water' | 'ice' | 'fire' | 'spikes';
+  /** Damage dice, when it hurts ("3d6": 1d6 per depth for fall and lava, 1d6 per two depths for fire and spikes). */
+  damage?: string;
+  /** True when the target ends Prone (water). */
+  prone?: boolean;
+}
+
+/** Options for `createCombat`. */
+export interface CombatOptions {
+  /**
+   * The floor depth. HOUSE RULE: a creature forced into a pit or lava takes 1d6 damage per floor depth
+   * (bludgeoning from a fall, fire from lava). Default 1.
+   */
+  depth?: number;
+}
 
 /**
  * Attacks the active creature can still make with its current Attack action(s). A hero with Extra Attack has
@@ -98,6 +150,8 @@ export function findAction(c: Creature, id: string): ActionDef | undefined {
   const own = c.actions.find((a) => a.id === id);
   if (own) return own;
   if (id === BREAK_FREE_ID && canBreakFree(c)) return breakFreeAction();
+  if (id === SHOVE_PUSH_ID) return shovePushAction();
+  if (id === SHOVE_TRIP_ID) return shoveTripAction();
   return undefined;
 }
 
@@ -164,10 +218,15 @@ interface AttackSetup {
   bonus: number;
   mode: RollMode;
   critMin: number;
+  /** Cover the target has against this attack (0, 2 or 5), added to its AC. */
+  cover: number;
 }
 
-export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): CombatApi {
+export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, options: CombatOptions = {}): CombatApi {
   const all = creatures;
+  const depth = Math.max(1, Math.floor(options.depth ?? 1));
+  /** HOUSE RULE (lurkers): an ambusher that began the fight out of the hero's sight has advantage on its first attack. */
+  const ambush = new Set<string>();
   const byId = new Map<string, Creature>();
   for (const c of all) byId.set(c.id, c);
 
@@ -235,6 +294,13 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     events.push(e);
   };
   const log = (text: string): void => emit({ type: 'log', text });
+  /** A named feature or reaction took effect (structured companion of a log line; see GameEvent 'feature'). */
+  const feature = (c: Creature, id: string, label: string, extra: { targetId?: string; amount?: number } = {}): void => {
+    const e: GameEvent = { type: 'feature', creatureId: c.id, id, label };
+    if (extra.targetId !== undefined) e.targetId = extra.targetId;
+    if (extra.amount !== undefined) e.amount = extra.amount;
+    emit(e);
+  };
 
   const active = (): Creature => byId.get(turn.creatureId) as Creature;
   const occupiedBy = (p: GridPos, exceptId?: string): Creature | undefined =>
@@ -282,6 +348,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     if (vexed.get(att.id)?.targetId === tgt.id) adv = true;
     if (studied.get(att.id)?.targetId === tgt.id) adv = true;
     if (blinkAdv.has(att.id)) adv = true;
+    if (ambush.has(att.id)) adv = true;
     if (sapped.has(att.id)) dis = true;
     if (guided.has(tgt.id)) adv = true;
     // Elusive (Blink Dog 18): no attack roll has advantage against it while it can act.
@@ -291,7 +358,10 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     // Improved and Superior Critical cover weapon attacks, not spell attacks.
     const spellOnly = isSpellAction(a) && !a.effects?.includes('weaponAttack');
     const critMin = spellOnly ? 20 : hasFlag(att, 'crit18') ? 18 : hasFlag(att, 'crit19') ? 19 : 20;
-    return { bonus, mode: mergeMode(adv, dis), critMin };
+    // SRD cover: +2 (half) or +5 (three-quarters) to the target's AC against ranged and reach attacks; another creature
+    // standing between the two gives half cover. Adjacent targets have none.
+    const cover = t.kind === 'creature' ? coverFor(nav, all, att.pos, tgt.pos) : 0;
+    return { bonus, mode: mergeMode(adv, dis), critMin, cover };
   }
 
   /** Equiprobable outcomes of the Bless/Bane dice on a creature's d20 tests ([0] without either). */
@@ -323,23 +393,29 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     const s = attackSetup(att, tgt, a);
     lastAttackMode = s.mode;
     const bonus = s.bonus + rollMod(att);
+    const ac = tgt.ac + s.cover;
     let r = rollD20(s.mode);
-    let outcome = classify(r.d20, bonus, tgt.ac, s.critMin);
+    let outcome = classify(r.d20, bonus, ac, s.critMin);
     if (vexed.get(att.id)?.targetId === tgt.id) vexed.delete(att.id);
     if (studied.get(att.id)?.targetId === tgt.id) studied.delete(att.id);
     blinkAdv.delete(att.id);
+    if (ambush.delete(att.id)) {
+      feature(att, 'ambush', 'Ambush!', { targetId: tgt.id });
+      log(`${att.name} springs from hiding!`);
+    }
     guided.delete(tgt.id);
     sapped.delete(att.id);
     if ((outcome === 'miss' || outcome === 'fumble') && canInspire(att)) {
       (att.resources['inspiration'] as { current: number }).current -= 1;
       log(`${att.name} spends Heroic Inspiration to reroll (was ${r.d20}).`);
       r = rollD20(s.mode);
-      outcome = classify(r.d20, bonus, tgt.ac, s.critMin);
+      outcome = classify(r.d20, bonus, ac, s.critMin);
     }
     // Boon of Combat Prowess, Peerless Aim: once per turn, a miss becomes a hit.
     if ((outcome === 'miss' || outcome === 'fumble') && hasFlag(att, 'combatProwess') && peerlessUsed.get(att.id) !== turnKey()) {
       peerlessUsed.set(att.id, turnKey());
       outcome = 'hit';
+      feature(att, 'peerlessAim', 'Peerless Aim', { targetId: tgt.id });
       log(`${att.name}'s Peerless Aim turns the miss into a hit.`);
     }
     if (
@@ -350,9 +426,9 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       outcome = 'crit';
     }
     // HOUSE RULE: Shield is cast automatically as a reaction when its +5 AC would turn a hit into a miss.
-    if (outcome === 'hit' && shieldReady(tgt) && r.d20 + bonus < tgt.ac + 5) {
+    if (outcome === 'hit' && shieldReady(tgt) && r.d20 + bonus < ac + 5) {
       castShield(tgt);
-      outcome = classify(r.d20, bonus, tgt.ac, s.critMin);
+      outcome = classify(r.d20, bonus, tgt.ac + s.cover, s.critMin);
     }
     emit({
       type: 'attackRoll',
@@ -364,7 +440,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       mode: s.mode,
       bonus,
       total: r.d20 + bonus,
-      targetAc: tgt.ac,
+      targetAc: tgt.ac + s.cover,
       outcome,
       reaction,
     });
@@ -394,8 +470,10 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
    * then the Fighter's Indomitable (reroll with a bonus equal to the level, only against an effect that would take
    * the turn away or deal heavy damage).
    */
-  function rollSave(c: Creature, ability: Ability, dc: number, applies?: Condition, opts: { magical?: boolean; heavy?: number } = {}): boolean {
-    const bonus = saveBonus(c, ability) + (autoFailsSave(c, ability) ? 0 : rollMod(c));
+  function rollSave(c: Creature, ability: Ability, dc: number, applies?: Condition, opts: { magical?: boolean; heavy?: number; origin?: GridPos } = {}): boolean {
+    // SRD cover: +2 / +5 to Dexterity saves against an effect with a point of origin on the other side of the cover.
+    const cover = ability === 'dex' && opts.origin ? coverFor(nav, all, opts.origin, c.pos) : 0;
+    const bonus = saveBonus(c, ability) + cover + (autoFailsSave(c, ability) ? 0 : rollMod(c));
     if (autoFailsSave(c, ability)) {
       emit({ type: 'saveRoll', creatureId: c.id, ability, d20: 0, bonus, total: 0, dc, success: false });
       return false;
@@ -410,6 +488,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
         (burst.helper.resources['burstOfIngenuity'] as { current: number }).current -= 1;
         reactionUsed.add(burst.helper.id);
         total += burst.bonus;
+        feature(burst.helper, 'burstOfIngenuity', 'Burst of Ingenuity', { targetId: c.id, amount: burst.bonus });
         log(`${burst.helper.name}'s Burst of Ingenuity adds ${burst.bonus} to ${c.name}'s save.`);
       }
     }
@@ -424,6 +503,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       const bonus2 = bonus + c.level;
       const total2 = again.d20 + bonus2;
       const ok = total2 >= dc;
+      feature(c, 'indomitable', 'Indomitable', { amount: c.level });
       log(`${c.name} is Indomitable: rerolls the save with +${c.level}.`);
       emit({ type: 'saveRoll', creatureId: c.id, ability, d20: again.d20, bonus: bonus2, total: total2, dc, success: ok });
       return ok;
@@ -433,9 +513,9 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
 
   const isMagical = (a: ActionDef): boolean => a.effects?.includes('spell') === true || a.effects?.includes('magic') === true;
   /** The save options for an action: magic for Magic Resistance, expected failure cost for Indomitable. */
-  function saveOpts(a: ActionDef): { magical: boolean; heavy: number } {
+  function saveOpts(a: ActionDef, origin?: GridPos): { magical: boolean; heavy: number; origin?: GridPos } {
     const avg = (a.damage ?? []).reduce((s, p) => s + averageDice(p.dice), 0);
-    return { magical: isMagical(a), heavy: a.save?.halfOnSave ? avg / 2 : avg };
+    return { magical: isMagical(a), heavy: a.save?.halfOnSave ? avg / 2 : avg, ...(origin ? { origin } : {}) };
   }
 
   // ------------------------------------------------------- damage and healing
@@ -499,7 +579,10 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     const e: GameEvent = { type: 'damage', targetId: target.id, amount, damageType: type, modifier, crit, hpAfter: target.hp };
     if (sourceId !== undefined) e.sourceId = sourceId;
     emit(e);
-    if (lastStand) log(`Last Stand! ${target.name} clings on at 1 HP.`);
+    if (lastStand) {
+      feature(target, 'lastStand', 'Last Stand');
+      log(`Last Stand! ${target.name} clings on at 1 HP.`);
+    }
     if (amount > 0) lastDamageType.set(target.id, type);
     if (target.hp === 0 && !survived) {
       target.dead = true;
@@ -559,7 +642,9 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     return (a.damage ?? []).map((p, i) => {
       let amount = roll(p.dice);
       if (savage && i === 0 && att) {
-        amount = Math.max(amount, roll(p.dice));
+        const second = roll(p.dice);
+        if (second > amount) feature(att, 'savageAttacker', 'Savage Attacker', { amount: second });
+        amount = Math.max(amount, second);
         savageUsed.set(att.id, turnKey());
       }
       return { type: i === 0 && typeOverride ? typeOverride : p.type, amount };
@@ -573,6 +658,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     const rounds = parseInt(fxVal(a, 'concentration') ?? '10', 10);
     conc.set(c.id, { name, onEnd });
     c.resources['_concentration'] = { name, current: rounds, max: 0, refresh: 'longRest' };
+    feature(c, 'concentrationStart', 'Concentrating', {});
     log(`${c.name} begins concentrating on ${name}.`);
   }
 
@@ -582,6 +668,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     conc.delete(c.id);
     delete c.resources['_concentration'];
     l.onEnd();
+    feature(c, 'concentrationEnd', 'Concentration ends', {});
     log(`${c.name}'s concentration on ${l.name} ends${why ? ` (${why})` : ''}.`);
   }
 
@@ -600,6 +687,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     reactionUsed.add(t.id);
     shielded.add(t.id);
     t.ac += 5;
+    feature(t, 'shield', 'Shield', { amount: 5 });
     log(`${t.name} casts Shield! (+5 AC until the start of their next turn)`);
   }
 
@@ -779,24 +867,112 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
   // ------------------------------------------------------- action resolution
 
   /** Resolve one action against one target (not area, not multiattack). */
-  /** Push a Large-or-smaller target up to 10 ft straight away, stopping at walls, drops and creatures. */
+  /**
+   * Forced movement (Shove, Push mastery, Thunderwave): up to `cells` cells in direction (dx, dy). It never provokes
+   * opportunity attacks (it does not go through `doMove`). It stops at walls and creatures but NOT at a drop or lava:
+   * a creature forced into one takes 1d6 per floor depth and climbs out prone (see `enterHazard`). Ice carries a
+   * pushed creature one cell further. Returns true when the creature moved at all.
+   */
+  function forcedMove(tgt: Creature, source: Creature | undefined, dx: number, dy: number, cells: number): boolean {
+    if (!isAlive(tgt)) return false;
+    const origin = { x: tgt.pos.x, y: tgt.pos.y };
+    const plan = planPush(nav, (p) => occupiedBy(p, tgt.id) !== undefined, origin, dx, dy, cells);
+    if (plan.path.length === 0 && !plan.obstacle) return false;
+    if (plan.path.length > 0) {
+      const last = plan.path[plan.path.length - 1] as GridPos;
+      tgt.pos = { x: last.x, y: last.y };
+      emit({ type: 'move', creatureId: tgt.id, path: plan.path.map((p) => ({ x: p.x, y: p.y })) });
+    }
+    if (plan.hazard) {
+      enterHazard(tgt, source, plan.hazard.kind, plan.hazard.at, origin);
+      return true;
+    }
+    // HOUSE RULE: a creature forced into shallow water is knocked Prone.
+    if (plan.water && isAlive(tgt) && !hasCondition(tgt, 'prone')) {
+      tgt.conditions.push(makeCondition('prone', null, source?.id));
+      emit({ type: 'conditionAdded', creatureId: tgt.id, condition: 'prone' });
+    }
+    if (plan.obstacle) {
+      slam(tgt, source, plan.obstacle.kind);
+      return true;
+    }
+    log(plan.slid ? `${tgt.name} slides across the ice.` : plan.water ? `${tgt.name} is pushed into the water and falls.` : `${tgt.name} is pushed back.`);
+    return true;
+  }
+
+  /**
+   * HOUSE RULE: a creature pushed against fire or spikes stops short and is slammed: 1d6 per TWO floor depths (minimum
+   * 1d6), fire or piercing. Events: a `feature` 'slam' (amount = the damage) and then the `damage` event. No rider.
+   */
+  function slam(tgt: Creature, source: Creature | undefined, kind: 'fire' | 'spikes'): void {
+    const dice = slamDice(depth);
+    const amount = rollDice(rng, `${dice}d6`).total;
+    feature(tgt, 'slam', 'Slammed!', { amount, ...(source ? { targetId: source.id } : {}) });
+    log(kind === 'fire' ? `${tgt.name} is slammed into the flames!` : `${tgt.name} is slammed onto the spikes!`);
+    dealDamage(tgt, amount, kind === 'fire' ? 'fire' : 'piercing', source?.id, false);
+  }
+
+  /**
+   * HOUSE RULE (owner's decision): a creature forced into a pit ('fall', bludgeoning) or lava (fire) takes 1d6 per
+   * floor depth, then climbs out onto the nearest free walkable cell to where it went in (ties: the cell it was
+   * pushed from) and is Prone. If the damage kills it, it is gone. Events: `hazard`, `damage`, `conditionAdded`
+   * prone, then a `move` whose path is the single cell it climbs out onto. Flying creatures are not exempt
+   * (the data has no fly flag yet).
+   */
+  function enterHazard(tgt: Creature, source: Creature | undefined, kind: 'fall' | 'lava', at: GridPos, origin: GridPos): void {
+    const h: GameEvent = { type: 'hazard', creatureId: tgt.id, hazard: kind, at: { x: at.x, y: at.y } };
+    if (source) h.sourceId = source.id;
+    emit(h);
+    log(kind === 'fall' ? `${tgt.name} plunges into the chasm!` : `${tgt.name} is thrown into the lava!`);
+    const amount = rollDice(rng, `${depth}d6`).total;
+    dealDamage(tgt, amount, kind === 'fall' ? 'bludgeoning' : 'fire', source?.id, false);
+    if (!isAlive(tgt)) return;
+    const out = climbOutCell(nav, (p) => occupiedBy(p, tgt.id) !== undefined, at, origin);
+    if (!out) {
+      // Nowhere to climb: it is lost.
+      tgt.hp = 0;
+      tgt.dead = true;
+      emit({ type: 'death', creatureId: tgt.id });
+      return;
+    }
+    tgt.conditions = tgt.conditions.filter((x) => x.condition !== 'prone');
+    tgt.conditions.push(makeCondition('prone', null, source?.id));
+    emit({ type: 'conditionAdded', creatureId: tgt.id, condition: 'prone' });
+    tgt.pos = { x: out.x, y: out.y };
+    emit({ type: 'move', creatureId: tgt.id, path: [{ x: out.x, y: out.y }] });
+  }
+
+  /** Push a Large-or-smaller target up to 10 ft straight away (Push mastery, Thunderwave). */
   function pushTarget(att: Creature, tgt: Creature): void {
     if (tgt.size === 'huge') return;
-    const dx = Math.sign(tgt.pos.x - att.pos.x);
-    const dy = Math.sign(tgt.pos.y - att.pos.y);
-    if (dx === 0 && dy === 0) return;
-    const path: GridPos[] = [];
-    let cur = tgt.pos;
-    for (let i = 0; i < 2; i++) {
-      const next = { x: cur.x + dx, y: cur.y + dy };
-      if (!nav.inBounds(next) || !nav.isWalkable(next) || occupiedBy(next) || !Number.isFinite(nav.stepCost(cur, next))) break;
-      path.push(next);
-      cur = next;
+    forcedMove(tgt, att, Math.sign(tgt.pos.x - att.pos.x), Math.sign(tgt.pos.y - att.pos.y), 2);
+  }
+
+  /** The save a shoved creature makes: its better of Strength and Dexterity, against 8 + the shover's Strength modifier + proficiency. */
+  function shoveSave(att: Creature, tgt: Creature): { ability: Ability; dc: number; failChance: number } {
+    const dc = 8 + abilityMod(att.abilities.str) + att.proficiencyBonus;
+    const outs = modOutcomes(tgt);
+    const succeed = (ab: Ability): number =>
+      autoFailsSave(tgt, ab) ? 0 : outs.reduce((t, k) => t + d20Probability(saveMode(tgt, ab), singleSaveProbability(saveBonus(tgt, ab) + k, dc)), 0) / outs.length;
+    const str = succeed('str');
+    const dex = succeed('dex');
+    return dex > str ? { ability: 'dex', dc, failChance: 1 - dex } : { ability: 'str', dc, failChance: 1 - str };
+  }
+
+  /** Shove (SRD Unarmed Strike): the target saves (its better of STR/DEX) or is pushed 5 ft or knocked Prone. */
+  function resolveShove(att: Creature, a: ActionDef, tgt: Creature): void {
+    const { ability, dc } = shoveSave(att, tgt);
+    const ok = rollSave(tgt, ability, dc);
+    if (ok) {
+      log(`${tgt.name} stands firm against the shove.`);
+      return;
     }
-    if (path.length === 0) return;
-    tgt.pos = { x: cur.x, y: cur.y };
-    emit({ type: 'move', creatureId: tgt.id, path });
-    log(`${tgt.name} is pushed back.`);
+    if (a.effects?.includes('shove:trip')) {
+      addCondition(tgt, { condition: 'prone' }, att);
+      log(`${att.name} knocks ${tgt.name} prone.`);
+      return;
+    }
+    if (!forcedMove(tgt, att, Math.sign(tgt.pos.x - att.pos.x), Math.sign(tgt.pos.y - att.pos.y), 1)) log(`${tgt.name} is braced and does not budge.`);
   }
 
   /** Scorching Ray: three spell attacks, each 2d6 fire, on one target or split among others when it falls. */
@@ -827,7 +1003,10 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
   /** The damage a target takes from a save-based effect: Evasion (DEX saves) turns half into none and none into half. */
   function saveDamage(t: Creature, a: ActionDef, ok: boolean, amount: number): number {
     const half = a.save?.halfOnSave === true;
-    if (half && a.save?.ability === 'dex' && hasFlag(t, 'evasion') && !isIncapacitated(t)) return ok ? 0 : Math.floor(amount / 2);
+    if (half && a.save?.ability === 'dex' && hasFlag(t, 'evasion') && !isIncapacitated(t)) {
+      feature(t, 'evasion', 'Evasion', { amount: ok ? amount : amount - Math.floor(amount / 2) });
+      return ok ? 0 : Math.floor(amount / 2);
+    }
     return ok ? (half ? Math.floor(amount / 2) : 0) : amount;
   }
 
@@ -841,6 +1020,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
 
   function resolveOn(att: Creature, a: ActionDef, tgt: Creature, reaction = false, name: string = a.name): void {
     const fx = a.effects ?? [];
+    if (fx.includes('shove')) return resolveShove(att, a, tgt);
     if (fx.includes('scorchingRays')) return castScorchingRays(att, a, tgt);
     if (fx.includes('spiritGuardians')) return castSpiritGuardians(att, a);
     if (fx.includes('magicMissile')) return castMagicMissile(att, a, tgt);
@@ -870,6 +1050,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       const dodge = hasFlag(tgt, 'uncannyDodge') && isAlive(tgt) && !isIncapacitated(tgt) && !reactionUsed.has(tgt.id);
       if (dodge) {
         reactionUsed.add(tgt.id);
+        feature(tgt, 'uncannyDodge', 'Uncanny Dodge', { targetId: att.id });
         log(`${tgt.name} uses Uncanny Dodge and halves the damage.`);
       }
       const parts = rollParts(a, crit, att, orb);
@@ -885,6 +1066,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
         if (lastAttackMode === 'advantage' || (allyNear && lastAttackMode !== 'disadvantage')) {
           sneakUsed.set(att.id, turnKey());
           const extra = rollDice(rng, `${sneak.current}d6`, { crit }).total;
+          feature(att, 'sneakAttack', 'Sneak Attack', { targetId: tgt.id, amount: extra });
           log(`${att.name} lands a Sneak Attack!`);
           dealDamage(tgt, dodge ? Math.floor(extra / 2) : extra, parts[0]?.type ?? 'piercing', att.id, crit);
           dealt += extra;
@@ -907,6 +1089,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
             damage: (a.damage ?? []).map((p, i) => (i === 0 ? { ...p, dice: withoutModifier(p.dice, mod) } : p)),
             effects: (a.effects ?? []).filter((e) => !e.startsWith('mastery:')),
           };
+          feature(att, 'cleave', 'Cleave', { targetId: second.id });
           log(`${att.name} cleaves into ${second.name}.`);
           resolveOn(att, sub, second, false, `${name} (Cleave)`);
         }
@@ -935,14 +1118,14 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       if (fx.includes('iceKnifeBurst')) iceKnifeBurst(att, a, tgt);
       if (!isAlive(tgt)) return;
       if (a.save) {
-        if (!rollSave(tgt, a.save.ability, a.save.dc, a.applies?.condition, saveOpts(a)) && a.applies) addCondition(tgt, a.applies, att);
+        if (!rollSave(tgt, a.save.ability, a.save.dc, a.applies?.condition, saveOpts(a, att.pos)) && a.applies) addCondition(tgt, a.applies, att);
       } else if (a.applies) {
         addCondition(tgt, a.applies, att);
       }
       return;
     }
     if (a.save) {
-      const ok = rollSave(tgt, a.save.ability, a.save.dc, a.applies?.condition, saveOpts(a));
+      const ok = rollSave(tgt, a.save.ability, a.save.dc, a.applies?.condition, saveOpts(a, att.pos));
       for (const part of rollParts(a, false)) {
         const amount = saveDamage(tgt, a, ok, part.amount);
         if (amount > 0 || !ok) dealDamage(tgt, amount, part.type, att.id, false);
@@ -955,7 +1138,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     if (a.applies) addCondition(tgt, a.applies, att);
   }
 
-  function resolveArea(att: Creature, a: ActionDef, cells: GridPos[]): void {
+  function resolveArea(att: Creature, a: ActionDef, cells: GridPos[], origin: GridPos = att.pos): void {
     const centeredOnSelf = a.targeting.kind === 'point' && a.targeting.range === 0;
     const fx = a.effects ?? [];
     const push = fx.includes('thunderwavePush');
@@ -976,7 +1159,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     // Farthest first, so a push is not blocked by the creature behind it.
     if (push) targets = targets.sort((x, y) => chebyshev(att.pos, y.pos) - chebyshev(att.pos, x.pos));
     const parts = rollParts(a, false);
-    const opts = saveOpts(a);
+    const opts = saveOpts(a, origin);
     for (const t of targets) {
       const ok = a.save ? rollSave(t, a.save.ability, a.save.dc, a.applies?.condition, opts) : false;
       for (const part of parts) {
@@ -1010,6 +1193,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       .filter((o) => {
         if (!isAlive(o)) return false;
         const sideOk = t.friendly ? isFriendlySide(o) === isFriendlySide(att) : areHostile(att, o);
+        if (isShove(def) && !canShoveSize(att.size, o.size)) return false;
         return sideOk && inReach(att, def, o);
       })
       .map((o) => o.id);
@@ -1029,7 +1213,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
 
   /** A weapon attack that belongs to the Attack action and so draws on Extra Attack (not spells, not off-hand extras). */
   function isPoolAttack(c: Creature, a: ActionDef): boolean {
-    return c.resources['_attacks'] !== undefined && a.cost === 'action' && !isSpellAction(a) && (a.id.startsWith('atk_') || a.id.startsWith('throw_') || a.id === 'unarmed');
+    return c.resources['_attacks'] !== undefined && a.cost === 'action' && !isSpellAction(a) && (a.id.startsWith('atk_') || a.id.startsWith('throw_') || a.id === 'unarmed' || isShove(a));
   }
 
   function useCheck(c: Creature, id: string): { ok: boolean; reason?: string } {
@@ -1049,6 +1233,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       }
     }
     if (a.recharge !== undefined && spentRecharge.get(c.id)?.has(a.id)) return { ok: false, reason: 'Recharging' };
+    // Dash and Disengage mean nothing for a creature that cannot move (grappled, restrained, speed 0).
+    if ((a.effects?.includes('dash') || a.effects?.includes('disengage') || a.effects?.includes('aggressive')) && speedOf(c) <= 0) return { ok: false, reason: 'You cannot move' };
     // Extra Attack: weapon attacks after the first use the same Attack action while attacks are left.
     const pool = isPoolAttack(c, a);
     const continuing = pool && atk.open && atk.left > 0;
@@ -1131,7 +1317,10 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     if (hasFlag(c, 'heroicRally') && isAlive(c) && c.hp <= c.maxHp / 2) {
       const before = c.hp;
       heal(c, String(Math.max(1, 5 + abilityMod(c.abilities.con))));
-      if (c.hp > before) log(`${c.name}'s Heroic Rally restores ${c.hp - before} hit points.`);
+      if (c.hp > before) {
+        feature(c, 'heroicRally', 'Heroic Rally', { amount: c.hp - before });
+        log(`${c.name}'s Heroic Rally restores ${c.hp - before} hit points.`);
+      }
     }
     for (const [id, by] of [...noHealing]) if (by === c.id) noHealing.delete(id);
     if (shielded.has(c.id)) {
@@ -1167,7 +1356,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     const prone = c.conditions.find((x) => x.condition === 'prone');
     if (prone && !isIncapacitated(c)) {
       removeCondition(c, prone);
-      turn.movementLeft = Math.max(0, turn.movementLeft - Math.floor(c.speed / 2));
+      // HOUSE RULE: standing up from Prone on ice costs all the remaining movement.
+      turn.movementLeft = nav.hazardAt(c.pos) === 'ice' ? 0 : Math.max(0, turn.movementLeft - Math.floor(c.speed / 2));
     }
     if (isIncapacitated(c)) {
       log(`${c.name} is incapacitated and loses the turn.`);
@@ -1381,7 +1571,10 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       log(`${c.name} surges into action!`);
     }
     // Tactical Shift: Second Wind also lets the hero move up to half speed without provoking opportunity attacks.
-    if (fx.includes('secondWind') && hasFlag(c, 'tacticalShift')) shift.set(c.id, Math.floor(speedOf(c) / 2));
+    if (fx.includes('secondWind') && hasFlag(c, 'tacticalShift')) {
+      shift.set(c.id, Math.floor(speedOf(c) / 2));
+      feature(c, 'tacticalShift', 'Tactical Shift', { amount: Math.floor(speedOf(c) / 2) });
+    }
     // Blink Dog Teleport. HOUSE RULE: the attack straight after it counts as made from hiding (advantage, so Sneak Attack applies).
     if (fx.includes('blink') && point) {
       c.pos = { x: point.x, y: point.y };
@@ -1410,12 +1603,12 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     }
     if (t.kind === 'point') {
       const origin = t.range === 0 && t.area.shape === 'sphere' ? c.pos : (point ?? c.pos);
-      resolveArea(c, a, computeAreaCells(nav, c.pos, origin, t.range, t.area));
+      resolveArea(c, a, computeAreaCells(nav, c.pos, origin, t.range, t.area), t.range === 0 ? c.pos : origin);
       return;
     }
     const primary = byId.get(targetId as string) as Creature;
-    if (a.multiattack) {
-      for (const sid of a.multiattack) {
+    const runSub = (ids: string[]): void => {
+      for (const sid of ids) {
         const sub = findAction(c, sid);
         if (!sub || !isAlive(c)) continue;
         let tgt: Creature | undefined = primary;
@@ -1426,6 +1619,17 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
         }
         if (tgt) resolveOn(c, sub, tgt);
       }
+    };
+    if (a.multiattack) {
+      runSub(a.multiattack);
+      return;
+    }
+    // HOUSE RULE: the SRD lets a shove replace one attack of the Attack action; for a monster with Multiattack it replaces
+    // the FIRST attack of the sequence, and the rest of the sequence follows (so a brute can shove and still strike).
+    if (isShove(a) && c.resources['_attacks'] === undefined) {
+      resolveOn(c, a, primary);
+      const seq = c.actions.find((x) => x.multiattack !== undefined && x.multiattack.length > 1);
+      if (seq && seq.multiattack) runSub(seq.multiattack.slice(1));
       return;
     }
     resolveOn(c, a, primary);
@@ -1437,17 +1641,19 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       const first = a.multiattack.map((id) => findAction(c, id)).find((x) => x !== undefined);
       return first ? chanceOf(first, c, tgt) : null;
     }
+    if (isShove(a)) return shoveSave(c, tgt).failChance;
     if (a.attack) {
       const s = attackSetup(c, tgt, a);
       const outs = modOutcomes(c);
-      const p = outs.reduce((t, k) => t + d20Probability(s.mode, singleHitProbability(s.bonus + k, tgt.ac, s.critMin)), 0) / outs.length;
+      const p = outs.reduce((t, k) => t + d20Probability(s.mode, singleHitProbability(s.bonus + k, tgt.ac + s.cover, s.critMin)), 0) / outs.length;
       return canInspire(c) ? p + (1 - p) * p : p;
     }
     if (a.save) {
       if (autoFailsSave(tgt, a.save.ability)) return 1;
       const mode = saveMode(tgt, a.save.ability, a.applies?.condition);
       const outs = modOutcomes(tgt);
-      return 1 - outs.reduce((t, k) => t + d20Probability(mode, singleSaveProbability(saveBonus(tgt, a.save!.ability) + k, a.save!.dc)), 0) / outs.length;
+      const cover = a.save.ability === 'dex' ? coverFor(nav, all, c.pos, tgt.pos) : 0;
+      return 1 - outs.reduce((t, k) => t + d20Probability(mode, singleSaveProbability(saveBonus(tgt, a.save!.ability) + cover + k, a.save!.dc)), 0) / outs.length;
     }
     return null;
   }
@@ -1491,6 +1697,11 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
           a.i - b.i,
       );
       for (const r of rolled) order.push(r.c.id);
+      // HOUSE RULE: lurkers that start out of every hero's sight get advantage on their first attack.
+      const heroes = all.filter((x) => isAlive(x) && x.faction === 'player');
+      for (const x of all) {
+        if (isAlive(x) && x.faction === 'enemy' && creatureTactic(x) === 'lurker' && heroes.length > 0 && heroes.every((h) => !nav.hasLineOfSight(h.pos, x.pos))) ambush.add(x.id);
+      }
       emit({ type: 'combatStart', order: [...order] });
       log(`Initiative: ${rolled.map((r) => `${r.c.name} ${r.total}`).join(', ')}.`);
       if (checkOver()) return events;
@@ -1532,6 +1743,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       const c = active();
       const out = [...c.actions];
       if (canBreakFree(c) && !out.some((a) => a.id === BREAK_FREE_ID)) out.push(breakFreeAction());
+      // Shove (SRD Unarmed Strike): generated for everyone; each takes the place of one attack.
+      for (const s of [shovePushAction(), shoveTripAction()]) if (!out.some((a) => a.id === s.id)) out.push(s);
       return out;
     },
 
@@ -1599,6 +1812,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       return events;
     },
   };
+  depthReaders.set(api, depth);
+  navReaders.set(api, nav);
   attackReaders.set(api, () => {
     if (!began || over) return 0;
     const c = active();

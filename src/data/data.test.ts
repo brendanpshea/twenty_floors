@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { MONSTERS } from './monsters';
 import { ITEMS } from './items';
-import type { MonsterDef, ThemeId, TraitId } from '../core/types';
+import type { ActionDef, MonsterDef, ThemeId, TraitId } from '../core/types';
 
 const TRAIT_IDS: TraitId[] = [
   'packTactics',
@@ -322,6 +322,11 @@ const XP_BY_CR: Record<number, number> = {
 /** Where the SRD 5.2.1 stat block prints a different figure from the table, the stat block wins. */
 const XP_AS_PRINTED: Record<string, number> = { archmage: 8000 };
 
+/** Monsters with a ranged attack, a save-based ranged effect or an area action; a floor so later edits cannot silently drop them. */
+const MIN_RANGED_OR_AREA = 113;
+const MIN_WITH_RANGED_ATTACK = 62;
+const MIN_WITH_AREA = 59;
+
 const DICE_RE = /^\d+(d\d+)?([+-]\d+)?$/;
 
 /** Average of an "NdM+K" expression. */
@@ -425,6 +430,150 @@ describe('monster data', () => {
         }
       }
     }
+  });
+});
+
+describe('monster ranged, spell and area actions', () => {
+  const byId = (id: string): MonsterDef => {
+    const m = MONSTERS.find((x) => x.id === id);
+    expect(m, id).toBeDefined();
+    return m as MonsterDef;
+  };
+  const isRangedAttack = (a: ActionDef): boolean => a.attack !== undefined && a.targeting.kind === 'creature' && !a.targeting.melee && !a.targeting.friendly;
+  const isArea = (a: ActionDef): boolean => a.targeting.kind === 'point';
+  const hasRangedOrArea = (m: MonsterDef): boolean => m.actions.some((a) => isRangedAttack(a) || isArea(a) || (a.save !== undefined && a.targeting.kind === 'creature' && !a.targeting.melee));
+  /** Effect ids the rules engine implements for monsters (data may use no others). */
+  const KNOWN_EFFECTS = ['spiritGuardians', 'sleep'];
+  const KNOWN_EFFECT_PATTERNS = [/^concentration:\d+$/];
+
+  it('gives area actions a point target with a positive area and a save, damage or heal', () => {
+    for (const m of MONSTERS) {
+      for (const a of m.actions) {
+        if (a.targeting.kind !== 'point') continue;
+        const t = a.targeting;
+        expect(['sphere', 'cone', 'line']).toContain(t.area.shape);
+        // A sphere may be a single cell (a leap onto one space); a cone or line, and anything centred on self, has size.
+        if (t.area.shape !== 'sphere' || t.range === 0) expect(t.area.size, `${m.id}.${a.id} area size`).toBeGreaterThan(0);
+        expect(a.save !== undefined || a.heal !== undefined, `${m.id}.${a.id} needs a save or heal`).toBe(true);
+        expect(a.damage !== undefined || a.applies !== undefined || a.heal !== undefined, `${m.id}.${a.id} needs an effect`).toBe(true);
+        expect(a.attack, `${m.id}.${a.id} area actions have no attack roll`).toBeUndefined();
+      }
+    }
+  });
+
+  it('gives save actions a positive DC and a known ability, and saveEnds a DC too', () => {
+    for (const m of MONSTERS) {
+      for (const a of m.actions) {
+        if (a.save) {
+          expect(['str', 'dex', 'con', 'int', 'wis', 'cha'], `${m.id}.${a.id}`).toContain(a.save.ability);
+          expect(a.save.dc, `${m.id}.${a.id} dc`).toBeGreaterThanOrEqual(8);
+        }
+        if (a.applies?.saveEnds) expect(a.applies.saveEnds.dc, `${m.id}.${a.id} saveEnds dc`).toBeGreaterThanOrEqual(8);
+      }
+    }
+  });
+
+  it('gives recharge and uses values the engine understands', () => {
+    for (const m of MONSTERS) {
+      for (const a of m.actions) {
+        if (a.recharge !== undefined) {
+          expect(a.recharge, `${m.id}.${a.id} recharge`).toBeGreaterThanOrEqual(2);
+          expect(a.recharge, `${m.id}.${a.id} recharge`).toBeLessThanOrEqual(6);
+        }
+        if (a.uses) {
+          expect(Number.isInteger(a.uses.amount) && a.uses.amount >= 1, `${m.id}.${a.id} uses amount`).toBe(true);
+          expect(a.uses.resource.length, `${m.id}.${a.id} resource`).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it('gives friendly (heal) actions a heal and no attack', () => {
+    for (const m of MONSTERS) {
+      for (const a of m.actions) {
+        if (a.targeting.kind === 'creature' && a.targeting.friendly) {
+          expect(a.heal, `${m.id}.${a.id} heal`).toBeDefined();
+          expect(a.attack, `${m.id}.${a.id}`).toBeUndefined();
+        }
+      }
+    }
+  });
+
+  it('uses only effect ids the rules engine implements', () => {
+    for (const m of MONSTERS) {
+      for (const a of m.actions) {
+        for (const e of a.effects ?? []) {
+          const ok = KNOWN_EFFECTS.includes(e) || KNOWN_EFFECT_PATTERNS.some((p) => p.test(e));
+          expect(ok, `${m.id}.${a.id} effect ${e}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('keeps a ranged attack on the well-known archers and thrower types', () => {
+    const RANGED = [
+      'scout', 'goblin_warrior', 'goblin_boss', 'goblin_minion', 'kobold_warrior', 'skeleton', 'bandit_captain', 'warrior_veteran', 'tough_boss',
+      'priest', 'hobgoblin_warrior', 'hobgoblin_captain', 'gladiator', 'pirate', 'knight', 'guard_captain', 'pirate_captain', 'assassin',
+      'mage', 'archmage', 'lich', 'wererat', 'werewolf', 'weretiger', 'wereboar', 'werebear', 'centaur_trooper', 'bugbear_stalker', 'bugbear_warrior', 'ogre',
+      'stone_giant', 'fire_giant', 'hill_giant', 'frost_giant', 'cloud_giant', 'storm_giant', 'manticore', 'drider', 'medusa', 'earth_elemental',
+      'treant', 'oni', 'barbed_devil', 'horned_devil', 'ice_devil', 'efreeti', 'djinni', 'spirit_naga', 'wight', 'vampire_familiar', 'stone_golem', 'iron_golem',
+      'mummy_lord', 'adult_red_dragon', 'ancient_red_dragon', 'adult_black_dragon', 'adult_silver_dragon', 'dryad', 'merrow', 'salamander', 'cultist_fanatic',
+    ];
+    for (const id of RANGED) {
+      const m = byId(id);
+      expect(m.actions.some((a) => isRangedAttack(a) || (a.save !== undefined && a.targeting.kind === 'creature' && !a.targeting.melee)), `${id} has a ranged attack`).toBe(true);
+    }
+  });
+
+  it('gives the archers a ranged multiattack as well as a melee one', () => {
+    for (const id of ['scout', 'bandit_captain', 'warrior_veteran', 'tough_boss', 'hobgoblin_captain', 'knight', 'assassin', 'centaur_trooper', 'frost_giant', 'priest']) {
+      const m = byId(id);
+      const ranged = m.actions.filter((a) => a.multiattack && a.multiattack.every((sid) => {
+        const sub = m.actions.find((x) => x.id === sid);
+        return sub !== undefined && isRangedAttack(sub);
+      }));
+      expect(ranged.length, `${id} ranged multiattack`).toBeGreaterThan(0);
+    }
+  });
+
+  it('gives every dragon and wyrmling a recharging area attack (its breath)', () => {
+    const dragons = MONSTERS.filter((m) => /Dragon|Wyrmling/.test(m.name));
+    expect(dragons.length).toBeGreaterThanOrEqual(20);
+    for (const m of dragons) {
+      const breath = m.actions.filter((a) => a.targeting.kind === 'point' && a.recharge !== undefined && a.save !== undefined && a.damage !== undefined);
+      expect(breath.length, `${m.id} breath`).toBeGreaterThan(0);
+      expect(breath[0]?.save?.halfOnSave, `${m.id} breath halves on a save`).toBe(true);
+    }
+  });
+
+  it('keeps the spell-like actions restored from the stat blocks', () => {
+    const has = (id: string, actionId: string): ActionDef => {
+      const a = byId(id).actions.find((x) => x.id === actionId);
+      expect(a, `${id}.${actionId}`).toBeDefined();
+      return a as ActionDef;
+    };
+    const guardians = has('priest', 'spirit_guardians');
+    expect(guardians.save).toEqual({ ability: 'wis', dc: 13, halfOnSave: true });
+    expect(guardians.damage).toEqual([{ dice: '3d8', type: 'radiant' }]);
+    expect(has('priest', 'healing_word').targeting).toMatchObject({ friendly: true, melee: false });
+    expect(has('oni', 'sleep').effects).toContain('sleep');
+    expect(has('dryad', 'entangle').applies?.condition).toBe('restrained');
+    expect(has('guardian_naga', 'cure_wounds').heal).toBe('12d8+4');
+    expect(has('adult_red_dragon', 'fireball').save?.dc).toBe(20);
+    expect(has('ancient_red_dragon', 'fireball').damage).toEqual([{ dice: '11d6', type: 'fire' }]);
+    expect(has('adult_black_dragon', 'vitriolic_sphere').damage).toEqual([{ dice: '10d4', type: 'acid' }]);
+    expect(has('adult_blue_dragon', 'shatter').save).toEqual({ ability: 'con', dc: 18, halfOnSave: true });
+    expect(has('adult_silver_dragon', 'hold_monster').applies).toMatchObject({ condition: 'paralyzed', saveEnds: { ability: 'wis', dc: 19 } });
+    expect(has('mage', 'fireball').damage).toEqual([{ dice: '9d6', type: 'fire' }]);
+    expect(has('archmage', 'lightning_bolt').damage).toEqual([{ dice: '12d6', type: 'lightning' }]);
+    expect(has('lich', 'finger_of_death').save?.dc).toBe(20);
+  });
+
+  it('does not lose ranged, spell or area actions: at least this many monsters have one', () => {
+    const count = MONSTERS.filter(hasRangedOrArea).length;
+    expect(count).toBeGreaterThanOrEqual(MIN_RANGED_OR_AREA);
+    expect(MONSTERS.filter((m) => m.actions.some(isRangedAttack)).length).toBeGreaterThanOrEqual(MIN_WITH_RANGED_ATTACK);
+    expect(MONSTERS.filter((m) => m.actions.some(isArea)).length).toBeGreaterThanOrEqual(MIN_WITH_AREA);
   });
 });
 

@@ -1,5 +1,7 @@
 import type { Rng } from '../core/rng';
-import type { Creature, FloorPlan, MonsterDef, SpawnSlot, ThemeId } from '../core/types';
+import type { Creature, FloorPlan, MonsterDef, MonsterTactic, SpawnPost, SpawnSlot, ThemeId } from '../core/types';
+import { flexibleAlternative, isFlexible, tacticOf } from './tactics';
+import { flagPool } from './util';
 import { THEME_TUNING, type ThemeTuning } from './encounterTable';
 import { instantiateMonster } from './monster';
 
@@ -74,6 +76,11 @@ export interface EncounterTuning {
    * entry it replaces budgetByLevel and bossByDepth.
    */
   themeTuning: ThemeTuning;
+  /**
+   * Re-tune correction: a multiplier on the floor's level budget per depth (index depth-1; 1 when missing). The theme table and
+   * the quick party model proved a poor guide for the real engine, so the real-engine measurements of src/balance set this.
+   */
+  depthScale: number[];
 }
 
 /**
@@ -125,15 +132,17 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   // table together with themeForDepth.
   bossByDepth: { 4: 'green_hag', 5: 'otyugh', 6: 'shambling_mound', 7: 'treant', 8: 'pirate_captain', 9: 'assassin', 10: 'stone_golem', 11: 'archmage', 12: 'clay_golem', 13: 'fire_giant', 14: 'remorhaz', 15: 'adult_white_dragon', 16: 'storm_giant', 17: 'adult_green_dragon', 18: 'marilith', 19: 'balor', 20: 'adult_red_dragon' },
   themeTuning: THEME_TUNING,
+  depthScale: Array<number>(20).fill(1),
   monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5 },
 };
 
 /** The level budget for a floor: the theme's own figure at this depth if it has one. */
 export function levelBudgetAt(depth: number, theme?: ThemeId): number {
+  const scale = ENCOUNTER_TUNING.depthScale[Math.min(Math.max(depth, 1), 20) - 1] ?? 1;
   const own = theme ? ENCOUNTER_TUNING.themeTuning[theme]?.[depth]?.budget : undefined;
-  if (own !== undefined) return own;
+  if (own !== undefined) return own * scale;
   const table = ENCOUNTER_TUNING.budgetByLevel;
-  return table[Math.min(Math.max(depth, 1), table.length) - 1] as number;
+  return (table[Math.min(Math.max(depth, 1), table.length) - 1] as number) * scale;
 }
 
 export function minMonstersAt(depth: number): number {
@@ -166,6 +175,47 @@ export function roomBudget(
   const base = levelBudgetAt(depth, theme);
   const dist = Math.min(t.distanceCap, t.distanceBase + t.perDistance * distanceFromEntrance);
   return base * t.soloFactor * t.roomRoleFactor[roomRole] * dist;
+}
+
+/** The posts each tactic wants, best first (see SpawnPost). */
+const POST_PREFERENCE: Record<MonsterTactic, SpawnPost[]> = {
+  archer: ['high', 'back', 'flank', 'escort', 'guard', 'front', 'hidden'],
+  caster: ['high', 'back', 'escort', 'flank', 'guard', 'front', 'hidden'],
+  brute: ['front', 'guard', 'flank', 'escort', 'back', 'high', 'hidden'],
+  guard: ['guard', 'front', 'escort', 'flank', 'back', 'high', 'hidden'],
+  skirmisher: ['flank', 'front', 'hidden', 'guard', 'escort', 'back', 'high'],
+  lurker: ['hidden', 'flank', 'back', 'guard', 'front', 'escort', 'high'],
+  leader: ['back', 'escort', 'high', 'guard', 'flank', 'front', 'hidden'],
+};
+
+/** Who picks first: the roles with the narrowest wishes (a lurker needs a hidden spot, a leader a back one). */
+const PICK_ORDER: MonsterTactic[] = ['lurker', 'leader', 'archer', 'caster', 'skirmisher', 'guard', 'brute'];
+
+/**
+ * Match chosen monsters to spawn slots by tactic and post (archers and casters to high and back ground, brutes and
+ * guards to the front, skirmishers to the flanks, lurkers to hidden spots, leaders to the back). Uses no randomness:
+ * ties go to the earlier slot of the (already shuffled) list. Without posts on the slots it is the old behaviour:
+ * the i-th monster takes the i-th slot. Returns one slot per monster, index-aligned with `defs`.
+ */
+export function assignSlots(defs: MonsterDef[], slots: SpawnSlot[]): SpawnSlot[] {
+  if (!slots.some((s) => s.post !== undefined)) return defs.map((_, i) => slots[i] as SpawnSlot);
+  const pool = slots.slice();
+  const out = new Array<SpawnSlot>(defs.length);
+  const order = defs.map((d, i) => ({ d, i, t: tacticOf(d) })).sort((a, b) => PICK_ORDER.indexOf(a.t) - PICK_ORDER.indexOf(b.t) || a.i - b.i);
+  for (const { i, t } of order) {
+    const pref = POST_PREFERENCE[t];
+    let best = -1;
+    let bestRank = Infinity;
+    pool.forEach((slot, k) => {
+      const rank = slot.post === undefined ? 3 : pref.indexOf(slot.post);
+      if (rank < bestRank) {
+        bestRank = rank;
+        best = k;
+      }
+    });
+    out[i] = pool.splice(best, 1)[0] as SpawnSlot;
+  }
+  return out;
 }
 
 function pickGroup(pool: MonsterDef[], maxCount: number, budget: number, depth: number, rng: Rng): MonsterDef[] {
@@ -271,12 +321,16 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
       const cap = pool.length > 0 ? Math.min(bossMinionLimit(plan.depth), monsterSlots.length) : 0;
       let n = 0;
       for (let i = 0; i < cap; i++) if (rng.chance(bossMinionChanceAt(plan.depth))) n++;
-      for (let i = 0; i < n; i++) placements.push({ def: rng.pick(pool), slot: monsterSlots[i] as SpawnSlot });
+      const escorts: MonsterDef[] = [];
+      for (let i = 0; i < n; i++) escorts.push(rng.pick(pool));
+      const escortSlots = assignSlots(escorts, monsterSlots);
+      escorts.forEach((def, i) => placements.push({ def, slot: escortSlots[i] as SpawnSlot }));
     } else if (monsterSlots.length > 0 && regular.length > 0) {
       const budget = roomBudget(plan.depth, room.role, room.distanceFromEntrance, plan.theme);
       if (budget > 0) {
         const group = pickGroup(regular, Math.min(maxMonstersAt(plan.depth), monsterSlots.length), budget, plan.depth, rng);
-        group.forEach((def, i) => placements.push({ def, slot: monsterSlots[i] as SpawnSlot }));
+        const groupSlots = assignSlots(group, monsterSlots);
+        group.forEach((def, i) => placements.push({ def, slot: groupSlots[i] as SpawnSlot }));
       }
     }
 
@@ -286,6 +340,12 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
     const seen = new Map<string, number>();
     placements.forEach((p, n) => {
       const creature = instantiateMonster(p.def, `m_${roomId}_${n}`, p.slot.pos);
+      // A monster with both a good bow and a good sword plays the role its post gives it: archer on a high or back post,
+      // the alternative (guard or brute) on a front, guard or flank post. Without a post it keeps its default.
+      if (isFlexible(p.def) && p.slot.post !== undefined) {
+        const t: MonsterTactic = p.slot.post === 'high' || p.slot.post === 'back' ? 'archer' : p.slot.post === 'front' || p.slot.post === 'guard' || p.slot.post === 'flank' ? flexibleAlternative(p.def) : tacticOf(p.def);
+        creature.resources[`_tactic_${t}`] = flagPool(`tactic_${t}`);
+      }
       if ((totals.get(p.def.id) ?? 0) > 1) {
         const k = seen.get(p.def.id) ?? 0;
         seen.set(p.def.id, k + 1);

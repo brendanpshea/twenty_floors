@@ -155,12 +155,13 @@ function fight(
   policy: PolicyFn,
   rng: Rng,
   party?: Party,
+  depth = 1,
 ): FightOutcome {
   const hero = toCreature(pc, at);
   const companion = party
     ? createCompanion(requireCompanion(party.id), pc.level, party.state, cellBeside(at, nav, [at, ...monsters.map((m) => m.pos)]))
     : undefined;
-  const combat = createCombat(companion ? [hero, companion, ...monsters] : [hero, ...monsters], nav, rng);
+  const combat = createCombat(companion ? [hero, companion, ...monsters] : [hero, ...monsters], nav, rng, { depth });
   const driver = createPartyDriver(party?.stance ?? 'close', policy);
   const events: GameEvent[] = [...combat.begin()];
   let rounds = 0;
@@ -376,7 +377,7 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
       at = freeCell(at, group);
       const role = group.some((m) => plan.rooms.find((r) => r.id === m.roomId)?.role === 'boss') ? 'boss' : roleOfTarget === 'boss' ? 'combat' : (plan.rooms.find((r) => r.id === group[0]?.roomId)?.role ?? 'combat');
       const hpBefore = cur.hp / cur.maxHp;
-      const out = fight(cur, group.map((m) => m.creature), nav, at, policy, rng, party);
+      const out = fight(cur, group.map((m) => m.creature), nav, at, policy, rng, party, depth);
       result.log.push({ roomId: group[0]?.roomId ?? -1, role, monsters: group.map((m) => m.creature.defId), hpBefore, won: out.won });
       cur = out.pc;
       if (party && out.companion) party.state = out.companion;

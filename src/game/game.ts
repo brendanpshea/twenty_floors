@@ -1,5 +1,8 @@
 import { MILESTONE_FLOORS } from '../core/themes';
-import { createCharacter, getCreationOptions, migrateEquipment } from '../rules';
+import { COMPANION_JOIN_LEVEL } from '../core/types';
+import type { CompanionState } from '../core/types';
+import { createCharacter, getCompanion, getCreationOptions, migrateEquipment, newCompanionState } from '../rules';
+import { defaultCompanionId } from './party';
 import { runBot } from './autoplay';
 import type { BotResult } from './autoplay';
 import type { GameDeps, RunState } from './deps';
@@ -11,6 +14,15 @@ import { devStartDepth, isDevStart } from './runPlan';
 import type { QuickOptions } from './quickBuild';
 import { deleteSave, loadQuality, loadSave, runFromSave, writeSave } from './save';
 
+/** The dev companion: the ?companion= one (or by seed, from level 4), in the ?stance= stance. */
+function devCompanion(o: GameDeps['options'], level: number, seed: number): CompanionState | undefined {
+  if (o.companion === 'none' || level < COMPANION_JOIN_LEVEL) return undefined;
+  const id = o.companion && getCompanion(o.companion) ? o.companion : defaultCompanionId(seed);
+  const state = newCompanionState(id, level);
+  if (o.stance) state.stance = o.stance;
+  return state;
+}
+
 /** The ?preset= ?background= ?spell= choices of a dev start. */
 function devHero(o: GameDeps['options']): QuickOptions {
   const out: QuickOptions = {};
@@ -18,6 +30,12 @@ function devHero(o: GameDeps['options']): QuickOptions {
   if (o.background) out.background = o.background;
   if (o.spell) out.spell = o.spell;
   return out;
+}
+
+/** The last floor of a normal run: the milestone, or further when the dev ?floors= says so (3 to 20). */
+export function lastFloor(o: GameDeps['options']): number {
+  if (o.floors === undefined) return MILESTONE_FLOORS;
+  return Math.max(MILESTONE_FLOORS, Math.min(20, Math.floor(o.floors) || MILESTONE_FLOORS));
 }
 
 export type RunEnd = 'victory' | 'quit';
@@ -58,11 +76,17 @@ export class Game {
     if (isDevStart(options)) {
       // Dev shortcuts reach any floor, 1 to 20, whatever the milestone; normal play stops at MILESTONE_FLOORS.
       const depth = devStartDepth(options);
+      const seed = options.seed ?? this.deps.newSeed();
+      // ?level= sets the hero's level on its own; by default the hero is as strong as the floor expects.
+      const level = Math.max(1, Math.min(20, Math.floor(options.level ?? depth)));
+      const pc = quickCharacter(level, devHero(options));
+      const companion = devCompanion(options, pc.level, seed);
       await this.playRun({
-        runSeed: options.seed ?? this.deps.newSeed(),
+        runSeed: seed,
         depth,
-        pc: quickCharacter(depth, devHero(options)),
+        pc,
         shortRestsLeft: SHORT_RESTS_PER_FLOOR,
+        ...(companion ? { companion } : {}),
       });
     }
     while (!this.stopped) {
@@ -143,13 +167,14 @@ export class Game {
       }
       // Floor cleared.
       session.dispose();
-      if (run.depth >= MILESTONE_FLOORS) {
+      if (run.depth >= lastFloor(options)) {
         await ui.showVictory({ floorsCleared: run.depth });
         deleteSave(storage);
         return 'victory';
       }
-      const pc = await runHub(ui, this.deps.audio, outcome.pc, run.depth, options.autoplay === true && options.headless === true, run.runSeed);
-      run = { runSeed: run.runSeed, depth: run.depth + 1, pc, shortRestsLeft: SHORT_RESTS_PER_FLOOR };
+      const left = await runHub(ui, this.deps.audio, outcome.pc, run.depth, options.autoplay === true && options.headless === true, run.runSeed, outcome.companion ?? run.companion);
+      run = { runSeed: run.runSeed, depth: run.depth + 1, pc: left.pc, shortRestsLeft: SHORT_RESTS_PER_FLOOR };
+      if (left.companion) run.companion = left.companion;
     }
   }
 }

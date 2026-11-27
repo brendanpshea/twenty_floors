@@ -1,7 +1,7 @@
 import { Rng, floorSeed } from '../core/rng';
 import { THEMES } from '../core/themes';
 import { SHORT_RESTS_PER_LONG_REST } from '../core/types';
-import type { Creature, GridPos, PickResult, PlayerCharacter, UiIntent } from '../core/types';
+import type { CompanionStance, Creature, GridPos, PickResult, PlayerCharacter, UiIntent } from '../core/types';
 import { MONSTERS } from '../data/monsters';
 import { createNavGrid, generateFloor } from '../gen';
 import { buildEncounters, enterFloor, syncFromCreature, toCreature } from '../rules';
@@ -11,10 +11,11 @@ import { Explore } from './explore';
 import { cellDistance, revealFrom } from './fog';
 import type { FloorState, SessionCtx } from './floorState';
 import { creatureById, isSeen, livingMonsters, monsterDef, setEntityVisible } from './floorState';
-import { CAST_PREFIX, buildHudModel } from './hudModel';
+import { CAST_PREFIX, PRAYER_ID, buildHudModel } from './hudModel';
+import { makeCompanionRuntime } from './party';
 import { Playback } from './playback';
 import { floorTheme } from './runPlan';
-import { loadQuality, saveQuality } from './save';
+import { loadQuality, saveQuality, writeSave } from './save';
 
 /** The player's model, whatever the species. */
 const HERO_MODEL = 'hero_knight';
@@ -30,6 +31,7 @@ export class FloorSession {
   state!: FloorState;
   explore!: Explore;
   combat!: CombatController;
+  playback!: Playback;
   /** The character as it entered the floor (what the save holds). */
   entryCharacter!: PlayerCharacter;
   entered = false;
@@ -77,6 +79,7 @@ export class FloorSession {
       floorRng,
       pc,
       player,
+      companion: null,
       monsters: placed.map((p) => ({
         creature: p.creature,
         roomId: p.roomId,
@@ -100,15 +103,17 @@ export class FloorSession {
       shownDead: new Set(),
       shownActive: null,
       lastHitBy: '',
+      fallen: new Set(),
       entityVisible: new Map(),
       finished: false,
     };
     const state = this.state;
     state.stairsOpen = !state.monsters.some((m) => m.boss);
+    state.companion = makeCompanionRuntime(state, run.companion);
     if (state.revealAll) state.seen.fill(1);
 
     this.ctx = this.makeCtx();
-    const playback = new Playback(this.ctx);
+    const playback = (this.playback = new Playback(this.ctx));
     this.explore = new Explore(this.ctx, { beginCombat: (m) => this.combat.begin(m) });
     this.combat = new CombatController(this.ctx, playback, this.attempt, () => undefined);
 
@@ -118,6 +123,7 @@ export class FloorSession {
     if (typeof warm === 'function') {
       const keys = new Set<string>([HERO_MODEL, 'chest', 'rest_site']);
       for (const m of state.monsters) keys.add(m.creature.visual.model);
+      if (state.companion) keys.add(state.companion.creature.visual.model);
       try {
         await warm.call(renderer, [...keys], 2000);
       } catch (err) {
@@ -126,6 +132,11 @@ export class FloorSession {
     }
     renderer.spawnEntity('player', state.player.visual, state.player.pos, { faction: 'player', size: state.player.size });
     state.entityVisible.set('player', true);
+    if (state.companion) {
+      const c = state.companion.creature;
+      renderer.spawnEntity('companion', c.visual, c.pos, { faction: 'ally', size: c.size });
+      state.entityVisible.set('companion', true);
+    }
     for (const m of state.monsters) {
       const c = m.creature;
       renderer.spawnEntity(c.id, c.visual, c.pos, { faction: c.faction, size: c.size });
@@ -230,7 +241,11 @@ export class FloorSession {
       this.lastMask = state.seen.slice();
       renderer.setRevealed(this.lastMask);
     }
-    for (const m of state.monsters) setEntityVisible(this.ctx, m.creature.id, isSeen(state, m.creature.pos));
+    for (const m of state.monsters) {
+      // A creature down in a pit stays out of sight, whatever the fog says.
+      if (state.fallen.has(m.creature.id)) continue;
+      setEntityVisible(this.ctx, m.creature.id, isSeen(state, m.creature.pos));
+    }
     for (const c of state.chests) setEntityVisible(this.ctx, c.id, isSeen(state, c.pos));
     for (const r of state.restSites) setEntityVisible(this.ctx, r.id, isSeen(state, r.pos));
     if (!state.restSpotted && state.restSites.some((r) => isSeen(state, r.pos))) {
@@ -258,6 +273,7 @@ export class FloorSession {
     r.setHighlights([]);
     r.followEntity(null);
     r.removeEntity('player');
+    if (this.state.companion) r.removeEntity('companion');
     for (const m of this.state.monsters) r.removeEntity(m.creature.id);
     for (const c of this.state.chests) r.removeEntity(c.id);
     for (const rs of this.state.restSites) r.removeEntity(rs.id);
@@ -348,8 +364,12 @@ export class FloorSession {
         break;
       case 'selectAction':
         if (state.mode === 'combat') this.safe(this.combat.selectAction(intent.actionId));
+        else if (intent.actionId === PRAYER_ID) this.safe(this.explore.prayer());
         else if (intent.actionId.startsWith(CAST_PREFIX)) this.safe(this.explore.castSpell(intent.actionId.slice(CAST_PREFIX.length)));
         else this.explore.useItem(intent.actionId);
+        break;
+      case 'setStance':
+        this.setStance(intent.stance);
         break;
       case 'selectCreature': {
         const c = creatureById(state, intent.creatureId);
@@ -360,6 +380,20 @@ export class FloorSession {
         break;
       }
     }
+  }
+
+  /** Change the companion's stance, now and in the save (any time, also mid-fight). */
+  setStance(stance: CompanionStance): void {
+    const rt = this.state.companion;
+    if (!rt || rt.state.stance === stance) return;
+    rt.state.stance = stance;
+    this.combat.setStance(stance);
+    this.deps.audio.play('stanceChange');
+    if (this.run.companion) {
+      this.run.companion = { ...this.run.companion, stance };
+      writeSave(this.deps.storage, { ...this.run, pc: this.entryCharacter });
+    }
+    this.pushHud();
   }
 
   private async openMenu(): Promise<void> {
