@@ -7,8 +7,9 @@ import type { MonsterDef } from '../../core/types';
 export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // Simplified: keeps Claw and Death Glare. Death Glare (Recharge 5-6) is a ranged Wisdom save for 3d8 psychic (range 30 ft.,
   // so a single range); the SRD's "Frightened target only" requirement and its drop-to-0-HP clause for targets at 20 HP or
-  // fewer cannot be expressed. Drops Amphibious, Coven Magic, Vile Appearance (aura), Illusory Appearance. Swim 40 ft. is
-  // not used: she walks at 30 ft.
+  // fewer cannot be expressed. Vile Appearance is a bonus-action 30-ft. (6-cell) burst centred on her: Wisdom save DC 11 or
+  // Frightened for 1 round (the SRD aura works at the start of each target's turn; the Beast/Humanoid limit and the 24-hour
+  // immunity are not modelled). Drops Amphibious, Coven Magic, Illusory Appearance. Swim 40 ft. is not used: she walks at 30 ft.
   {
     id: 'sea_hag',
     name: 'Sea Hag',
@@ -49,6 +50,16 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         recharge: 5,
         save: { ability: 'wis', dc: 11, halfOnSave: false },
         damage: [{ dice: '3d8', type: 'psychic' }],
+      },
+      {
+        id: 'vile_appearance',
+        name: 'Vile Appearance',
+        description: 'Her true face, bloated and rotting, makes onlookers recoil in horror.',
+        icon: 'special',
+        cost: 'bonus',
+        targeting: { kind: 'point', range: 0, area: { shape: 'sphere', size: 6 } },
+        save: { ability: 'wis', dc: 11, halfOnSave: false },
+        applies: { condition: 'frightened', rounds: 1 },
       },
     ],
     visual: { model: 'hag_green', tint: 0x50d0c0, scale: 0.9 },

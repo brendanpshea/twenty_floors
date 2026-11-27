@@ -16,8 +16,8 @@ export function runTuneShard(shard: number, shards: number, env: Record<string, 
   const file = (env['TEMP'] ?? '.') + '/' + (env['ROOM_TUNE_OUT'] ?? 'roomTune.jsonl');
   for (const p of mine) {
     const r = tunePairing(p.theme, p.depth, env['ROOM_TUNE_SEED0'] ? { seed0: Number(env['ROOM_TUNE_SEED0']) } : {});
-    // Then the budget once more, against the clear rate of a large pooled sample (skip with ROOM_TUNE_POLISH=0).
-    const polished = env['ROOM_TUNE_POLISH'] === '0' ? undefined : polishPairing(p.theme, p.depth);
+    // Then the budget once more, against the clear rate of a large pooled sample (slow, so only with ROOM_TUNE_POLISH=1).
+    const polished = env['ROOM_TUNE_POLISH'] !== '1' ? undefined : polishPairing(p.theme, p.depth);
     if (polished) {
       r.entry.budget = polished.budget;
       r.entry.modelClear = Math.round(polished.predicted * 100) / 100;

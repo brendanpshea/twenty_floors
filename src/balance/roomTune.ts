@@ -15,7 +15,8 @@ import { measureRooms, predictClear } from './rooms';
  *
  * Mean loss per fight is a steady number (dozens of fights per measurement), where a floor's clear rate is not, and the
  * two searches do not disturb each other (the boss scale leaves ordinary rooms alone). The same seeds are fought at every
- * setting tried. A pairing takes a few seconds; all of them a few minutes on four shards:
+ * setting tried. It is built to be FAST: one pass, small samples (about 25 ordinary fights and 12 boss fights per
+ * measurement), a handful of measurements per pairing. Every pairing from floor 4, on four shards, takes about two minutes:
  *
  *   ROOM_TUNE=1 npx vitest run src/balance/roomTune --disableConsoleIntercept
  *
@@ -29,15 +30,16 @@ export const ROOM_TUNE = {
   target: (depth: number): number => (depth <= 3 ? 0.85 : depth <= 10 ? 0.75 : depth <= 19 ? 0.67 : 0.58),
   tolerance: 0.02,
   bossTolerance: 0.04,
-  combatFloors: 10,
-  bossFloors: 24,
+  bossSwapBeyond: 0.12,
+  combatFloors: 6,
+  bossFloors: 12,
   seed0: 500,
   /** Budget multipliers the search may reach, relative to the entry it starts from. */
   budgetFactor: [0.15, 8] as [number, number],
   bossScaleRange: [0.3, 5] as [number, number],
-  maxSteps: 7,
+  maxSteps: 4,
   /** Rounds of nudging the loss targets toward the clear-rate target, and how near is near enough. */
-  passes: 3,
+  passes: 1,
   clearTolerance: 0.06,
   /** Bosses tried for a floor: challenge rating from this share of the depth up to the depth plus one. */
   bossCr: [0.45, 1] as [number, number],
@@ -140,11 +142,12 @@ export function tunePairing(theme: ThemeId, depth: number, opts: { seed0?: numbe
         t.bossScaleRange[1],
         wanted,
         t.bossTolerance,
-        t.maxSteps - 2,
+        3,
       );
       count += r.n;
       if (!bestBoss || Math.abs(r.y - wanted) < Math.abs(bestBoss.loss - wanted) - 0.02) bestBoss = { boss: cand, scale: Math.round(r.x * 100) / 100, loss: r.y };
-      if (Math.abs(r.y - wanted) <= t.bossTolerance) break;
+      // Another boss is only tried when this one is far from the target at every scale (it is deadly, or harmless, by itself).
+    if (Math.abs(r.y - wanted) <= t.bossSwapBeyond) break;
     }
     if (bestBoss) {
       if (bestBoss.boss) entry.boss = bestBoss.boss;
@@ -163,7 +166,7 @@ export function tunePairing(theme: ThemeId, depth: number, opts: { seed0?: numbe
   }
 
   const final = measureRooms(theme, depth, { floors: t.bossFloors, seed0 });
-  count += 2;
+  count += 1;
   const predicted = predictClear(final);
   entry.modelClear = Math.round(predicted * 100) / 100;
   return {
