@@ -294,7 +294,7 @@ export const LAIR_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A hot-tempered young dragon of ember-red scales that guards its first hoard with a rage that outweighs its years.',
   },
-  // Simplified: drops Fly, Swim, Amphibious, Blindsight, Darkvision, skills, Legendary Resistance, Legendary Actions and the lair's 4/Day, and the rest of the Spellcasting list (Detect Magic, Fear (not in the SRD spell text), Speak with Dead). Vitriolic Sphere (1/Day, DC 17, 10d4 acid in a 20-ft. radius, half on a save; once per floor) is kept without its delayed 5d4 end-of-next-turn acid. Kept: the Multiattack option that replaces one Rend with Acid Arrow (level 3 version, +9, range 90 ft. = 18 cells, longRange = range + 1 because it has one range): 5d4 acid on a hit; the delayed 3d4 end-of-turn acid and the half damage on a miss are dropped. Acid Breath is a 60-ft.-long, 5-ft.-wide line (12 cells). Rend reach is 10 ft. (2 cells). XP is the printed 11,500, not the in-lair 13,000.
+  // Simplified: drops Fly, Swim, Amphibious, Blindsight, Darkvision, skills, the lair's 4/Day Legendary Resistance and the rest of the Spellcasting list (Detect Magic, Speak with Dead). Legendary Resistance 3/Day and the Legendary Actions are kept, one a round (house rule): Cloud of Insects: Dexterity DC 17, 4d10 poison, one creature within 120 ft. = 24 cells, the Concentration disadvantage is dropped. Frightful Presence is the Fear spell (30-ft. cone = 6 cells, Wisdom DC 17, Frightened for up to a minute = 10 rounds with a Wisdom save-ends repeated each turn in place of the spell's line-of-sight save; dropping held items and the forced Dash away are not modelled). Pounce keeps only its Rend (the move is dropped). Vitriolic Sphere (1/Day, DC 17, 10d4 acid in a 20-ft. radius, half on a save; once per floor) is kept without its delayed 5d4 end-of-next-turn acid. Kept: the Multiattack option that replaces one Rend with Acid Arrow (level 3 version, +9, range 90 ft. = 18 cells, longRange = range + 1 because it has one range): 5d4 acid on a hit; the delayed 3d4 end-of-turn acid and the half damage on a miss are dropped. Acid Breath is a 60-ft.-long, 5-ft.-wide line (12 cells). Rend reach is 10 ft. (2 cells). XP is the printed 11,500, not the in-lair 13,000.
   {
     id: 'adult_black_dragon',
     name: 'Adult Black Dragon',
@@ -379,12 +379,42 @@ export const LAIR_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '10d4', type: 'acid' }],
       },
     ],
+    legendary: {
+      options: [
+        { name: 'Cloud of Insects', description: 'A swarm of biting insects engulfs one foe within 120 feet.', use: 'cloud_of_insects' },
+        { name: 'Frightful Presence', description: 'The dragon casts Fear.', use: 'frightful_presence' },
+        { name: 'Pounce', description: 'The dragon lunges and rends once.', use: 'rend' },
+      ],
+      actions: [
+      {
+        id: 'cloud_of_insects',
+        name: 'Cloud of Insects',
+        description: 'A choking swarm of stinging insects boils around one creature the dragon can see within 120 feet.',
+        icon: 'spell',
+        cost: 'action',
+        targeting: { kind: 'creature', melee: false, range: 24 },
+        save: { ability: 'dex', dc: 17, halfOnSave: false },
+        damage: [{ dice: '4d10', type: 'poison' }],
+      },
+      {
+        id: 'frightful_presence',
+        name: 'Frightful Presence',
+        description: 'The dragon casts Fear: a wave of dread washes over everything in front of it.',
+        icon: 'special',
+        cost: 'action',
+        targeting: { kind: 'point', range: 0, area: { shape: 'cone', size: 6 } },
+        save: { ability: 'wis', dc: 17, halfOnSave: false },
+        applies: { condition: 'frightened', rounds: 10, saveEnds: { ability: 'wis', dc: 17 } },
+      },
+      ],
+      resistance: 3,
+    },
     visual: { model: 'dragon_black', scale: 2 },
     themes: ['lair', 'marsh'],
     role: 'elite',
     description: 'An immense, skull-faced dragon of oily black scales that has made a stagnant pool of acid out of its lair.',
   },
-  // Simplified: drops Fly, Burrow, Blindsight, Darkvision, skills, Legendary Resistance, Legendary Actions and the rest of the Spellcasting list (Detect Magic, Invisibility, Mage Hand, Scrying, Sending). Shatter (At Will, DC 18, 3d8 thunder, 10-ft. radius within 60 ft., half on a save) is its own action, because a point-targeted area save cannot run inside a multiattack. Lightning Breath is a 90-ft.-long, 5-ft.-wide line (18 cells). Rend reach is 10 ft. (2 cells). XP is the printed 15,000, not the in-lair 18,000.
+  // Simplified: drops Fly, Burrow, Blindsight, Darkvision, skills, the lair's 4/Day Legendary Resistance and the rest of the Spellcasting list (Detect Magic, Invisibility, Mage Hand, Scrying, Sending). Shatter (At Will, DC 18, 3d8 thunder, 10-ft. radius within 60 ft., half on a save) is its own action, because a point-targeted area save cannot run inside a multiattack. Lightning Breath is a 90-ft.-long, 5-ft.-wide line (18 cells). Rend reach is 10 ft. (2 cells). XP is the printed 15,000, not the in-lair 18,000. Legendary Resistance 3/Day and the Legendary Actions are kept, one a round (house rule): Sonic Boom uses Shatter and Tail Swipe uses Rend; Cloaked Flight (Invisibility and flight) is left out because invisibility and flight are not modelled.
   {
     id: 'adult_blue_dragon',
     name: 'Adult Blue Dragon',
@@ -449,12 +479,19 @@ export const LAIR_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '3d8', type: 'thunder' }],
       },
     ],
+    legendary: {
+      options: [
+        { name: 'Sonic Boom', description: 'The dragon casts Shatter.', use: 'shatter' },
+        { name: 'Tail Swipe', description: 'The dragon makes one Rend attack.', use: 'rend' },
+      ],
+      resistance: 3,
+    },
     visual: { model: 'dragon_blue', scale: 2.1 },
     themes: ['lair'],
     role: 'elite',
     description: 'A towering desert-hued dragon that drowns its lair in thunder and sits atop heaps of glittering sand and coin.',
   },
-  // Simplified: drops Fly, Climb, Blindsight, Darkvision, skills, Legendary Resistance, Legendary Actions and the rest of the Spellcasting list (Detect Magic). Fireball (1/Day, DC 20, 8d6 fire, once per floor) and Command (At Will, DC 20, level 2 version: one target instead of two, Grovel only, as for the Cultist Fanatic) are kept as their own actions. Kept: the Multiattack option that replaces one Rend with Scorching Ray (+12, 2d6 fire per ray, three rays at the one target; range 120 ft. = 24 cells, longRange = range + 1 because it has one range). Fire Breath is a 60-ft. cone (12 cells). Rend reach is 10 ft. (2 cells). XP is the printed 18,000, not the in-lair 20,000.
+  // Simplified: drops Fly, Climb, Blindsight, Darkvision, skills, the lair's 4/Day Legendary Resistance and the rest of the Spellcasting list (Detect Magic). Fireball (1/Day, DC 20, 8d6 fire, once per floor) and Command (At Will, DC 20, level 2 version: one target instead of two, Grovel only, as for the Cultist Fanatic) are kept as their own actions. Kept: the Multiattack option that replaces one Rend with Scorching Ray (+12, 2d6 fire per ray, three rays at the one target; range 120 ft. = 24 cells, longRange = range + 1 because it has one range). Fire Breath is a 60-ft. cone (12 cells). Rend reach is 10 ft. (2 cells). XP is the printed 18,000, not the in-lair 20,000. Legendary Resistance 3/Day and the Legendary Actions are kept, one a round (house rule): Commanding Presence uses Command; Fiery Rays uses a single Scorching Ray, not the spell's three, because an option performs one action. Pounce keeps only its Rend (the move is dropped).
   {
     id: 'adult_red_dragon',
     name: 'Adult Red Dragon',
@@ -549,12 +586,20 @@ export const LAIR_MONSTERS: MonsterDef[] = [
         applies: { condition: 'prone', rounds: 1 },
       },
     ],
+    legendary: {
+      options: [
+        { name: 'Commanding Presence', description: 'The dragon casts Command.', use: 'command' },
+        { name: 'Fiery Rays', description: 'The dragon hurls a ray of fire.', use: 'scorching_ray' },
+        { name: 'Pounce', description: 'The dragon lunges and rends once.', use: 'rend' },
+      ],
+      resistance: 3,
+    },
     visual: { model: 'dragon_red', scale: 2.3 },
     themes: ['lair'],
     role: 'boss',
     description: 'A mountain of red scale and ancient greed whose very breathing warms the cavern like a forge.',
   },
-  // Simplified: size is Gargantuan in the SRD; the game has no larger size than huge, so it is huge, with the largest visual scale in the game. Drops Fly, Climb, Blindsight, Darkvision, skills, Legendary Resistance (4/Day), Legendary Actions and the rest of the Spellcasting list (Detect Magic, Scrying). Fireball (level 6 version, 1/Day, DC 23, 11d6 fire, once per floor) and Command (At Will, DC 23, level 2 version: one target instead of two, Grovel only, as for the Cultist Fanatic) are kept as their own actions. Kept: the Multiattack option that replaces one Rend with Scorching Ray (level 3 version: four rays, +15, 2d6 fire each, one target; range 120 ft. = 24 cells, longRange = range + 1 because it has one range). Fire Breath is a 90-ft. cone (18 cells). Rend reach is 15 ft. (3 cells). XP is the printed 62,000, not the in-lair 75,000.
+  // Simplified: size is Gargantuan in the SRD; the game has no larger size than huge, so it is huge, with the largest visual scale in the game. Drops Fly, Climb, Blindsight, Darkvision, skills, the lair's 5/Day Legendary Resistance and the rest of the Spellcasting list (Detect Magic, Scrying). Fireball (level 6 version, 1/Day, DC 23, 11d6 fire, once per floor) and Command (At Will, DC 23, level 2 version: one target instead of two, Grovel only, as for the Cultist Fanatic) are kept as their own actions. Kept: the Multiattack option that replaces one Rend with Scorching Ray (level 3 version: four rays, +15, 2d6 fire each, one target; range 120 ft. = 24 cells, longRange = range + 1 because it has one range). Fire Breath is a 90-ft. cone (18 cells). Rend reach is 15 ft. (3 cells). XP is the printed 62,000, not the in-lair 75,000. Legendary Resistance 4/Day and the Legendary Actions are kept, one a round (house rule): Commanding Presence uses Command; Fiery Rays uses a single Scorching Ray (one of the spell's four), because an option performs one action. Pounce keeps only its Rend (the move is dropped).
   {
     id: 'ancient_red_dragon',
     name: 'Ancient Red Dragon',
@@ -649,6 +694,14 @@ export const LAIR_MONSTERS: MonsterDef[] = [
         applies: { condition: 'prone', rounds: 1 },
       },
     ],
+    legendary: {
+      options: [
+        { name: 'Commanding Presence', description: 'The dragon casts Command.', use: 'command' },
+        { name: 'Fiery Rays', description: 'The dragon hurls a ray of fire.', use: 'scorching_ray' },
+        { name: 'Pounce', description: 'The dragon lunges and rends once.', use: 'rend' },
+      ],
+      resistance: 4,
+    },
     visual: { model: 'dragon_red', scale: 2.7 },
     themes: ['lair'],
     role: 'boss',
