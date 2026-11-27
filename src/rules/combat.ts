@@ -50,8 +50,8 @@ const attackReaders = new WeakMap<CombatApi, () => number>();
 const depthReaders = new WeakMap<CombatApi, number>();
 const navReaders = new WeakMap<CombatApi, NavGrid>();
 
-/** HOUSE RULE "boss momentum": from this floor depth the floor's boss acts once more at the end of each of its turns. */
-export const BOSS_MOMENTUM_FROM_DEPTH = 6;
+/** Legendary actions: what a condition a target does not have yet is worth, in points of damage, when a legendary option is chosen. */
+export const LEGENDARY = { conditionValue: 12 };
 
 /** The floor depth this combat was created for (hazard damage is 1d6 per depth); 1 when none was given. */
 export function combatDepth(combat: CombatApi): number {
@@ -308,6 +308,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   /** HOUSE RULE: the attack made straight after a Blink Dog teleport counts as made from hiding (advantage). */
   const blinkAdv = new Set<string>();
   /** Death Ward: the first time the creature would drop to 0 HP it drops to 1 instead. */
+  /** Legendary creatures that have taken their legendary action since their own last turn. */
+  const legendaryUsed = new Set<string>();
   const deathWard = new Set<string>(all.filter((c) => (c.resources['_deathWard']?.current ?? 0) > 0).map((c) => c.id));
   /** Polymorph: creature id -> the function that gives it back its own form. */
   const trueForm = new Map<string, () => void>();
@@ -582,6 +584,15 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     const first = total >= dc;
     emit({ type: 'saveRoll', creatureId: c.id, ability, d20: r.d20, bonus: total - r.d20, total, dc, success: first });
     if (first) return true;
+    // Legendary Resistance: the creature chooses to succeed instead. It keeps its uses for saves that matter: any that
+    // would put a condition on it, or cost it a tenth of its hit points or more.
+    const lr = c.resources['legendaryResistance'];
+    if (lr && lr.current > 0 && (applies !== undefined || (opts.heavy ?? 0) >= c.maxHp * 0.1)) {
+      lr.current -= 1;
+      feature(c, 'legendaryResistance', `Legendary Resistance (${lr.current} left)`, { amount: lr.current });
+      log(`${c.name} uses Legendary Resistance to succeed (${lr.current} left).`);
+      return true;
+    }
     const ind = c.resources['indomitable'];
     const dangerous = (applies !== undefined && TURN_LOSING.includes(applies)) || (opts.heavy ?? 0) >= Math.max(12, c.maxHp * 0.2);
     if (ind && ind.current > 0 && dangerous) {
@@ -1687,6 +1698,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   /** Returns false if the creature cannot act this turn. */
   function startTurn(c: Creature): boolean {
     turn.creatureId = c.id;
+    legendaryUsed.delete(c.id);
     turn.actionUsed = false;
     turn.bonusUsed = false;
     reactionUsed.delete(c.id);
@@ -1904,46 +1916,77 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
         }
       }
     }
-    if (isAlive(c) && hasFlag(c, 'boss') && depth >= BOSS_MOMENTUM_FROM_DEPTH) bossMomentum(c);
     emit({ type: 'turnEnd', creatureId: c.id });
+    // Legendary creatures act straight after an enemy's turn (one legendary action a round each).
+    for (const o of all) if (o !== c && o.legendary && isAlive(o) && areHostile(o, c)) legendaryAct(o);
   }
 
   /**
-   * HOUSE RULE "boss momentum" (not in the SRD; legendary actions are not in the engine): the floor's boss (hidden `_boss` flag, set by
-   * the encounter builder) gets one extra action at the end of its own turn from `BOSS_MOMENTUM_FROM_DEPTH` on: its single best
-   * attack (not its whole Multiattack) against the weakest enemy in reach, and a second chance to recharge each spent ability.
-   * Emits `actionUsed`, then a `feature` 'bossAction', then the attack's own events.
+   * Legendary actions. HOUSE RULE (see MonsterLegendary): one a round instead of the SRD's three. Straight after the turn
+   * of an enemy of a legendary creature, that creature may take one of its legendary options if it has not yet done so
+   * since its own last turn and is able to act. It takes the option worth most right now: expected damage over the
+   * creatures it would catch, plus a share for a condition they do not have yet. An option whose action has no target in
+   * reach, or is spent (Recharge), is passed over; if none can be used the action is kept for the next enemy turn.
+   * Emits `actionUsed`, a `feature` 'legendaryAction' labelled with the option's name, then the action's own events.
    */
-  function bossMomentum(c: Creature): void {
-    if (isIncapacitated(c)) return;
-    const spent = spentRecharge.get(c.id);
-    if (spent) {
-      for (const aid of [...spent]) {
-        const a = c.actions.find((x) => x.id === aid);
-        if (a && a.recharge !== undefined && rng.die(6) >= a.recharge) {
-          spent.delete(aid);
-          log(`${c.name}'s ${a.name} recharges (boss momentum).`);
+  function legendaryAct(c: Creature): boolean {
+    const leg = c.legendary;
+    if (!leg || !isAlive(c) || isIncapacitated(c) || legendaryUsed.has(c.id)) return false;
+    type Plan = { name: string; a: ActionDef; value: number; target?: Creature; cells?: GridPos[]; origin?: GridPos };
+    let best: Plan | undefined;
+    const worth = (a: ActionDef, targets: Creature[]): number => {
+      const dmg = (a.damage ?? []).reduce((n, p) => n + averageDice(p.dice), 0);
+      let v = 0;
+      for (const t of targets) {
+        v += dmg;
+        const conds = [a.applies, ...(a.alsoApplies ?? [])].filter((x): x is NonNullable<ActionDef['applies']> => !!x);
+        for (const k of conds) if (!t.conditionImmunities.includes(k.condition) && !hasCondition(t, k.condition)) v += LEGENDARY.conditionValue;
+      }
+      return v;
+    };
+    for (const opt of leg.options) {
+      const a = leg.actions?.find((x) => x.id === opt.use) ?? c.actions.find((x) => x.id === opt.use);
+      if (!a || a.multiattack) continue;
+      if (a.recharge !== undefined && spentRecharge.get(c.id)?.has(a.id)) continue;
+      if (a.uses && (c.resources[a.uses.resource]?.current ?? 0) < a.uses.amount) continue;
+      const t = a.targeting;
+      let plan: Plan | undefined;
+      if (t.kind === 'creature') {
+        const tgt = targetsFor(c, a).map((id) => byId.get(id) as Creature).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
+        if (tgt) plan = { name: opt.name, a, value: worth(a, [tgt]), target: tgt };
+      } else if (t.kind === 'point') {
+        // An area: centred on the creature itself, or on the enemy that puts most enemies (and fewest friends) inside it.
+        const foes = all.filter((o) => isAlive(o) && areHostile(c, o));
+        const origins = t.range === 0 ? [c.pos] : foes.filter((o) => chebyshev(c.pos, o.pos) <= t.range).map((o) => o.pos);
+        for (const origin of origins) {
+          const cells = computeAreaCells(nav, c.pos, origin, t.range, t.area);
+          const inside = (o: Creature): boolean => cells.some((p) => p.x === o.pos.x && p.y === o.pos.y);
+          const caught = foes.filter(inside);
+          const friends = all.filter((o) => o !== c && isAlive(o) && !areHostile(c, o) && inside(o)).length;
+          if (caught.length === 0 || friends >= caught.length) continue;
+          const value = worth(a, caught);
+          if (!plan || value > plan.value) plan = { name: opt.name, a, value, cells, origin: t.range === 0 ? c.pos : origin };
         }
       }
+      if (plan && plan.value > 0 && (!best || plan.value > best.value)) best = plan;
     }
-    let best: ActionDef | undefined;
-    let bestAvg = -1;
-    for (const a of c.actions) {
-      if (!a.attack || a.multiattack || a.cost !== 'action' || a.targeting.kind !== 'creature' || isSpellAction(a)) continue;
-      if (a.recharge !== undefined && spentRecharge.get(c.id)?.has(a.id)) continue;
-      if (targetsFor(c, a).length === 0) continue;
-      const avg = (a.damage ?? []).reduce((s, p) => s + averageDice(p.dice), 0);
-      if (avg > bestAvg) {
-        best = a;
-        bestAvg = avg;
-      }
+    if (!best) return false;
+    legendaryUsed.add(c.id);
+    const ev: GameEvent = { type: 'actionUsed', creatureId: c.id, actionId: best.a.id, name: `Legendary action: ${best.name}` };
+    if (best.target) ev.targetId = best.target.id;
+    if (best.origin) ev.point = best.origin;
+    emit(ev);
+    feature(c, 'legendaryAction', best.name, best.target ? { targetId: best.target.id } : {});
+    log(`${c.name} takes a legendary action: ${best.name}.`);
+    if (best.a.uses) (c.resources[best.a.uses.resource] as { current: number }).current -= best.a.uses.amount;
+    if (best.a.recharge !== undefined) {
+      let set = spentRecharge.get(c.id);
+      if (!set) spentRecharge.set(c.id, (set = new Set()));
+      set.add(best.a.id);
     }
-    if (!best) return;
-    const tgt = targetsFor(c, best).map((id) => byId.get(id) as Creature).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
-    if (!tgt) return;
-    emit({ type: 'actionUsed', creatureId: c.id, actionId: best.id, name: `Boss momentum: ${best.name}`, targetId: tgt.id });
-    feature(c, 'bossAction', 'Boss momentum', { targetId: tgt.id });
-    resolveOn(c, best, tgt);
+    if (best.target) resolveOn(c, best.a, best.target);
+    else if (best.cells) resolveArea(c, best.a, best.cells, best.origin);
+    return true;
   }
 
   /** Move the index to the next living creature, emitting roundStart on wrap. */

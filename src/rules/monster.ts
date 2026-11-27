@@ -32,6 +32,8 @@ export function instantiateMonster(def: MonsterDef, id: string, pos: GridPos): C
     const { dice, damageType, name } = def.retaliate;
     resources[PASSIVE_FLAGS.retaliate] = { name: `${dice}:${damageType}${name ? `:${name}` : ''}`, current: 1, max: 0, refresh: 'floor' };
   }
+  // Legendary Resistance: a pool the engine spends when a save that matters fails. The legendary action itself is one a round (combat.ts).
+  if (def.legendary?.resistance) resources['legendaryResistance'] = { name: 'Legendary Resistance', current: def.legendary.resistance, max: def.legendary.resistance, refresh: 'floor' };
   // Regeneration reuses the hidden `_regen` pool the engine reads at the start of every turn (see startTurn).
   if (def.regeneration) resources['_regen'] = { name: 'Regeneration', current: def.regeneration.amount, max: 0, refresh: 'longRest' };
   return {
@@ -61,6 +63,7 @@ export function instantiateMonster(def: MonsterDef, id: string, pos: GridPos): C
     actions,
     resources,
     visual: { ...def.visual },
+    ...(def.legendary ? { legendary: clone(def.legendary) } : {}),
     dead: false,
   };
 }

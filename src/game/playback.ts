@@ -194,11 +194,11 @@ export class Playback {
       const dmg = ahead.find((x) => x.type === 'damage');
       sound = dmg && dmg.type === 'damage' && dmg.damageType === 'piercing' ? 'hitPierce' : 'fireHit';
     }
-    if (e.id === 'bossAction') {
-      // Boss momentum: a distinct beat. A low accent, the label in the warning colour, then the attack follows.
-      audio.play('crit');
-      const boss = creatureById(state, e.creatureId);
-      if (boss && isEntityVisible(state, e.creatureId)) deps.renderer.floatText(e.creatureId, e.label, 'crit');
+    if (e.id === 'legendaryAction' || e.id === 'legendaryResistance') {
+      // A legendary creature acting out of turn, or shrugging off a failed save: a distinct beat. A low accent and the
+      // name of what it did in the warning colour; the action's own events follow.
+      audio.play(e.id === 'legendaryAction' ? 'crit' : 'shield');
+      if (creatureById(state, e.creatureId) && isEntityVisible(state, e.creatureId)) deps.renderer.floatText(e.creatureId, e.label, 'crit');
       return;
     }
     if (sound) audio.play(sound);

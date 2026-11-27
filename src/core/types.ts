@@ -485,6 +485,8 @@ export interface Creature {
   traits: TraitId[];
   /** Passive start-of-turn emanations (copied from MonsterDef.auras). */
   auras?: MonsterAura[];
+  /** Legendary Actions (one a round here) and Legendary Resistance; see MonsterLegendary. Copied from the stat block by instantiateMonster. */
+  legendary?: MonsterLegendary;
   /** Damage types that switch off this creature's regeneration for a turn (copied from MonsterDef.regeneration). */
   regenStoppedBy?: DamageType[];
   actions: ActionDef[];
@@ -540,6 +542,21 @@ export interface MonsterAura {
   magical?: boolean;
 }
 
+/**
+ * Legendary Actions and Legendary Resistance of a stat block.
+ *
+ * HOUSE RULE: the SRD gives a legendary creature three uses a round (it expects four or five adventurers). Here it takes
+ * ONE legendary action a round, straight after an enemy's turn, because the party is a hero and a companion.
+ */
+export interface MonsterLegendary {
+  /** The options, in the stat block's order. Each performs one action: `use` is the id of one of the monster's ordinary actions or of one in `actions`. */
+  options: { name: string; description: string; use: string }[];
+  /** Actions that exist only as legendary options (Frightful Presence, a spell cast as a legendary action). Never used on the monster's own turn. */
+  actions?: ActionDef[];
+  /** Legendary Resistance uses per floor: a failed save becomes a success. */
+  resistance?: number;
+}
+
 export interface MonsterDef {
   id: string;
   name: string;
@@ -565,6 +582,7 @@ export interface MonsterDef {
   traits: TraitId[];
   /** Passive emanations that hit hostile creatures near the monster (Stench, Fear Aura, Fire Aura). */
   auras?: MonsterAura[];
+  legendary?: MonsterLegendary;
   /** Hurt-when-hit: a creature that hits this monster with a melee attack takes the damage (Corrosive Form). Sets the same hidden pool as the Fire Shield potion. */
   retaliate?: { dice: Dice; damageType: DamageType; /** Feature label, e.g. 'Corrosive Form'. */ name?: string };
   /** Regains `amount` hit points at the start of each of its turns; damage of a `stoppedBy` type switches it off for that turn. */
