@@ -138,9 +138,12 @@ export function companionAbilities(def: CompanionDef, level: number): AbilitySco
   return out;
 }
 
+/** Companion durability knobs (re-tune: companions were downed 2 to 4 times per floor attempt). Mutable for the balance harness. */
+export const COMPANION_TUNING = { hpPerLevelBonus: 7, acBonus: 3 };
+
 export function companionMaxHp(def: CompanionDef, level: number): number {
   const conMod = abilityMod(companionAbilities(def, level).con);
-  return def.base.hp + (Math.max(1, level) - 1) * Math.max(1, ROLE_RULES[def.role].hpPerLevel + conMod);
+  return def.base.hp + (Math.max(1, level) - 1) * Math.max(1, ROLE_RULES[def.role].hpPerLevel + conMod + COMPANION_TUNING.hpPerLevelBonus);
 }
 
 /** The casting ability's caster numbers at a companion level (cantrips scale at levels 5, 11, 17). */
@@ -321,7 +324,7 @@ export function createCompanion(def: CompanionDef, heroLevel: number, state?: Co
     abilities,
     proficiencyBonus: row.proficiencyBonus,
     saveProficiencies: saves,
-    ac: def.base.ac + (dexNow - baseDex) + row.acBonus,
+    ac: def.base.ac + (dexNow - baseDex) + row.acBonus + (level >= 2 ? COMPANION_TUNING.acBonus : 0),
     maxHp,
     hp,
     tempHp: 0,

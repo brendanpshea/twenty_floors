@@ -136,7 +136,7 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   bossByDepth: { 4: 'green_hag', 5: 'otyugh', 6: 'shambling_mound', 7: 'treant', 8: 'pirate_captain', 9: 'assassin', 10: 'stone_golem', 11: 'archmage', 12: 'clay_golem', 13: 'fire_giant', 14: 'remorhaz', 15: 'adult_white_dragon', 16: 'storm_giant', 17: 'adult_green_dragon', 18: 'marilith', 19: 'balor', 20: 'adult_red_dragon' },
   themeTuning: THEME_TUNING,
   depthScale: Array<number>(20).fill(1),
-  richEscortsFromDepth: 4,
+  richEscortsFromDepth: 6,
   monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5, efreeti: 0.3, erinyes: 0.3, horned_devil: 0.4, young_brass_dragon: 0.5, otyugh: 0.5 },
 };
 
@@ -318,7 +318,8 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
       const bossSlot = bossSlots[0] ?? monsterSlots.shift();
       if (bossSlot) placements.push({ def: bossDef, slot: bossSlot, boss: true });
       // Boss escorts must fit the boss-room budget, so a 200 XP "standard" monster is never an escort at low depth.
-      const escortCap = Math.max(roomBudget(plan.depth, 'boss', room.distanceFromEntrance, plan.theme) * 1.2, Math.min(...regular.map((m) => m.xp)));
+      const bossScale = ENCOUNTER_TUNING.themeTuning[plan.theme]?.[plan.depth]?.bossScale ?? 1;
+      const escortCap = Math.max(roomBudget(plan.depth, 'boss', room.distanceFromEntrance, plan.theme) * 1.2 * bossScale, Math.min(...regular.map((m) => m.xp)));
       const legal = regular.filter((m) => m.cr <= plan.depth && m.xp <= escortCap);
       const minionPool = legal.filter((m) => m.role === 'minion');
       // From floor 4 the boss room is the peak of the floor: escorts of any role (not only minions), one more than before,

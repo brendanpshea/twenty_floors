@@ -635,7 +635,8 @@ describe('companion AI', () => {
     expect(compHits).toBeGreaterThan(0);
     expect(heroHits).toBeGreaterThan(0);
     expect(heroHits).toBeGreaterThan(compHits);
-    expect(compHits / (heroHits + compHits)).toBeGreaterThan(0.15);
+    // Re-tune: the hero draws more attention (AI_TUNING.heroAttention 2.6) so the companion is downed less; it must still be picked now and then.
+    expect(compHits / (heroHits + compHits)).toBeGreaterThan(0.05);
   });
 
   it('close stance: walks up to within 2 cells of the hero when nothing is near', () => {

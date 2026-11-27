@@ -39,10 +39,13 @@ export function jitter(key: string, n: number): number {
  * How much a monster wants to hit this target compared with another of equal worth: the hero draws somewhat
  * more attention than an ally, and a deterministic per-round wobble lets the ally be picked now and then.
  */
+/** Monster targeting knobs (mutable so the balance harness can try variants). */
+export const AI_TUNING = { heroAttention: 2.6 };
+
 function attention(combat: CombatApi, c: Creature, t: Creature): number {
   if (c.faction !== 'enemy') return 1;
   // The hero's armor is usually better than an ally's, so raw expected damage already favours the ally: the weight corrects for that.
-  const base = t.faction === 'player' ? 1.6 : 1;
+  const base = t.faction === 'player' ? AI_TUNING.heroAttention : 1;
   return base * (0.5 + jitter(`${c.id}>${t.id}`, combat.round));
 }
 

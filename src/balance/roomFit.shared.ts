@@ -1,6 +1,8 @@
 import * as nodeFs from 'node:fs';
 import { themeForDepth } from '../core/themes';
 import type { ThemeId } from '../core/types';
+import { AI_TUNING } from '../rules/ai';
+import { COMPANION_TUNING } from '../rules/companion';
 import { THEME_TUNING } from '../rules/encounterTable';
 import { measureRooms, predictClear, type MeasureOptions, type PairingReport } from './rooms';
 
@@ -49,6 +51,9 @@ export function runShard(shard: number, shards: number, env: Record<string, stri
     kit: env['ROOMS_KIT'] ?? 'a',
     companion: env['ROOMS_COMPANION'] ?? 'blink_dog',
   };
+  if (env['ROOMS_COMP_HP']) COMPANION_TUNING.hpPerLevelBonus = Number(env['ROOMS_COMP_HP']);
+  if (env['ROOMS_COMP_AC']) COMPANION_TUNING.acBonus = Number(env['ROOMS_COMP_AC']);
+  if (env['ROOMS_HERO_ATT']) AI_TUNING.heroAttention = Number(env['ROOMS_HERO_ATT']);
   const file = (env['TEMP'] ?? '.') + '/' + (env['ROOMS_OUT'] ?? 'rooms.jsonl');
   for (const p of mine) {
     const r = measureRooms(p.theme, p.depth, opts);

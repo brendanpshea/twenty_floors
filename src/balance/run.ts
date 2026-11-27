@@ -42,6 +42,8 @@ export function scheduleGear(pc: PlayerCharacter): PlayerCharacter {
   if (next.equipped.armor) {
     let armor = base(next.equipped.armor);
     if (['chain_mail', 'splint', 'plate'].includes(armor)) armor = L >= 5 ? 'plate' : L >= 3 ? 'splint' : 'chain_mail';
+    // Medium armor (the Archer's scale mail) climbs too: breastplate at 3, half plate at 5 (the Dexterity bonus caps at +2 in medium armor).
+    else if (['scale_mail', 'breastplate', 'half_plate'].includes(armor)) armor = L >= 5 ? 'half_plate' : L >= 3 ? 'breastplate' : 'scale_mail';
     next.equipped.armor = give(magic(armor, at([[5, 1], [10, 2], [16, 3]])));
   }
   const weaponBonus = at([[4, 1], [9, 2], [15, 3]]);

@@ -5,6 +5,7 @@ import { attacksLeft, combatDepth } from './combat';
 import { hasCondition } from './conditions';
 import { getCompanion } from './companion';
 import { spellCommand } from './spellPolicy';
+import { averageDice } from './dice';
 import { archerRetreat, heroUpkeep } from './sim';
 import { creatureTactic } from './tactics';
 import { exposedToPush, planPush, pushValue, type PushPlan } from './terrain';
@@ -47,10 +48,12 @@ export interface ExpertOptions {
   throws?: boolean;
   /** Approach shooters through cover. */
   cover?: boolean;
+  /** Play a ranged hero as an archer: keep range, use cover and height, kite, melee only when cornered. */
+  archer?: boolean;
   /** Shove enemies (Shove: Push, Push mastery bonus, Thunderwave) into hazards. */
   shove?: boolean;
 }
-const ALL_ON: Required<ExpertOptions> = { hold: false, setup: true, safe: true, priority: true, focus: true, throws: true, cover: true, shove: true };
+const ALL_ON: Required<ExpertOptions> = { hold: false, setup: true, safe: true, priority: true, focus: true, throws: true, cover: true, shove: true, archer: true };
 
 interface HoldMemory {
   round: number;
@@ -71,6 +74,8 @@ const isWeapon = (a: ActionDef): boolean => !!a.attack && !a.effects?.includes('
 
 interface Ctx {
   o: Required<ExpertOptions>;
+  /** The hero fights mainly with a ranged weapon (the Archer kit): it keeps its distance and shoots. */
+  archer: boolean;
   combat: CombatApi;
   nav: NavGrid;
   c: Creature;
@@ -102,7 +107,17 @@ function priority(ctx: Ctx, e: Creature): number {
   else if (t === 'archer') p += 4;
   if (e.actions.some((a) => a.heal)) p += 8;
   if (ctx.o.focus) p += 6 * (1 - e.hp / e.maxHp);
+  // An archer shoots first whatever would hurt it most: the enemies that can reach it this turn, by what they deal.
+  if (ctx.archer && chebyshev(ctx.c.pos, e.pos) <= e.speed + 1) {
+    const dmg = Math.max(0, ...e.actions.map((a) => (a.multiattack ? a.multiattack.reduce((t, id) => t + damageOf(e, id), 0) : (a.damage ?? []).reduce((t, d) => t + averageDice(d.dice), 0))));
+    p += Math.min(6, dmg / 5);
+  }
   return p;
+}
+
+function damageOf(e: Creature, id: string): number {
+  const a = e.actions.find((x) => x.id === id);
+  return a ? (a.damage ?? []).reduce((t, d) => t + averageDice(d.dice), 0) : 0;
 }
 
 const isRangedEnemy = (e: Creature): boolean => e.actions.some((a) => isOffense(a) && a.targeting.kind === 'creature' && !a.targeting.melee && a.targeting.range >= 4);
@@ -188,6 +203,11 @@ function bestStrike(ctx: Ctx): Play | null {
         if (!swordType || !throwType || !(typeFactor(e, swordType) <= 0.5 && typeFactor(e, throwType) > 0.5)) continue;
       }
       let v = valueOf(combat, c, a, e) + priority(ctx, e);
+      // Two-weapon fighting: a Light main-hand attack earns the off-hand attack that follows it (heroUpkeep makes it).
+      if (a.effects?.includes('lightAttack')) {
+        const off = c.actions.find((x) => x.effects?.includes('offhand'));
+        if (off) v += damageAgainst(off, e) * (combat.hitChance(a.id, e.id) ?? 0.6) * 0.9;
+      }
       if (ctx.o.shove && push && chebyshev(c.pos, e.pos) <= 1) {
         const plan = planPush(ctx.nav, (p) => ctx.occ(p) && !(p.x === e.pos.x && p.y === e.pos.y), e.pos, sign(e.pos.x - c.pos.x), sign(e.pos.y - c.pos.y), 2);
         v += (combat.hitChance(a.id, e.id) ?? 0.5) * pushVal(ctx, plan, e);
@@ -321,6 +341,98 @@ function holdPlan(ctx: Ctx, mem: HoldMemory): Command | null {
   return stepTo(ctx, spot.pos);
 }
 
+// -------------------------------------------------------------------------------- the Archer
+
+/** The main ranged weapon attack (the longbow), if the hero has one and shoots better than it fights. */
+function rangedWeapon(c: Creature): ActionDef | undefined {
+  return c.actions.find((a) => a.id.startsWith('atk_') && a.targeting.kind === 'creature' && !a.targeting.melee);
+}
+
+function isArcher(c: Creature): boolean {
+  return rangedWeapon(c) !== undefined && c.abilities.dex >= c.abilities.str;
+}
+
+/** How good a cell is to shoot from: in range with a clear line, out of melee, behind cover, on high ground, off the drop edges. */
+function archerCell(ctx: Ctx, p: GridPos, cost: number, range: number): number {
+  const { nav, enemies } = ctx;
+  const near = Math.min(...enemies.map((e) => chebyshev(p, e.pos)));
+  let s = -cost * 0.3;
+  const canShoot = enemies.some((e) => chebyshev(p, e.pos) <= range && (chebyshev(p, e.pos) <= 1 || nav.hasLineOfSight(p, e.pos)));
+  if (canShoot) s += 20 + Math.min(near, 5) * 2;
+  else s -= near;
+  s -= enemies.filter((e) => chebyshev(p, e.pos) <= 1).length * 12;
+  // Enemies that could reach the cell next turn threaten it: the farther the better.
+  s -= enemies.filter((e) => chebyshev(p, e.pos) <= e.speed + 1 && !isRangedEnemy(e)).length * 1.5;
+  let cover = 0;
+  for (const e of enemies) if (chebyshev(p, e.pos) >= 2 && nav.hasLineOfSight(e.pos, p)) cover = Math.max(cover, nav.coverBetween(e.pos, p));
+  s += cover * 1.2;
+  const nearest = enemies.reduce((b, e) => (chebyshev(p, e.pos) < chebyshev(p, b.pos) ? e : b), enemies[0] as Creature);
+  const up = nav.elevationAt(p) - nav.elevationAt(nearest.pos);
+  if (up >= 2) s += 3 + Math.min(up, 4) * 0.5;
+  if (exposedToPush(nav, p, enemies)) s -= 6;
+  return s;
+}
+
+/** A firing cell must beat the current one by this much to be worth a step (stepping away from the companion costs). */
+export const ARCHER_MOVE_MARGIN = { value: 12 };
+const archerMoves = new WeakMap<CombatApi, { round: number; n: number }>();
+
+/** The Archer's turn: step to a better firing cell first, shoot, then kite; blades only when it cannot get away. Null: fall through. */
+function archerCommand(ctx: Ctx): Command | null {
+  const { combat, c, enemies } = ctx;
+  const bow = rangedWeapon(c) as ActionDef;
+  const range = bow.targeting.kind === 'creature' ? bow.targeting.range : 8;
+  const turn = combat.turn;
+  let mv = archerMoves.get(combat);
+  if (!mv || mv.round !== combat.round * 100 + (c.id === 'player' ? 1 : 2)) archerMoves.set(combat, (mv = { round: combat.round * 100 + (c.id === 'player' ? 1 : 2), n: 0 }));
+  const touching = enemies.some((e) => chebyshev(c.pos, e.pos) <= 1);
+  const here = archerCell(ctx, c.pos, 0, range);
+  const striking = !turn.actionUsed || attacksLeft(combat) > 0;
+  const betterCell = (margin: number): GridPos | null => {
+    let best: { pos: GridPos; score: number } | undefined;
+    for (const cell of cellsHere(ctx)) {
+      if (cell.cost === 0 || ctx.occ(cell.pos)) continue;
+      const sc = archerCell(ctx, cell.pos, cell.cost, range);
+      if (!best || sc > best.score) best = { pos: cell.pos, score: sc };
+    }
+    return best && best.score > here + margin ? best.pos : null;
+  };
+  if (striking) {
+    // Before the first shot: a better firing cell, if leaving provokes nothing.
+    if (!turn.actionUsed && turn.movementLeft > 0 && mv.n < 2 && (!touching || canLeaveFree(ctx))) {
+      const cell = betterCell(ARCHER_MOVE_MARGIN.value);
+      if (cell) {
+        const m = stepTo(ctx, cell);
+        if (m) {
+          mv.n++;
+          return m;
+        }
+      }
+    }
+    const strike = bestStrike(ctx);
+    if (strike) return strike.command;
+    return null;
+  }
+  // After the attacks: kite along the room if that provokes nothing.
+  if (turn.movementLeft > 0 && mv.n < 2 && (!touching || canLeaveFree(ctx))) {
+    const cell = betterCell(ARCHER_MOVE_MARGIN.value);
+    if (cell) {
+      const m = stepTo(ctx, cell);
+      if (m) {
+        mv.n++;
+        return m;
+      }
+    }
+  }
+  return { type: 'endTurn' };
+}
+
+/** Walking away from the enemies next to the hero provokes nothing: none is adjacent, they are all helpless, or the hero Disengaged. */
+function canLeaveFree(ctx: Ctx): boolean {
+  if (hasCondition(ctx.c, 'disengaged')) return true;
+  return ctx.enemies.filter((e) => chebyshev(ctx.c.pos, e.pos) <= 1).every((e) => e.conditions.some((x) => ['incapacitated', 'paralyzed', 'stunned', 'unconscious'].includes(x.condition)));
+}
+
 export function makeExpertPolicy(options: ExpertOptions = {}): (combat: CombatApi, nav: NavGrid) => Command {
   const o: Required<ExpertOptions> = { ...ALL_ON, ...options };
   return (combat, nav) => {
@@ -332,6 +444,7 @@ export function makeExpertPolicy(options: ExpertOptions = {}): (combat: CombatAp
     if (enemies.length === 0) return chooseCommand(combat, nav);
     const ctx: Ctx = {
       o,
+      archer: o.archer && isArcher(c),
       combat,
       nav,
       c,
@@ -347,6 +460,12 @@ export function makeExpertPolicy(options: ExpertOptions = {}): (combat: CombatAp
     // Spells (Magic Initiate) follow the shared spell logic.
     const cast = spellCommand(combat, c);
     if (cast) return cast;
+
+    // The Archer plays from range (see archerCommand).
+    if (ctx.archer) {
+      const shot = archerCommand(ctx);
+      if (shot) return shot;
+    }
 
     // 1. Hold a real chokepoint against an approaching melee crowd.
     let mem = holds.get(combat);
