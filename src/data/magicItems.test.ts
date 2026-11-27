@@ -80,6 +80,8 @@ const EXPECTED_COUNTS: Record<string, number> = {
   potion_of_speed: 1,
   potion_of_flying: 1,
   oil_of_slipperiness: 1,
+  potion_of_heroism: 1,
+  spell_potion: 8,
   bane_weapon: 72,
 };
 
@@ -96,7 +98,7 @@ const SRD_NAMES = [
   'Boots of the Winterlands', 'Ring of Free Action', 'Cloak of Arachnida', 'Wand of Magic Missiles', 'Wand of Fireballs',
   'Wand of Lightning Bolts', 'Wand of Web', 'Wand of Binding', 'Staff of Healing', 'Staff of Fire', 'Staff of Frost',
   'Circlet of Blasting', 'Potion of Resistance', 'Potion of Giant Strength', 'Potion of Invulnerability', 'Potion of Speed',
-  'Potion of Flying', 'Oil of Slipperiness',
+  'Potion of Flying', 'Oil of Slipperiness', 'Potion of Heroism',
 ];
 
 const byId = new Map(MAGIC_ITEMS.map((i) => [i.id, i] as const));
@@ -150,6 +152,14 @@ function checkPassive(id: string, p: PassiveEffect): void {
     case 'rangedWeaponResistance':
     case 'spellWard':
     case 'handsFree':
+    case 'bless':
+    case 'attackersDisadvantage':
+      break;
+    case 'tempHp':
+      expect(p.amount, id).toBeGreaterThan(0);
+      break;
+    case 'wardVersus':
+      for (const v of p.versus) expect(CREATURE_TYPES, id).toContain(v);
       break;
     case 'rangedAcBonus':
       expect(p.amount, id).toBeGreaterThan(0);
@@ -303,7 +313,8 @@ describe('magic item catalog', () => {
     }
     for (const f of MAGIC_FAMILIES) {
       const factor = FAMILY_FACTOR[f.key] ?? 1;
-      expect(factor, f.key).toBeGreaterThanOrEqual(0.5);
+      // (Bottled spells are priced like low Spell Scrolls: a quarter.)
+      expect(factor, f.key).toBeGreaterThanOrEqual(f.key === 'spell_potion' ? 0.25 : 0.5);
       expect(factor, f.key).toBeLessThanOrEqual(2);
       for (const a of f.items) {
         for (const b of f.items) {
@@ -396,12 +407,22 @@ describe('timed consumables', () => {
 
 describe('ORIGINAL items', () => {
   it('are flagged, separate from the SRD, and follow the Dragon Slayer formula', () => {
-    expect(ORIGINAL_ITEM_IDS.size).toBe(BANE_TYPES.length * 6);
+    const potions = [...ORIGINAL_ITEM_IDS].filter((id) => byId.get(id)?.kind === 'consumable');
+    const banes = [...ORIGINAL_ITEM_IDS].filter((id) => byId.get(id)?.kind !== 'consumable');
+    expect(banes.length).toBe(BANE_TYPES.length * 6);
+    // The other original items are the bottled spells: timed potions, none with an SRD item's name.
+    expect(potions.length).toBe(8);
+    for (const id of potions) {
+      const i = byId.get(id);
+      expect(i?.consumable?.effect, id).toBe('timed');
+      expect(new Set(SRD_NAMES).has(i?.name ?? ''), id).toBe(false);
+      expect(i?.cost, id).toBeLessThanOrEqual(400);
+    }
     expect(BANE_TYPES).not.toContain('dragon');
     expect(BANE_TYPES).not.toContain('giant');
     const srdNames = new Set(SRD_NAMES);
     const dragon = byId.get('dragon_slayer_longsword');
-    for (const id of ORIGINAL_ITEM_IDS) {
+    for (const id of banes) {
       const i = byId.get(id);
       expect(i, id).toBeDefined();
       expect(srdNames.has(i?.name ?? ''), `${id} must not take an SRD name`).toBe(false);

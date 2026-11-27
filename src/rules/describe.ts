@@ -22,6 +22,10 @@ export function describePassive(p: PassiveEffect): string | null {
     case 'critImmunity': return 'Critical hits against you are normal hits';
     case 'ignoreHazard': return `Ignores ${p.hazard === 'fall' ? 'pits' : p.hazard}`;
     case 'displacement': return 'Attacks against you have disadvantage until you are hit';
+    case 'bless': return '+1d4 to attack rolls and saving throws';
+    case 'tempHp': return `${p.amount} temporary hit points`;
+    case 'attackersDisadvantage': return 'Attacks against you have disadvantage';
+    case 'wardVersus': return `Attacks by ${p.versus.join(', ')} creatures have disadvantage against you`;
     case 'rangedAcBonus': return `${signedN(p.amount)} Armor Class against ranged attacks`;
     case 'interceptRanged':
       return p.reaction

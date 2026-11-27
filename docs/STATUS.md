@@ -52,10 +52,10 @@ Weights are in `LOOT_FIT`. The balance harness still draws evenly
 ## The shop sells plain gear and consumables; magic is chest treasure
 
 `shopStock` (`src/rules/character.ts`) stocks, for the hero at the counter:
-the two strongest healing potions unlocked, up to three other potions or
-oils of different families from floor 4 (Resistance, Giant Strength,
-Invulnerability, Speed, Flying, Oil of Slipperiness; by rarity unlocked,
-never legendary), a shield, up to two plain armors no weaker than the one
+the two strongest healing potions unlocked, up to four other potions or
+oils of different kinds from floor 2 (bottled spells, see the potions
+section below, and Resistance, Giant Strength, Invulnerability, Speed,
+Flying, Oil of Slipperiness; by rarity unlocked, never legendary), a shield, up to two plain armors no weaker than the one
 worn, and up to three plain weapons. At most 12 items
 (`ITEM_GATING.shopMaxItems`). The shop sells no permanent magic at all.
 There are no spell scrolls in the game yet.
@@ -79,6 +79,30 @@ play harder than measured; and gold has less to be spent on.
 `ITEM_GATING.shopScheduledMagic = true` restores the scheduled +N gear in
 the shop (its tests still run with it on). The balance harness has not been
 re-fitted for this.
+
+## Potions of buff and defense spells
+
+There is no full caster in the party, so common buff and defense spells
+come in bottles. They are timed consumables like the Potion of Resistance
+("10 minutes" is one fight, "1 hour" or more is three), drunk before or
+during a fight, with no concentration:
+
+- SRD: **Potion of Heroism** (rare; 10 temporary hit points once, and Bless
+  for three fights).
+- ORIGINAL items holding SRD spells (family `spell_potion`, 100 gp each;
+  Stoneskin 375 gp): **Bless**, **Shield of Faith** (+2 AC), **False Life**
+  (9 temporary hit points), **Longstrider** (+10 ft), **Protection from
+  Evil and Good** (aberrations, celestials, elementals, fey, fiends and
+  undead attack with disadvantage; its guard against charm and fear is not
+  kept), **Aid** (+5 hit points and maximum), **Blur** (attackers have
+  disadvantage), **Stoneskin** (resistance to bludgeoning, piercing and
+  slashing).
+
+The shop sells up to four different potions of this kind per visit: the
+100 gp ones from floor 2, the others when their rarity unlocks. New passives:
+`bless`, `tempHp`, `attackersDisadvantage`, `wardVersus`. The scripted hero
+of the balance harness does not buy or drink them, so the tuning does not
+count them.
 
 ## Magic shields
 

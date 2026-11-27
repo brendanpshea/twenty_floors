@@ -68,6 +68,9 @@ export const FAMILY_FACTOR: Readonly<Record<string, number>> = {
   potion_of_speed: 0.5,
   potion_of_flying: 0.5,
   oil_of_slipperiness: 0.5,
+  potion_of_heroism: 0.5,
+  // A bottled spell of level 1 to 4: priced like a low Spell Scroll, well under a true potion of its rarity.
+  spell_potion: 0.25,
 };
 
 const factorOf = (key: string): number => FAMILY_FACTOR[key] ?? 1;
@@ -484,6 +487,29 @@ function potionsOfResistance(): ItemDef[] {
       description: `A draught that halves ${t} damage you take for the next 3 fights.`,
     }),
   );
+}
+
+/** Bottled spells (original items; the spells are the SRD's). */
+function spellPotions(): ItemDef[] {
+  const list: Array<{ spell: string; name: string; rarity: ItemRarity; fights: number; passives: PassiveEffect[]; description: string }> = [
+    // Bless (level 1, 1 minute).
+    { spell: 'bless', name: 'Bless', rarity: 'uncommon', fights: 1, passives: [{ type: 'bless' }], description: 'Adds 1d4 to your attack rolls and saving throws for the next fight.' },
+    // Shield of Faith (level 1, 10 minutes): +2 AC.
+    { spell: 'shield_of_faith', name: 'Shield of Faith', rarity: 'uncommon', fights: 1, passives: [{ type: 'acBonus', amount: 2 }], description: 'A shimmering field gives +2 Armor Class for the next fight.' },
+    // False Life (level 1): 2d4 + 4 Temporary Hit Points; the average is given.
+    { spell: 'false_life', name: 'False Life', rarity: 'uncommon', fights: 1, passives: [{ type: 'tempHp', amount: 9 }], description: 'Gives 9 temporary hit points when drunk.' },
+    // Longstrider (level 1, 1 hour): +10 ft speed.
+    { spell: 'longstrider', name: 'Longstrider', rarity: 'uncommon', fights: 3, passives: [{ type: 'speedBonus', cells: 2 }], description: 'Adds 10 ft to your speed for the next 3 fights.' },
+    // Protection from Evil and Good (level 1, 10 minutes): the listed creature types attack with disadvantage. (Its guard against charm, fear and possession is not kept.)
+    { spell: 'protection', name: 'Protection from Evil and Good', rarity: 'uncommon', fights: 1, passives: [{ type: 'wardVersus', versus: ['aberration', 'celestial', 'elemental', 'fey', 'fiend', 'undead'] }], description: 'For the next fight, aberrations, celestials, elementals, fey, fiends and undead attack you with disadvantage.' },
+    // Aid (level 2, 8 hours): +5 hit points, maximum and current.
+    { spell: 'aid', name: 'Aid', rarity: 'uncommon', fights: 3, passives: [{ type: 'maxHpBonus', flat: 5 }], description: 'Raises your hit points and their maximum by 5 for the next 3 fights.' },
+    // Blur (level 2, 1 minute): attackers have disadvantage.
+    { spell: 'blur', name: 'Blur', rarity: 'uncommon', fights: 1, passives: [{ type: 'attackersDisadvantage' }], description: 'Your outline wavers: attacks against you have disadvantage for the next fight.' },
+    // Stoneskin (level 4, 1 hour): resistance to bludgeoning, piercing and slashing damage.
+    { spell: 'stoneskin', name: 'Stoneskin', rarity: 'rare', fights: 3, passives: [{ type: 'resistance', damageType: 'bludgeoning' }, { type: 'resistance', damageType: 'piercing' }, { type: 'resistance', damageType: 'slashing' }], description: 'Your skin turns hard as stone: half damage from bludgeoning, piercing and slashing for the next 3 fights.' },
+  ];
+  return list.map((s) => timedConsumable({ id: `potion_of_${s.spell}`, name: `Potion of ${s.name}`, family: 'spell_potion', rarity: s.rarity, fights: s.fights, passives: s.passives, description: s.description }));
 }
 
 /** Potion of Giant Strength (SRD table), 1 hour = 3 fights. */
@@ -1310,6 +1336,23 @@ function build(): MagicFamily[] {
       }),
     ]),
   );
+  // Potion of Heroism (Rare): 10 Temporary Hit Points and the Bless spell for 1 hour (3 fights; the hit points come once).
+  families.push(
+    fam('potion_of_heroism', 'Potion of Heroism', [
+      timedConsumable({
+        id: 'potion_of_heroism',
+        name: 'Potion of Heroism',
+        family: 'potion_of_heroism',
+        rarity: 'rare',
+        fights: 3,
+        passives: [{ type: 'tempHp', amount: 10 }, { type: 'bless' }],
+        description: 'A steaming blue potion: 10 temporary hit points now, and 1d4 added to your attack rolls and saves for the next 3 fights.',
+      }),
+    ]),
+  );
+  // ORIGINAL items (not in the SRD): SRD buff and defense spells in a bottle, for a party with no full caster. Each does
+  // what the spell does, without concentration; "10 minutes" is 1 fight and "1 hour" or more is 3, as for the potions above.
+  families.push(fam('spell_potion', null, spellPotions()));
   // Oil of Slipperiness: Freedom of Movement for 8 hours (3 fights); the grease-on-the-ground use is not modelled.
   families.push(
     fam('oil_of_slipperiness', 'Oil of Slipperiness', [

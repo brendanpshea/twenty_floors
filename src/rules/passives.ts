@@ -137,6 +137,10 @@ export const PASSIVE_FLAGS = {
   displacement: '_displacement',
   regeneration: '_regen',
   ignorePrefix: '_ignore_',
+  blessed: '_blessed',
+  blur: '_blur',
+  /** Followed by a creature type: attacks by that type have disadvantage. */
+  wardPrefix: '_ward_',
   /** Pool whose current value is the bonus. */
   rangedAc: '_rangedAc',
   /** Pool whose current value is the reach in cells; the two flags beside it say how it works. */

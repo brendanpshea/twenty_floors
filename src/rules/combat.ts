@@ -268,6 +268,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   const guided = new Map<string, { by: string; turnEnds: number }>();
   /** Bless (+1d4) and Bane (-1d4) on attack rolls and saving throws. */
   const rollMods = new Map<string, { bless: boolean; bane: boolean }>();
+  // A potion of Bless or Heroism drunk before the fight.
+  for (const c of all) if (hasFlag(c, 'blessed')) rollMods.set(c.id, { bless: true, bane: false });
   /** Concentration: caster id -> what to undo when it ends. The visible state is the hidden `_concentration` pool. */
   const conc = new Map<string, { name: string; onEnd: () => void }>();
   const lastDamageType = new Map<string, DamageType>();
@@ -384,6 +386,10 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (cr) critMin = Math.min(critMin, parseInt(cr.slice(5), 10));
     // Cloak of Displacement: attack rolls against the wearer have disadvantage until it is hit.
     if (displaced.has(tgt.id) && !isIncapacitated(tgt)) dis = true;
+    // Potions of Blur and of Protection: attack rolls against the drinker have disadvantage (for Protection, by the warded creature types).
+    if (hasFlag(tgt, 'blur') && !isIncapacitated(tgt)) dis = true;
+    const attType = MONSTERS.find((m) => m.id === att.defId)?.type;
+    if (attType && hasFlag(tgt, `ward_${attType}`)) dis = true;
     // Spellguard Shield: spell attack rolls against the bearer have disadvantage.
     if (hasFlag(tgt, 'spellWard') && isMagical(a) && !a.effects?.includes('weaponAttack')) dis = true;
     // SRD cover: +2 (half) or +5 (three-quarters) to the target's AC against ranged and reach attacks; another creature
@@ -845,7 +851,17 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
         flag('displacement');
         displaced.add(c.id);
       } else if (p.type === 'ignoreHazard') flag(`ignore_${p.hazard}`);
-      else if (p.type === 'regeneration') c.resources['_regen'] = { name: 'Regeneration', current: p.amount, max: 0, refresh: 'longRest' };
+      else if (p.type === 'bless') {
+        flag('blessed');
+        rollMods.set(c.id, { ...(rollMods.get(c.id) ?? { bless: false, bane: false }), bless: true });
+      } else if (p.type === 'tempHp') c.tempHp = Math.max(c.tempHp, p.amount);
+      else if (p.type === 'attackersDisadvantage') flag('blur');
+      else if (p.type === 'wardVersus') for (const t of p.versus) flag(`ward_${t}`);
+      else if (p.type === 'maxHpBonus') {
+        const n = (p.flat ?? 0) + (p.perLevel ?? 0) * (c.level ?? 0);
+        c.maxHp += n;
+        c.hp += n;
+      } else if (p.type === 'regeneration') c.resources['_regen'] = { name: 'Regeneration', current: p.amount, max: 0, refresh: 'longRest' };
       else if (p.type === 'flight') {
         flag('hover');
         flag('ignore_fall');

@@ -602,6 +602,10 @@ function applyPassiveFlags(pc: PlayerCharacter, resources: Record<string, Resour
     for (const h of ['fall', 'lava'] as const) resources[PASSIVE_FLAGS.ignorePrefix + h] = flagPool('ignore_' + h);
   }
   for (const p of ps) if (p.type === 'ignoreHazard') resources[PASSIVE_FLAGS.ignorePrefix + p.hazard] = flagPool('ignore_' + p.hazard);
+  // Spell effects from potions.
+  if (hasPassive(pc, 'bless')) resources[PASSIVE_FLAGS.blessed] = flagPool('blessed');
+  if (hasPassive(pc, 'attackersDisadvantage')) resources[PASSIVE_FLAGS.blur] = flagPool('blur');
+  for (const p of ps) if (p.type === 'wardVersus') for (const t of p.versus) resources[PASSIVE_FLAGS.wardPrefix + t] = flagPool('ward_' + t);
   // Shields with effects of their own.
   const rangedAc = ps.reduce((n, p) => n + (p.type === 'rangedAcBonus' ? p.amount : 0), 0);
   if (rangedAc !== 0) resources[PASSIVE_FLAGS.rangedAc] = pool('Ranged AC', rangedAc);
@@ -1023,7 +1027,10 @@ export const ITEM_GATING = {
   /** How many kinds of healing potion a shop sells (the strongest ones unlocked), and the most items on a hero's shelf. */
   shopPotionKinds: 2,
   /** Other potions and oils on the shelf (Resistance, Giant Strength, Speed...), each of a different family, from the rarities unlocked at the depth. */
-  shopElixirSlots: 3,
+  shopElixirSlots: 4,
+  /** The cheapest of them (bottled level 1 and 2 spells) are sold from this depth, before their rarity unlocks. */
+  cheapElixirMinDepth: 2,
+  cheapElixirCost: 100,
   /** The chance that a boss chest holds a magic find at silver (gold 1.5 times, bronze half), from the gated depth. Boss chests are where the powerful items are. */
   bossChestMagicChance: 0.75,
   shopMaxItems: 12,
@@ -1087,7 +1094,8 @@ export function shopStock(depth: number, pc?: PlayerCharacter): ItemDef[] {
   // Other potions and oils: one each of a few families, from the rarities unlocked here (legendary ones are never sold).
   const elixirs = all.filter((i) => {
     const min = i.rarity ? g.wonderMinDepth[i.rarity] : undefined;
-    return i.kind === 'consumable' && i.consumable?.effect === 'timed' && i.cost > 0 && min !== undefined && depth >= min;
+    const open = min !== undefined && (depth >= min || (i.cost <= g.cheapElixirCost && depth >= g.cheapElixirMinDepth && i.rarity === 'uncommon'));
+    return i.kind === 'consumable' && i.consumable?.effect === 'timed' && i.cost > 0 && open;
   });
   const family = (i: ItemDef): string => (i.id.startsWith('potion_of_resistance') ? 'resistance' : i.id.startsWith('potion_of_giant_strength') ? 'giant' : i.id);
   const families = [...new Set(elixirs.map(family))];
@@ -1321,6 +1329,9 @@ export function useConsumable(pc: PlayerCharacter, itemId: string, rng: Rng): { 
   if (!stack) throw new Error(`You do not have ${item.name}`);
   if (effect.effect === 'timed') {
     const used = addTimedEffect(pc, { id: item.id, name: item.name, passives: effect.passives, fightsLeft: effect.fights, ...(effect.hover ? { hover: true } : {}) });
+    // Temporary hit points come once, with the drink; they do not stack with those already held.
+    const temp = effect.passives.reduce((n, p) => Math.max(n, p.type === 'tempHp' ? p.amount : 0), 0);
+    if (temp > (used.resources['_tempHp']?.current ?? 0)) used.resources['_tempHp'] = { name: 'Temporary HP', current: temp, max: 0, refresh: 'longRest' };
     const s2 = used.inventory.find((x) => x.itemId === itemId) as ItemStack;
     s2.quantity -= 1;
     used.inventory = used.inventory.filter((x) => x.quantity > 0);

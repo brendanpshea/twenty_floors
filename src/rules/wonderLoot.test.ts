@@ -37,7 +37,7 @@ describe('magic items in the real catalog, shops and chests', () => {
         expect(potions.filter((i) => i.consumable?.effect === 'heal').length).toBeLessThanOrEqual(ITEM_GATING.shopPotionKinds);
         const others = potions.filter((i) => i.consumable?.effect === 'timed');
         expect(others.length).toBeLessThanOrEqual(ITEM_GATING.shopElixirSlots);
-        if (d < 4) expect(others.length).toBe(0);
+        if (d < ITEM_GATING.cheapElixirMinDepth) expect(others.length).toBe(0);
         else expect(others.length).toBeGreaterThan(0);
         // Never a legendary potion, and never two of one family.
         expect(others.some((i) => i.rarity === 'legendary')).toBe(false);

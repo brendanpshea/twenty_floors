@@ -567,6 +567,14 @@ export type PassiveEffect =
   | { type: 'weaponCritDamage'; dice: Dice; damageType?: DamageType }
   /** On a weapon: a different critical range (crits on `from` or higher). */
   | { type: 'critRange'; from: number }
+  /** The Bless spell: 1d4 added to every attack roll and saving throw. */
+  | { type: 'bless' }
+  /** Temporary hit points gained once, when the effect starts (a potion of False Life or Heroism). */
+  | { type: 'tempHp'; amount: number }
+  /** The Blur spell: attack rolls against the bearer have disadvantage. */
+  | { type: 'attackersDisadvantage' }
+  /** Protection from Evil and Good: attack rolls by creatures of these types against the bearer have disadvantage. */
+  | { type: 'wardVersus'; versus: CreatureType[] }
   /** Extra Armor Class against ranged attack rolls only (Arrow-Catching Shield). */
   | { type: 'rangedAcBonus'; amount: number }
   /**

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionDef, Creature, GameEvent, MonsterDef, PlayerCharacter } from '../core/types';
-import { attuneItem, canEquip, computeAc, equipItem, toCreature } from './character';
+import { attuneItem, canEquip, computeAc, equipItem, toCreature, useConsumable } from './character';
+import { MONSTERS } from '../data/monsters';
+import { timedEffects } from './passives';
 import { createCombat } from './combat';
 import { compareItem } from './compare';
 import { instantiateMonster } from './monster';
@@ -128,5 +130,52 @@ describe('Animated Shield', () => {
     const plain = bearer('shield');
     expect(requireItem(plain.equipped.mainHand as string).weapon?.versatileDice).toBeDefined();
     expect(dice(bearer('animated_shield'))).not.toBe(dice(plain));
+  });
+});
+
+describe('potions of buff and defense spells', () => {
+  const drink = (id: string): PlayerCharacter => useConsumable(withItems(bearer('shield'), id), id, new ScriptedRng(1)).pc;
+  it('Blur gives every attack against the drinker disadvantage, for one fight', () => {
+    expect(rollOf(shoot(drink('potion_of_blur'), 'bow', 'player').ev).mode).toBe('disadvantage');
+    expect(rollOf(shoot(drink('potion_of_blur'), 'club', 'player', { archerAt: 4 }).ev).mode).toBe('disadvantage');
+    expect(timedEffects(drink('potion_of_blur'))[0]?.fightsLeft).toBe(1);
+  });
+  it('Protection from Evil and Good wards only against the listed creature types', () => {
+    const pc = drink('potion_of_protection');
+    const by = (type: MonsterDef['type']): Roll => {
+      const h = toCreature(pc, { x: 3, y: 4 });
+      const real = MONSTERS.find((m) => m.type === type && m.actions.some((a) => a.attack && a.targeting.kind === 'creature' && a.targeting.melee && !a.multiattack)) as MonsterDef;
+      const f = instantiateMonster(real, 'f', { x: 4, y: 4 });
+      const rng = new ScriptedRng(1);
+      const combat = createCombat([h, f], arena, rng, {});
+      combat.begin();
+      for (let i = 0; i < 30 && combat.activeId !== 'f'; i++) combat.execute({ type: 'endTurn' });
+      rng.queue = [10, 3, 3, 3, 3];
+      const act = real.actions.find((a) => a.attack && a.targeting.kind === 'creature' && a.targeting.melee && !a.multiattack) as ActionDef;
+      return rollOf(combat.execute({ type: 'action', actionId: act.id, targetId: 'player' }));
+    };
+    expect(by('undead').mode).toBe('disadvantage');
+    expect(by('fiend').mode).toBe('disadvantage');
+    expect(by('beast').mode).not.toBe('disadvantage');
+  });
+  it('Shield of Faith, Aid, Longstrider and Stoneskin change the hero\'s own numbers', () => {
+    const plain = bearer('shield');
+    const at = (pc: PlayerCharacter): Creature => toCreature(pc, { x: 0, y: 0 });
+    expect(at(drink('potion_of_shield_of_faith')).ac).toBe(at(plain).ac + 2);
+    expect(at(drink('potion_of_aid')).maxHp).toBe(at(plain).maxHp + 5);
+    expect(at(drink('potion_of_longstrider')).speed).toBe(at(plain).speed + 2);
+    expect(at(drink('potion_of_stoneskin')).resistances).toEqual(expect.arrayContaining(['bludgeoning', 'piercing', 'slashing']));
+  });
+  it('False Life and Heroism give their temporary hit points once; Heroism also blesses for three fights', () => {
+    expect(toCreature(drink('potion_of_false_life'), { x: 0, y: 0 }).tempHp).toBe(9);
+    const hero = drink('potion_of_heroism');
+    expect(toCreature(hero, { x: 0, y: 0 }).tempHp).toBe(10);
+    expect(timedEffects(hero)[0]?.fightsLeft).toBe(3);
+    // A second, weaker dose does not lower them.
+    expect(toCreature(useConsumable(withItems(hero, 'potion_of_false_life'), 'potion_of_false_life', new ScriptedRng(1)).pc, { x: 0, y: 0 }).tempHp).toBe(10);
+  });
+  it('Bless adds 1d4 to the drinker\'s saving throws and attack rolls', () => {
+    const save = (pc: PlayerCharacter): Extract<GameEvent, { type: 'saveRoll' }> => shoot(pc, 'hex', 'player', { queue: [10, 4, 1, 1] }).ev.find((e) => e.type === 'saveRoll') as Extract<GameEvent, { type: 'saveRoll' }>;
+    expect(save(drink('potion_of_bless')).bonus).toBe(save(bearer('shield')).bonus + 4);
   });
 });
