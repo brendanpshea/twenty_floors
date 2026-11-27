@@ -14,6 +14,7 @@ import {
   nextToHazard,
   longRestGain,
   rollDice,
+  useConsumable,
   syncFromCreature,
   takeShortRest,
 } from '../rules';
@@ -517,34 +518,37 @@ export class Explore {
     this.ctx.hud();
   }
 
-  /** Drink a healing consumable outside combat (rules exports no helper for this; see report). */
+  /** Use a consumable outside combat: a healing potion heals, a timed potion starts its effect for the next fights. */
   useItem(actionId: string): void {
     const { state, deps } = this.ctx;
-    if (this.walking || state.mode !== 'explore' || !actionId.startsWith('drink_')) return;
-    const itemId = actionId.slice('drink_'.length);
+    if (this.walking || state.mode !== 'explore' || !(actionId.startsWith('drink_') || actionId.startsWith('use_'))) return;
+    const itemId = actionId.slice(actionId.indexOf('_') + 1);
     const item = getItem(itemId);
     const next = syncFromCreature(state.pc, state.player);
-    const owned = next.inventory.find((s) => s.itemId === itemId && s.quantity > 0);
-    if (!item?.consumable || !owned) return;
-    if (next.hp >= next.maxHp) {
+    if (!item?.consumable || !next.inventory.some((s) => s.itemId === itemId && s.quantity > 0)) return;
+    const before = next.hp;
+    let result: ReturnType<typeof useConsumable>;
+    try {
+      result = useConsumable(next, itemId, state.floorRng.fork(`item:${itemId}:${this.itemUses++}`));
+    } catch (err) {
       deps.audio.play('uiError');
-      this.ctx.prompt('You are already at full health.', 1800);
+      this.ctx.prompt(err instanceof Error ? err.message : 'You cannot use that now.', 1800);
       return;
     }
-    const rng = state.floorRng.fork(`item:${itemId}:${this.itemUses++}`);
-    const healed = rollDice(rng, item.consumable.dice).total;
-    const before = next.hp;
-    next.hp = Math.min(next.maxHp, next.hp + healed);
-    owned.quantity -= 1;
-    next.inventory = next.inventory.filter((s) => s.quantity > 0);
-    state.pc = next;
+    state.pc = result.pc;
     this.ctx.rebuildPlayer();
-    const gained = next.hp - before;
     deps.audio.play('potion');
-    deps.audio.play('heal', { delay: 0.25 });
     deps.renderer.setEntityState('player', { hpFraction: state.player.hp / state.player.maxHp });
-    deps.renderer.floatText('player', `+${gained}`, 'heal');
-    this.ctx.say(`${next.build.name} drinks ${item.name} and regains ${gained} hit points.`);
+    if (item.consumable.effect === 'timed') {
+      const fights = item.consumable.fights;
+      deps.renderer.floatText('player', item.name, 'info');
+      this.ctx.say(`${result.pc.build.name} drinks ${item.name}. It lasts ${fights === 1 ? 'this fight' : `${fights} fights`}.`);
+    } else {
+      const gained = result.pc.hp - before;
+      deps.audio.play('heal', { delay: 0.25 });
+      deps.renderer.floatText('player', `+${gained}`, 'heal');
+      this.ctx.say(`${result.pc.build.name} drinks ${item.name} and regains ${gained} hit points.`);
+    }
     this.ctx.hud();
   }
 

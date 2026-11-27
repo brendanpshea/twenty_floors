@@ -61,6 +61,13 @@ export const FAMILY_FACTOR: Readonly<Record<string, number>> = {
   sword_of_wounding: 0.75, // no-healing rider dropped
   giant_slayer: 0.75, // Prone rider dropped
   mithral_armor: 1,
+  // Consumables: the SRD suggests half price for one-use items.
+  potion_of_resistance: 0.5,
+  potion_of_giant_strength: 0.5,
+  potion_of_invulnerability: 0.5,
+  potion_of_speed: 0.5,
+  potion_of_flying: 0.5,
+  oil_of_slipperiness: 0.5,
 };
 
 const factorOf = (key: string): number => FAMILY_FACTOR[key] ?? 1;
@@ -427,6 +434,84 @@ function dwarvenPlates(): ItemDef[] {
     });
   });
 }
+
+
+// ---------------------------------------------------------------------------
+// Timed consumables. Durations are in fights: an SRD "1 minute" or "10 minutes"
+// is 1 fight, "1 hour" or longer is 3 fights.
+// ---------------------------------------------------------------------------
+
+function timedConsumable(o: {
+  id: string;
+  name: string;
+  family: string;
+  rarity: ItemRarity;
+  passives: PassiveEffect[];
+  fights: number;
+  hover?: boolean;
+  description: string;
+}): ItemDef {
+  const timed: { effect: 'timed'; passives: PassiveEffect[]; fights: number; hover?: boolean } = {
+    effect: 'timed',
+    passives: o.passives,
+    fights: o.fights,
+  };
+  if (o.hover) {
+    timed.hover = true;
+  }
+  return {
+    id: o.id,
+    name: o.name,
+    kind: 'consumable',
+    description: o.description,
+    cost: priceOf(o.family, o.rarity),
+    icon: 'potion',
+    rarity: o.rarity,
+    consumable: timed,
+  };
+}
+
+/** Potion of Resistance (Uncommon, 1 hour = 3 fights), one per SRD damage type. */
+function potionsOfResistance(): ItemDef[] {
+  return DAMAGE_TYPES_RESISTABLE.map((t) =>
+    timedConsumable({
+      id: `potion_of_resistance_${t}`,
+      name: `Potion of Resistance (${cap(t)})`,
+      family: 'potion_of_resistance',
+      rarity: 'uncommon',
+      fights: 3,
+      passives: [{ type: 'resistance', damageType: t }],
+      description: `A draught that halves ${t} damage you take for the next 3 fights.`,
+    }),
+  );
+}
+
+/** Potion of Giant Strength (SRD table), 1 hour = 3 fights. */
+function potionsOfGiantStrength(): ItemDef[] {
+  const tiers: Array<{ id: string; score: number; rarity: ItemRarity }> = [
+    { id: 'hill', score: 21, rarity: 'uncommon' },
+    { id: 'frost', score: 23, rarity: 'rare' },
+    { id: 'stone', score: 23, rarity: 'rare' },
+    { id: 'fire', score: 25, rarity: 'rare' },
+    { id: 'cloud', score: 27, rarity: 'veryRare' },
+    { id: 'storm', score: 29, rarity: 'legendary' },
+  ];
+  return tiers.map((t) =>
+    timedConsumable({
+      id: `potion_of_giant_strength_${t.id}`,
+      name: `Potion of Giant Strength (${t.id})`,
+      family: 'potion_of_giant_strength',
+      rarity: t.rarity,
+      fights: 3,
+      passives: [{ type: 'setAbility', ability: 'str', score: t.score }],
+      description: `A potion that raises your Strength to ${t.score} (if lower) for the next 3 fights.`,
+    }),
+  );
+}
+
+const ALL_DAMAGE_TYPES: DamageType[] = [
+  'acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder',
+];
 
 // ---------------------------------------------------------------------------
 // 4. Weapons
@@ -1114,6 +1199,68 @@ function build(): MagicFamily[] {
         attunement: false,
         passives: [{ type: 'castSpell', spellId: 'scorching_ray', charges: 1, attackBonus: 5 }],
         description: 'A circlet that casts Scorching Ray (+5 to hit) once per long rest.',
+      }),
+    ]),
+  );
+
+  // Timed consumables (see timedConsumable).
+  families.push(fam('potion_of_resistance', 'Potion of Resistance', potionsOfResistance()));
+  families.push(fam('potion_of_giant_strength', 'Potion of Giant Strength', potionsOfGiantStrength()));
+  families.push(
+    fam('potion_of_invulnerability', 'Potion of Invulnerability', [
+      timedConsumable({
+        id: 'potion_of_invulnerability',
+        name: 'Potion of Invulnerability',
+        family: 'potion_of_invulnerability',
+        rarity: 'rare',
+        fights: 1,
+        passives: ALL_DAMAGE_TYPES.map((t): PassiveEffect => ({ type: 'resistance', damageType: t })),
+        description: 'A syrupy draught that gives resistance to all damage for the next fight.',
+      }),
+    ]),
+  );
+  // The SRD potion is Haste: here a +6 cell speed bonus (doubling a 6-cell speed); the extra action and AC bonus are not modelled.
+  families.push(
+    fam('potion_of_speed', 'Potion of Speed', [
+      timedConsumable({
+        id: 'potion_of_speed',
+        name: 'Potion of Speed',
+        family: 'potion_of_speed',
+        rarity: 'veryRare',
+        fights: 1,
+        passives: [{ type: 'speedBonus', cells: 6 }],
+        description: 'A swirling yellow draught that doubles your movement for the next fight.',
+      }),
+    ]),
+  );
+  families.push(
+    fam('potion_of_flying', 'Potion of Flying', [
+      timedConsumable({
+        id: 'potion_of_flying',
+        name: 'Potion of Flying',
+        family: 'potion_of_flying',
+        rarity: 'veryRare',
+        fights: 3,
+        hover: true,
+        passives: [{ type: 'flight' }],
+        description: 'A draught that lets you fly and hover for the next 3 fights.',
+      }),
+    ]),
+  );
+  // Oil of Slipperiness: Freedom of Movement for 8 hours (3 fights); the grease-on-the-ground use is not modelled.
+  families.push(
+    fam('oil_of_slipperiness', 'Oil of Slipperiness', [
+      timedConsumable({
+        id: 'oil_of_slipperiness',
+        name: 'Oil of Slipperiness',
+        family: 'oil_of_slipperiness',
+        rarity: 'uncommon',
+        fights: 3,
+        passives: [
+          { type: 'conditionImmunity', condition: 'paralyzed' },
+          { type: 'conditionImmunity', condition: 'restrained' },
+        ],
+        description: 'A slick black unguent that stops you being paralyzed or restrained for the next 3 fights.',
       }),
     ]),
   );

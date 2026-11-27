@@ -102,7 +102,8 @@ export class FloorSession {
         creature: p.creature,
         roomId: p.roomId,
         def: monsterDef(p.creature.defId),
-        boss: monsterDef(p.creature.defId)?.role === 'boss',
+        // The floor's boss carries the engine's hidden _boss flag; elite boss-role monsters in ordinary rooms do not count.
+        boss: p.creature.resources['_boss'] !== undefined,
       })),
       chests: plan.spawns
         .filter((s) => s.role === 'chest')

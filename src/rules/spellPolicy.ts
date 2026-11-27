@@ -1,4 +1,5 @@
 import type { ActionDef, CombatApi, Command, Creature, GridPos } from '../core/types';
+import { MONSTERS } from '../data/monsters';
 import { damageAgainst } from './ai';
 import { averageDice } from './dice';
 import { concentratingOn, isSpellAction } from './spells';
@@ -46,8 +47,84 @@ function friendInside(combat: CombatApi, caster: Creature, cells: GridPos[]): bo
   return combat.creatures().some((o) => o !== caster && isAlive(o) && !areHostile(caster, o) && cells.some((q) => q.x === o.pos.x && q.y === o.pos.y));
 }
 
+/**
+ * Spells granted by items (wands, staffs): charges are spent more freely than once-per-rest spells. Area spells when two or more
+ * enemies are caught and no ally is; single-target attack spells when they beat the weapon (a one-charge item is kept for a boss, a
+ * group or a hurt hero); a healing staff like a potion when hurt; control (web, hold) on the boss. Null lets the weapon logic act.
+ */
+function itemSpellCommand(combat: CombatApi, c: Creature): Command | null {
+  const spells = c.actions.filter((a) => a.id.startsWith('itemspell_') && a.cost === 'action' && combat.canUse(a.id).ok);
+  if (spells.length === 0 || combat.turn.actionUsed) return null;
+  const hostiles = combat.creatures().filter((o) => isAlive(o) && areHostile(c, o));
+  if (hostiles.length === 0) return null;
+  const bosses = hostiles.filter((h) => h.level >= 1 || MONSTERS.find((m) => m.id === h.defId)?.role === 'boss');
+  const important = hostiles.length >= 2 || bosses.length > 0;
+  const hurt = c.hp <= c.maxHp * 0.5;
+  // Weapon baseline: the best attack available this turn.
+  let baseline = 0;
+  for (const w of c.actions.filter(isWeapon)) {
+    if (!combat.canUse(w.id).ok) continue;
+    for (const id of combat.validTargets(w.id)) baseline = Math.max(baseline, expected(combat, w, combat.creature(id) as Creature));
+  }
+  type Pick = { a: ActionDef; t?: Creature; point?: GridPos; score: number };
+  let best: Pick | undefined;
+  const consider = (p: Pick): void => {
+    if (!best || p.score > best.score) best = p;
+  };
+  for (const a of spells) {
+    const left = c.resources[a.uses?.resource ?? '']?.current ?? 0;
+    const plenty = left >= 2;
+    const fx = a.effects ?? [];
+    if (a.heal) {
+      const missing = c.maxHp - c.hp;
+      if (hurt && missing >= averageDice(a.heal) * 0.7 && (a.targeting.kind === 'self' || a.targeting.kind === 'point' || a.targeting.kind === 'creature')) {
+        consider({ a, ...(a.targeting.kind === 'creature' ? { t: c } : {}), score: 1000 + missing });
+      }
+      continue;
+    }
+    const control = a.applies !== undefined || fx.includes('web') || a.id.endsWith('_web') || a.id.endsWith('_hold_person') || a.id.endsWith('_wall_of_fire');
+    if (a.targeting.kind === 'point') {
+      const range0 = a.targeting.range === 0;
+      const centers: GridPos[] = range0 && a.targeting.area.shape === 'sphere' ? [c.pos] : hostiles.map((h) => h.pos);
+      for (const p of centers) {
+        if (!range0 && chebyshev(c.pos, p) > a.targeting.range) continue;
+        const cells = combat.areaCells(a.id, p);
+        if (friendInside(combat, c, cells) || cells.some((q) => q.x === c.pos.x && q.y === c.pos.y)) continue;
+        const inside = hostiles.filter((h) => cells.some((q) => q.x === h.pos.x && q.y === h.pos.y));
+        if (control && !a.damage) {
+          const hasBoss = inside.some((h) => bosses.includes(h));
+          if (hasBoss && combat.round <= 3) consider({ a, point: p, score: 50 + inside.length });
+          continue;
+        }
+        if (inside.length < 2 && !(bosses.length > 0 && inside.length === 1 && (plenty || hurt))) continue;
+        const score = inside.reduce((s, h) => s + expected(combat, a, h), 0);
+        if (score > baseline * 1.1) consider({ a, point: p, score });
+      }
+    } else if (a.targeting.kind === 'creature' && !a.targeting.friendly) {
+      for (const id of combat.validTargets(a.id)) {
+        const t = combat.creature(id) as Creature;
+        if (control && !a.damage) {
+          if (bosses.includes(t) && combat.round <= 3 && (combat.hitChance(a.id, id) ?? 0) >= 0.4) consider({ a, t, score: 50 });
+          continue;
+        }
+        if (!a.attack && !a.save && !fx.includes('magicMissile')) continue;
+        const score = expected(combat, a, t) + (bosses.includes(t) ? 3 : 0);
+        if (!plenty && !(important || hurt)) continue;
+        if (score > baseline * 1.1) consider({ a, t, score });
+      }
+    }
+  }
+  if (!best) return null;
+  const pick = best as Pick;
+  if (pick.t) return cmd(pick.a, { targetId: pick.t.id });
+  if (pick.point) return cmd(pick.a, { point: pick.point });
+  return cmd(pick.a);
+}
+
 export function spellCommand(combat: CombatApi, c: Creature): Command | null {
-  const spells = c.actions.filter(isSpellAction);
+  const viaItem = itemSpellCommand(combat, c);
+  if (viaItem) return viaItem;
+  const spells = c.actions.filter((a) => isSpellAction(a) && !a.id.startsWith('itemspell_'));
   if (spells.length === 0) return null;
   const turn = combat.turn;
   const hostiles = combat.creatures().filter((o) => isAlive(o) && areHostile(c, o));

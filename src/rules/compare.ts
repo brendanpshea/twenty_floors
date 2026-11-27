@@ -2,7 +2,10 @@ import type { ActionDef, ItemComparison, ItemDef, PassiveEffect, PlayerCharacter
 import { computeAc, equipItem, masteredKinds, toCreature } from './character';
 import { averageDice, parseDice } from './dice';
 import { getItem } from './items';
+import { describePassive } from './describe';
 import { activePassives } from './passives';
+
+export { describePassive };
 import { abilityMod, clone } from './util';
 
 /**
@@ -180,35 +183,6 @@ const slots = (pc: PlayerCharacter): [string, string | undefined][] => [
   ['armor', pc.equipped.armor],
   ...(Object.entries(pc.worn ?? {}) as [string, string | undefined][]).map(([k, id]): [string, string | undefined] => [`worn:${k}`, id]),
 ];
-
-const signedN = (n: number): string => (n >= 0 ? `+${n}` : String(n));
-
-/** One plain line for a passive (the item's own effects the numbers above do not show). Null for passives shown elsewhere. */
-export function describePassive(p: PassiveEffect): string | null {
-  switch (p.type) {
-    case 'acBonus':
-    case 'unarmoredAcBonus':
-    case 'speedBonus':
-    case 'castSpell':
-      return null;
-    case 'saveBonus': return `${signedN(p.amount)} to all saving throws`;
-    case 'setAbility': return `${p.ability.toUpperCase()} becomes ${p.score} if lower`;
-    case 'abilityBonus': return `${signedN(p.amount)} ${p.ability.toUpperCase()} (up to ${p.max ?? 20})`;
-    case 'resistance': return `Resistance to ${p.damageType} damage`;
-    case 'immunity': return `Immunity to ${p.damageType} damage`;
-    case 'conditionImmunity': return `Cannot be ${p.condition}`;
-    case 'maxHpBonus': return `${signedN((p.flat ?? 0))}${p.perLevel ? ` and ${signedN(p.perLevel)} per level` : ''} maximum hit points`;
-    case 'initiativeAdvantage': return 'Advantage on initiative';
-    case 'critImmunity': return 'Critical hits against you are normal hits';
-    case 'ignoreHazard': return `Ignores ${p.hazard === 'fall' ? 'pits' : p.hazard}`;
-    case 'displacement': return 'Attacks against you have disadvantage until you are hit';
-    case 'doubleHitDiceHealing': return 'Hit Dice heal twice as much on a short rest';
-    case 'regeneration': return `Regain ${p.amount} hit points each turn`;
-    case 'weaponDamage': return `+${p.dice}${p.damageType ? ` ${p.damageType}` : ''} damage${p.versus ? ` against ${p.versus.join(', ')}` : ''}`;
-    case 'weaponCritDamage': return `+${p.dice} damage on a critical hit`;
-    case 'critRange': return `Critical hit on ${p.from}-20`;
-  }
-}
 
 function passiveLines(pc: PlayerCharacter): string[] {
   const out = new Set<string>();

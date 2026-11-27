@@ -483,3 +483,25 @@ describe('the boss chest', () => {
 });
 
 export type { SaveGame };
+
+describe('retries', () => {
+  it('the same floor on another attempt keeps its layout but rolls its fights differently', async () => {
+    const inits: string[] = [];
+    const layouts: string[] = [];
+    for (const attempt of [1, 2, 3, 4]) {
+      const h = makeHarness({ reveal: true, peace: true });
+      const s = new FloorSession(h.deps, run(5, 2), attempt);
+      await s.enter();
+      layouts.push(Array.from(s.state.plan.kinds).join(''));
+      const st = s.state;
+      const mon = st.monsters[0] as NonNullable<(typeof st.monsters)[number]>;
+      st.player.pos = neighbour(s, mon.creature.pos, 2);
+      h.renderer.placeEntity('player', st.player.pos);
+      void s.combat.begin(st.monsters.filter((m) => m.roomId === mon.roomId));
+      await until(() => s.combat.playerTurn);
+      inits.push(st.log.find((l) => l.startsWith('Initiative:')) ?? '');
+    }
+    expect(new Set(layouts).size).toBe(1);
+    expect(new Set(inits).size).toBeGreaterThan(1);
+  });
+});

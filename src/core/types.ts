@@ -568,7 +568,25 @@ export type PassiveEffect =
   /** On a weapon: a different critical range (crits on `from` or higher). */
   | { type: 'critRange'; from: number }
   /** The item lets its bearer cast a spell from src/data/spells.ts with charges that return on a long rest (wands, staffs). */
-  | { type: 'castSpell'; spellId: string; charges: number; saveDc?: number; attackBonus?: number };
+  | { type: 'castSpell'; spellId: string; charges: number; saveDc?: number; attackBonus?: number }
+  /** Narrow flight: crosses pits, lava and water freely, cannot end a move over a pit or lava, cannot be pushed into one. */
+  | { type: 'flight' };
+
+/**
+ * A passing effect on the hero (a potion, a scroll). Durations are counted in
+ * fights: "one minute" or "ten minutes" is 1 fight, "one hour" is 3.
+ */
+export interface TimedEffect {
+  id: string;
+  name: string;
+  passives: PassiveEffect[];
+  fightsLeft: number;
+  /** Narrow flight while it lasts. */
+  hover?: boolean;
+}
+
+/** Stacks the hero can use straight from the action bar. */
+export const QUICK_SLOTS = 4;
 
 export type WeaponMastery = 'cleave' | 'graze' | 'nick' | 'push' | 'sap' | 'slow' | 'topple' | 'vex';
 
@@ -618,11 +636,13 @@ export interface ItemDef {
   };
   /** AC bonus for shields. */
   shieldBonus?: number;
-  consumable?: {
-    /** Effect id handled by the rules engine. */
-    effect: 'heal';
-    dice: Dice;
-  };
+  consumable?:
+    | {
+        /** Effect id handled by the rules engine. */
+        effect: 'heal';
+        dice: Dice;
+      }
+    | { effect: 'timed'; passives: PassiveEffect[]; fights: number; hover?: boolean };
 }
 
 // ---------------------------------------------------------------------------
@@ -830,6 +850,10 @@ export interface PlayerCharacter {
   worn?: Partial<Record<Exclude<WornSlot, 'ring'> | 'ring' | 'ring2', string>>;
   /** Ids of the items the hero is attuned to (at most ATTUNEMENT_LIMIT). */
   attuned?: string[];
+  /** Passing effects, counted down once per fight. */
+  timed?: TimedEffect[];
+  /** Quick-slot item ids, at most QUICK_SLOTS; missing means the first consumable stacks. */
+  quick?: string[];
   gold: number;
 }
 
@@ -1251,6 +1275,8 @@ export interface HudModel {
     ac: number;
     conditions: Condition[];
     resources: { name: string; current: number; max: number }[];
+    /** Passing effects from potions and the like: "Flying, 1 fight left". */
+    timed?: { name: string; fightsLeft: number; detail?: string }[];
   };
   /** The hero's companion, when one is travelling with them. */
   companion?: {
@@ -1416,12 +1442,46 @@ export interface HubModel {
    * `required` is true when none has been chosen yet: Descend waits for a pick.
    */
   companions?: { options: CompanionInfo[]; chosenId: string | null; required: boolean };
+  /**
+   * Per owned item id: what the pack screen needs beyond the ItemDef. Filled by
+   * the game from the rules; the UI shows it and never works it out itself.
+   */
+  itemNotes?: Record<string, HubItemNote>;
+  /** Attunement in use, e.g. { used: 2, limit: 3 }. */
+  attunement?: { used: number; limit: number };
+  /** The four quick slots in order; null is an empty slot. `count` is the stack size. */
+  quickSlots?: ({ itemId: string; count: number } | null)[];
+}
+
+export interface HubItemNote {
+  /** Plain lines for the item's effects ("+1 to AC", "Resistance to fire", "Cast Fireball, 3 charges"). */
+  effects: string[];
+  /** Where it is worn, if it is. */
+  wornIn?: WornSlot | 'ring2';
+  /** Can be put on or wielded now; `reason` says why not. */
+  canEquip: boolean;
+  reason?: string;
+  needsAttunement: boolean;
+  attuned: boolean;
+  /** False when attunement is full or the item needs none. */
+  canAttune: boolean;
+  /** True when the item does nothing right now (needs attunement and is not attuned). */
+  inert: boolean;
+  /** A consumable that may sit in a quick slot. */
+  quickable: boolean;
+  compare?: ItemComparison;
 }
 
 export type HubIntent =
   | { type: 'confirmLevelUp'; choices: Record<string, string> }
   | { type: 'buy'; itemId: string }
   | { type: 'equip'; itemId: string }
+  /** Take off a worn item (also ends its attunement). */
+  | { type: 'unequip'; itemId: string }
+  | { type: 'attune'; itemId: string }
+  | { type: 'unattune'; itemId: string }
+  /** Put a consumable in quick slot 0..3, or clear the slot with null. */
+  | { type: 'setQuickSlot'; slot: number; itemId: string | null }
   | { type: 'chooseCompanion'; id: string }
   | { type: 'descend' };
 

@@ -48,11 +48,11 @@ export function parseSave(raw: string | null): SaveGame | null {
     if (!finite(depth) || !Number.isInteger(depth) || depth < 1 || depth > 20) return null;
     if (!finite(data['runSeed']) || !finite(data['shortRestsLeft'])) return null;
     if (!validCharacter(data['character'])) return null;
-    const save = data as unknown as SaveGame & { help?: HelpMode };
+    const save = data as unknown as SaveGame;
     if (save.help !== 'guided' && save.help !== 'standard') delete save.help;
     // An old save has no rating: the run starts a new one. A damaged one is dropped, not fatal.
     const rating = (data as { puzzleSkill?: unknown })['puzzleSkill'];
-    if (!isRecord(rating) || !finite(rating['overall']) || !isRecord(rating['byKind']) || !isRecord(rating['playedByKind']) || !finite(rating['played'])) delete (save as { puzzleSkill?: unknown }).puzzleSkill;
+    if (!isRecord(rating) || !finite(rating['overall']) || !isRecord(rating['byKind']) || !isRecord(rating['playedByKind']) || !finite(rating['played'])) delete save.puzzleSkill;
     const companion = validCompanion(data['companion']);
     if (companion) save.companion = companion;
     else delete save.companion;
@@ -79,9 +79,8 @@ export function writeSave(storage: StorageLike, run: RunState): void {
     shortRestsLeft: run.shortRestsLeft,
   };
   if (run.companion) save.companion = run.companion;
-  // The help level travels with the run (the contract's SaveGame has no field for it yet).
-  if (run.help) (save as SaveGame & { help?: HelpMode }).help = run.help;
-  if (run.puzzleSkill) (save as SaveGame & { puzzleSkill?: PlayerSkill }).puzzleSkill = run.puzzleSkill;
+  if (run.help) save.help = run.help;
+  if (run.puzzleSkill) save.puzzleSkill = run.puzzleSkill;
   try {
     storage.set(SAVE_KEY, JSON.stringify(save));
   } catch (e) {
@@ -105,10 +104,8 @@ export function runFromSave(save: SaveGame): RunState {
     pc: migrateEquipment(JSON.parse(JSON.stringify(save.character)) as PlayerCharacter),
     shortRestsLeft: save.shortRestsLeft,
   };
-  const help = (save as SaveGame & { help?: HelpMode }).help;
-  if (help) out.help = help;
-  const skill = (save as SaveGame & { puzzleSkill?: PlayerSkill }).puzzleSkill;
-  if (skill) out.puzzleSkill = JSON.parse(JSON.stringify(skill)) as PlayerSkill;
+  if (save.help) out.help = save.help;
+  if (save.puzzleSkill) out.puzzleSkill = JSON.parse(JSON.stringify(save.puzzleSkill)) as PlayerSkill;
   if (save.companion) out.companion = JSON.parse(JSON.stringify(save.companion)) as CompanionState;
   return out;
 }

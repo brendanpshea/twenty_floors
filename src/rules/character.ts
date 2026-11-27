@@ -1,4 +1,4 @@
-import { ATTUNEMENT_LIMIT } from '../core/types';
+import { ATTUNEMENT_LIMIT, QUICK_SLOTS } from '../core/types';
 import { Rng, hashSeed } from '../core/rng';
 import type {
   Ability,
@@ -35,8 +35,9 @@ import {
 import { CLASSES, classInfo, getClass, masteryKey, type ClassDef } from './classes';
 import { averageDice, rollDice } from './dice';
 import { getItem, itemCatalog, requireItem } from './items';
+import { describePassive } from './describe';
 import { scheduledGear } from './gearSchedule';
-import { PASSIVE_FLAGS, hovers, activePassives, applyAbilityPassives, attunedIds, creaturePassives, tickTimedEffects, hasPassive, passiveAcBonus, passiveMaxHp, weaponPassives } from './passives';
+import { PASSIVE_FLAGS, hovers, activePassives, applyAbilityPassives, attunedIds, creaturePassives, tickTimedEffects, addTimedEffect, hasPassive, passiveAcBonus, passiveMaxHp, weaponPassives } from './passives';
 import { SPECIES, getSpecies, speciesFlagPools, type SpeciesDef } from './species';
 import { ABILITIES, abilityMod, clone, flagPool, proficiencyForLevel } from './util';
 
@@ -531,15 +532,12 @@ function trueStrikeAction(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: 
   };
 }
 
-/** The quick slots: four stacks of consumables that can be used in a fight (a stack is as many of one item as the hero carries). */
-export const QUICK_SLOTS = 4;
-
-type WithQuick = PlayerCharacter & { quick?: string[] };
+/** The quick slots (QUICK_SLOTS, in core/types): stacks of consumables that can be used in a fight (a stack is as many of one item as the hero carries). */
 
 /** The item ids in the quick slots: the hero's own choice (kept to what it still carries), else its first four consumable stacks. */
 export function quickSlotIds(pc: PlayerCharacter): string[] {
   const carried = (id: string): boolean => getItem(id)?.consumable !== undefined && pc.inventory.some((s) => s.itemId === id && s.quantity > 0);
-  const chosen = (pc as WithQuick).quick;
+  const chosen = pc.quick;
   if (chosen) return chosen.filter(carried).slice(0, QUICK_SLOTS);
   return pc.inventory.filter((s) => carried(s.itemId)).map((s) => s.itemId).slice(0, QUICK_SLOTS);
 }
@@ -549,7 +547,7 @@ export function setQuickSlot(pc: PlayerCharacter, slot: number, itemId: string |
   if (slot < 0 || slot >= QUICK_SLOTS) throw new Error('No such quick slot');
   if (itemId !== null && !getItem(itemId)?.consumable) throw new Error('Only consumables go in a quick slot');
   if (itemId !== null && !pc.inventory.some((s) => s.itemId === itemId && s.quantity > 0)) throw new Error('You do not carry that');
-  const next = clone(pc) as WithQuick;
+  const next = clone(pc);
   const row: (string | null)[] = Array.from({ length: QUICK_SLOTS }, (_, i) => quickSlotIds(pc)[i] ?? null);
   row[slot] = itemId;
   next.quick = row.filter((id, i): id is string => id !== null && row.indexOf(id) === i);
@@ -658,6 +656,20 @@ export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): 
     if (!item?.consumable || stack.quantity <= 0 || !quick.includes(item.id)) continue;
     const key = `item:${item.id}`;
     resources[key] = { name: item.name, current: stack.quantity, max: stack.quantity, refresh: 'longRest' };
+    if (item.consumable.effect === 'timed') {
+      const lines = item.consumable.passives.map(describePassive).filter((t): t is string => t !== null);
+      actions.push({
+        id: `use_${item.id}`,
+        name: item.name,
+        description: `Bonus action: use for ${item.consumable.fights === 1 ? 'this fight' : `${item.consumable.fights} fights`}${item.consumable.hover ? ' (narrow flight)' : ''}${lines.length ? `: ${lines.join('; ')}` : ''}.`,
+        icon: 'potion',
+        cost: 'bonus',
+        targeting: { kind: 'self' },
+        uses: { resource: key, amount: 1 },
+        effects: [`timedUse:${item.id}`],
+      });
+      continue;
+    }
     actions.push({
       id: `drink_${item.id}`,
       name: item.name,
@@ -737,12 +749,19 @@ export function syncFromCreature(pc: PlayerCharacter, creature: Creature): Playe
   const temp = Math.max(0, creature.tempHp);
   if (temp > 0 || next.resources['_tempHp']) next.resources['_tempHp'] = { name: 'Temporary HP', current: temp, max: 0, refresh: 'longRest' };
   if ((creature.resources['_mageArmor']?.current ?? 0) > 0) next.resources['_mageArmor'] = { name: 'Mage Armor', current: 1, max: 0, refresh: 'longRest' };
+  let withTimed = next;
   for (const [key, pool] of Object.entries(creature.resources)) {
     if (!key.startsWith('item:')) continue;
     const id = key.slice('item:'.length);
     const stack = next.inventory.find((s) => s.itemId === id);
+    const def = getItem(id);
+    // A timed consumable used in the fight starts its effect (this fight counts, so it is ticked below).
+    if (stack && def?.consumable?.effect === 'timed' && pool.current < stack.quantity) {
+      withTimed = addTimedEffect(withTimed, { id: def.id, name: def.name, passives: def.consumable.passives, fightsLeft: def.consumable.fights, ...(def.consumable.hover ? { hover: true } : {}) });
+    }
     if (stack) stack.quantity = Math.max(0, pool.current);
   }
+  if (withTimed !== next) next.timed = withTimed.timed;
   next.inventory = next.inventory.filter((s) => s.quantity > 0);
   // Item spell charges outlive the fight until the next long rest.
   for (const [key, pool] of Object.entries(creature.resources)) if (key.startsWith('charge:')) next.resources[key] = { ...pool, current: Math.max(0, Math.min(pool.max, pool.current)) };
@@ -1241,11 +1260,19 @@ export function equipItem(pc: PlayerCharacter, itemId: string): PlayerCharacter 
 export function useConsumable(pc: PlayerCharacter, itemId: string, rng: Rng): { pc: PlayerCharacter; healed: number } {
   const item = requireItem(itemId);
   if (!item.consumable) throw new Error(`${item.name} cannot be used`);
+  const effect = item.consumable;
   const stack = pc.inventory.find((s) => s.itemId === itemId && s.quantity > 0);
   if (!stack) throw new Error(`You do not have ${item.name}`);
+  if (effect.effect === 'timed') {
+    const used = addTimedEffect(pc, { id: item.id, name: item.name, passives: effect.passives, fightsLeft: effect.fights, ...(effect.hover ? { hover: true } : {}) });
+    const s2 = used.inventory.find((x) => x.itemId === itemId) as ItemStack;
+    s2.quantity -= 1;
+    used.inventory = used.inventory.filter((x) => x.quantity > 0);
+    return { pc: used, healed: 0 };
+  }
   if (pc.hp >= pc.maxHp) throw new Error('Already at full health');
   const next = clone(pc);
-  const healed = Math.min(rollDice(rng, item.consumable.dice).total, next.maxHp - next.hp);
+  const healed = Math.min(rollDice(rng, effect.dice).total, next.maxHp - next.hp);
   next.hp += healed;
   const s = next.inventory.find((x) => x.itemId === itemId) as ItemStack;
   s.quantity -= 1;

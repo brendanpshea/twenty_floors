@@ -4,8 +4,17 @@ import { COMPANION_JOIN_LEVEL } from '../core/types';
 import type { CompanionState, HubIntent, HubShopEntry, HubModel, ItemDef, PlayerCharacter, GameUi } from '../core/types';
 import {
   applyLevelUp,
+  attuneItem,
+  hubAttunement,
+  hubItemNotes,
+  hubQuickSlots,
+  isWonder,
+  removeWorn,
+  setQuickSlot,
+  unattuneItem,
   bestPotion,
   buyItem,
+  canAttune,
   canEquip,
   compareItem,
   companionLongRest,
@@ -104,6 +113,9 @@ export class HubFlow {
         return entry;
       }),
     };
+    model.itemNotes = hubItemNotes(pc);
+    model.attunement = hubAttunement(pc);
+    model.quickSlots = hubQuickSlots(pc);
     const preview = this.levelTaken ? null : previewLevelUp(pc);
     if (preview) model.levelUp = preview;
     if (this.nextLevel >= COMPANION_JOIN_LEVEL) {
@@ -140,6 +152,22 @@ export class HubFlow {
             if (check.reason) this.notify(check.reason);
             else if (check.unequips) this.notify(`${getItem(check.unequips)?.name ?? check.unequips} is put away.`);
           }
+          break;
+        case 'unequip':
+          this.pc = removeWorn(this.pc, intent.itemId);
+          this.audio.play('uiConfirm');
+          break;
+        case 'attune':
+          this.pc = attuneItem(this.pc, intent.itemId);
+          this.audio.play('uiConfirm');
+          break;
+        case 'unattune':
+          this.pc = unattuneItem(this.pc, intent.itemId);
+          this.audio.play('uiConfirm');
+          break;
+        case 'setQuickSlot':
+          this.pc = setQuickSlot(this.pc, intent.slot, intent.itemId);
+          this.audio.play('uiClick');
           break;
         case 'chooseCompanion': {
           const def = getCompanion(intent.id);
@@ -214,6 +242,24 @@ export class HubFlow {
         if (!canEquip(owned, pick.item.id).ok) break;
         this.pc = equipItem(owned, pick.item.id);
         bought.push(pick.item.id);
+      } catch {
+        break;
+      }
+    }
+    // With gold left: the best affordable wondrous item that is an upgrade, put on (and attuned when it needs it).
+    for (let guard = 0; guard < 6; guard++) {
+      const pick = this.model()
+        .shop.filter((e) => isWonder(e.item) && e.price <= this.pc.gold)
+        .map((e) => ({ e, cmp: compareItem(this.pc, e.item.id) }))
+        .filter((x) => x.cmp?.verdict === 'upgrade')
+        .sort((a, b) => b.e.price - a.e.price)[0];
+      if (!pick) break;
+      try {
+        let owned = buyItem(this.pc, pick.e.item.id);
+        if (canEquip(owned, pick.e.item.id).ok) owned = equipItem(owned, pick.e.item.id);
+        if (pick.e.item.attunement && canAttune(owned, pick.e.item.id).ok) owned = attuneItem(owned, pick.e.item.id);
+        this.pc = owned;
+        bought.push(pick.e.item.id);
       } catch {
         break;
       }

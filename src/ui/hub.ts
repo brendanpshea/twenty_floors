@@ -35,7 +35,8 @@ function itemStat(item: ItemDef): string {
     return `${prettifyId(a.category)} armor · AC ${a.baseAc}${dex}`;
   }
   if (item.shieldBonus !== undefined) return `Shield · +${item.shieldBonus} AC`;
-  if (item.consumable) return `Restores ${item.consumable.dice} hit points`;
+  if (item.consumable?.effect === 'heal') return `Restores ${item.consumable.dice} hit points`;
+  if (item.consumable?.effect === 'timed') return `Lasts ${item.consumable.fights} fight${item.consumable.fights === 1 ? '' : 's'}`;
   return '';
 }
 
@@ -49,6 +50,7 @@ export function buildHub(
   let pickFor = -1;
   let finished = false;
   let showAll = false;
+  let armedSlot: number | null = null;
   const expanded = new Set<string>();
 
   const root = h('div', 'tf-screen tf-screen--hub');
@@ -313,6 +315,8 @@ export function buildHub(
     top.append(who, stats);
     s.body.append(top);
 
+    const worn = ch.worn;
+    const notes = model.itemNotes;
     const eq = h('div', 'tf-equip');
     const slot = (label: string, id: string | undefined): HTMLElement => {
       const r = h('div', 'tf-equip-slot');
@@ -327,31 +331,135 @@ export function buildHub(
     );
     s.body.append(eq);
 
-    s.body.append(h('h3', 'tf-sub-title', 'Inventory'));
-    const equippedCount = (id: string): number =>
-      [ch.equipped.mainHand, ch.equipped.offHand, ch.equipped.ranged, ch.equipped.armor].filter((x) => x === id).length;
+    // Worn magic items: shown once the game supplies item notes or worn data.
+    if (notes || worn) {
+      s.body.append(h('h3', 'tf-sub-title', 'Worn'));
+      const weq = h('div', 'tf-equip tf-equip--worn');
+      const SLOTS: [string, keyof NonNullable<typeof worn>][] = [
+        ['Head', 'head'],
+        ['Neck', 'neck'],
+        ['Cloak', 'cloak'],
+        ['Hands', 'hands'],
+        ['Wrists', 'wrists'],
+        ['Belt', 'belt'],
+        ['Feet', 'feet'],
+        ['Ring 1', 'ring'],
+        ['Ring 2', 'ring2'],
+      ];
+      for (const [label, key] of SLOTS) weq.append(slot(label, worn?.[key]));
+      s.body.append(weq);
+    }
+
+    // Quick slots: tap an empty slot, then a consumable in the pack; tap a filled slot to clear it.
+    if (model.quickSlots) {
+      const qs = model.quickSlots;
+      s.body.append(h('h3', 'tf-sub-title', 'Quick slots'));
+      const row = h('div', 'tf-quick');
+      qs.forEach((q, i) => {
+        const armed = armedSlot === i;
+        const b = h('button', `tf-qslot${q ? ' is-filled' : ''}${armed ? ' is-armed' : ''}`);
+        b.type = 'button';
+        b.dataset['key'] = `qslot-${i}`;
+        const def = q ? model.items[q.itemId] : undefined;
+        const ic = h('span', 'tf-qslot-icon');
+        ic.append(createIcon(q ? (def ? iconForItem(def) : 'potion') : undefined));
+        b.append(h('span', 'tf-qslot-num', String(i + 1)), ic);
+        if (q) {
+          b.append(h('span', 'tf-qslot-name', nameOf(q.itemId)), h('span', 'tf-qslot-count', `\u00d7${q.count}`));
+          b.setAttribute('aria-label', `Quick slot ${i + 1}: ${nameOf(q.itemId)}, ${q.count}. Tap to clear.`);
+        } else {
+          b.append(h('span', 'tf-qslot-name is-empty', armed ? 'Pick below' : 'Empty'));
+          b.setAttribute('aria-label', `Quick slot ${i + 1}, empty. Tap, then choose an item below.`);
+        }
+        b.addEventListener('click', () => {
+          if (q) {
+            armedSlot = null;
+            intent({ type: 'setQuickSlot', slot: i, itemId: null });
+          } else {
+            armedSlot = armed ? null : i;
+            render();
+          }
+        });
+        row.append(b);
+      });
+      s.body.append(row);
+      if (armedSlot !== null) s.body.append(h('p', 'tf-hint', `Choose a consumable below to put in slot ${armedSlot + 1}.`));
+    }
+
+    const invHead = h('div', 'tf-inv-head');
+    invHead.append(h('h3', 'tf-sub-title', 'Inventory'));
+    if (model.attunement) {
+      const full = model.attunement.used >= model.attunement.limit;
+      const chip = h('span', `tf-attune-count${full ? ' is-full' : ''}`, `Attunement ${model.attunement.used} / ${model.attunement.limit}`);
+      chip.title = 'Some magic items only work while you are attuned to them. You can attune to a few at once.';
+      invHead.append(chip);
+    }
+    s.body.append(invHead);
+    const wornCount = (id: string): number =>
+      [ch.equipped.mainHand, ch.equipped.offHand, ch.equipped.ranged, ch.equipped.armor, ...Object.values(worn ?? {})].filter((x) => x === id).length;
     if (ch.inventory.length === 0) {
       s.body.append(h('p', 'tf-hint', 'Your pack is empty.'));
     }
     const list = h('ul', 'tf-inv');
     for (const st of ch.inventory) {
       const def = model.items[st.itemId];
-      const li = h('li', `tf-inv-row${rarityClass(def)}`);
+      const note = notes?.[st.itemId];
+      const li = h('li', `tf-inv-row${rarityClass(def)}${note?.inert ? ' is-inert' : ''}`);
       const ic = h('span', 'tf-inv-icon');
       ic.append(createIcon(def ? iconForItem(def) : undefined));
       const info = h('span', 'tf-inv-info');
-      info.append(h('span', 'tf-inv-name', `${nameOf(st.itemId)}${st.quantity > 1 ? ` ×${st.quantity}` : ''}`));
+      info.append(h('span', 'tf-inv-name', `${nameOf(st.itemId)}${st.quantity > 1 ? ` \u00d7${st.quantity}` : ''}`));
       if (def) info.append(h('span', 'tf-inv-desc', itemStat(def)));
+      if (note && note.effects.length) {
+        const ul = h('ul', 'tf-effects');
+        for (const e of note.effects) {
+          const li2 = h('li');
+          li2.append(termify(e));
+          ul.append(li2);
+        }
+        info.append(ul);
+      }
+      if (note?.inert) info.append(h('span', 'tf-inert', 'Not attuned: does nothing'));
       li.append(ic, info);
+      const actions = h('span', 'tf-inv-actions');
       if (def && def.kind !== 'consumable') {
-        const worn = equippedCount(st.itemId);
-        if (worn > 0) li.append(h('span', 'tf-tag', worn > 1 ? `Equipped \u00d7${worn}` : 'Equipped'));
-        if (st.quantity > worn) {
+        const n = wornCount(st.itemId);
+        if (n > 0) actions.append(h('span', 'tf-tag', n > 1 ? `Equipped \u00d7${n}` : 'Equipped'));
+        if (n > 0 && notes) {
+          const off = button('tf-btn tf-btn--small', 'Take off', () => intent({ type: 'unequip', itemId: st.itemId }), `Take off ${nameOf(st.itemId)}`);
+          off.dataset['key'] = `unequip-${st.itemId}`;
+          actions.append(off);
+        }
+        if (st.quantity > n) {
           const b = button('tf-btn tf-btn--small', 'Equip', () => intent({ type: 'equip', itemId: st.itemId }), `Equip ${nameOf(st.itemId)}`);
           b.dataset['key'] = `equip-${st.itemId}`;
-          li.append(b);
+          if (note && !note.canEquip) {
+            b.disabled = true;
+            if (note.reason) info.append(h('span', 'tf-inv-reason', note.reason));
+          }
+          actions.append(b);
         }
+        if (note?.needsAttunement) {
+          const at = note.attuned
+            ? button('tf-btn tf-btn--small', 'End attunement', () => intent({ type: 'unattune', itemId: st.itemId }), `End attunement with ${nameOf(st.itemId)}`)
+            : button('tf-btn tf-btn--small tf-btn--accent', 'Attune', () => intent({ type: 'attune', itemId: st.itemId }), `Attune to ${nameOf(st.itemId)}`);
+          at.dataset['key'] = `attune-${st.itemId}`;
+          if (!note.attuned && !note.canAttune) {
+            at.disabled = true;
+            info.append(h('span', 'tf-inv-reason', 'Attunement is full: end another first.'));
+          }
+          actions.append(at);
+        }
+      } else if (def && note?.quickable && armedSlot !== null) {
+        const slotNo = armedSlot;
+        const put = button('tf-btn tf-btn--small tf-btn--primary', `Put in slot ${slotNo + 1}`, () => {
+          armedSlot = null;
+          intent({ type: 'setQuickSlot', slot: slotNo, itemId: st.itemId });
+        });
+        put.dataset['key'] = `put-${st.itemId}`;
+        actions.append(put);
       }
+      if (actions.childElementCount) li.append(actions);
       list.append(li);
     }
     s.body.append(list);
@@ -412,6 +520,12 @@ export function buildHub(
     if (open && detail) {
       const tbl = h('div', 'tf-cmp-table');
       for (const c of cmp.changes) {
+        if (c.label.toLowerCase() === 'effect') {
+          const eff = h('div', 'tf-cmp-effect');
+          eff.append(termify(c.to || c.from));
+          tbl.append(eff);
+          continue;
+        }
         const r = h('div', 'tf-cmp-line');
         const mark = c.better === true ? '\u25b2' : c.better === false ? '\u25bc' : '\u00b7';
         r.append(

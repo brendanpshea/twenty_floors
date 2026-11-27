@@ -187,6 +187,8 @@ export class Hud {
   private readonly stanceBtns = new Map<CompanionStance, HTMLButtonElement>();
   private compOpen = false;
   private lastActiveTile = '';
+  private readonly timedEl = h('div', 'tf-chips tf-timed');
+  private timedKey = '';
   private playerEl: HTMLElement = document.createElement('div');
   private readonly suggestEl = h('div', 'tf-suggest');
   private readonly suggestText = h('span', 'tf-suggest-text');
@@ -358,7 +360,8 @@ export class Hud {
       title: `Concentrating: ${this.concName.textContent ?? ''}`,
       body: 'Concentrating: ends if you cast another concentration spell, fail a Constitution save after taking damage, or are incapacitated.',
     }));
-    pMain.append(pHead, this.playerBar.el, this.playerTemp, this.concEl, this.playerConds, statRow);
+    this.timedEl.hidden = true;
+    pMain.append(pHead, this.playerBar.el, this.playerTemp, this.concEl, this.playerConds, this.timedEl, statRow);
     player.append(acBadge, pMain);
     this.playerCondList = chipList(this.playerConds);
     this.resList = new KeyedList(
@@ -661,6 +664,22 @@ export class Hud {
     this.playerTempFill.style.width = `${(clamp(p.maxHp > 0 ? p.tempHp / p.maxHp : 0, 0, 1) * 100).toFixed(1)}%`;
     this.playerCondList.sync(p.conditions);
     this.playerConds.hidden = p.conditions.length === 0;
+    const timed = p.timed ?? [];
+    const tkey = JSON.stringify(timed);
+    if (tkey !== this.timedKey) {
+      this.timedKey = tkey;
+      this.timedEl.replaceChildren();
+      for (const t of timed) {
+        const chip = h('span', 'tf-chip tf-chip--timed', `${t.name} \u00b7 ${t.fightsLeft} fight${t.fightsLeft === 1 ? '' : 's'}`);
+        this.tip.attach(chip, () => ({
+          title: t.name,
+          sub: `${t.fightsLeft} fight${t.fightsLeft === 1 ? '' : 's'} left`,
+          body: t.detail ?? 'A passing effect that wears off after a few fights.',
+        }));
+        this.timedEl.append(chip);
+      }
+      this.timedEl.hidden = timed.length === 0;
+    }
     this.resList.sync(p.resources);
     this.resEl.hidden = p.resources.length === 0;
   }
