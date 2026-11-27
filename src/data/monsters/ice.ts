@@ -443,7 +443,10 @@ export const ICE_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A blue-skinned raider-giant who walks the glacier in a coat of bone and fur and treats the caves as his hall.',
   },
-  // Simplified: drops Burrow (walks at 40 ft.), Swallow (and its acid and fire damage to the swallowed). Heat Aura is an
+  // Simplified: drops Burrow (walks at 40 ft.). Swallow is a bonus action (Strength DC 19): Restrained (no save; the hero uses Break
+  // Free) and Blinded until the restraint ends, with 3d6 acid and 3d6 fire at the start of each of the remorhaz's turns (ongoing); it
+  // has no "must be Grappled" precondition (Large-or-smaller, the two-creature cap, the Total Cover and the
+  // regurgitation on 30 damage are dropped, and the Grappled condition is not removed). Heat Aura is an
   // end-of-turn aura (5 ft. = 1 cell, 3d10 fire, no save). Bite keeps its fire damage; the Grappled condition (escape DC 17) is a Strength save-ends with Restrained
   // until the grapple ends; the Large-or-smaller size check is not modelled. Cold and Fire
   // immunities are kept; Tremorsense is not modelled. Bite reach is 10 ft. (2 cells).
@@ -491,6 +494,26 @@ export const ICE_MONSTERS: MonsterDef[] = [
         ],
         applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 17 } },
         alsoApplies: [{ condition: 'restrained', endsWith: true }],
+      },
+      {
+        id: 'swallow',
+        name: 'Swallow',
+        description: 'It gulps a victim whole into a burning, acid-slick gullet where nothing can reach it.',
+        icon: 'bite',
+        cost: 'bonus',
+        targeting: { kind: 'creature', melee: true, range: 2 },
+        save: { ability: 'str', dc: 19, halfOnSave: false },
+        applies: {
+          condition: 'restrained',
+          ongoing: {
+            damage: [
+              { dice: '3d6', type: 'acid' },
+              { dice: '3d6', type: 'fire' },
+            ],
+            when: 'sourceTurnStart',
+          },
+        },
+        alsoApplies: [{ condition: 'blinded', endsWith: true }],
       },
     ],
     visual: { model: 'snake', tint: 0x8fd0f0, scale: 9 },

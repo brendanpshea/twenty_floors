@@ -860,8 +860,9 @@ export const DEEP_REGULARS: MonsterDef[] = [
     role: 'elite',
     description: 'A colossal, tunnelling worm that swallows everything in its path and leaves a smooth-walled burrow behind.',
   },
-  // Simplified: drops Fire Absorption (the golem heals from Fire damage; no trait id exists), Immutable Form, Magic
-  // Resistance and the Exhaustion and Petrified immunities (not conditions the engine has). Multiattack (two
+  // Simplified: drops Fire Absorption (it is immune to fire but does not heal from it; no trait id exists), Immutable Form,
+  // Magic Resistance (no monster flag for advantage on saves against magic) and the Exhaustion immunity (not a condition the engine
+  // has); the Petrified immunity is kept. Multiattack (two
   // attacks, Bladed Arm or Fiery Bolt in any combination) is split into melee and ranged versions. Fiery Bolt has a
   // 120-ft. range (24 cells, long 25). Poison Breath is a 60-ft. cone (12 cells), Recharge 6.
   {
@@ -881,7 +882,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     resistances: [],
     vulnerabilities: [],
     immunities: ['fire', 'poison', 'psychic'],
-    conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'poisoned'],
+    conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'petrified', 'poisoned'],
     traits: [],
     actions: [
       {
@@ -948,7 +949,11 @@ export const DEEP_REGULARS: MonsterDef[] = [
   // is a save-ends (the attack is followed by the Constitution save, as printed), and while Poisoned the target takes 6d6 poison at the start of each of its turns (ongoing); the no-healing rider and the 1-minute limit are dropped. Hellfire
   // Spellcasting (Recharge 4-6) casts Fireball (level 5 version: 10d6, DC 21, 150 ft. = 30 cells, 20-ft. radius = 4
   // cells) twice, with an option to swap one for Hold Monster or Wall of Fire; it is modelled as a single
-  // Fireball (a multiattack cannot repeat an area action), and the swaps are dropped.
+  // Fireball (a multiattack cannot repeat an area action). The two swaps are their own actions, each Recharge 4-6 like the
+  // Hellfire Spellcasting they come from (so each recharges on its own here): Hold Monster (level 7 version, one target within 90 ft.
+  // = 18 cells, Wisdom DC 21, Paralyzed with a Wisdom save-ends; the extra targets and the concentration limit are dropped) and Wall of Fire
+  // (level 7 version: a one-time 8d8 fire burst in a 10-ft.-radius ring = 2 cells up to 120 ft. = 24 cells away, Dexterity DC 21
+  // for half; the lingering wall is dropped, as for the Efreeti).
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon in a deep red tint, huge (roster-options.md style devils); hero_barbarian body,
   // crimson and huge, as stand-in.
   {
@@ -1037,6 +1042,28 @@ export const DEEP_REGULARS: MonsterDef[] = [
         recharge: 4,
         save: { ability: 'dex', dc: 21, halfOnSave: true },
         damage: [{ dice: '10d6', type: 'fire' }],
+      },
+      {
+        id: 'hold_monster',
+        name: 'Hold Monster',
+        description: 'A word of binding in the tongue of the pit locks one creature rigid where it stands.',
+        icon: 'spell',
+        cost: 'action',
+        targeting: { kind: 'creature', melee: false, range: 18 },
+        recharge: 4,
+        save: { ability: 'wis', dc: 21, halfOnSave: false },
+        applies: { condition: 'paralyzed', saveEnds: { ability: 'wis', dc: 21 } },
+      },
+      {
+        id: 'wall_of_fire',
+        name: 'Wall of Fire',
+        description: 'A ring of hellfire leaps up around a spot the archdevil names.',
+        icon: 'spell',
+        cost: 'action',
+        targeting: { kind: 'point', range: 24, area: { shape: 'sphere', size: 2 } },
+        recharge: 4,
+        save: { ability: 'dex', dc: 21, halfOnSave: true },
+        damage: [{ dice: '8d8', type: 'fire' }],
       },
     ],
     visual: { model: 'hero_barbarian', tint: 0xff2060, scale: 2.1 },

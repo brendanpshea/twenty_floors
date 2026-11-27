@@ -183,6 +183,10 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'standard',
     description: 'A lean grey hunter that circles its prey and waits for the pack to close in.',
   },
+  // Simplified: Multiattack is two attacks in any combination of Scimitar and Shortbow, so it is split into a melee pair and a
+  // ranged pair. Nimble Escape is the trait (bonus-action Disengage; Hide is not expressible). Drops the extra 1d4 damage when the
+  // attack roll has Advantage (no rider on advantage) and the Redirect Attack reaction (reactions cannot be expressed). Shortbow
+  // range 80/320 ft. is 16/64 cells.
   {
     id: 'goblin_boss',
     name: 'Goblin Boss',
@@ -211,6 +215,15 @@ const BASE_MONSTERS: MonsterDef[] = [
         cost: 'action',
         targeting: { kind: 'creature', melee: true, range: 1 },
         multiattack: ['scimitar', 'scimitar'],
+      },
+      {
+        id: 'multiattack_ranged',
+        name: 'Multiattack (Ranged)',
+        description: 'The goblin looses two arrows from its shortbow.',
+        icon: 'special',
+        cost: 'action',
+        targeting: { kind: 'creature', melee: false, range: 16, longRange: 64 },
+        multiattack: ['shortbow', 'shortbow'],
       },
       {
         id: 'scimitar',
@@ -356,6 +369,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A patch of living darkness that peels off the walls and reaches for the warmth of the living.',
   },
+  // Simplified: Claw's Paralyzed lasts until the end of the target's next turn (rounds: 1); the Undead-or-elf exemption is not
+  // modelled. Nothing else is dropped: the SRD Ghoul has no traits.
   {
     id: 'ghoul',
     name: 'Ghoul',
@@ -523,6 +538,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A hulking, sneaky goblinoid who prefers to surprise its prey and crush it at close quarters.',
   },
+  // Nothing dropped: the SRD Ogre has no traits and only a Greatclub and a Javelin (melee or thrown 30/120 ft.), which are two
+  // actions here. It has no Multiattack.
   {
     id: 'ogre',
     name: 'Ogre',
@@ -1146,9 +1163,10 @@ const BASE_MONSTERS: MonsterDef[] = [
     description: 'A heap of drooling mouths and staring eyes that slumps across the cave floor, burbling nonsense without pause.',
   },
   // Simplified: Pincer applies Grappled on a hit (no Large-or-smaller check; escape is a Strength save-ends at
-  // the printed DC 14). Paralyzing Tentacles has no "must be Grappled" precondition and applies Paralyzed
-  // (which the SRD gives while Poisoned) with a Constitution save-ends at DC 13; the 1-minute auto-success is
-  // not modelled. Multiattack is two Pincers then the Tentacles. Drops Amphibious and Sense Magic.
+  // the printed DC 14). Paralyzing Tentacles has no "must be Grappled" precondition and applies Poisoned with a
+  // Constitution save-ends at DC 13 plus Paralyzed until the poison ends (alsoApplies endsWith, as printed: "while Poisoned, the
+  // target has the Paralyzed condition"); the 1-minute auto-success is not modelled. Multiattack is two Pincers then the
+  // Tentacles. Drops Amphibious and Sense Magic.
   {
     id: 'chuul',
     name: 'Chuul',
@@ -1197,7 +1215,8 @@ const BASE_MONSTERS: MonsterDef[] = [
         cost: 'action',
         targeting: { kind: 'creature', melee: true, range: 2 },
         save: { ability: 'con', dc: 13, halfOnSave: false },
-        applies: { condition: 'paralyzed', saveEnds: { ability: 'con', dc: 13 } },
+        applies: { condition: 'poisoned', saveEnds: { ability: 'con', dc: 13 } },
+        alsoApplies: [{ condition: 'paralyzed', endsWith: true }],
       },
     ],
     visual: { model: 'crab_teal', scale: 2.6 },
@@ -2366,10 +2385,11 @@ const BASE_MONSTERS: MonsterDef[] = [
     description: 'A blank-faced mimic that wears whoever it last saw and fights with unnerving, borrowed strength.',
   },
   // Simplified: Spellcasting expresses only Fireball (level 4 version: 8d6 + 1d6 = 9d6, 20-ft radius, 150 ft range)
-  // and Cone of Cold (5th level base: 8d8, 60-ft cone from the mage). The SRD gives Fireball 2/Day; here it uses
-  // recharge 5 as the closest stand-in, while Cone of Cold (1/Day) uses a one-use pool per floor. Arcane Burst has
+  // and Cone of Cold (5th level base: 8d8, 60-ft cone from the mage). Fireball is 2/Day (two uses per floor) and Cone of Cold
+  // 1/Day (one use per floor), as printed. Arcane Burst has
   // a melee and a ranged form with their own Multiattacks. Arcane Burst range 120 ft. is a single range, so
-  // longRange = range + 1. Drops Invisibility, Fly, Misty Step, Protective Magic and the at-will cantrips.
+  // longRange = range + 1. Drops Invisibility, Fly, Misty Step (a teleport; the AI never uses a utility bonus action), Protective Magic (a reaction) and the
+  // at-will utility spells.
   {
     id: 'mage',
     name: 'Mage',
@@ -2435,7 +2455,7 @@ const BASE_MONSTERS: MonsterDef[] = [
         icon: 'spell',
         cost: 'action',
         targeting: { kind: 'point', range: 30, area: { shape: 'sphere', size: 4 } },
-        recharge: 5,
+        uses: { resource: 'Fireball', amount: 2 },
         save: { ability: 'dex', dc: 14, halfOnSave: true },
         damage: [{ dice: '9d6', type: 'fire' }],
       },
@@ -2578,8 +2598,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'The pale, drifting memory of a long-drowned librarian, still shushing intruders with a chilling touch.',
   },
-  // Simplified: Regeneration (10 HP a turn, no stopping damage) is kept; drops Bound, Spell Storing and the Protection reaction; Exhaustion and Petrified
-  // condition immunities are not expressible. Fist reach is 10 ft. (2 cells); Multiattack is two Fists.
+  // Simplified: Regeneration (10 HP a turn, no stopping damage) is kept; drops Bound, Spell Storing and the Protection reaction; the Exhaustion
+  // immunity is not expressible (Petrified is kept). Fist reach is 10 ft. (2 cells); Multiattack is two Fists.
   {
     id: 'shield_guardian',
     regeneration: { amount: 10 },
@@ -2598,7 +2618,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     resistances: [],
     vulnerabilities: [],
     immunities: ['poison'],
-    conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'poisoned'],
+    conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'petrified', 'poisoned'],
     traits: [],
     actions: [
       {
@@ -3324,8 +3344,9 @@ const BASE_MONSTERS: MonsterDef[] = [
     description: 'A grey-skinned giant who carves the foundry\'s statues with his bare hands and throws the rejects at trespassers.',
   },
   // Simplified: "Flame Sword or Hammer Throw in any combination" is two Multiattacks (melee and thrown). Flame
-  // Sword reach is 10 ft. (2 cells). Hammer Throw is 60/240 ft. (range 12, long 48); its 15-ft. push and
-  // Disadvantage rider are dropped, but its fire damage is kept.
+  // Sword reach is 10 ft. (2 cells). Hammer Throw is 60/240 ft. (range 12, long 48); its fire damage is kept, the push is the Push
+  // mastery (10 ft., not 15; the engine skips Huge targets, the SRD's Large-or-smaller limit is looser still) and the
+  // "Disadvantage on its next attack roll" rider is the Sap mastery.
   {
     id: 'fire_giant',
     name: 'Fire Giant',
@@ -3389,6 +3410,7 @@ const BASE_MONSTERS: MonsterDef[] = [
           { dice: '3d10+7', type: 'bludgeoning' },
           { dice: '1d8', type: 'fire' },
         ],
+        effects: ['mastery:push', 'mastery:sap'],
       },
     ],
     visual: { model: 'ogre', tint: 0xff4a2a, scale: 1.5 },
@@ -3396,10 +3418,11 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'boss',
     description: 'A soot-blackened giant with a coal-red beard who treats the foundry as his private forge and everyone else as scrap.',
   },
-  // Simplified: drops Acid Absorption, Berserk, Immutable Form, Magic Resistance and the Hasten bonus action (so no
-  // three-Slam Multiattack). Slam keeps its acid damage but not the max hit point reduction. The three physical
-  // resistances are plain in the stat block, so they are kept. Exhaustion and Petrified condition immunities
-  // are not expressible.
+  // Simplified: drops Acid Absorption (it is immune to acid, but does not heal from it), Berserk, Immutable Form, Magic Resistance
+  // (no monster flag for advantage on saves against magic) and the Hasten bonus action (Dash and Disengage, so no
+  // three-Slam Multiattack; the AI never takes a utility bonus action for monsters). Slam keeps its acid damage but not the max hit
+  // point reduction. The three physical resistances are plain in the stat block, so they are kept. The Exhaustion immunity is not
+  // expressible (Petrified is kept).
   {
     id: 'clay_golem',
     name: 'Clay Golem',
@@ -3417,7 +3440,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     resistances: ['bludgeoning', 'piercing', 'slashing'],
     vulnerabilities: [],
     immunities: ['acid', 'poison', 'psychic'],
-    conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'poisoned'],
+    conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'petrified', 'poisoned'],
     traits: [],
     actions: [
       {

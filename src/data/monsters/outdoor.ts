@@ -832,7 +832,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A young swamp dragon with a glossy black hide that lurks half-submerged in stagnant water.',
   },
-  // Simplified: keeps two claws plus two damaging spell-like actions. Magic Missile (level 4 version, 6 darts: 6d4+6 force, auto-hit) has a single range of 120 ft. (24 cells), longRange = range + 1. Phantasmal Killer (2/Day) is once per floor: Wisdom save DC 14, 4d10 psychic, half on a success (as the level 4 spell); its disadvantage and repeat-damage riders are dropped. Drops Coven Magic, Magic Resistance, Soul Bag, Nightmare Haunting, Detect Magic, Etherealness, Plane Shift, Shape-Shift and skills.
+  // Simplified: keeps two claws plus two damaging spell-like actions. Magic Missile (level 4 version, 6 darts: 6d4+6 force, auto-hit) has a single range of 120 ft. (24 cells), longRange = range + 1. Phantasmal Killer is 2/Day (two uses per floor): Wisdom save DC 14, 4d10 psychic, half on a success (as the level 4 spell); on a failure the target is Poisoned (the same Disadvantage on attack rolls and ability checks) with a Wisdom save-ends at DC 14 at the end of each of its turns, and takes the 4d10 again at the start of each of its turns while it lasts (ongoing; that is one tick early, before the first repeat save, because the engine has no end-of-turn damage on a failed repeat save). Drops Coven Magic, Magic Resistance, Soul Bag, Nightmare Haunting, Detect Magic, Etherealness, Plane Shift, Shape-Shift and skills.
   {
     id: 'night_hag',
     name: 'Night Hag',
@@ -888,9 +888,10 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
         icon: 'spell',
         cost: 'action',
         targeting: { kind: 'creature', melee: false, range: 24, longRange: 25 },
-        uses: { resource: 'Phantasmal Killer', amount: 1 },
+        uses: { resource: 'Phantasmal Killer', amount: 2 },
         save: { ability: 'wis', dc: 14, halfOnSave: true },
         damage: [{ dice: '4d10', type: 'psychic' }],
+        applies: { condition: 'poisoned', saveEnds: { ability: 'wis', dc: 14 }, ongoing: { damage: [{ dice: '4d10', type: 'psychic' }] } },
       },
     ],
     visual: { model: 'hag_green', tint: 0x9070b0, scale: 1.1 },
