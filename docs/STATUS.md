@@ -80,6 +80,32 @@ play harder than measured; and gold has less to be spent on.
 the shop (its tests still run with it on). The balance harness has not been
 re-fitted for this.
 
+## Magic shields
+
+Besides Shield +1 to +3, the Sentinel Shield and the Shield of the Cavalier,
+four SRD shields with effects of their own (all need attunement; found in
+chests from the floor their rarity unlocks, never sold):
+
+- **Arrow-Catching Shield** (rare): +2 Armor Class against ranged attack
+  rolls; a ranged attack aimed at an ally within 5 ft is aimed at the bearer
+  instead, using its reaction. House rule: the reaction is taken
+  automatically unless the bearer is below a third of its hit points.
+- **Shield of Missile Attraction** (rare, cursed): half damage from ranged
+  weapon attacks; ranged weapon attacks aimed at an ally within 10 ft always
+  go to the bearer. Not kept: the curse's hold (it can simply be taken off).
+- **Spellguard Shield** (very rare): advantage on saves against magic; spell
+  attack rolls against the bearer have disadvantage.
+- **Animated Shield** (very rare): floats, so it goes with a two-handed
+  weapon and lets a versatile weapon use both hands. Not kept: the bonus
+  action to animate it and its one-minute limit (it is always animate). It
+  still takes the off-hand slot, so it does not combine with a second weapon.
+
+The effects are the passives `rangedAcBonus`, `interceptRanged`,
+`rangedWeaponResistance`, `spellWard` and `handsFree`; combat reads them in
+`attackSetup`, `rollAttack`, `interceptor` and the hit-damage loop of
+`src/rules/combat.ts`. "Magic" means an action tagged `spell` or `magic`:
+monster attacks without the tag count as weapon attacks.
+
 ## How it is tuned (27 November 2026, approximate)
 
 Each fixed-run floor's room budget was fitted on the real engine to a target

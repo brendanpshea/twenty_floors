@@ -384,6 +384,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (cr) critMin = Math.min(critMin, parseInt(cr.slice(5), 10));
     // Cloak of Displacement: attack rolls against the wearer have disadvantage until it is hit.
     if (displaced.has(tgt.id) && !isIncapacitated(tgt)) dis = true;
+    // Spellguard Shield: spell attack rolls against the bearer have disadvantage.
+    if (hasFlag(tgt, 'spellWard') && isMagical(a) && !a.effects?.includes('weaponAttack')) dis = true;
     // SRD cover: +2 (half) or +5 (three-quarters) to the target's AC against ranged and reach attacks; another creature
     // standing between the two gives half cover. Adjacent targets have none.
     const cover = t.kind === 'creature' ? coverBonusFor(nav, all, att.pos, tgt.pos) : 0;
@@ -415,11 +417,31 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     return d20 + bonus >= ac ? 'hit' : 'miss';
   }
 
+  const isRangedAttack = (a: ActionDef): boolean => !!a.attack && a.targeting.kind === 'creature' && !a.targeting.melee;
+
+  /**
+   * Shields that draw ranged attacks: an ally of the target standing close enough, with such a shield, becomes the target.
+   * The Arrow-Catching Shield does it as a reaction (HOUSE RULE: taken automatically, unless its bearer is below a third of
+   * its hit points); the Shield of Missile Attraction's curse always does, for ranged weapon attacks only.
+   */
+  function interceptor(att: Creature, tgt: Creature, a: ActionDef): Creature | undefined {
+    if (!isRangedAttack(a)) return undefined;
+    return all.find((o) => {
+      const reach = o.resources['_intercept']?.current;
+      if (reach === undefined || o === tgt || o === att || !isAlive(o) || isIncapacitated(o)) return false;
+      if (isFriendlySide(o) !== isFriendlySide(tgt) || chebyshev(o.pos, tgt.pos) > reach) return false;
+      if (hasFlag(o, 'interceptWeaponOnly') && isMagical(a)) return false;
+      if (hasFlag(o, 'interceptFree')) return true;
+      return !reactionUsed.has(o.id) && o.hp * 3 >= o.maxHp;
+    });
+  }
+
   function rollAttack(att: Creature, tgt: Creature, a: ActionDef, reaction: boolean, name: string): AttackOutcome {
     const s = attackSetup(att, tgt, a);
     lastAttackMode = s.mode;
     const bonus = s.bonus + rollMod(att);
-    const ac = tgt.ac + s.cover;
+    // Arrow-Catching Shield: extra Armor Class against ranged attack rolls.
+    const ac = tgt.ac + s.cover + (isRangedAttack(a) ? (tgt.resources['_rangedAc']?.current ?? 0) : 0);
     let r = rollD20(s.mode);
     let outcome = classify(r.d20, bonus, ac, s.critMin);
     if (vexed.get(att.id)?.targetId === tgt.id) vexed.delete(att.id);
@@ -1147,6 +1169,13 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (timedUse) return applyTimedUse(att, timedUse.slice('timedUse:'.length));
     if (applyBuffSpell(att, a, tgt)) return;
     if (a.attack) {
+      const catcher = interceptor(att, tgt, a);
+      if (catcher) {
+        if (!hasFlag(catcher, 'interceptFree')) reactionUsed.add(catcher.id);
+        feature(catcher, 'interceptRanged', hasFlag(catcher, 'interceptFree') ? 'Missile Attraction' : 'Arrow-Catching Shield', { targetId: tgt.id });
+        log(`${catcher.name}'s shield draws the shot meant for ${tgt.name}.`);
+        tgt = catcher;
+      }
       const outcome = rollAttack(att, tgt, a, reaction, name);
       const tm = tacticalMaster(att, a, tgt);
       const mfx = tm.fx;
@@ -1186,7 +1215,10 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
           parts.push({ type: type as DamageType, amount: rollDice(rng, dice as string).total });
         }
       }
+      // Shield of Missile Attraction: half damage from ranged weapon attacks.
+      const deflect = hasFlag(tgt, 'rangedResist') && isRangedAttack(a) && !isMagical(a);
       for (const part of parts) {
+        if (deflect) part.amount = Math.floor(part.amount / 2);
         dealDamage(tgt, dodge ? Math.floor(part.amount / 2) : part.amount, part.type, att.id, crit);
         dealt += part.amount;
       }

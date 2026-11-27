@@ -137,6 +137,16 @@ export const PASSIVE_FLAGS = {
   displacement: '_displacement',
   regeneration: '_regen',
   ignorePrefix: '_ignore_',
+  /** Pool whose current value is the bonus. */
+  rangedAc: '_rangedAc',
+  /** Pool whose current value is the reach in cells; the two flags beside it say how it works. */
+  intercept: '_intercept',
+  interceptFree: '_interceptFree',
+  interceptWeaponOnly: '_interceptWeaponOnly',
+  rangedResist: '_rangedResist',
+  spellWard: '_spellWard',
+  /** Read by rollSave for advantage against magic (the monsters' Magic Resistance flag). */
+  magicResistance: '_magicResistance',
 } as const;
 
 export type { Ability };

@@ -22,6 +22,14 @@ export function describePassive(p: PassiveEffect): string | null {
     case 'critImmunity': return 'Critical hits against you are normal hits';
     case 'ignoreHazard': return `Ignores ${p.hazard === 'fall' ? 'pits' : p.hazard}`;
     case 'displacement': return 'Attacks against you have disadvantage until you are hit';
+    case 'rangedAcBonus': return `${signedN(p.amount)} Armor Class against ranged attacks`;
+    case 'interceptRanged':
+      return p.reaction
+        ? `Takes a ranged attack aimed at an ally within ${p.cells * 5} ft (your reaction)`
+        : `Cursed: ranged weapon attacks aimed at allies within ${p.cells * 5} ft hit you instead`;
+    case 'rangedWeaponResistance': return 'Half damage from ranged weapon attacks';
+    case 'spellWard': return 'Advantage on saves against magic; spell attacks against you have disadvantage';
+    case 'handsFree': return 'Floats beside you: works with a two-handed weapon';
     case 'doubleHitDiceHealing': return 'Hit Dice heal twice as much on a short rest';
     case 'regeneration': return `Regain ${p.amount} hit points each turn`;
     case 'weaponDamage': return `+${p.dice}${p.damageType ? ` ${p.damageType}` : ''} damage${p.versus ? ` against ${p.versus.join(', ')}` : ''}`;

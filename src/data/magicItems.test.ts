@@ -44,6 +44,10 @@ const EXPECTED_COUNTS: Record<string, number> = {
   armor_of_invulnerability: 1,
   sentinel_shield: 1,
   shield_of_the_cavalier: 1,
+  arrow_catching_shield: 1,
+  spellguard_shield: 1,
+  animated_shield: 1,
+  shield_of_missile_attraction: 1,
   brooch_of_shielding: 1,
   periapt_of_wound_closure: 1,
   scarab_of_protection: 1,
@@ -85,7 +89,8 @@ const SRD_NAMES = [
   'Amulet of Health', 'Belt of Dwarvenkind', 'Ioun Stone', 'Periapt of Proof against Poison', 'Ring of Protection',
   'Cloak of Protection', 'Bracers of Defense', 'Cloak of Displacement', 'Adamantine Armor', 'Mithral Armor', 'Elven Chain',
   'Dwarven Plate', 'Glamoured Studded Leather', 'Dragon Scale Mail', 'Armor of Invulnerability', 'Sentinel Shield',
-  'Shield of the Cavalier', 'Brooch of Shielding', 'Periapt of Wound Closure', 'Scarab of Protection',
+  'Shield of the Cavalier', 'Arrow-Catching Shield', 'Spellguard Shield', 'Animated Shield', 'Shield of Missile Attraction',
+  'Brooch of Shielding', 'Periapt of Wound Closure', 'Scarab of Protection',
   'Stone of Good Luck (Luckstone)', 'Dragon Slayer', 'Giant Slayer', 'Vicious Weapon', 'Weapon of Warning', 'Flame Tongue',
   'Frost Brand', 'Sword of Wounding', 'Mace of Disruption', 'Ring of Feather Falling', 'Ring of Water Walking',
   'Boots of the Winterlands', 'Ring of Free Action', 'Cloak of Arachnida', 'Wand of Magic Missiles', 'Wand of Fireballs',
@@ -142,6 +147,15 @@ function checkPassive(id: string, p: PassiveEffect): void {
     case 'critImmunity':
     case 'displacement':
     case 'doubleHitDiceHealing':
+    case 'rangedWeaponResistance':
+    case 'spellWard':
+    case 'handsFree':
+      break;
+    case 'rangedAcBonus':
+      expect(p.amount, id).toBeGreaterThan(0);
+      break;
+    case 'interceptRanged':
+      expect(p.cells, id).toBeGreaterThan(0);
       break;
     case 'regeneration':
       expect(p.amount).toBeGreaterThan(0);

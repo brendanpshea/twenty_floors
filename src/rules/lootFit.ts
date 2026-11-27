@@ -84,6 +84,12 @@ export function lootFit(pc: PlayerCharacter, item: ItemDef): number {
     w *= fits;
   }
 
+  // A shield with an effect of its own reads as a sidegrade next to a plain shield (same Armor Class). A ward against
+  // arrows or spells is still worth having; a curse is not pushed.
+  if (item.kind === 'shield' && cmp?.verdict === 'sidegrade' && (item.passives ?? []).some((p) => p.type === 'spellWard' || p.type === 'rangedAcBonus')) {
+    w = Math.max(w, LOOT_FIT.enchantedFloor);
+  }
+
   if (item.kind === 'wondrous' && !owned) {
     const effects = item.passives ?? [];
     if (effects.length > 0) {

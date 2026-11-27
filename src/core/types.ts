@@ -567,6 +567,20 @@ export type PassiveEffect =
   | { type: 'weaponCritDamage'; dice: Dice; damageType?: DamageType }
   /** On a weapon: a different critical range (crits on `from` or higher). */
   | { type: 'critRange'; from: number }
+  /** Extra Armor Class against ranged attack rolls only (Arrow-Catching Shield). */
+  | { type: 'rangedAcBonus'; amount: number }
+  /**
+   * A ranged attack aimed at an ally within `cells` of the bearer is aimed at the bearer instead. `reaction`: it costs the
+   * bearer's reaction (Arrow-Catching Shield); otherwise it always happens (the curse of the Shield of Missile Attraction).
+   * `weaponOnly`: ranged weapon attacks only, not spell attacks.
+   */
+  | { type: 'interceptRanged'; cells: number; reaction: boolean; weaponOnly: boolean }
+  /** Half damage from ranged weapon attacks (Shield of Missile Attraction). */
+  | { type: 'rangedWeaponResistance' }
+  /** Advantage on saving throws against spells and magical effects; spell attack rolls against the bearer have disadvantage (Spellguard Shield). */
+  | { type: 'spellWard' }
+  /** On a shield: it floats beside the bearer, so a two-handed weapon can be used with it (Animated Shield). */
+  | { type: 'handsFree' }
   /** The item lets its bearer cast a spell from src/data/spells.ts with charges that return on a long rest (wands, staffs). */
   | { type: 'castSpell'; spellId: string; charges: number; saveDc?: number; attackBonus?: number }
   /** Narrow flight: crosses pits, lava and water freely, cannot end a move over a pit or lava, cannot be pushed into one. */

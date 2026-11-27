@@ -919,6 +919,69 @@ function build(): MagicFamily[] {
       }),
     ]),
   );
+  // Arrow-Catching Shield (Rare, attunement): +2 AC against ranged attack rolls; as a reaction, take a ranged attack aimed
+  // at a creature within 5 ft (taken automatically for an ally; see `interceptor` in combat.ts).
+  families.push(
+    fam('arrow_catching_shield', 'Arrow-Catching Shield', [
+      armorOf(findBase(SHIELDS, 'shield'), {
+        id: 'arrow_catching_shield',
+        name: 'Arrow-Catching Shield',
+        family: 'arrow_catching_shield',
+        rarity: 'rare',
+        attunement: true,
+        passives: [
+          { type: 'rangedAcBonus', amount: 2 },
+          { type: 'interceptRanged', cells: 1, reaction: true, weaponOnly: false },
+        ],
+        description: 'A shield that turns aside arrows and bolts, and can pull a shot meant for a companion beside you onto itself.',
+      }),
+    ]),
+  );
+  // Spellguard Shield (Very Rare, attunement): advantage on saves against spells and magical effects; spell attacks have disadvantage.
+  families.push(
+    fam('spellguard_shield', 'Spellguard Shield', [
+      armorOf(findBase(SHIELDS, 'shield'), {
+        id: 'spellguard_shield',
+        name: 'Spellguard Shield',
+        family: 'spellguard_shield',
+        rarity: 'veryRare',
+        attunement: true,
+        passives: [{ type: 'spellWard' }],
+        description: 'A warded shield that blunts magic: spells are easier to resist and harder to land on its bearer.',
+      }),
+    ]),
+  );
+  // Animated Shield (Very Rare, attunement): it hovers and protects as if wielded, leaving the hands free. The bonus action
+  // to animate it and its one-minute limit are not kept: it is modeled as always animate.
+  families.push(
+    fam('animated_shield', 'Animated Shield', [
+      armorOf(findBase(SHIELDS, 'shield'), {
+        id: 'animated_shield',
+        name: 'Animated Shield',
+        family: 'animated_shield',
+        rarity: 'veryRare',
+        attunement: true,
+        passives: [{ type: 'handsFree' }],
+        description: 'A shield that floats at your side and guards you by itself, so both hands stay free for a great weapon.',
+      }),
+    ]),
+  );
+  // Shield of Missile Attraction (Rare, attunement, cursed): resistance to damage from ranged weapon attacks; ranged weapon
+  // attacks aimed at a creature within 10 ft are aimed at the bearer instead. The curse's hold (it cannot simply be taken
+  // off) is not kept: unequipping it ends both effects.
+  families.push(
+    fam('shield_of_missile_attraction', 'Shield of Missile Attraction', [
+      armorOf(findBase(SHIELDS, 'shield'), {
+        id: 'shield_of_missile_attraction',
+        name: 'Shield of Missile Attraction',
+        family: 'shield_of_missile_attraction',
+        rarity: 'rare',
+        attunement: true,
+        passives: [{ type: 'rangedWeaponResistance' }, { type: 'interceptRanged', cells: 2, reaction: false, weaponOnly: true }],
+        description: 'A cursed shield: arrows hurt its bearer less, but every archer nearby finds their aim dragged toward it.',
+      }),
+    ]),
+  );
   families.push(
     fam('brooch_of_shielding', 'Brooch of Shielding', [
       wondrous({

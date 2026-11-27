@@ -468,7 +468,7 @@ function weaponActions(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: num
   const main = pc.equipped.mainHand ? getItem(pc.equipped.mainHand) : undefined;
   const rangedItem = pc.equipped.ranged ? getItem(pc.equipped.ranged) : undefined;
   const out: ActionDef[] = [];
-  const shieldOn = pc.equipped.offHand !== undefined && getItem(pc.equipped.offHand)?.kind === 'shield';
+  const shieldOn = pc.equipped.offHand !== undefined && fillsHand(getItem(pc.equipped.offHand));
   const partner = offhandPartner(pc);
   if (hasWeapon(main)) {
     const w = main.weapon as NonNullable<ItemDef['weapon']>;
@@ -515,7 +515,7 @@ function trueStrikeAction(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: 
   const item = id ? getItem(id) : undefined;
   if (!item?.weapon) return undefined;
   const w = item.weapon;
-  const shieldOn = pc.equipped.offHand !== undefined && getItem(pc.equipped.offHand)?.kind === 'shield';
+  const shieldOn = pc.equipped.offHand !== undefined && fillsHand(getItem(pc.equipped.offHand));
   const twoHands = w.properties.includes('twoHanded') || (w.properties.includes('versatile') && !shieldOn);
   const base = weaponAction(item, 'attack', { abilities, pb, styles: fightingStyles(pc), twoHands, modOverride: caster.mod });
   const extra = trueStrikeBonusDice(caster.level);
@@ -602,6 +602,21 @@ function applyPassiveFlags(pc: PlayerCharacter, resources: Record<string, Resour
     for (const h of ['fall', 'lava'] as const) resources[PASSIVE_FLAGS.ignorePrefix + h] = flagPool('ignore_' + h);
   }
   for (const p of ps) if (p.type === 'ignoreHazard') resources[PASSIVE_FLAGS.ignorePrefix + p.hazard] = flagPool('ignore_' + p.hazard);
+  // Shields with effects of their own.
+  const rangedAc = ps.reduce((n, p) => n + (p.type === 'rangedAcBonus' ? p.amount : 0), 0);
+  if (rangedAc !== 0) resources[PASSIVE_FLAGS.rangedAc] = pool('Ranged AC', rangedAc);
+  for (const p of ps) {
+    if (p.type === 'interceptRanged') {
+      resources[PASSIVE_FLAGS.intercept] = pool('Intercept', p.cells);
+      if (!p.reaction) resources[PASSIVE_FLAGS.interceptFree] = flagPool('interceptFree');
+      if (p.weaponOnly) resources[PASSIVE_FLAGS.interceptWeaponOnly] = flagPool('interceptWeaponOnly');
+    }
+    if (p.type === 'rangedWeaponResistance') resources[PASSIVE_FLAGS.rangedResist] = flagPool('rangedResist');
+    if (p.type === 'spellWard') {
+      resources[PASSIVE_FLAGS.spellWard] = flagPool('spellWard');
+      resources[PASSIVE_FLAGS.magicResistance] = flagPool('magicResistance');
+    }
+  }
 }
 
 export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): Creature {
@@ -1145,13 +1160,18 @@ interface EquipPlan {
   reason?: string;
 }
 
+/** A shield on the arm. An Animated Shield floats (the handsFree passive) and leaves both hands free. */
+export function fillsHand(i: ItemDef | undefined): boolean {
+  return i?.kind === 'shield' && !(i.passives ?? []).some((p) => p.type === 'handsFree');
+}
+
 /** Where an item goes and what it displaces; shared by canEquip and equipItem. */
 function planEquip(pc: PlayerCharacter, item: ItemDef): EquipPlan {
   if (item.kind === 'armor') return { slot: 'armor', clears: [] };
   const main = pc.equipped.mainHand ? getItem(pc.equipped.mainHand) : undefined;
   const off = pc.equipped.offHand ? getItem(pc.equipped.offHand) : undefined;
   if (item.kind === 'shield') {
-    if (main?.weapon?.properties.includes('twoHanded')) {
+    if (main?.weapon?.properties.includes('twoHanded') && fillsHand(item)) {
       return { slot: 'offHand', clears: ['mainHand'], reason: `${main.name} needs both hands: it is put away to carry the shield.` };
     }
     return { slot: 'offHand', clears: [] };
@@ -1161,7 +1181,7 @@ function planEquip(pc: PlayerCharacter, item: ItemDef): EquipPlan {
   // (we do not model stowing it for a two-handed bow), so it keeps its AC bonus at all times.
   if (!w.melee && !w.properties.includes('thrown')) return { slot: 'ranged', clears: [] };
   if (w.properties.includes('twoHanded')) {
-    if (!off) return { slot: 'mainHand', clears: [] };
+    if (!off || (off.kind === 'shield' && !fillsHand(off))) return { slot: 'mainHand', clears: [] };
     const what = off.kind === 'shield' ? 'the shield' : 'the off-hand weapon';
     return { slot: 'mainHand', clears: ['offHand'], reason: `${item.name} needs both hands: ${what} is put away.` };
   }
