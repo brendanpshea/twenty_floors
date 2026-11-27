@@ -1,4 +1,5 @@
 import {
+  CapsuleGeometry,
   AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
@@ -66,6 +67,11 @@ export class Entity {
   /** Growth on top of the figure's own scale (an Enlarge spell): eased toward growTarget each frame. */
   grow = 1;
   growTarget = 1;
+  /** How solid the creature is drawn (Greater Invisibility: about a third), eased toward veilTarget. */
+  veil = 1;
+  veilTarget = 1;
+  /** Mirror Image: the ghostly duplicates circling the creature. */
+  images: Mesh[] = [];
   yaw = 0;
   targetYaw = 0;
   moveQueue: MoveJob[] = [];
@@ -172,6 +178,8 @@ export class EntityManager {
   private blobGeo = new CircleGeometry(0.7, 14).rotateX(-Math.PI / 2);
   /** All contact shadows in one instanced draw (used when real shadows are off). */
   private blobs = new InstancedMesh(this.blobGeo, this.blobMat, 128);
+  private imageGeo = new CapsuleGeometry(0.5, 0.5, 3, 8);
+  private imageMat = new MeshBasicMaterial({ color: 0x66ddff, transparent: true, opacity: 0.62, depthWrite: false });
   private selMat = new MeshBasicMaterial({ color: 0x9fe0ff, transparent: true, opacity: 0.95, depthWrite: false });
   private tgtMat = new MeshBasicMaterial({ color: 0xff5a3a, transparent: true, opacity: 0.9, depthWrite: false });
   private barBgMat = new SpriteMaterial({ color: 0x120c0c, transparent: true, opacity: 0.85, depthTest: false, fog: false });
@@ -536,10 +544,12 @@ export class EntityManager {
 
   setState(
     id: string,
-    st: { selected?: boolean; targetable?: boolean; hpFraction?: number; dead?: boolean; visible?: boolean; scale?: number },
+    st: { selected?: boolean; targetable?: boolean; hpFraction?: number; dead?: boolean; visible?: boolean; scale?: number; veil?: number; images?: number },
   ): void {
     const e = this.entities.get(id);
     if (!e) return;
+    if (st.veil !== undefined) e.veilTarget = Math.max(0.1, Math.min(1, st.veil));
+    if (st.images !== undefined) this.setImages(e, Math.max(0, Math.min(3, Math.round(st.images))));
     if (st.scale !== undefined) e.growTarget = Math.max(0.25, Math.min(3, st.scale));
     if (st.visible !== undefined) {
       e.visible = st.visible;
@@ -720,6 +730,18 @@ export class EntityManager {
       pdt = sdt * 0.04;
     }
     for (const e of this.entities.values()) {
+      if (e.veil !== e.veilTarget) {
+        const d = e.veilTarget - e.veil;
+        e.veil = Math.abs(d) < 0.01 ? e.veilTarget : e.veil + d * Math.min(1, sdt * 5);
+      }
+      // Mirror Image: the duplicates drift in a slow ring around the creature, bobbing a little.
+      for (let i = 0; i < e.images.length; i++) {
+        const m = e.images[i] as Mesh;
+        const a = time * 1.3 + (i * Math.PI * 2) / e.images.length;
+        const r = 0.62 + 0.12 * e.scale;
+        m.position.set(Math.cos(a) * r, e.height * 0.5 + 0.06 * Math.sin(time * 3 + i), Math.sin(a) * r);
+        m.scale.set(0.3 * e.height, e.height / 1.6, 0.3 * e.height);
+      }
       if (e.grow !== e.growTarget) {
         // Swell or shrink over about a third of a second, with the rings and the health bar following.
         const d = e.growTarget - e.grow;
@@ -1143,7 +1165,21 @@ export class EntityManager {
       e.bar.position.y = e.height + 0.5;
     }
 
-    this.setFlashOpacity(e, false, flash, glow, opacity * e.occFade, shade);
+    this.setFlashOpacity(e, false, flash, glow, opacity * e.occFade * e.veil, shade);
+  }
+
+  /** Mirror Image: show `n` ghostly duplicates around the entity (pale, see-through figures of its height). */
+  private setImages(e: Entity, n: number): void {
+    while (e.images.length > n) {
+      const m = e.images.pop() as Mesh;
+      e.root.remove(m);
+    }
+    while (e.images.length < n) {
+      const m = new Mesh(this.imageGeo, this.imageMat);
+      m.renderOrder = 2;
+      e.root.add(m);
+      e.images.push(m);
+    }
   }
 
   private setFlashOpacity(e: Entity, force: boolean, flash = e.lastFlash < 0 ? 0 : e.lastFlash, glow = e.lastGlow < 0 ? 0 : e.lastGlow, opacity = e.lastOpacity, shade = e.lastShade): void {

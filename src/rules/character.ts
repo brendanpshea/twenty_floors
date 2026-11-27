@@ -20,6 +20,7 @@ import type {
   PlayerCharacter,
   ResourcePool,
 } from '../core/types';
+import { MONSTERS } from '../data/monsters';
 import { standardActions } from './actions';
 import { BACKGROUNDS, featFlags } from './backgrounds';
 import {
@@ -605,6 +606,13 @@ function applyPassiveFlags(pc: PlayerCharacter, resources: Record<string, Resour
   }
   for (const p of ps) if (p.type === 'ignoreHazard') resources[PASSIVE_FLAGS.ignorePrefix + p.hazard] = flagPool('ignore_' + p.hazard);
   // Spell effects (see src/data/buffs.ts).
+  if (hasPassive(pc, 'deathWard')) resources[PASSIVE_FLAGS.deathWard] = { name: 'Death Ward', current: 1, max: 0, refresh: 'longRest' };
+  if (hasPassive(pc, 'attackAdvantage')) resources[PASSIVE_FLAGS.attackAdv] = flagPool('attackAdv');
+  if (hasPassive(pc, 'unseen')) resources[PASSIVE_FLAGS.unseen] = flagPool('unseen');
+  for (const p of ps) {
+    if (p.type === 'mirrorImage') resources[PASSIVE_FLAGS.mirror] = { name: 'Mirror Image', current: pc.resources[PASSIVE_FLAGS.mirror]?.current ?? p.images, max: 0, refresh: 'longRest' };
+    if (p.type === 'polymorph') resources[PASSIVE_FLAGS.polymorph] = { name: p.monsterId, current: 1, max: 0, refresh: 'longRest' };
+  }
   if (hasPassive(pc, 'extraAttack')) resources[PASSIVE_FLAGS.hasteAttack] = flagPool('hasteAttack');
   if (hasPassive(pc, 'sizeUp')) resources[PASSIVE_FLAGS.enlarged] = flagPool('enlarged');
   for (const p of ps) {
@@ -793,6 +801,14 @@ export function syncFromCreature(pc: PlayerCharacter, creature: Creature): Playe
   next.inventory = next.inventory.filter((s) => s.quantity > 0);
   // Item spell charges outlive the fight until the next long rest.
   for (const [key, pool] of Object.entries(creature.resources)) if (key.startsWith('charge:')) next.resources[key] = { ...pool, current: Math.max(0, Math.min(pool.max, pool.current)) };
+  // One-use effects that were used up in the fight end now (Death Ward's save, a Polymorph whose form was beaten down),
+  // and Mirror Image keeps only the duplicates that are left.
+  const spent = (type: string): boolean => creature.resources[PASSIVE_FLAGS.spentPrefix + type] !== undefined;
+  if (next.timed) next.timed = next.timed.filter((t) => !t.passives.some((p) => spent(p.type)));
+  const images = creature.resources[PASSIVE_FLAGS.mirror];
+  if (images && images.current > 0) next.resources[PASSIVE_FLAGS.mirror] = { ...images };
+  else delete next.resources[PASSIVE_FLAGS.mirror];
+  if (images && images.current <= 0 && next.timed) next.timed = next.timed.filter((t) => !t.passives.some((p) => p.type === 'mirrorImage'));
   // A fight has been fought: timed effects run down.
   return tickTimedEffects(next);
 }
@@ -1339,7 +1355,8 @@ export function useConsumable(pc: PlayerCharacter, itemId: string, rng: Rng): { 
   if (effect.effect === 'timed') {
     const used = addTimedEffect(pc, { id: item.id, name: item.name, passives: effect.passives, fightsLeft: effect.fights, ...(effect.hover ? { hover: true } : {}) });
     // Temporary hit points come once, with the drink; they do not stack with those already held.
-    const temp = effect.passives.reduce((n, p) => Math.max(n, p.type === 'tempHp' ? p.amount : 0), 0);
+    // (Polymorph: the form's hit points, as temporary hit points.)
+    const temp = effect.passives.reduce((n, p) => Math.max(n, p.type === 'tempHp' ? p.amount : p.type === 'polymorph' ? (MONSTERS.find((m) => m.id === p.monsterId)?.hp ?? 0) : 0), 0);
     if (temp > (used.resources['_tempHp']?.current ?? 0)) used.resources['_tempHp'] = { name: 'Temporary HP', current: temp, max: 0, refresh: 'longRest' };
     const s2 = used.inventory.find((x) => x.itemId === itemId) as ItemStack;
     s2.quantity -= 1;

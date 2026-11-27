@@ -52,6 +52,17 @@ export const BUFFS: Record<string, BuffDef> = Object.fromEntries(
     b({ id: 'haste', name: 'Haste', level: 3, concentration: true, fights: 1, passives: [{ type: 'speedMultiplier', factor: 2 }, { type: 'acBonus', amount: 2 }, { type: 'saveAdvantage', ability: 'dex' }, { type: 'extraAttack' }], summary: 'Doubled speed, +2 Armor Class, advantage on Dexterity saves and one extra weapon attack each turn.', potion: { rarity: 'veryRare', srdName: 'Potion of Speed' } }),
     // Warm shield: resistance to cold; a creature that hits you with a melee attack takes 2d8 fire. (The chill shield is the mirror image and is not offered.)
     b({ id: 'fire_shield', name: 'Fire Shield', level: 4, concentration: false, fights: 1, passives: [{ type: 'resistance', damageType: 'cold' }, { type: 'retaliate', dice: '2d8', damageType: 'fire' }], summary: 'Flames wreathe you: resistance to cold, and a creature that hits you in melee takes 2d8 fire damage.', potion: { rarity: 'rare' } }),
+    // Three duplicates; a hit is turned onto one of them on a d6 roll of 3 or higher for any duplicate left.
+    b({ id: 'mirror_image', name: 'Mirror Image', level: 2, concentration: false, fights: 1, passives: [{ type: 'mirrorImage', images: 3 }], summary: 'Three illusory duplicates circle you and can take hits meant for you.', potion: { rarity: 'uncommon' } }),
+    // The first time you would drop to 0 hit points you drop to 1 instead, and the spell ends.
+    b({ id: 'death_ward', name: 'Death Ward', level: 4, concentration: false, fights: 3, passives: [{ type: 'deathWard' }], summary: 'The first time you would drop to 0 hit points, you drop to 1 instead.', potion: { rarity: 'rare' } }),
+    // Invisible while still attacking: advantage on your attacks, disadvantage on attacks against you. Not kept: being
+    // untargetable by effects that need sight. The creature is drawn see-through.
+    b({ id: 'greater_invisibility', name: 'Greater Invisibility', level: 4, concentration: true, fights: 1, passives: [{ type: 'unseen' }, { type: 'attackAdvantage' }, { type: 'attackersDisadvantage' }], summary: 'You are invisible: your attacks have advantage and attacks against you have disadvantage.', potion: { rarity: 'rare' } }),
+    // The Giant Ape form (the strongest Beast the SRD offers a level 7 caster): its statistics and attacks replace yours,
+    // and its hit points sit on top of yours as temporary hit points; the form ends when they are gone. You keep your own
+    // hit points. Not kept: the target's saving throw (it is only ever cast on the willing here).
+    b({ id: 'polymorph', name: 'Polymorph', level: 4, concentration: true, fights: 3, passives: [{ type: 'polymorph', monsterId: 'giant_ape' }], summary: 'You become a Giant Ape: its fists, its boulders and its hit points on top of yours, until they are beaten down.', potion: { rarity: 'veryRare' } }),
     b({ id: 'stoneskin', name: 'Stoneskin', level: 4, concentration: true, fights: 3, passives: [{ type: 'resistance', damageType: 'bludgeoning' }, { type: 'resistance', damageType: 'piercing' }, { type: 'resistance', damageType: 'slashing' }], summary: 'Skin hard as stone: half damage from bludgeoning, piercing and slashing.', potion: { rarity: 'rare' } }),
   ].map((d) => [d.id, d]),
 );

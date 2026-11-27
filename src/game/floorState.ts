@@ -114,6 +114,23 @@ export interface SessionCtx {
 
 /** How much bigger an enlarged creature is drawn (the Enlarge spell: one size category up). */
 export const ENLARGE_SCALE = 1.5;
+/** How solid an invisible creature of the player's side is drawn (it must stay findable on screen). */
+export const UNSEEN_VEIL = 0.35;
+
+/** The model a creature is shown with: its own, or the form it is polymorphed into (the rules keep the true look on a hero between fights). */
+export function shownVisual(c: Creature): { visual: Creature['visual']; size: Creature['size'] } {
+  const form = c.resources['_polymorph'] ? MONSTERS.find((m) => m.id === c.resources['_polymorph']?.name) : undefined;
+  return form ? { visual: { ...form.visual }, size: form.size } : { visual: c.visual, size: c.size };
+}
+
+/** Spell effects that show on a creature: Enlarge's size, Greater Invisibility's see-through body, Mirror Image's duplicates. */
+export function lookOf(c: Creature): { scale: number; veil: number; images: number } {
+  return {
+    scale: c.resources['_enlarged'] ? ENLARGE_SCALE : 1,
+    veil: c.resources['_unseen'] ? UNSEEN_VEIL : 1,
+    images: Math.max(0, c.resources['_mirror']?.current ?? 0),
+  };
+}
 
 export function monsterDef(defId: string): MonsterDef | undefined {
   return MONSTERS.find((m) => m.id === defId);

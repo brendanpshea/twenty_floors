@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ITEMS } from './items';
 import { SPELLS } from './spells';
+import { MONSTERS } from './monsters';
 import { MAGIC_FAMILIES, MAGIC_ITEMS, ORIGINAL_ITEM_IDS, BANE_TYPES, RARITY_PRICE, FAMILY_FACTOR } from './magicItems';
 import type { Ability, Condition, CreatureType, DamageType, ItemRarity, PassiveEffect, WornSlot } from '../core/types';
 
@@ -81,7 +82,7 @@ const EXPECTED_COUNTS: Record<string, number> = {
   potion_of_flying: 1,
   oil_of_slipperiness: 1,
   potion_of_heroism: 1,
-  spell_potion: 10,
+  spell_potion: 14,
   potion_of_growth: 1,
   bane_weapon: 72,
 };
@@ -157,6 +158,15 @@ function checkPassive(id: string, p: PassiveEffect): void {
     case 'attackersDisadvantage':
     case 'extraAttack':
     case 'sizeUp':
+    case 'deathWard':
+    case 'attackAdvantage':
+    case 'unseen':
+      break;
+    case 'mirrorImage':
+      expect(p.images, id).toBeGreaterThan(0);
+      break;
+    case 'polymorph':
+      expect(MONSTERS.some((m) => m.id === p.monsterId), `${id}: form ${p.monsterId}`).toBe(true);
       break;
     case 'speedMultiplier':
       expect(p.factor, id).toBeGreaterThan(1);
@@ -430,12 +440,12 @@ describe('ORIGINAL items', () => {
     const banes = [...ORIGINAL_ITEM_IDS].filter((id) => byId.get(id)?.kind !== 'consumable');
     expect(banes.length).toBe(BANE_TYPES.length * 6);
     // The other original items are the bottled spells: timed potions, none with an SRD item's name.
-    expect(potions.length).toBe(10);
+    expect(potions.length).toBe(14);
     for (const id of potions) {
       const i = byId.get(id);
       expect(i?.consumable?.effect, id).toBe('timed');
       expect(new Set(SRD_NAMES).has(i?.name ?? ''), id).toBe(false);
-      expect(i?.cost, id).toBeLessThanOrEqual(400);
+      expect(i?.cost, id).toBeLessThanOrEqual(1250);
     }
     expect(BANE_TYPES).not.toContain('dragon');
     expect(BANE_TYPES).not.toContain('giant');

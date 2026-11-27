@@ -22,6 +22,11 @@ export function describePassive(p: PassiveEffect): string | null {
     case 'critImmunity': return 'Critical hits against you are normal hits';
     case 'ignoreHazard': return `Ignores ${p.hazard === 'fall' ? 'pits' : p.hazard}`;
     case 'displacement': return 'Attacks against you have disadvantage until you are hit';
+    case 'deathWard': return 'The first time you would drop to 0 hit points, you drop to 1 instead';
+    case 'mirrorImage': return `${p.images} illusory duplicates that can take hits meant for you`;
+    case 'attackAdvantage': return 'Your attacks have advantage';
+    case 'unseen': return null;
+    case 'polymorph': return `You take the form of a ${p.monsterId.replace(/_/g, ' ')}, with its hit points on top of yours`;
     case 'speedMultiplier': return p.factor === 2 ? 'Speed doubled' : `Speed x${p.factor}`;
     case 'saveAdvantage': return `Advantage on ${p.ability.toUpperCase()} saving throws`;
     case 'extraAttack': return 'One extra weapon attack each turn';

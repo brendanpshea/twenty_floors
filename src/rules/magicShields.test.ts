@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionDef, Creature, GameEvent, MonsterDef, PlayerCharacter } from '../core/types';
-import { attuneItem, canEquip, computeAc, equipItem, toCreature, useConsumable } from './character';
+import { attuneItem, canEquip, computeAc, equipItem, syncFromCreature, toCreature, useConsumable } from './character';
 import { MONSTERS } from '../data/monsters';
 import { timedEffects } from './passives';
 import { createCombat } from './combat';
@@ -281,5 +281,121 @@ describe('Haste, Enlarge, Barkskin and Fire Shield: one definition for a potion 
     expect(h.resources['_hasteAttack']).toBeUndefined();
     expect(h.resources['_enlarged']).toBeDefined();
     expect(ev.some((e) => e.type === 'feature' && e.id === 'enlarge' && e.creatureId === 'player')).toBe(true);
+  });
+});
+
+describe('Mirror Image, Death Ward, Greater Invisibility and Polymorph', () => {
+  const drink = (id: string): PlayerCharacter => useConsumable(withItems(bearer('shield'), id), id, new ScriptedRng(1)).pc;
+  const at = (pc: PlayerCharacter): Creature => toCreature(pc, { x: 3, y: 4 });
+  const plain = bearer('shield');
+  /** One fight: the archer acts on the hero with `actionId`; returns the events, the hero as it ends the fight and the engine. */
+  function strike(pc: PlayerCharacter, actionId: string, queue: number[], setup?: (h: Creature) => void): { ev: GameEvent[]; h: Creature; f: Creature } {
+    const h = at(pc);
+    setup?.(h);
+    const f = instantiateMonster(archerDef, 'f', { x: 4, y: 4 });
+    const rng = new ScriptedRng(1);
+    const combat = createCombat([h, f], arena, rng, {});
+    combat.begin();
+    for (let i = 0; i < 30 && combat.activeId !== 'f'; i++) combat.execute({ type: 'endTurn' });
+    rng.queue = queue;
+    return { ev: combat.execute({ type: 'action', actionId, targetId: 'player' }), h, f };
+  }
+
+  it('Mirror Image: a hit lands on a duplicate when any of them rolls 3 or higher, and each one lost stays lost', () => {
+    const pc = drink('potion_of_mirror_image');
+    expect(at(pc).resources['_mirror']?.current).toBe(3);
+    // Attack roll 19 hits; the three d6 are 1, 2, 5: a duplicate takes it.
+    const fooled = strike(pc, 'club', [19, 1, 2, 5, 3]);
+    expect(rollOf(fooled.ev).outcome).toBe('miss');
+    expect(fooled.h.resources['_mirror']?.current).toBe(2);
+    expect(fooled.h.hp).toBe(at(pc).hp);
+    // All three roll low: the hit is real and no duplicate is lost.
+    const real = strike(pc, 'club', [19, 1, 2, 2, 3]);
+    expect(rollOf(real.ev).outcome).toBe('hit');
+    expect(real.h.resources['_mirror']?.current).toBe(3);
+    // The count is carried to the next fight, and the effect ends when none are left.
+    const after = syncFromCreature(pc, fooled.h);
+    expect(after.resources['_mirror']?.current).toBe(2);
+    const last = strike(pc, 'club', [19, 6, 3], (h) => ((h.resources['_mirror'] as { current: number }).current = 1));
+    expect(last.h.resources['_mirror']?.current).toBe(0);
+    expect(timedEffects(syncFromCreature(pc, last.h)).some((t) => t.id === 'potion_of_mirror_image')).toBe(false);
+  });
+
+  it('Death Ward: the killing blow leaves the hero at 1 hit point, once, and the potion is then used up', () => {
+    const pc = drink('potion_of_death_ward');
+    expect(timedEffects(pc)[0]?.fightsLeft).toBe(3);
+    const saved = strike(pc, 'club', [19, 6], (h) => (h.hp = 1));
+    expect(saved.h.hp).toBe(1);
+    expect(saved.ev.some((e) => e.type === 'feature' && e.id === 'deathWard')).toBe(true);
+    expect(timedEffects(syncFromCreature(pc, saved.h)).length).toBe(0);
+    // Untouched, it is still there for the next fight.
+    const calm = strike(pc, 'club', [2, 1]);
+    expect(timedEffects(syncFromCreature(pc, calm.h))[0]?.fightsLeft).toBe(2);
+  });
+
+  it('Greater Invisibility: attacks against the hero have disadvantage and the hero attacks with advantage', () => {
+    const pc = drink('potion_of_greater_invisibility');
+    expect(rollOf(strike(pc, 'club', [10, 10, 3]).ev).mode).toBe('disadvantage');
+    const h = at(pc);
+    expect(h.resources['_unseen']).toBeDefined();
+    const f = instantiateMonster(archerDef, 'f', { x: 4, y: 4 });
+    const combat = createCombat([h, f], arena, new ScriptedRng(1), {});
+    combat.begin();
+    for (let i = 0; i < 30 && combat.activeId !== 'player'; i++) combat.execute({ type: 'endTurn' });
+    const ev = combat.execute({ type: 'action', actionId: (combat.availableActions().find((a) => a.id.startsWith('atk_')) as { id: string }).id, targetId: 'f' });
+    expect(rollOf(ev).mode).toBe('advantage');
+  });
+
+  it('Polymorph: the hero fights as a Giant Ape on borrowed hit points and returns to its own form when they are gone', () => {
+    const ape = MONSTERS.find((m) => m.id === 'giant_ape') as MonsterDef;
+    const pc = drink('potion_of_polymorph');
+    expect(pc.resources['_tempHp']?.current).toBe(ape.hp);
+    expect(at(pc).resources['_polymorph']?.name).toBe('giant_ape');
+    const own = at(plain);
+    // In the fight: the ape's Armor Class and actions; the hero's own hit points and name.
+    const fight = strike(pc, 'club', [19, 6]);
+    expect(fight.h.ac).toBe(ape.ac);
+    expect(fight.h.visual.model).toBe(ape.visual.model);
+    expect(fight.h.actions.some((a) => a.id === 'fist')).toBe(true);
+    expect(fight.h.actions.some((a) => a.id.startsWith('atk_'))).toBe(false);
+    expect(fight.h.hp).toBe(own.hp);
+    expect(fight.h.name).toBe(own.name);
+    expect(fight.h.tempHp).toBe(ape.hp - 8);
+    // What is left of the form goes on to the next fight.
+    const next = syncFromCreature(pc, fight.h);
+    expect(next.resources['_tempHp']?.current).toBe(ape.hp - 8);
+    expect(timedEffects(next)[0]?.fightsLeft).toBe(2);
+    // Beaten down: own form, own actions, the rest of the blow on its own hit points, and the potion is over.
+    const broken = strike(pc, 'club', [19, 6], (h) => (h.tempHp = 3));
+    expect(broken.h.ac).toBe(own.ac);
+    expect(broken.h.actions.some((a) => a.id.startsWith('atk_'))).toBe(true);
+    expect(broken.h.hp).toBe(own.hp - 5);
+    expect(broken.h.visual.model).toBe(own.visual.model);
+    expect(broken.ev.some((e) => e.type === 'feature' && e.id === 'polymorphEnd')).toBe(true);
+    expect(timedEffects(syncFromCreature(pc, broken.h)).length).toBe(0);
+  });
+
+  it('Polymorph as a cast spell: the form comes off when the caster stops concentrating', () => {
+    const poly: ActionDef = { id: 'cast_poly', name: 'Polymorph', description: '', cost: 'action', effects: ['spell', 'buff:polymorph'], targeting: { kind: 'creature', melee: false, range: 6, friendly: true } as ActionDef['targeting'] };
+    const blur: ActionDef = { ...poly, id: 'cast_blur', name: 'Blur', effects: ['spell', 'buff:blur'] };
+    const caster = instantiateMonster(mon({ id: 'test_caster', name: 'Caster', hp: 50, ac: 10, actions: [poly, blur] }), 'caster', { x: 2, y: 4 });
+    caster.faction = 'ally';
+    const h = at(plain);
+    const own = { ac: h.ac, model: h.visual.model };
+    const f = instantiateMonster(archerDef, 'f', { x: 12, y: 4 });
+    const combat = createCombat([h, caster, f], arena, new ScriptedRng(1), {});
+    combat.begin();
+    for (let i = 0; i < 30 && combat.activeId !== 'caster'; i++) combat.execute({ type: 'endTurn' });
+    const ev = combat.execute({ type: 'action', actionId: 'cast_poly', targetId: 'player' });
+    expect(ev.some((e) => e.type === 'feature' && e.id === 'polymorph' && e.creatureId === 'player')).toBe(true);
+    expect(h.visual.model).not.toBe(own.model);
+    expect(h.tempHp).toBe(168);
+    for (let i = 0; i < 30; i++) {
+      combat.execute({ type: 'endTurn' });
+      if (combat.activeId === 'caster') break;
+    }
+    combat.execute({ type: 'action', actionId: 'cast_blur', targetId: 'caster' });
+    expect(h.ac).toBe(own.ac);
+    expect(h.visual.model).toBe(own.model);
   });
 });

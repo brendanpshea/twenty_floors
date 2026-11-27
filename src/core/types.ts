@@ -567,6 +567,16 @@ export type PassiveEffect =
   | { type: 'weaponCritDamage'; dice: Dice; damageType?: DamageType }
   /** On a weapon: a different critical range (crits on `from` or higher). */
   | { type: 'critRange'; from: number }
+  /** Death Ward: the first time the bearer would drop to 0 hit points it drops to 1 instead, and the ward ends. */
+  | { type: 'deathWard' }
+  /** Mirror Image: illusory duplicates. When an attack hits, each remaining one rolls a d6 and on a 3 or higher one of them is hit and destroyed instead. */
+  | { type: 'mirrorImage'; images: number }
+  /** The bearer's attack rolls have advantage (Greater Invisibility, with attackersDisadvantage). */
+  | { type: 'attackAdvantage' }
+  /** The bearer is drawn see-through (invisible to its enemies, shown faintly to the player). */
+  | { type: 'unseen' }
+  /** Polymorph: the bearer takes the form and game statistics of this monster, with the monster's hit points as temporary hit points; it ends when those are gone. */
+  | { type: 'polymorph'; monsterId: string }
   /** Walking speed multiplied (Haste: 2). */
   | { type: 'speedMultiplier'; factor: number }
   /** Advantage on saving throws of one ability (Haste: Dexterity; Enlarge: Strength). */
@@ -1242,7 +1252,18 @@ export interface Renderer3D {
   setEntityState(
     id: string,
     /** `scale`: how big the entity is drawn, as a multiple of its normal size (1 = normal; Enlarge 1.5). It swells or shrinks to it over a moment. */
-    state: { selected?: boolean; targetable?: boolean; hpFraction?: number; dead?: boolean; visible?: boolean; scale?: number },
+    state: {
+      selected?: boolean;
+      targetable?: boolean;
+      hpFraction?: number;
+      dead?: boolean;
+      visible?: boolean;
+      scale?: number;
+      /** How solid the entity is drawn, 0 to 1 (1 = normal; an invisible hero about 0.35). It fades to it over a moment. */
+      veil?: number;
+      /** Illusory duplicates drawn circling the entity (Mirror Image), 0 to 3. */
+      images?: number;
+    },
   ): void;
   /** Rising text above an entity or cell. */
   floatText(at: string | GridPos, text: string, style: FloatTextStyle): void;

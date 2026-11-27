@@ -137,6 +137,15 @@ export const PASSIVE_FLAGS = {
   displacement: '_displacement',
   regeneration: '_regen',
   ignorePrefix: '_ignore_',
+  deathWard: '_deathWard',
+  /** Pool whose current value is the number of duplicates left. */
+  mirror: '_mirror',
+  attackAdv: '_attackAdv',
+  unseen: '_unseen',
+  /** Pool whose name is the monster id of the form. */
+  polymorph: '_polymorph',
+  /** Followed by a passive type: a one-use effect (Death Ward, Polymorph) was used up in the fight, so its timed effect ends. */
+  spentPrefix: '_spent_',
   hasteAttack: '_hasteAttack',
   /** Followed by an ability: advantage on its saving throws. */
   saveAdvPrefix: '_saveAdv_',

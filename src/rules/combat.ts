@@ -18,6 +18,7 @@ import type {
   TurnState,
 } from '../core/types';
 import { getBuff } from '../data/buffs';
+import { instantiateMonster } from './monster';
 import { MONSTERS } from '../data/monsters';
 import { getItem } from './items';
 import {
@@ -302,7 +303,9 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
   /** HOUSE RULE: the attack made straight after a Blink Dog teleport counts as made from hiding (advantage). */
   const blinkAdv = new Set<string>();
   /** Death Ward: the first time the creature would drop to 0 HP it drops to 1 instead. */
-  const deathWard = new Set<string>();
+  const deathWard = new Set<string>(all.filter((c) => (c.resources['_deathWard']?.current ?? 0) > 0).map((c) => c.id));
+  /** Polymorph: creature id -> the function that gives it back its own form. */
+  const trueForm = new Map<string, () => void>();
   /** Spirit Guardians: caster id -> the emanation (radius in cells, save DC, damage) that follows them. */
   const auras = new Map<string, { radius: number; dc: number; dice: string; type: DamageType }>();
   let lastAttackMode: RollMode = 'normal';
@@ -371,6 +374,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       if (all.some((o) => o !== att && isAlive(o) && !isIncapacitated(o) && isFriendlySide(o) === isFriendlySide(att) && o.pos.x === ox && o.pos.y === oy)) adv = true;
     }
     if (vexed.get(att.id)?.targetId === tgt.id) adv = true;
+    // Greater Invisibility: the unseen attacker has advantage.
+    if (hasFlag(att, 'attackAdv')) adv = true;
     if (studied.get(att.id)?.targetId === tgt.id) adv = true;
     if (blinkAdv.has(att.id)) adv = true;
     if (ambush.has(att.id)) adv = true;
@@ -484,6 +489,18 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     // Critical-hit immunity (Adamantine Armor): a critical hit against the wearer is an ordinary hit.
     if (outcome === 'crit' && hasFlag(tgt, 'critImmunity')) outcome = 'hit';
     if ((outcome === 'hit' || outcome === 'crit') && displaced.has(tgt.id)) displaced.delete(tgt.id);
+    // Mirror Image: on a hit, each duplicate left rolls a d6; on a 3 or higher one of them takes the hit and is destroyed.
+    const images = tgt.resources['_mirror'];
+    if ((outcome === 'hit' || outcome === 'crit') && images && images.current > 0) {
+      let fooled = false;
+      for (let i = 0; i < images.current; i++) if (rng.die(6) >= 3) fooled = true;
+      if (fooled) {
+        images.current -= 1;
+        outcome = 'miss';
+        feature(tgt, 'mirrorImage', images.current > 0 ? 'A duplicate is destroyed' : 'The last duplicate is destroyed', { amount: images.current });
+        log(`${att.name} strikes one of ${tgt.name}'s duplicates (${images.current} left).`);
+      }
+    }
     // HOUSE RULE: Shield is cast automatically as a reaction when its +5 AC would turn a hit into a miss.
     if (outcome === 'hit' && shieldReady(tgt) && r.d20 + bonus < ac + 5) {
       castShield(tgt);
@@ -613,6 +630,12 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       const absorbed = Math.min(target.tempHp, rest);
       target.tempHp -= absorbed;
       rest -= absorbed;
+      // Polymorph: the form lasts as long as its hit points do; the rest of the blow carries over to the true form.
+      if (target.tempHp === 0 && trueForm.has(target.id)) {
+        target.resources['_spent_polymorph'] = { name: 'spent', current: 1, max: 0, refresh: 'longRest' };
+        log(`${target.name}'s borrowed form is beaten down.`);
+        (trueForm.get(target.id) as () => void)();
+      }
     }
     target.hp = Math.max(0, target.hp - rest);
     let survived = false;
@@ -627,6 +650,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     if (target.hp === 0 && !survived && deathWard.has(target.id)) {
       deathWard.delete(target.id);
       delete target.resources['_deathWard'];
+      target.resources['_spent_deathWard'] = { name: 'spent', current: 1, max: 0, refresh: 'longRest' };
+      feature(target, 'deathWard', 'Death Ward', {});
       target.hp = 1;
       survived = true;
       log(`Death Ward! ${target.name} drops to 1 HP instead and the ward ends.`);
@@ -898,6 +923,31 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
       else if (p.type === 'attackersDisadvantage') flag('blur');
       else if (p.type === 'wardVersus') for (const t of p.versus) flag(`ward_${t}`);
       else if (p.type === 'extraAttack') flag('hasteAttack');
+      else if (p.type === 'attackAdvantage') flag('attackAdv');
+      else if (p.type === 'unseen') {
+        if (c.resources['_unseen'] === undefined) {
+          flag('unseen');
+          feature(c, 'unseen', 'Invisible', {});
+          undo.push(() => feature(c, 'unseenEnd', 'Visible again', {}));
+        }
+      } else if (p.type === 'deathWard') {
+        deathWard.add(c.id);
+        c.resources['_deathWard'] = { name: 'Death Ward', current: 1, max: 0, refresh: 'longRest' };
+        undo.push(() => {
+          deathWard.delete(c.id);
+          delete c.resources['_deathWard'];
+        });
+      } else if (p.type === 'mirrorImage') {
+        c.resources['_mirror'] = { name: 'Mirror Image', current: p.images, max: 0, refresh: 'longRest' };
+        feature(c, 'mirrorImage', 'Mirror Image', { amount: p.images });
+        undo.push(() => {
+          delete c.resources['_mirror'];
+          feature(c, 'mirrorImage', 'The duplicates fade', { amount: 0 });
+        });
+      } else if (p.type === 'polymorph') {
+        const back = takeForm(c, p.monsterId, true);
+        if (back) undo.push(back);
+      }
       else if (p.type === 'saveAdvantage') flag(`saveAdv_${p.ability}`);
       else if (p.type === 'bonusWeaponDice') flag('bonusDice', p.dice);
       else if (p.type === 'retaliate') flag('retaliate', `${p.dice}:${p.damageType}`);
@@ -923,6 +973,37 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     return () => {
       for (const u of undo.reverse()) u();
     };
+  }
+
+  /**
+   * Polymorph: `c` takes the form of a monster. Its Armor Class, speed, ability scores, actions, traits, resistances,
+   * size and look become the form's; it keeps its own hit points, name and side, and (when `fresh`) gains the form's hit
+   * points as temporary hit points. Returns the function that restores the true form, which also runs by itself when
+   * those temporary hit points are gone. Null if there is no such monster or `c` already wears a form.
+   */
+  function takeForm(c: Creature, monsterId: string, fresh: boolean): (() => void) | null {
+    const def = MONSTERS.find((m) => m.id === monsterId);
+    if (!def || trueForm.has(c.id)) return null;
+    const form = instantiateMonster(def, c.id, c.pos);
+    const keys = ['ac', 'speed', 'abilities', 'proficiencyBonus', 'saveProficiencies', 'size', 'actions', 'traits', 'resistances', 'vulnerabilities', 'immunities', 'conditionImmunities', 'visual'] as const;
+    const own = Object.fromEntries(keys.map((k) => [k, c[k]]));
+    const speedBefore = c.speed;
+    Object.assign(c, Object.fromEntries(keys.map((k) => [k, form[k]])));
+    for (const k of Object.keys(form.resources)) if (c.resources[k] === undefined) c.resources[k] = form.resources[k] as Creature['resources'][string];
+    c.resources['_polymorph'] = { name: monsterId, current: 1, max: 0, refresh: 'longRest' };
+    if (fresh) c.tempHp = Math.max(c.tempHp, def.hp);
+    if (turn.creatureId === c.id) turn.movementLeft = Math.max(0, turn.movementLeft + c.speed - speedBefore);
+    feature(c, 'polymorph', `Becomes a ${def.name}`, {});
+    log(`${c.name} takes the form of a ${def.name}.`);
+    const back = (): void => {
+      if (!trueForm.delete(c.id)) return;
+      Object.assign(c, own);
+      delete c.resources['_polymorph'];
+      feature(c, 'polymorphEnd', 'True form', {});
+      log(`${c.name} returns to their own form.`);
+    };
+    trueForm.set(c.id, back);
+    return back;
   }
 
   /**
@@ -2013,6 +2094,11 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     begin(): GameEvent[] {
       if (began) throw new Error('Combat has already begun');
       began = true;
+      // A Polymorph potion drunk before the fight: the hero enters it in the form (its hit points are already held as temporary hit points).
+      for (const c of all) {
+        const form = c.resources['_polymorph'];
+        if (form && c.tempHp > 0) takeForm(c, form.name, false);
+      }
       events = [];
       const rolled = all.map((c, i) => {
         const r = rollD20(hasFlag(c, 'initAdv') ? 'advantage' : 'normal');

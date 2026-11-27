@@ -11,7 +11,7 @@ import { Explore } from './explore';
 import { cellDistance, revealFrom } from './fog';
 import { SHOVE_PUSH_ID, pushPreview } from '../rules';
 import type { FloorState, SessionCtx } from './floorState';
-import { ENLARGE_SCALE, creatureById, isSeen, livingMonsters, monsterDef, setEntityVisible } from './floorState';
+import { creatureById, lookOf, shownVisual, isSeen, livingMonsters, monsterDef, setEntityVisible } from './floorState';
 import { CAST_PREFIX, PRAYER_ID, buildHudModel } from './hudModel';
 import { makeCompanionRuntime } from './party';
 import { Playback } from './playback';
@@ -150,8 +150,9 @@ export class FloorSession {
         console.warn('Model preload failed', err);
       }
     }
-    renderer.spawnEntity('player', state.player.visual, state.player.pos, { faction: 'player', size: state.player.size });
-    if (state.player.resources['_enlarged']) renderer.setEntityState('player', { scale: ENLARGE_SCALE });
+    const shown = shownVisual(state.player);
+    renderer.spawnEntity('player', shown.visual, state.player.pos, { faction: 'player', size: shown.size });
+    renderer.setEntityState('player', lookOf(state.player));
     state.entityVisible.set('player', true);
     if (state.companion) {
       const c = state.companion.creature;
@@ -224,8 +225,13 @@ export class FloorSession {
       rebuildPlayer: () => {
         const prev = this.state.player;
         this.state.player = this.makePlayer(this.state.pc, prev.pos);
-        // An Enlarge effect on the hero (a Potion of Growth) shows as size; it shrinks back when the effect runs out.
-        this.deps.renderer.setEntityState('player', { scale: this.state.player.resources['_enlarged'] ? ENLARGE_SCALE : 1 });
+        // Spell effects on the hero show on the figure: a new form (Polymorph), size, a see-through body, duplicates.
+        const now = shownVisual(this.state.player);
+        if (now.visual.model !== shownVisual(prev).visual.model) {
+          this.deps.renderer.removeEntity('player');
+          this.deps.renderer.spawnEntity('player', now.visual, this.state.player.pos, { faction: 'player', size: now.size });
+        }
+        this.deps.renderer.setEntityState('player', lookOf(this.state.player));
       },
     };
   }

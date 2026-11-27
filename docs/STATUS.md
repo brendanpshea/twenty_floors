@@ -111,15 +111,41 @@ many fights a potion of it lasts). Two things use an entry:
 | Haste | speed doubled, +2 AC, advantage on Dexterity saves, one extra weapon attack a turn | SRD **Potion of Speed**, 1 fight |
 | Fire Shield | cold resistance; a melee attacker that hits takes 2d8 fire | 1 fight |
 | Stoneskin | resistance to bludgeoning, piercing, slashing | 3 fights |
+| Mirror Image | three duplicates; a hit lands on one when any rolls 3+ on a d6 | 1 fight |
+| Death Ward | the first drop to 0 hit points becomes 1; then it ends | 3 fights, one use |
+| Greater Invisibility | your attacks have advantage, attacks on you disadvantage | 1 fight |
+| Polymorph | you become a Giant Ape (its AC 12, speed, fists and boulders) with its 168 hit points on top of yours; ends when they are gone | 3 fights |
 
 Also the SRD **Potion of Heroism** (10 temporary hit points once, Bless for
 three fights). Potions of Speed, Growth and Heroism are SRD items; the other
-ten are ORIGINAL items holding SRD spells (family `spell_potion`, 100 gp;
-Fire Shield and Stoneskin 375 gp).
+fourteen are ORIGINAL items holding SRD spells (family `spell_potion`:
+100 gp for spell levels 1 and 2; 375 gp for Fire Shield, Stoneskin, Death
+Ward and Greater Invisibility; 1,250 gp for Polymorph).
 
 Not kept: Enlarge's larger space and reach; Haste's lethargy when it ends,
 and its extra action is always a weapon attack; Protection's guard against
 charm and fear; False Life is a flat 9.
+
+How each one-use or lasting effect is carried between fights: Mirror
+Image keeps the duplicates it has left (`_mirror`); Death Ward and Polymorph
+end when used up in a fight (the combat engine leaves a `_spent_<type>` flag
+and `syncFromCreature` drops the timed effect); Polymorph's remaining
+borrowed hit points are the hero's temporary hit points.
+
+Polymorph swaps the creature's Armor Class, speed, ability scores, actions,
+traits, resistances, size and model for the form's (`takeForm` in
+`src/rules/combat.ts`) and gives them back when the temporary hit points run
+out or the spell ends. The hero cannot use weapons, Second Wind or Action
+Surge as an ape. Not kept: Greater Invisibility's protection from effects
+that need sight; Polymorph's saving throw (it is only cast on the willing).
+
+On screen (`Renderer3D.setEntityState`): `veil` draws an invisible hero
+see-through, `images` draws Mirror Image's duplicates as pale figures
+circling the creature (plain shapes, not copies of the model), and a
+polymorphed creature is respawned with the form's model. `lookOf` and
+`shownVisual` in `src/game/floorState.ts` say what a creature should look
+like; the playback applies them on the `unseen`, `mirrorImage`, `polymorph`
+and `enlarge` combat events.
 
 Enlarge's size is real on screen: `Renderer3D.setEntityState(id, { scale })`
 eases a creature to a multiple of its size. The game sets it from the

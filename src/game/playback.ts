@@ -6,7 +6,7 @@ import { QUIET_CONDITIONS, capitalize, logLine } from './eventLog';
 import type { SessionCtx } from './floorState';
 import { getItem } from '../rules';
 import { cellDistance } from './fog';
-import { ENLARGE_SCALE, creatureById, isEntityVisible, isSeen, setEntityVisible } from './floorState';
+import { ENLARGE_SCALE, UNSEEN_VEIL, creatureById, lookOf, shownVisual, isEntityVisible, isSeen, setEntityVisible } from './floorState';
 
 /** Damage types that have a spell-hit sound of their own; the rest land as a blunt hit. */
 const SPELL_HIT: Partial<Record<DamageType, SfxId>> = {
@@ -202,9 +202,23 @@ export class Playback {
       return;
     }
     if (sound) audio.play(sound);
-    // Enlarge: the creature swells to half again its size, and shrinks back when the spell ends.
+    // Spell effects that show on the figure. Enlarge: it swells to half again its size and shrinks back when the spell
+    // ends. Greater Invisibility: see-through. Mirror Image: the duplicates left. Polymorph: another creature's model.
     if (e.id === 'enlarge') deps.renderer.setEntityState(e.creatureId, { scale: ENLARGE_SCALE });
     if (e.id === 'enlargeEnd') deps.renderer.setEntityState(e.creatureId, { scale: 1 });
+    if (e.id === 'unseen') deps.renderer.setEntityState(e.creatureId, { veil: UNSEEN_VEIL });
+    if (e.id === 'unseenEnd') deps.renderer.setEntityState(e.creatureId, { veil: 1 });
+    if (e.id === 'mirrorImage' && e.amount !== undefined) deps.renderer.setEntityState(e.creatureId, { images: e.amount });
+    if (e.id === 'polymorph' || e.id === 'polymorphEnd') {
+      const c = creatureById(state, e.creatureId);
+      if (c && isEntityVisible(state, e.creatureId)) {
+        void this.fx({ kind: 'aura', on: e.creatureId, style: 'teleport' });
+        deps.renderer.removeEntity(e.creatureId);
+        const shown = e.id === 'polymorph' ? shownVisual(c) : { visual: c.visual, size: c.size };
+        deps.renderer.spawnEntity(e.creatureId, shown.visual, c.pos, { faction: c.faction, size: shown.size });
+        deps.renderer.setEntityState(e.creatureId, { ...lookOf(c), hpFraction: c.maxHp > 0 ? c.hp / c.maxHp : 1 });
+      }
+    }
     // A buff spell from the registry taking hold: a shimmer on its target.
     if (e.id.startsWith('buff:') || e.id === 'enlarge') void this.fx({ kind: 'aura', on: e.creatureId, style: e.id === 'buff:bless' ? 'bless' : 'buff' });
     if (e.id === 'shield') void this.fx({ kind: 'aura', on: e.creatureId, style: 'shield' });
