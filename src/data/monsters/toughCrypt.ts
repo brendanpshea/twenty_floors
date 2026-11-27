@@ -364,8 +364,11 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     role: 'boss',
     description: 'A bloodless thrall of a greater vampire, all hunger and claws, that drags prey close to feed.',
   },
-  // Simplified: drops Legendary Resistance, Misty Escape, Vampire Weakness, Shape-Shift, and the Beguile and Deathless
-  // Strike legendary actions; no legendary actions at all. Its Climb speed is not modelled (Spider Climb uses the trait).
+  // Simplified: drops Misty Escape, Vampire Weakness and Shape-Shift. Legendary Resistance is 3/Day (not the 4 in lair).
+  // Both Legendary Actions are kept: Beguile is the Command spell as its own legendary-only action (DC 17, Grovel only:
+  // Prone for 1 round, as for the Cultist Fanatic; range 60 ft.), and Deathless Strike is a plain Grave Strike (the
+  // half-speed move is dropped); the "can't take Beguile again until its next turn" limit is dropped, since it has one
+  // legendary action a round anyway. Its Climb speed is not modelled (Spider Climb uses the trait).
   // Sunlight Sensitivity uses the trait (disadvantage only; the 20 Radiant damage is dropped). Grave Strike applies
   // Grappled with no size check (escape is a Strength save-ends at DC 14). Bite is a melee save-attack with no restriction
   // on who it can target; its Hit Point maximum reduction, self-healing and spawn-raising are dropped. Charm is the
@@ -392,6 +395,25 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     immunities: [],
     conditionImmunities: [],
     traits: ['spiderClimb', 'sunlightSensitivity'],
+    legendary: {
+      options: [
+        { name: 'Beguile', description: 'A velvet command that drops a victim to the floor.', use: 'beguile' },
+        { name: 'Deathless Strike', description: 'It closes in a blur and strikes with a tomb-cold fist.', use: 'grave_strike' },
+      ],
+      actions: [
+        {
+          id: 'beguile',
+          name: 'Beguile',
+          description: 'A single honeyed word of command that forces the listener to the ground.',
+          icon: 'spell',
+          cost: 'action',
+          targeting: { kind: 'creature', melee: false, range: 12 },
+          save: { ability: 'wis', dc: 17, halfOnSave: false },
+          applies: { condition: 'prone', rounds: 1 },
+        },
+      ],
+      resistance: 3,
+    },
     actions: [
       {
         id: 'multiattack',

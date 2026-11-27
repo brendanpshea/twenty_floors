@@ -412,8 +412,9 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   // save-ends at DC 16 (repeating whenever it takes damage and the long-range control are dropped). Tentacle (reach 15 ft.)
   // Grappled (escape DC 14) is a Strength save-ends, without the size check. Walking speed is only 10 ft., so its 40 ft.
   // swim speed is used as its speed (knee-deep sewer water). Consume Memories (30 ft., one range) has no attack roll, so it
-  // needs no long range. Drops Amphibious, Eldritch Restoration, Legendary Resistance, Mucus Cloud, Probing Telepathy and
-  // the Legendary Actions (Lash, Psychic Drain). XP is the 5,900 not-in-lair value.
+  // needs no long range. Legendary Resistance 3/Day (not the 4 in lair) and the Lash legendary action (one Tentacle attack)
+  // are kept; Psychic Drain is left out (it needs a Charmed or Grappled creature and also heals 5 Hit Points, which the
+  // data model cannot express). Drops Amphibious, Eldritch Restoration, Mucus Cloud and Probing Telepathy. XP is the 5,900 not-in-lair value.
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a giant eel-like horror (no such model owned); shadow rig scaled up with a teal tint as stand-in.
   {
     id: 'aboleth',
@@ -434,6 +435,10 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     immunities: [],
     conditionImmunities: [],
     traits: [],
+    legendary: {
+      options: [{ name: 'Lash', description: 'The aboleth lashes out with one more tentacle.', use: 'tentacle' }],
+      resistance: 3,
+    },
     actions: [
       {
         id: 'multiattack',

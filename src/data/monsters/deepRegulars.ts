@@ -424,11 +424,12 @@ export const DEEP_REGULARS: MonsterDef[] = [
     role: 'elite',
     description: 'A noble genie of the winds, proud of its freedom, who strikes with lightning and thunder and whirls its enemies aloft.',
   },
-  // Simplified: drops Fly (walks at 40 ft.), Legendary Resistance, Legendary Actions (Arcane Prowl, Weight of Years),
-  // Inscrutable, the in-lair CR 11 variant and every spell (Detect Magic, Identify, Mage Hand, Minor Illusion,
+  // Simplified: drops Fly (walks at 40 ft.), Inscrutable, the in-lair CR 11 variant and every spell (Detect Magic, Identify, Mage Hand, Minor Illusion,
   // Prestidigitation, Dispel Magic, Legend Lore, Locate Object, Plane Shift, Remove Curse, Tongues). Mind-
   // Rending Roar is a 300-ft. Emanation from the sphinx (a self-centred sphere of 60 cells), Recharge 5-6,
-  // Incapacitated until the start of its next turn (rounds: 1). It does not need to see the targets.
+  // Incapacitated until the start of its next turn (rounds: 1). It does not need to see the targets. Legendary Resistance is
+  // 3/Day (not the 4 in lair). Of its Legendary Actions only Arcane Prowl is kept, as a plain Claw attack (the 30-ft.
+  // teleport is dropped); Weight of Years is left out (it inflicts an Exhaustion level, which the game has no condition for).
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a winged lion (none shipped); wolf body, large and golden, as stand-in (the lamia, also a wolf
   // body, is rose and smaller).
   {
@@ -450,6 +451,10 @@ export const DEEP_REGULARS: MonsterDef[] = [
     immunities: ['psychic'],
     conditionImmunities: ['charmed', 'frightened'],
     traits: [],
+    legendary: {
+      options: [{ name: 'Arcane Prowl', description: 'It slips in close and rakes a foe with one more claw.', use: 'claw' }],
+      resistance: 3,
+    },
     actions: [
       {
         id: 'multiattack',
@@ -667,8 +672,12 @@ export const DEEP_REGULARS: MonsterDef[] = [
     role: 'elite',
     description: 'A towering, insect-eyed devil of the frozen ninth hell that guards its realm with a spear of ice.',
   },
-  // Simplified: drops Legendary Resistance, Magic Resistance, Undead Restoration, the Whirlwind of Sand reaction,
-  // Legendary Actions (Dread Command, Glare, Necrotic Strike), the in-lair CR 15 variant and exhaustion immunity.
+  // Simplified: drops Magic Resistance, Undead Restoration, the Whirlwind of Sand reaction, the in-lair CR 15 variant and
+  // exhaustion immunity. Legendary Resistance is 3/Day (not the 4 in lair). All three Legendary Actions are kept: Dread
+  // Command is the Command spell (level 2 version) as its own legendary-only action, DC 17, one target instead of two,
+  // Grovel only (Prone for 1 round, as for the Cultist Fanatic), range 60 ft.; Glare is Dreadful Glare; Necrotic Strike is
+  // two options, one per attack it may make (Rotting Fist, Channel Negative Energy). The "can't take this action again
+  // until the start of its next turn" limits are dropped (one legendary action a round already gives that).
   // Rotting Fist keeps its bludgeoning and necrotic damage; the Hit Point curse and dusting are dropped. Multiattack
   // (one Rotting Fist or Channel Negative Energy, and Dreadful Glare) is split into melee and ranged versions;
   // Dreadful Glare (60 ft., 12 cells) is Paralyzed until the end of the mummy's next turn (rounds: 1). Channel
@@ -697,6 +706,27 @@ export const DEEP_REGULARS: MonsterDef[] = [
     immunities: ['necrotic', 'poison'],
     conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'poisoned'],
     traits: [],
+    legendary: {
+      options: [
+        { name: 'Dread Command', description: 'A single dry word of command that drops a foe to the floor.', use: 'dread_command' },
+        { name: 'Glare', description: 'It turns its paralysing stare on a foe once more.', use: 'dreadful_glare' },
+        { name: 'Necrotic Strike (Rotting Fist)', description: 'A quick rotting blow with a bandaged fist.', use: 'rotting_fist' },
+        { name: 'Necrotic Strike (Channel Negative Energy)', description: 'A quick beam of grave-chill from a wrapped hand.', use: 'channel_negative_energy' },
+      ],
+      actions: [
+        {
+          id: 'dread_command',
+          name: 'Dread Command',
+          description: 'A single word of tomb-cold authority that forces the listener to the ground.',
+          icon: 'spell',
+          cost: 'action',
+          targeting: { kind: 'creature', melee: false, range: 12 },
+          save: { ability: 'wis', dc: 17, halfOnSave: false },
+          applies: { condition: 'prone', rounds: 1 },
+        },
+      ],
+      resistance: 3,
+    },
     actions: [
       {
         id: 'multiattack',
@@ -913,7 +943,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     description: 'A giant iron guardian, built to serve and never tire, that can burn or choke anything its master fears.',
   },
   // Simplified: Fear Aura is an aura (20 ft. = 4 cells, Wisdom DC 21, Frightened for 1 round, immune for the rest of the fight on a
-  // success). Drops Fly (walks at 30 ft.), Diabolical Restoration, Legendary Resistance, Magic Resistance, telepathy and skills. Multiattack is one Bite, two
+  // success). Drops Fly (walks at 30 ft.), Diabolical Restoration, Magic Resistance, telepathy and skills. Legendary Resistance (4/Day) is kept; the stat block has no Legendary Actions. Multiattack is one Bite, two
   // Devilish Claws and one Fiery Mace, all with 10-ft. reach (2 cells). The Bite's Poisoned (Constitution DC 21)
   // is a save-ends (the attack is followed by the Constitution save, as printed), and while Poisoned the target takes 6d6 poison at the start of each of its turns (ongoing); the no-healing rider and the 1-minute limit are dropped. Hellfire
   // Spellcasting (Recharge 4-6) casts Fireball (level 5 version: 10d6, DC 21, 150 ft. = 30 cells, 20-ft. radius = 4
@@ -940,6 +970,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     immunities: ['fire', 'poison'],
     conditionImmunities: ['poisoned'],
     traits: [],
+    legendary: { options: [], resistance: 4 },
     auras: [
       {
         id: 'fear_aura',
@@ -1013,15 +1044,19 @@ export const DEEP_REGULARS: MonsterDef[] = [
     role: 'boss',
     description: 'A winged, towering general of the Nine Hells whose bite, claws and flaming mace have crushed whole legions.',
   },
-  // Simplified: drops Legendary Resistance, Spirit Jar, Protective Magic (reaction), Legendary Actions (Deathly Teleport,
-  // Disrupt Life, Frightening Gaze), the in-lair CR 21 variant and every other spell (Detect Magic, Detect Thoughts,
+  // Simplified: drops Spirit Jar, Protective Magic (reaction), the in-lair CR 21 variant and every other spell (Detect Magic, Detect Thoughts,
   // Dispel Magic, Invisibility, Mage Hand, Prestidigitation, Animate Dead, Dimension Door, Plane Shift, Chain
   // Lightning, Power Word Kill, Scrying). Multiattack (three attacks, Eldritch Burst or Paralyzing Touch in any
   // combination) is split into melee, touch-and-burst and ranged versions. Eldritch Burst is melee (5 ft.) or
   // ranged (120 ft., 24 cells, long 25), so it has two actions. Paralyzing Touch's Paralyzed lasts until the start
   // of the lich's next turn (rounds: 1). Of the spells, Fireball (level 5 version) and Lightning Bolt (level 5
   // version) are kept at will, as printed, and Finger of Death (1/Day) as a 60-ft. single target; the zombie it
-  // raises is dropped. Fireball range is 150 ft. (30 cells), 20-ft. radius (4 cells).
+  // raises is dropped. Fireball range is 150 ft. (30 cells), 20-ft. radius (4 cells). Legendary Resistance is 4/Day (not the
+  // 5 in lair). Legendary Actions kept: Disrupt Life (20-ft. Emanation = a self-centred sphere of 4 cells, Constitution
+  // DC 20, 9d6 necrotic, half on a success; the "not Undead" limit is dropped) and Frightening Gaze (the Fear spell at
+  // DC 20: a 30-ft. cone of 6 cells, Frightened with a Wisdom save-ends at DC 20 instead of the spell's concentration,
+  // flee-and-line-of-sight rules). The "can't take this action again until the start of its next turn" limits are
+  // dropped (one legendary action a round already gives that). Deathly Teleport is left out: it is a teleport.
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a pale KayKit Mage or Mystery Monthly 5 undead (docs/research/roster-options.md notes the mage
   // alternatives for the Mummy Lord and Vampire); skeleton_mage body, violet and large, as stand-in.
   {
@@ -1043,6 +1078,35 @@ export const DEEP_REGULARS: MonsterDef[] = [
     immunities: ['necrotic', 'poison'],
     conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'poisoned'],
     traits: [],
+    legendary: {
+      options: [
+        { name: 'Disrupt Life', description: 'A wave of deathly cold rolls out from the lich and withers every living thing near it.', use: 'disrupt_life' },
+        { name: 'Frightening Gaze', description: 'A hollow stare that fills those in front of it with dread.', use: 'frightening_gaze' },
+      ],
+      actions: [
+        {
+          id: 'disrupt_life',
+          name: 'Disrupt Life',
+          description: 'A wave of necrotic force that rolls out from the lich and withers the living.',
+          icon: 'spell',
+          cost: 'action',
+          targeting: { kind: 'point', range: 0, area: { shape: 'sphere', size: 4 } },
+          save: { ability: 'con', dc: 20, halfOnSave: true },
+          damage: [{ dice: '9d6', type: 'necrotic' }],
+        },
+        {
+          id: 'frightening_gaze',
+          name: 'Frightening Gaze',
+          description: 'A cone of dread from the lich\'s empty sockets that sends the living reeling.',
+          icon: 'spell',
+          cost: 'action',
+          targeting: { kind: 'point', range: 0, area: { shape: 'cone', size: 6 } },
+          save: { ability: 'wis', dc: 20, halfOnSave: false },
+          applies: { condition: 'frightened', saveEnds: { ability: 'wis', dc: 20 } },
+        },
+      ],
+      resistance: 4,
+    },
     actions: [
       {
         id: 'multiattack',
