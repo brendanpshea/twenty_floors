@@ -736,9 +736,9 @@ export const HELL_MONSTERS: MonsterDef[] = [
     description: 'A winged, armoured devil-warrior who hunts escapees with sword and snaring rope.',
   },
   // Simplified: drops Climb, Demonic Restoration, Magic Resistance, Reactive, truesight, telepathy, skills,
-  // Teleport and the Parry reaction. Multiattack: six Pact Blade attacks and Constrict. Constrict's grapple (escape
-  // DC 14) and its Restrained are merged into one save-ends Restrained; the Medium-or-smaller limit is not
-  // enforced.
+  // Teleport (a bonus-action teleport; the AI never uses a utility bonus action) and the Parry reaction. Multiattack: six Pact Blade
+  // attacks and Constrict. Constrict applies Grappled (Strength save-ends at the escape DC 14) and Restrained until the grapple ends
+  // (the Behir's pattern); the Medium-or-smaller limit is not enforced.
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): Quaternius Demon (six-armed snake-bodied); hero_rogue body, large and red-orange, as stand-in.
   {
     id: 'marilith',
@@ -791,7 +791,8 @@ export const HELL_MONSTERS: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 1 },
         save: { ability: 'str', dc: 17, halfOnSave: false },
         damage: [{ dice: '2d10+4', type: 'bludgeoning' }],
-        applies: { condition: 'restrained', saveEnds: { ability: 'str', dc: 14 } },
+        applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 14 } },
+        alsoApplies: [{ condition: 'restrained', endsWith: true }],
       },
     ],
     visual: { model: 'hero_rogue', tint: 0xff6a50, scale: 1.3 },

@@ -587,7 +587,10 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     role: 'boss',
     description: 'A dark, leathery sheet that hangs from the chasm wall like a cloak until it drops onto someone and wails.',
   },
-  // Simplified: drops the climb speed and Swallow. Constrict applies Grappled (Strength save-ends at the escape
+  // Simplified: drops the climb speed. Swallow is a bonus action (Dexterity DC 18): Restrained (no save; the hero uses Break Free)
+  // and Blinded until the restraint ends, with 6d6 acid at the start of each of the behir's turns (ongoing); it has no "must be
+  // Grappled" precondition (the Large-or-smaller limit, the Total Cover and the regurgitation on 30 damage are dropped, and the
+  // Grappled condition is not removed). Constrict applies Grappled (Strength save-ends at the escape
   // DC 16) and Restrained until the grapple ends. Multiattack is one Bite then Constrict. Lightning
   // Breath is a recharge 5 to 6 line (90 ft, 18 cells) rather than part of Multiattack.
   {
@@ -654,6 +657,17 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
         recharge: 5,
         save: { ability: 'dex', dc: 16, halfOnSave: true },
         damage: [{ dice: '12d10', type: 'lightning' }],
+      },
+      {
+        id: 'swallow',
+        name: 'Swallow',
+        description: 'It gulps a victim whole into an acid-slick throat where nothing can reach it.',
+        icon: 'bite',
+        cost: 'bonus',
+        targeting: { kind: 'creature', melee: true, range: 2 },
+        save: { ability: 'dex', dc: 18, halfOnSave: false },
+        applies: { condition: 'restrained', ongoing: { damage: [{ dice: '6d6', type: 'acid' }], when: 'sourceTurnStart' } },
+        alsoApplies: [{ condition: 'blinded', endsWith: true }],
       },
     ],
     visual: { model: 'snake', tint: 0x60b0f0, scale: 7 },

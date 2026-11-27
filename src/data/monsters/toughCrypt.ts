@@ -303,7 +303,8 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // Simplified: Claw applies Grappled on a hit with no size check (escape is a Strength save-ends at the escape DC 13).
   // Bite is a melee save-attack with no restriction on who it can target, and its Hit Point maximum reduction and
   // self-healing are dropped. Sunlight Sensitivity uses the trait (disadvantage only; the 20 Radiant damage is
-  // dropped). Drops Vampire Weakness (forbiddance, running water, stake) and the Deathless Agility bonus action.
+  // dropped). Deathless Agility is the Dash and Disengage bonus actions (they replace the standard Dash and Disengage actions, which
+  // cost an action). Drops Vampire Weakness (forbiddance, running water, stake).
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): a pale, feral vampire spawn (KayKit Vampire family); hero_barbarian with a rose tint as stand-in.
   {
     id: 'vampire_spawn',
@@ -357,6 +358,24 @@ export const TOUGH_CRYPT: MonsterDef[] = [
           { dice: '1d4+3', type: 'piercing' },
           { dice: '3d6', type: 'necrotic' },
         ],
+      },
+      {
+        id: 'dash',
+        name: 'Deathless Agility: Dash',
+        description: 'A bonus-action burst of speed: gain extra movement equal to its speed.',
+        icon: 'dash',
+        cost: 'bonus',
+        targeting: { kind: 'self' },
+        effects: ['dash'],
+      },
+      {
+        id: 'disengage',
+        name: 'Deathless Agility: Disengage',
+        description: 'A bonus-action slip away: its movement provokes no opportunity attacks this turn.',
+        icon: 'disengage',
+        cost: 'bonus',
+        targeting: { kind: 'self' },
+        effects: ['disengage'],
       },
     ],
     visual: { model: 'hero_barbarian', tint: 0xff9ab0, scale: 1.0 },
@@ -597,8 +616,8 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // Multiattack is four Arcane Bursts, split into a melee set and a ranged set (it can mix them). Arcane Burst's range
   // of 150 ft. is modelled as range 30 and longRange 31 (one real range). Spellcasting keeps only its two damaging
   // spells: Lightning Bolt (level 7 version, 12d6; Line 100 ft. long = 20 cells) and Cone of Cold (level 9 version, 12d8;
-  // 60 ft. cone = 12 cells), both with the stat block's DC 17. The SRD gives Lightning Bolt 2/Day, but the engine gives
-  // every limited-use pool one use per floor, so it is available once. Fly, Teleport, Scrying and the utility spells are dropped.
+  // 60 ft. cone = 12 cells), both with the stat block's DC 17. Lightning Bolt is 2/Day (two uses per floor) and Cone of Cold 1/Day (one use per floor), as
+  // printed. Fly, Teleport, Scrying, Mind Blank and the utility spells are dropped.
   {
     id: 'archmage',
     name: 'Archmage',
@@ -664,7 +683,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
         icon: 'spell',
         cost: 'action',
         targeting: { kind: 'point', range: 0, area: { shape: 'line', size: 20 } },
-        uses: { resource: 'Lightning Bolt', amount: 1 },
+        uses: { resource: 'Lightning Bolt', amount: 2 },
         save: { ability: 'dex', dc: 17, halfOnSave: true },
         damage: [{ dice: '12d6', type: 'lightning' }],
       },

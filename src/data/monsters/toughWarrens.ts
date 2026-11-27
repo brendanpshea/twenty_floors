@@ -391,8 +391,10 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     role: 'boss',
     description: 'A towering warren overlord who rules the goblins by sheer size and throws whatever is closest.',
   },
-  // Simplified: Regeneration (10 HP a turn while above 0, no stopping damage) is kept; drops flight (hover), Shape-Shift, Invisibility and Spellcasting except Sleep (1/Day, DC 13, once per
-  // floor, first-level version; Charm Person, Darkness and Gaseous Form dropped: no engine support). Cold resistance is kept. Melee and ranged multiattacks are separate.
+  // Simplified: Regeneration (10 HP a turn while above 0, no stopping damage) is kept; drops flight (hover), Shape-Shift, Invisibility (a self-buff bonus action the AI would never use)
+  // and the Spellcasting spells Darkness and Gaseous Form (no engine support). Sleep (1/Day, DC 13, once per floor, first-level version) and
+  // Charm Person (1/Day, level 2 version: one Humanoid, Wisdom DC 13, Charmed with a Wisdom save-ends standing in for "until it is
+  // damaged"; the second target and the advantage-when-fighting rule are dropped) are kept. Cold resistance is kept. Melee and ranged multiattacks are separate.
   // Nightmare Ray's range is 60 ft with no long range; longRange is range + 1.
   {
     id: 'oni',
@@ -469,6 +471,18 @@ export const TOUGH_WARRENS: MonsterDef[] = [
         save: { ability: 'wis', dc: 13, halfOnSave: false },
         applies: { condition: 'incapacitated', rounds: 10, saveEnds: { ability: 'wis', dc: 13 } },
         effects: ['sleep', 'concentration:10'],
+      },
+      {
+        id: 'charm_person',
+        name: 'Charm Person',
+        description: 'A honeyed whisper that makes one humanoid see the oni as a trusted friend.',
+        icon: 'spell',
+        cost: 'action',
+        targeting: { kind: 'creature', melee: false, range: 6 },
+        uses: { resource: 'Charm Person', amount: 1 },
+        save: { ability: 'wis', dc: 13, halfOnSave: false },
+        applies: { condition: 'charmed', saveEnds: { ability: 'wis', dc: 13 } },
+        effects: ['magic'],
       },
     ],
     visual: { model: 'bluedemon', scale: 1.75 },

@@ -765,7 +765,8 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     description: 'A grizzled officer in a dented breastplate who now drills the outlaws like a garrison.',
   },
   // Simplified: Multiattack (three attacks in any combination of Rapier and Pistol) is split into a melee triple and a ranged
-  // triple. Drops the Rapier's advantage on its next attack and the Riposte reaction (reactions cannot be expressed).
+  // triple. The Rapier's "advantage on the next attack roll this turn" is the Vex mastery (advantage on its next attack against that
+  // target; the engine lets it carry into the captain's next turn if unused). Drops the Riposte reaction (reactions cannot be expressed).
   // Captain's Charm (bonus action) is Charmed for 1 round (until the start of its next turn). Pistol range 30/90 ft.
   {
     id: 'pirate_captain',
@@ -814,6 +815,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 1 },
         attack: { bonus: 7 },
         damage: [{ dice: '2d8+4', type: 'piercing' }],
+        effects: ['mastery:vex'],
       },
       {
         id: 'pistol',
@@ -843,8 +845,8 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
   },
   // Simplified: Multiattack (three attacks in any combination of Shortsword and Light Crossbow) is split into a melee triple
   // and a ranged triple. Both attacks carry their poison as a second damage entry (Shortsword also Poisoned until the start
-  // of the assassin's next turn, 1 round). Drops Evasion and Cunning Action (Dash, Disengage and Hide; no engine support for
-  // Hide). Resistance Poison is a plain damage type. Light Crossbow range 80/320 ft. XP is the SRD value for CR 8.
+  // of the assassin's next turn, 1 round). Cunning Action is the Dash and Disengage bonus actions (they replace the standard Dash and
+  // Disengage actions, which cost an action; Hide has no engine support). Drops Evasion (no trait id exists). Resistance Poison is a plain damage type. Light Crossbow range 80/320 ft. XP is the SRD value for CR 8.
   {
     id: 'assassin',
     tactic: 'skirmisher',
@@ -910,6 +912,24 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
           { dice: '1d8+4', type: 'piercing' },
           { dice: '6d6', type: 'poison' },
         ],
+      },
+      {
+        id: 'dash',
+        name: 'Cunning Action: Dash',
+        description: 'A bonus-action burst of speed: gain extra movement equal to its speed.',
+        icon: 'dash',
+        cost: 'bonus',
+        targeting: { kind: 'self' },
+        effects: ['dash'],
+      },
+      {
+        id: 'disengage',
+        name: 'Cunning Action: Disengage',
+        description: 'A bonus-action slip away: its movement provokes no opportunity attacks this turn.',
+        icon: 'disengage',
+        cost: 'bonus',
+        targeting: { kind: 'self' },
+        effects: ['disengage'],
       },
     ],
     visual: { model: 'hooded_black', scale: 1.05 },
