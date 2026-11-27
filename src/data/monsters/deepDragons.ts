@@ -346,7 +346,7 @@ export const DEEP_DRAGONS: MonsterDef[] = [
     role: 'elite',
     description: 'A regal, burnished dragon that sits on a heap of its own treasure and judges all who come to look.',
   },
-  // Simplified: drops Fly, Legendary Resistance, Blindsight, Darkvision, skills, the Legendary Actions (Chill, Cold Gale, Pounce), and the Spellcasting at-will Detect Magic and Shapechange and 1/Day Zone of Truth; At Will Hold Monster is kept (Wisdom DC 19, 90 ft., Paralyzed with a Wisdom save-ends; concentration is not modelled). Rend reach is 10 ft. (2 cells); Rend has Cold damage as printed. Cold Breath is a 60-ft. cone (12 cells), Recharge 5-6. Paralyzing Breath is its own action (60-ft. cone) with 'paralyzed' and a Constitution save-ends DC 20 (first-failure Incapacitated skipped). Ice Knife is a ranged spell attack (+11, 60 ft.): the 1d10 piercing and the 2d6 cold burst are both applied to the target on a hit (the burst's save and splash are dropped). Ice Storm (1/Day, level 5 version) is once per floor: 20-ft.-radius sphere (4 cells) centred up to 300 ft. (60 cells) away, Dexterity DC 19, 3d10 bludgeoning plus 4d6 cold, half on success; its difficult terrain is dropped.
+  // Simplified: drops Fly, the lair's 4/Day Legendary Resistance, Blindsight, Darkvision, skills, and the Spellcasting at-will Detect Magic and Shapechange and 1/Day Zone of Truth; At Will Hold Monster is kept (Wisdom DC 19, 90 ft., Paralyzed with a Wisdom save-ends; concentration is not modelled). Rend reach is 10 ft. (2 cells); Rend has Cold damage as printed. Cold Breath is a 60-ft. cone (12 cells), Recharge 5-6. Paralyzing Breath is its own action (60-ft. cone) with 'paralyzed' and a Constitution save-ends DC 20 (first-failure Incapacitated skipped). Ice Knife is a ranged spell attack (+11, 60 ft.): the 1d10 piercing and the 2d6 cold burst are both applied to the target on a hit (the burst's save and splash are dropped). Legendary Resistance 3/Day and the Legendary Actions are kept, one a round (house rule): Chill uses Hold Monster; Cold Gale is Dexterity DC 19, 4d6 cold, half on a success, a 60-ft.-long line = 12 cells, its 30-ft. push dropped; Pounce keeps only its Rend (the move is dropped). Ice Storm (1/Day, level 5 version) is once per floor: 20-ft.-radius sphere (4 cells) centred up to 300 ft. (60 cells) away, Dexterity DC 19, 3d10 bludgeoning plus 4d6 cold, half on success; its difficult terrain is dropped.
   {
     id: 'adult_silver_dragon',
     name: 'Adult Silver Dragon',
@@ -443,12 +443,32 @@ export const DEEP_DRAGONS: MonsterDef[] = [
         applies: { condition: 'paralyzed', saveEnds: { ability: 'wis', dc: 19 } },
       },
     ],
+    legendary: {
+      options: [
+        { name: 'Chill', description: 'The dragon casts Hold Monster.', use: 'hold_monster' },
+        { name: 'Cold Gale', description: 'A howling gale of frost rips down a line.', use: 'cold_gale' },
+        { name: 'Pounce', description: 'The dragon lunges and rends once.', use: 'rend' },
+      ],
+      actions: [
+      {
+        id: 'cold_gale',
+        name: 'Cold Gale',
+        description: 'A howling gale of frost tears down a long line in front of the dragon.',
+        icon: 'breath',
+        cost: 'action',
+        targeting: { kind: 'point', range: 0, area: { shape: 'line', size: 12 } },
+        save: { ability: 'dex', dc: 19, halfOnSave: true },
+        damage: [{ dice: '4d6', type: 'cold' }],
+      },
+      ],
+      resistance: 3,
+    },
     visual: { model: 'dragon_white', tint: 0xc0ccd8, scale: 2.1 },
     themes: ['ice', 'peaks'],
     role: 'boss',
     description: 'A towering mirror-scaled dragon of the high snows, fair to the honest and terrible to those who threaten the peaks.',
   },
-  // Simplified: Gargantuan is expressed as 'huge' (the largest Size). Drops Fly, Burrow, Swim, Ice Walk, Legendary Resistance, Blindsight, Darkvision, skills, and the Legendary Actions (Freezing Burst, Frightful Presence, Pounce). Rend reach is 15 ft. (3 cells), 2d8+8 slashing plus 2d6 cold; three Rend attacks as printed. Cold Breath is a 90-ft. cone (18 cells), Recharge 5-6.
+  // Simplified: Gargantuan is expressed as 'huge' (the largest Size). Drops Fly, Burrow, Swim, Ice Walk, Blindsight, Darkvision, skills and the lair's 5/Day Legendary Resistance. Legendary Resistance 4/Day and the Legendary Actions are kept, one a round (house rule): Freezing Burst: Constitution DC 20, 4d6 cold, 30-ft. radius = 6 cells centred up to 120 ft. = 24 cells away, its Speed 0 effect dropped. Frightful Presence is the Fear spell (30-ft. cone = 6 cells, Wisdom DC 18, Frightened for up to a minute = 10 rounds with a Wisdom save-ends repeated each turn in place of the spell's line-of-sight save; dropping held items and the forced Dash away are not modelled). Pounce keeps only its Rend (the move is dropped). Rend reach is 15 ft. (3 cells), 2d8+8 slashing plus 2d6 cold; three Rend attacks as printed. Cold Breath is a 90-ft. cone (18 cells), Recharge 5-6.
   {
     id: 'ancient_white_dragon',
     name: 'Ancient White Dragon',
@@ -503,6 +523,36 @@ export const DEEP_DRAGONS: MonsterDef[] = [
         damage: [{ dice: '14d8', type: 'cold' }],
       },
     ],
+    legendary: {
+      options: [
+        { name: 'Freezing Burst', description: 'A burst of killing frost erupts at a distant point.', use: 'freezing_burst' },
+        { name: 'Frightful Presence', description: 'The dragon casts Fear.', use: 'frightful_presence' },
+        { name: 'Pounce', description: 'The dragon lunges and rends once.', use: 'rend' },
+      ],
+      actions: [
+      {
+        id: 'freezing_burst',
+        name: 'Freezing Burst',
+        description: 'A burst of killing frost erupts at a point the dragon can see within 120 feet.',
+        icon: 'spell',
+        cost: 'action',
+        targeting: { kind: 'point', range: 24, area: { shape: 'sphere', size: 6 } },
+        save: { ability: 'con', dc: 20, halfOnSave: false },
+        damage: [{ dice: '4d6', type: 'cold' }],
+      },
+      {
+        id: 'frightful_presence',
+        name: 'Frightful Presence',
+        description: 'The dragon casts Fear: a wave of dread washes over everything in front of it.',
+        icon: 'special',
+        cost: 'action',
+        targeting: { kind: 'point', range: 0, area: { shape: 'cone', size: 6 } },
+        save: { ability: 'wis', dc: 18, halfOnSave: false },
+        applies: { condition: 'frightened', rounds: 10, saveEnds: { ability: 'wis', dc: 18 } },
+      },
+      ],
+      resistance: 4,
+    },
     visual: { model: 'dragon_white', scale: 2.5 },
     themes: ['ice'],
     role: 'boss',

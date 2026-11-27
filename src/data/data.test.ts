@@ -415,6 +415,49 @@ describe('monster data', () => {
     }
   });
 
+  it('validates legendary actions and Legendary Resistance', () => {
+    let seen = 0;
+    for (const m of MONSTERS) {
+      const leg = m.legendary;
+      if (!leg) continue;
+      seen += 1;
+      const own = new Set(m.actions.map((a) => a.id));
+      const extra = (leg.actions ?? []).map((a) => a.id);
+      expect(new Set(extra).size, `${m.id} legendary-only action ids unique`).toBe(extra.length);
+      for (const id of extra) expect(own.has(id), `${m.id}.${id} clashes with an ordinary action`).toBe(false);
+      expect(leg.options.length + (leg.resistance ?? 0), `${m.id} has legendary options or resistance`).toBeGreaterThan(0);
+      for (const o of leg.options) {
+        expect(o.name.length, `${m.id} option name`).toBeGreaterThan(0);
+        expect(o.description.length, `${m.id}.${o.name} description`).toBeGreaterThan(0);
+        expect(own.has(o.use) || extra.includes(o.use), `${m.id}.${o.name} uses unknown action ${o.use}`).toBe(true);
+        // One action per option: a Multiattack is not run as a legendary action.
+        const a = m.actions.find((x) => x.id === o.use) ?? (leg.actions ?? []).find((x) => x.id === o.use);
+        expect(a?.multiattack, `${m.id}.${o.name} must not be a multiattack`).toBeUndefined();
+      }
+      if (leg.resistance !== undefined) {
+        expect(Number.isInteger(leg.resistance) && leg.resistance > 0, `${m.id} resistance`).toBe(true);
+      }
+      // Legendary-only actions follow the same rules as ordinary ones.
+      for (const a of leg.actions ?? []) {
+        expect(a.attack !== undefined || a.save !== undefined || a.heal !== undefined, `${m.id}.${a.id} needs a roll or heal`).toBe(true);
+        if (a.attack || a.save) expect(a.damage !== undefined || a.applies !== undefined, `${m.id}.${a.id} effect`).toBe(true);
+        if (a.save) {
+          expect(['str', 'dex', 'con', 'int', 'wis', 'cha'], `${m.id}.${a.id}`).toContain(a.save.ability);
+          expect(a.save.dc, `${m.id}.${a.id} dc`).toBeGreaterThanOrEqual(8);
+        }
+        if (a.applies?.saveEnds) expect(a.applies.saveEnds.dc, `${m.id}.${a.id} saveEnds dc`).toBeGreaterThanOrEqual(8);
+        if (a.targeting.kind === 'point') {
+          expect(['sphere', 'cone', 'line']).toContain(a.targeting.area.shape);
+          expect(a.targeting.area.size, `${m.id}.${a.id} area size`).toBeGreaterThan(0);
+          expect(a.attack, `${m.id}.${a.id} area actions have no attack roll`).toBeUndefined();
+        }
+        for (const p of a.damage ?? []) expect(p.dice, `${m.id}.${a.id} damage`).toMatch(DICE_RE);
+      }
+    }
+    // The adult and ancient dragons of the SRD (Frightful Presence among their options where the stat block has it).
+    expect(seen).toBeGreaterThanOrEqual(8);
+  });
+
   it('uses only known trait ids', () => {
     for (const m of MONSTERS) {
       for (const t of m.traits) {

@@ -498,8 +498,7 @@ export const ICE_MONSTERS: MonsterDef[] = [
     role: 'boss',
     description: 'A huge burrowing worm whose back glows so hot that glaciers melt around it and the tunnels run with steam.',
   },
-  // Simplified: drops Fly, Burrow and Swim (walks at 40 ft.), Ice Walk, Blindsight, skills, Legendary Resistance
-  // and all Legendary Actions (Freezing Burst, Frightful Presence and Pounce: they are not expressible). Rend
+  // Simplified: drops Fly, Burrow and Swim (walks at 40 ft.), Ice Walk, Blindsight, skills, the lair's 4/Day Legendary Resistance. Legendary Resistance 3/Day and the Legendary Actions are kept, one a round (house rule): Freezing Burst: Constitution DC 14, 2d6 cold, 30-ft. radius = 6 cells centred up to 120 ft. = 24 cells away, its Speed 0 effect dropped. Frightful Presence is the Fear spell (30-ft. cone = 6 cells, Wisdom DC 14, Frightened for up to a minute = 10 rounds with a Wisdom save-ends repeated each turn in place of the spell's line-of-sight save; dropping held items and the forced Dash away are not modelled). Pounce keeps only its Rend (the move is dropped). Rend
   // reach is 10 ft. (2 cells). Cold Breath is a cone from the dragon (60 ft. = 12 cells) with Recharge 5-6.
   {
     id: 'adult_white_dragon',
@@ -555,6 +554,36 @@ export const ICE_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '12d8', type: 'cold' }],
       },
     ],
+    legendary: {
+      options: [
+        { name: 'Freezing Burst', description: 'A burst of killing frost erupts at a distant point.', use: 'freezing_burst' },
+        { name: 'Frightful Presence', description: 'The dragon casts Fear.', use: 'frightful_presence' },
+        { name: 'Pounce', description: 'The dragon lunges and rends once.', use: 'rend' },
+      ],
+      actions: [
+      {
+        id: 'freezing_burst',
+        name: 'Freezing Burst',
+        description: 'A burst of killing frost erupts at a point the dragon can see within 120 feet.',
+        icon: 'spell',
+        cost: 'action',
+        targeting: { kind: 'point', range: 24, area: { shape: 'sphere', size: 6 } },
+        save: { ability: 'con', dc: 14, halfOnSave: false },
+        damage: [{ dice: '2d6', type: 'cold' }],
+      },
+      {
+        id: 'frightful_presence',
+        name: 'Frightful Presence',
+        description: 'The dragon casts Fear: a wave of dread washes over everything in front of it.',
+        icon: 'special',
+        cost: 'action',
+        targeting: { kind: 'point', range: 0, area: { shape: 'cone', size: 6 } },
+        save: { ability: 'wis', dc: 14, halfOnSave: false },
+        applies: { condition: 'frightened', rounds: 10, saveEnds: { ability: 'wis', dc: 14 } },
+      },
+      ],
+      resistance: 3,
+    },
     visual: { model: 'dragon_white', scale: 2 },
     themes: ['ice'],
     role: 'boss',

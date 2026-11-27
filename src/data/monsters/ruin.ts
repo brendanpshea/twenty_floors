@@ -867,8 +867,8 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     role: 'boss',
     description: 'A towering lord of storms with skin like thunderheads, who calls lightning down on the ruin\'s courtyards at will.',
   },
-  // Simplified: drops Fly 80 ft. and Swim 40 ft. (walks at 40 ft.), Amphibious, Legendary Resistance and all three
-  // Legendary Actions (Mind Invasion, Noxious Miasma, Pounce), Detect Magic and Geas. Poison Breath is a cone from
+  // Simplified: drops Fly 80 ft. and Swim 40 ft. (walks at 40 ft.), Amphibious, the lair's 4/Day Legendary Resistance, Detect Magic and Geas. Legendary Resistance 3/Day and the three
+  // Legendary Actions are kept, one a round (house rule): Mind Invasion uses Mind Spike; Noxious Miasma is Constitution DC 17, 2d6 poison, 20-ft. radius = 4 cells centred up to 90 ft. = 18 cells away, its -2 AC penalty dropped; Pounce keeps only its Rend (the move is dropped). Poison Breath is a cone from
   // the dragon (60 ft. = 12 cells) with Recharge 5-6. Keeps Mind Spike (level 3 version: 4d8 psychic, Wisdom half
   // on save; range 120 ft. = 24 cells with 25 for the long range) as an at-will action; the SRD lets it replace
   // one Rend with it, but that mixed multiattack is not modelled. XP is the printed 13,000 (not the 15,000 in
@@ -937,6 +937,26 @@ export const RUIN_MONSTERS: MonsterDef[] = [
         damage: [{ dice: '4d8', type: 'psychic' }],
       },
     ],
+    legendary: {
+      options: [
+        { name: 'Mind Invasion', description: 'The dragon casts Mind Spike.', use: 'mind_spike' },
+        { name: 'Noxious Miasma', description: 'A cloud of choking poison blooms around a point the dragon can see.', use: 'noxious_miasma' },
+        { name: 'Pounce', description: 'The dragon lunges and rends once.', use: 'rend' },
+      ],
+      actions: [
+      {
+        id: 'noxious_miasma',
+        name: 'Noxious Miasma',
+        description: 'A choking green cloud bursts at a point the dragon can see within 90 feet.',
+        icon: 'spell',
+        cost: 'action',
+        targeting: { kind: 'point', range: 18, area: { shape: 'sphere', size: 4 } },
+        save: { ability: 'con', dc: 17, halfOnSave: false },
+        damage: [{ dice: '2d6', type: 'poison' }],
+      },
+      ],
+      resistance: 3,
+    },
     visual: { model: 'dragon_green', scale: 2.2 },
     themes: ['ruin'],
     role: 'boss',
