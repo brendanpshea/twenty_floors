@@ -199,10 +199,37 @@ them, so the tuning does not count them.
   (Fire Elemental): 1d4 fire a turn, ended by a Dexterity save (HOUSE RULE:
   the SRD needs an action to put it out).
 
-Still not expressible: swallowing (it needs "only on a creature this monster
-holds"), charge and trample attacks, maximum hit point drain (Wight, Mummy,
-Otyugh), and effects triggered at 0 hit points. Legendary actions are
-designed but not built; bosses without them still use boss momentum. The Slow spell
+- **Legendary actions and Legendary Resistance** (`MonsterDef.legendary`;
+  `legendaryAct` and `rollSave` in `src/rules/combat.ts`). HOUSE RULE: ONE
+  legendary action a round (the SRD's three assume four or five
+  adventurers), taken straight after an enemy's turn; the creature picks the
+  option worth most at that moment (expected damage, plus
+  `LEGENDARY.conditionValue` for each condition a target lacks). Legendary
+  Resistance turns a failed save into a success, kept for saves that would
+  put a condition on the creature or cost a tenth of its hit points; the
+  screen names it with the uses left. Options that only exist as legendary
+  actions (Frightful Presence, Disrupt Life, Freezing Burst...) live in
+  `legendary.actions`. Eight adult and ancient dragons, the Lich, Vampire,
+  Aboleth, Mummy Lord and Sphinx of Lore have them; the Balor and Pit Fiend
+  have Legendary Resistance only. Frightful Presence is back on the Adult
+  Black, Adult White and Ancient White dragons (the only dragons whose SRD
+  stat block has it). Dropped: moves before an attack (Pounce keeps the
+  attack), teleports, invisible flight, and the in-lair extra uses.
+- **Boss momentum is gone** (the house rule that gave every boss from floor
+  6 a free attack each turn). Every other boss was audited against its stat
+  block instead and given what the engine can now express: Swallow for the
+  Behir and Remorhaz (HOUSE RULE: no grapple needed first, so a little
+  stronger than the SRD), Hold Monster and Wall of Fire for the Pit Fiend,
+  Charm Person for the Oni, bonus Dash and Disengage for the Assassin and
+  Vampire Spawn, the Chuul's poison-then-paralysis, the Marilith's grapple,
+  2/Day spells for the Mage, Archmage and Night Hag, a ranged Multiattack
+  for the Goblin Boss, and petrification immunity for the golems.
+
+Still not expressible: swallowing for the frogs and toads and the Purple
+Worm (the frogs' bite must grapple first), charge and trample attacks,
+maximum hit point drain (Wight, Mummy, Otyugh), effects triggered at 0 hit
+points, monster reactions (Parry, Riposte), Magic Resistance on monsters,
+and the absorption traits (a golem healed by fire). The Slow spell
 in the spell data is not wired to `slowed` yet. The quick party model
 (`src/balance/model.ts`) does not know the two new conditions.
 
@@ -271,20 +298,22 @@ Each shard appends rows to `$TEMP/roomTune.jsonl`; write their `budget`,
 `boss` and `bossScale` into `src/rules/encounterTable.ts`. Floors 1 to 3 are
 not touched (no companion there; they were fitted on the real engine).
 
-It was last run after the monster abilities below went in (2 minutes 38
-seconds, 760 measurements). The per-fight targets read about 12 points
-harder on real whole floors than intended, so after the pass every tuned
-budget is multiplied by 0.88 before it is written to the table: keep doing
-that until the loss targets in `ROOM_TUNE` are themselves corrected.
+It was last run after legendary actions went in (3 minutes 1 second, 854
+measurements). The per-fight targets read about 12 points harder on real
+whole floors than intended, so after the pass every tuned budget is
+multiplied by 0.88 before it is written to the table: keep doing that until
+the loss targets in `ROOM_TUNE` are themselves corrected.
 
 One real whole-floor check of the fixed run followed (24 runs a floor, about
-20 seconds): 4: 58%, 5: 50%, 6: 75%, 7: 75%, 8: 54%, 9: 75%, 10: 92%,
-11: 63%, 12: 75%, 13: 83%, 14: 38%, 15: 58%, 16: 88%, 17: 58%, 18: 88%,
-19: 88%, 20: 54% (average 69%; targets 75% to floor 10, 67% to 19, 58% on
-20). At 24 runs a floor's rate moves by 10 to 20 points between seed sets,
-so single floors are not known better than that. Floor 14 (ice) has read low
-on three checks running and is the one to look at in play. The off-run
-pairings were not checked on whole floors.
+20 seconds): 4: 58%, 5: 42%, 6: 42%, 7: 83%, 8: 33%, 9: 71%, 10: 92%,
+11: 54%, 12: 88%, 13: 71%, 14: 75%, 15: 54%, 16: 71%, 17: 54%, 18: 63%,
+19: 88%, 20: 88% (average 66%; targets 75% to floor 10, 67% to 19, 58% on
+20). Deaths split evenly between bosses and ordinary rooms (69 each), where
+before nearly every death was in an ordinary room. At 24 runs a floor's rate
+moves by 10 to 20 points between seed sets, so single floors are not known
+better than that; floor 8 (the hold's boss caused 12 of its 16 deaths) is
+the one to look at in play. The off-run pairings were not checked on whole
+floors.
 
 Known limits:
 
