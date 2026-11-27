@@ -103,8 +103,12 @@ chests from the floor their rarity unlocks, never sold):
 The effects are the passives `rangedAcBonus`, `interceptRanged`,
 `rangedWeaponResistance`, `spellWard` and `handsFree`; combat reads them in
 `attackSetup`, `rollAttack`, `interceptor` and the hit-damage loop of
-`src/rules/combat.ts`. "Magic" means an action tagged `spell` or `magic`:
-monster attacks without the tag count as weapon attacks.
+`src/rules/combat.ts`. "Magic" means an action tagged `spell` or `magic`.
+Monster spells and spell attacks get the `magic` tag by action name from
+`MAGIC_ACTION_NAMES` in `src/data/monsters.ts` (63 actions; breath weapons,
+venom, webs and thrown rocks are not magic). Add a name there when a new
+monster brings a new spell. The tag also switches on Magic Resistance for a
+companion that has it.
 
 ## How it is tuned (27 November 2026, approximate)
 

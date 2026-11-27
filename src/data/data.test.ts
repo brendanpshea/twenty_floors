@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MONSTERS } from './monsters';
+import { MAGIC_ACTION_NAMES, MONSTERS } from './monsters';
 import { ITEMS } from './items';
 import type { ActionDef, MonsterDef, ThemeId, TraitId } from '../core/types';
 
@@ -443,7 +443,7 @@ describe('monster ranged, spell and area actions', () => {
   const isArea = (a: ActionDef): boolean => a.targeting.kind === 'point';
   const hasRangedOrArea = (m: MonsterDef): boolean => m.actions.some((a) => isRangedAttack(a) || isArea(a) || (a.save !== undefined && a.targeting.kind === 'creature' && !a.targeting.melee));
   /** Effect ids the rules engine implements for monsters (data may use no others). */
-  const KNOWN_EFFECTS = ['spiritGuardians', 'sleep', 'mastery:push'];
+  const KNOWN_EFFECTS = ['spiritGuardians', 'sleep', 'mastery:push', 'magic'];
   const KNOWN_EFFECT_PATTERNS = [/^concentration:\d+$/];
 
   it('gives area actions a point target with a positive area and a save, damage or heal', () => {
@@ -734,6 +734,17 @@ describe('item data', () => {
         expect(w.range, `${i.id} range`).toBeDefined();
         expect(w.range!.long, `${i.id} range`).toBeGreaterThan(w.range!.normal);
       }
+    }
+  });
+
+  it('monster spells carry the magic tag, and every name in the list is used', () => {
+    const tagged = MONSTERS.flatMap((m) => m.actions).filter((a) => a.effects?.includes('magic'));
+    expect(tagged.length).toBeGreaterThan(60);
+    const used = new Set(tagged.map((a) => a.name));
+    for (const name of MAGIC_ACTION_NAMES) expect(used.has(name), name).toBe(true);
+    // Not magic: a breath weapon, a bow, a thrown rock.
+    for (const name of ['Fire Breath', 'Longbow', 'Boulder']) {
+      expect(MONSTERS.flatMap((m) => m.actions).some((a) => a.name === name && a.effects?.includes('magic')), name).toBe(false);
     }
   });
 });

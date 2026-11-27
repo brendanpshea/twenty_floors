@@ -17,7 +17,7 @@ import { TOUGH_DEPTHS } from './monsters/toughDepths';
 import { TOUGH_SEWERS_HOLD } from './monsters/toughSewersHold';
 import { TOUGH_WARRENS } from './monsters/toughWarrens';
 
-export const MONSTERS: MonsterDef[] = [
+const BASE_MONSTERS: MonsterDef[] = [
   {
     id: 'giant_rat',
     name: 'Giant Rat',
@@ -3357,3 +3357,26 @@ export const MONSTERS: MonsterDef[] = [
   ...DEEP_DRAGONS,
   ...DEEP_REGULARS,
 ];
+
+/**
+ * Monster actions that are spells or plainly magical effects, by action name. They get the 'magic' effect tag, which the
+ * rules read for wards against magic (the Spellguard Shield: advantage on the save, disadvantage on the spell attack) and
+ * to tell a spell attack from a ranged weapon attack. Breath weapons, venom, webs, thrown rocks and other bodily or
+ * physical attacks are not magic. Add a name here when a new monster brings a new spell.
+ */
+export const MAGIC_ACTION_NAMES: ReadonlySet<string> = new Set([
+  // Spell attacks
+  'Acid Arrow', 'Arcane Burst', 'Channel Negative Energy', 'Eldritch Burst', 'Eldritch Burst (Ranged)', 'Hurl Flame', 'Ice Knife',
+  'Necrotic Ray', 'Nightmare Ray', 'Radiant Flame', 'Ray of Sickness', 'Scorching Ray', 'Spiritual Weapon',
+  // Spells and magical effects that call for a save
+  'Baleful Command', 'Charm', 'Charm Monster', 'Command', 'Cone of Cold', 'Conjure Infernal Chain', 'Consume Memories',
+  'Create Whirlwind', 'Death Glare', 'Dominate Mind', 'Dreadful Glare', 'Entangle', 'Finger of Death', 'Fireball', 'Flame Strike',
+  'Harm', 'Hellfire Spellcasting', 'Hold Monster', 'Hold Person', 'Horrific Visage', 'Horror Nimbus', 'Hypnotic Pattern',
+  'Ice Storm', 'Ice Wall', 'Lightning Bolt', 'Mind Spike', 'Nightmare', 'Petrifying Gaze', 'Phantasmal Killer', 'Shatter', 'Sleep',
+  'Spirit Guardians', 'Vitriolic Sphere', 'Wall of Fire',
+]);
+
+export const MONSTERS: MonsterDef[] = BASE_MONSTERS.map((m) => ({
+  ...m,
+  actions: m.actions.map((a) => (MAGIC_ACTION_NAMES.has(a.name) && !a.effects?.includes('magic') ? { ...a, effects: [...(a.effects ?? []), 'magic'] } : a)),
+}));
