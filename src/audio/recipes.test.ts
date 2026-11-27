@@ -60,3 +60,24 @@ describe('recipe table', () => {
     }
   });
 });
+
+describe('spell and companion cues', () => {
+  const NEW: SfxId[] = [
+    'spellCast', 'fireHit', 'coldHit', 'lightningHit', 'forceHit', 'acidHit', 'radiantHit', 'necroticHit', 'poisonHit', 'thunderHit',
+    'healSpell', 'shield', 'concentrationStart', 'concentrationBreak', 'teleport', 'companionDown', 'companionUp', 'sneakAttack', 'stanceChange',
+  ];
+  it('exist, stay below -9 dBFS and are short', () => {
+    for (const id of NEW) {
+      expect(SFX_IDS, id).toContain(id);
+      expect(RECIPES[id].peakDb, id).toBeLessThanOrEqual(-9);
+      expect(recipeDuration(RECIPES[id]), id).toBeLessThan(1.2);
+    }
+  });
+  it('damage-type hits are distinct recipes', () => {
+    const hits = NEW.filter((i) => i.endsWith('Hit')).map((i) => JSON.stringify(RECIPES[i].layers));
+    expect(new Set(hits).size).toBe(hits.length);
+  });
+  it('stanceChange is quieter than uiClick-level cues', () => {
+    expect(RECIPES.stanceChange.peakDb).toBeLessThanOrEqual(RECIPES.uiClick.peakDb);
+  });
+});

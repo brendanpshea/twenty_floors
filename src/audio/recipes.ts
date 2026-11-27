@@ -228,6 +228,116 @@ export const RECIPES: Record<SfxId, Recipe> = {
     ...run([G4, B4, D5, G5], 0.28, 0, 0.9, 0.4, 'sine'),
     tone('triangle', hz(G4 - 12), 0, 1.0, 0.12, { a: 0.3, r: 0.9, lp: 600 }),
   ], { peakDb: -19, expectDur: 1.8, verb: 0.55, pitchVar: 0.01, minInterval: 1 }),
+
+  // ---- Spells, companions, class features ---------------------------------
+  spellCast: makeRecipe([
+    tone('sine', 500, 0, 0.18, 0.4, { freqEnd: 1500, a: 0.12, r: 0.1 }),
+    tone('triangle', 750, 0.02, 0.15, 0.2, { freqEnd: 2250, a: 0.1, r: 0.1, lp: 3500 }),
+    noise('highpass', 4000, 0.05, 0.12, 0.12, { a: 0.1, r: 0.1 }),
+    ping('sine', hz(E6), 0.25, 0.15, 0.2),
+  ], { peakDb: -18, expectDur: 0.4, verb: 0.35, pitchVar: 0.05, minInterval: 0.1 }),
+  fireHit: makeRecipe([
+    noise('bandpass', 700, 0, 0.1, 0.8, { a: 0.03, r: 0.12, freqEnd: 2200, q: 0.9 }),
+    ...[0.06, 0.1, 0.15, 0.19].map((t, i) => puff('highpass', 3500 + i * 500, t, 0.025, 0.4)),
+    ping('sine', 120, 0, 0.12, 0.5, { freqEnd: 70 }),
+  ], { peakDb: -15, expectDur: 0.3, verb: 0.15, pitchVar: 0.08, timeJitter: 0.01, minInterval: 0.05, prio: 2 }),
+  coldHit: makeRecipe([
+    puff('highpass', 3500, 0, 0.05, 0.6),
+    ping('sine', hz(E6 + 5), 0, 0.3, 0.4),
+    ping('sine', hz(E6 + 5) * 2.76, 0, 0.14, 0.25),
+    ping('triangle', hz(B5), 0.03, 0.25, 0.25),
+    ping('sine', 200, 0, 0.06, 0.4, { freqEnd: 110 }),
+  ], { peakDb: -15, expectDur: 0.3, verb: 0.3, pitchVar: 0.06, minInterval: 0.05, prio: 2 }),
+  lightningHit: makeRecipe([
+    puff('highpass', 2500, 0, 0.05, 0.9),
+    ping('sawtooth', 1800, 0, 0.12, 0.3, { freqEnd: 120, lp: 3000 }),
+    ping('square', 900, 0.03, 0.06, 0.12, { freqEnd: 300, lp: 2500 }),
+    puff('bandpass', 4500, 0.06, 0.03, 0.4, { q: 2 }),
+    ping('sine', 90, 0, 0.1, 0.4, { freqEnd: 55 }),
+  ], { peakDb: -15, expectDur: 0.16, verb: 0.15, pitchVar: 0.08, timeJitter: 0.006, minInterval: 0.05, prio: 2 }),
+  forceHit: makeRecipe([
+    ping('sine', 110, 0, 0.2, 1, { freqEnd: 55 }),
+    puff('lowpass', 600, 0, 0.08, 0.4),
+    ping('sine', 880, 0.02, 0.4, 0.3),
+    ping('sine', 880 * 2.01, 0.02, 0.25, 0.1),
+  ], { peakDb: -15, expectDur: 0.4, verb: 0.3, pitchVar: 0.06, minInterval: 0.05, prio: 2 }),
+  acidHit: makeRecipe([
+    noise('highpass', 5000, 0, 0.25, 0.5, { a: 0.02, r: 0.12 }),
+    noise('bandpass', 3500, 0.03, 0.2, 0.3, { a: 0.05, r: 0.1, freqEnd: 6000, q: 3 }),
+    ...[0.08, 0.17, 0.26].map((t) => ping('sine', 500 + t * 1500, t, 0.05, 0.2, { freqEnd: 1100 + t * 1500 })),
+    ping('sine', 150, 0, 0.08, 0.4, { freqEnd: 80 }),
+  ], { peakDb: -16, expectDur: 0.4, verb: 0.15, pitchVar: 0.08, timeJitter: 0.012, minInterval: 0.05, prio: 2 }),
+  radiantHit: makeRecipe([
+    ...bell(hz(E6), 0, 0.7, 0.4),
+    ...bell(hz(B5), 0.05, 0.5, 0.2, 'triangle'),
+    puff('highpass', 3000, 0, 0.04, 0.25),
+    ping('sine', 160, 0, 0.1, 0.4, { freqEnd: 90 }),
+  ], { peakDb: -15, expectDur: 0.6, verb: 0.4, pitchVar: 0.05, minInterval: 0.05, prio: 2 }),
+  necroticHit: makeRecipe([
+    tone('sine', 110, 0, 0.25, 0.7, { freqEnd: 70, a: 0.15, r: 0.2 }),
+    tone('triangle', 165, 0, 0.25, 0.3, { freqEnd: 100, a: 0.15, r: 0.2, lp: 500 }),
+    noise('bandpass', 400, 0, 0.25, 0.3, { a: 0.15, r: 0.2, freqEnd: 200, q: 2 }),
+    ping('sine', 60, 0.18, 0.2, 0.5, { freqEnd: 40 }),
+  ], { peakDb: -15, expectDur: 0.6, verb: 0.45, pitchVar: 0.06, minInterval: 0.05, prio: 2 }),
+  poisonHit: makeRecipe([
+    noise('bandpass', 4000, 0, 0.18, 0.6, { a: 0.03, r: 0.14, freqEnd: 2200, q: 1.2 }),
+    ping('sine', 400, 0.06, 0.06, 0.3, { freqEnd: 700 }),
+    ping('sine', 450, 0.14, 0.06, 0.25, { freqEnd: 800 }),
+    puff('lowpass', 800, 0, 0.06, 0.4),
+  ], { peakDb: -17, expectDur: 0.35, verb: 0.15, pitchVar: 0.08, timeJitter: 0.01, minInterval: 0.05, prio: 2 }),
+  thunderHit: makeRecipe([
+    ping('sine', 70, 0, 0.5, 1, { freqEnd: 32 }),
+    noise('lowpass', 500, 0, 0.1, 0.8, { a: 0.005, r: 0.35, freqEnd: 120 }),
+    puff('bandpass', 2000, 0, 0.04, 0.3),
+  ], { peakDb: -12, expectDur: 0.6, verb: 0.35, pitchVar: 0.06, minInterval: 0.05, prio: 2 }),
+  healSpell: makeRecipe([
+    ...run([G5, C6, E6], 0.1, 0, 0.7, 0.3, 'sine'),
+    ping('triangle', hz(C5), 0.05, 0.6, 0.12),
+    ...run([G6], 0, 0.25, 0.7, 0.08),
+  ], { peakDb: -19, expectDur: 0.8, verb: 0.5, pitchVar: 0.02, minInterval: 0.15 }),
+  shield: makeRecipe([
+    ...bell(hz(A5 + 7), 0, 0.5, 0.4),
+    puff('bandpass', 5000, 0, 0.03, 0.4, { q: 3 }),
+    ping('triangle', hz(E5), 0.04, 0.3, 0.25),
+    ping('sine', 140, 0, 0.06, 0.3, { freqEnd: 90 }),
+  ], { peakDb: -16, expectDur: 0.5, verb: 0.3, pitchVar: 0.04, minInterval: 0.1, prio: 2 }),
+  concentrationStart: makeRecipe([
+    tone('sine', hz(G5), 0, 0.3, 0.4, { a: 0.1, r: 0.2 }),
+    tone('triangle', hz(G5 - 12), 0, 0.3, 0.2, { a: 0.1, r: 0.2, lp: 900 }),
+    tone('sine', hz(G5) * 2, 0, 0.3, 0.06, { a: 0.12, r: 0.2 }),
+  ], { peakDb: -22, expectDur: 0.5, verb: 0.3, pitchVar: 0.02, minInterval: 0.2 }),
+  concentrationBreak: makeRecipe([
+    tone('sine', hz(G5), 0, 0.08, 0.4, { freqEnd: hz(G5 - 7), a: 0.01, r: 0.2 }),
+    tone('triangle', hz(G5 - 12), 0, 0.08, 0.2, { freqEnd: hz(G5 - 19), a: 0.01, r: 0.2, lp: 900 }),
+    puff('bandpass', 3000, 0.02, 0.04, 0.35, { q: 2 }),
+    ping('sine', hz(G5 - 5), 0.08, 0.15, 0.15, { freqEnd: hz(G5 - 14) }),
+  ], { peakDb: -20, expectDur: 0.35, verb: 0.3, pitchVar: 0.03, minInterval: 0.2 }),
+  teleport: makeRecipe([
+    noise('bandpass', 3000, 0, 0.07, 0.5, { a: 0.04, r: 0.05, freqEnd: 400, q: 1.2 }),
+    tone('sine', 1200, 0, 0.07, 0.3, { freqEnd: 250, a: 0.03, r: 0.05 }),
+    noise('bandpass', 400, 0.17, 0.05, 0.5, { a: 0.03, r: 0.1, freqEnd: 3000, q: 1.2 }),
+    tone('sine', 250, 0.17, 0.05, 0.3, { freqEnd: 1300, a: 0.03, r: 0.1 }),
+    ping('sine', hz(E6), 0.3, 0.12, 0.12),
+  ], { peakDb: -19, expectDur: 0.4, verb: 0.3, pitchVar: 0.05, minInterval: 0.2 }),
+  companionDown: makeRecipe([
+    tone('triangle', hz(A5 - 5), 0, 0.1, 0.4, { freqEnd: hz(A5 - 12), a: 0.03, r: 0.2, lp: 1800 }),
+    tone('triangle', hz(A5 - 8), 0.2, 0.1, 0.3, { freqEnd: hz(A5 - 17), a: 0.03, r: 0.25, lp: 1500 }),
+  ], { peakDb: -19, expectDur: 0.6, verb: 0.3, pitchVar: 0.04, minInterval: 0.3 }),
+  companionUp: makeRecipe([
+    tone('triangle', hz(A5 - 17), 0, 0.1, 0.35, { freqEnd: hz(A5 - 8), a: 0.03, r: 0.2, lp: 1800 }),
+    tone('triangle', hz(A5 - 12), 0.18, 0.12, 0.4, { freqEnd: hz(A5 - 3), a: 0.03, r: 0.3, lp: 2200 }),
+    ping('sine', hz(E6), 0.36, 0.25, 0.1),
+  ], { peakDb: -19, expectDur: 0.6, verb: 0.35, pitchVar: 0.04, minInterval: 0.3 }),
+  sneakAttack: makeRecipe([
+    puff('highpass', 3000, 0, 0.06, 0.5),
+    ping('triangle', hz(B5 + 12), 0, 0.2, 0.3),
+    ping('sine', hz(B5 + 12) * 1.5, 0.03, 0.2, 0.2),
+    ping('sine', 200, 0, 0.06, 0.4, { freqEnd: 110 }),
+  ], { peakDb: -16, expectDur: 0.25, verb: 0.2, pitchVar: 0.04, minInterval: 0.1, prio: 2 }),
+  stanceChange: makeRecipe([
+    ping('sine', 1760, 0, 0.03, 0.4),
+    ping('triangle', 2093, 0.035, 0.03, 0.3),
+  ], { peakDb: -26, expectDur: 0.08, pitchVar: 0.03, minInterval: 0.08, prio: 0 }),
 };
 
 export { bell, run, ping, tone, noise, puff };

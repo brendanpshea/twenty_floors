@@ -77,6 +77,8 @@ const FIGHT: [number, SfxId, { pan?: number; pitch?: number; volume?: number }?]
   [7400, 'diceRoll'],
   [7900, 'swing'], [8000, 'crit', { pan: 0.3 }], [8050, 'hurtMonster', { pan: 0.3 }],
   [8700, 'deathMonster', { pan: 0.3 }],
+  [4850, 'shield'],
+  [6200, 'spellCast'], [6550, 'fireHit', { pan: 0.3 }],
   [9400, 'victory'],
   [9500, 'coins'],
 ];

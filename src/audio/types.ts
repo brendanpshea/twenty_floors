@@ -6,7 +6,10 @@ export type SfxId =
   | 'hurtHero' | 'hurtMonster' | 'deathMonster' | 'deathHero'
   | 'heal' | 'potion' | 'buff' | 'debuff' | 'dash'
   | 'diceRoll' | 'turnStart' | 'combatStart' | 'victory' | 'defeat'
-  | 'chestOpen' | 'coins' | 'stairsUnlock' | 'descend' | 'levelUp' | 'rest';
+  | 'chestOpen' | 'coins' | 'stairsUnlock' | 'descend' | 'levelUp' | 'rest'
+  | 'spellCast' | 'fireHit' | 'coldHit' | 'lightningHit' | 'forceHit' | 'acidHit' | 'radiantHit' | 'necroticHit' | 'poisonHit' | 'thunderHit'
+  | 'healSpell' | 'shield' | 'concentrationStart' | 'concentrationBreak' | 'teleport'
+  | 'companionDown' | 'companionUp' | 'sneakAttack' | 'stanceChange';
 
 /** Every id, for iteration (previews, tests). Keep in sync with SfxId; the compiler checks completeness via RECIPES. */
 export const SFX_IDS: readonly SfxId[] = [
@@ -18,6 +21,9 @@ export const SFX_IDS: readonly SfxId[] = [
   'heal', 'potion', 'buff', 'debuff', 'dash',
   'diceRoll', 'turnStart', 'combatStart', 'victory', 'defeat',
   'chestOpen', 'coins', 'stairsUnlock', 'descend', 'levelUp', 'rest',
+  'spellCast', 'fireHit', 'coldHit', 'lightningHit', 'forceHit', 'acidHit', 'radiantHit', 'necroticHit', 'poisonHit', 'thunderHit',
+  'healSpell', 'shield', 'concentrationStart', 'concentrationBreak', 'teleport',
+  'companionDown', 'companionUp', 'sneakAttack', 'stanceChange',
 ];
 
 export interface PlayOptions {
