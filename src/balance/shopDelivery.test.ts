@@ -34,7 +34,8 @@ function play(kit: string): { depth: number; ok: boolean; have: string; want: st
     while (pc.level < cleared + 1) pc = applyLevelUp(pc, suggestedLevelChoices(pc));
     pc = shop(pc, cleared + 1);
     while (ref.level < cleared + 1) ref = applyLevelUp(ref, suggestedLevelChoices(ref));
-    ref = scheduleGear(ref);
+    // The shop variant only ever delivers the +N gear: the schedule's worn magic items (chest treasure) are left off the reference.
+    ref = { ...scheduleGear(ref), worn: {}, attuned: [] };
     const lacks: string[] = [];
     if (computeAc(pc) < computeAc(ref)) lacks.push(`AC ${computeAc(pc)} < ${computeAc(ref)}`);
     // (The Archer's second scimitar is left out: the shop sells one of an item, and a +N pair would need two copies.)

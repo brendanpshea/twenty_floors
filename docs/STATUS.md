@@ -187,37 +187,67 @@ venom, webs and thrown rocks are not magic). Add a name there when a new
 monster brings a new spell. The tag also switches on Magic Resistance for a
 companion that has it.
 
-## How it is tuned (27 November 2026, approximate)
+## How it is tuned (27 November 2026)
 
-Each fixed-run floor's room budget was fitted on the real engine to a target
-first-attempt clear rate for the expert scripted hero with a Blink Dog: 85%
-on floors 1 to 3, 75% on 4 to 10, 67% on 11 to 19, 58% on floor 20. The fit
-measured each floor on its own at 24 to 40 runs, so a floor's rate is known
-only to within about ten points. On fresh seeds every floor landed within 12
-points of its band (expert 57% to 88%; naive 46% to 92%).
+**Companions level at half the hero's pace** (`COMPANION_LEVEL_PACE` in
+`src/rules/companion.ts`): level 2 when they join at hero level 4, level 10
+beside a level 20 hero (it was hero level minus two, so 18). Their level
+tables still run to 18; levels above 10 are not reached in play.
 
-- Themes off the fixed run use the multiplier of the nearest tuned floor and
-  are extrapolated, not measured. Two spot checks were far off after a
-  correction: marsh at floor 12 (17%) and peaks at floor 15 (46%).
-- Gold was scaled up about four times so a sensible shopper can afford the
-  gear the tuning assumes. Late-game gold may pile up.
-- Re-run the fit with
-  `FIT=1 FIT_MULTS=... FIT_RUNS=... npx vitest run src/balance/floorFit`
-  and merge the results written to the temp directory.
+**The tuning hero is fully equipped for its level** (`scheduleGear` in
+`src/balance/run.ts`, from `GEAR_SCHEDULE`): the +N weapon, armor and shield
+as before, and now the worn magic items a player would have found in boss
+chests: Cloak of Protection from 5, Stone of Good Luck from 7, Ring of
+Protection from 10, Belt of Hill Giant Strength from 13 (in place of the
+Stone), Belt of Fire Giant Strength from 16.
 
-Not achieved by the re-tune:
+**Floors 4 to 20 are tuned by health lost per fight**, with
+`src/balance/roomTune.ts`. For each of the 99 theme-and-floor pairings it
+fights every room of a few generated floors once, from a rested party (the
+expert scripted hero with a Blink Dog), and searches:
 
-- Bosses are not the most dangerous fight from about floor 8 on; ordinary
-  rooms cause nearly all deaths. Deep bosses need a mechanic the engine lacks
-  (for example an extra boss action each round while an escort lives).
-- The companion goes down two to four times per floor attempt, not once.
-- The Archer preset is far behind (about 54%, 50% and 42% on floors 3, 6 and
-  10 against roughly 90%, 71% and 88% for the Defender).
-- Thinking pays on the deep floors (the expert leads the naive hero by 8 to 23
-  points from about floor 8) but not measurably on floors 1 to 7.
+1. the room budget, until an ordinary room costs the hero about 21% of its
+   hit points on average (24% from floor 11);
+2. the boss-room scale, until the boss room costs about 42% (47% from floor
+   11, 54% on floor 20); another boss of the theme is tried only when the
+   current one cannot get within 12 points.
 
-Next tuning pass (agreed with the owner): measure health lost per fight
-rather than whole-floor clear rates, which needs far fewer runs.
+It is built to be fast: one pass, about 25 ordinary fights and 12 boss fights
+per measurement, 819 measurements in all, **2 minutes 36 seconds** on four
+shards:
+
+    ROOM_TUNE=1 npx vitest run src/balance/roomTune --disableConsoleIntercept
+
+Each shard appends rows to `$TEMP/roomTune.jsonl`; write their `budget`,
+`boss` and `bossScale` into `src/rules/encounterTable.ts`. Floors 1 to 3 are
+not touched (no companion there; they were fitted on the real engine).
+
+Result of the pass: ordinary rooms within 4 points of their loss target on 75
+of 99 pairings, the boss room within 8 points on 51, and the boss is the
+hardest fight (at least 1.25 times an ordinary room) on 85.
+
+One real whole-floor check of the fixed run followed (24 runs a floor, 20
+seconds), with one proportional correction to those 17 budgets. On new seeds
+the fixed run then cleared at the first attempt: 4: 63%, 5: 75%, 6: 83%,
+7: 75%, 8: 42%, 9: 88%, 10: 42%, 11: 67%, 12: 75%, 13: 79%, 14: 50%, 15: 54%,
+16: 67%, 17: 54%, 18: 71%, 19: 88%, 20: 50% (targets 75% to floor 10, 67% to
+19, 58% on 20; average 66% against a target of 70%). At 24 runs a floor's
+rate moves by 10 to 20 points between seed sets (floor 8 read 83% and then
+42%), so single floors are not known better than that, and the off-run
+pairings were not checked on whole floors at all.
+
+Known limits:
+
+- Budgets act in steps: a small change can drop a tier of monsters from the
+  cast, so some pairings cannot land near their target.
+- The companion still goes down in about seven fights out of ten at these
+  settings.
+- `predictClear` in `src/balance/rooms.ts` (the attrition model) reads about
+  10 points easier than real floors now; its `lossScale` was calibrated with
+  the stronger companion and has not been redone.
+- The slower, more exact tools are still there but are not part of the
+  normal pass: `ROOM_TUNE_POLISH=1` (budget against a pooled clear rate) and
+  the whole-floor fit (`FIT=1 ... src/balance/floorFit`).
 
 ## Floors 4 to 20: the themes
 

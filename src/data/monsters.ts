@@ -495,6 +495,7 @@ const BASE_MONSTERS: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 2 },
         attack: { bonus: 4 },
         damage: [{ dice: '2d6+2', type: 'bludgeoning' }],
+        applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 12 } },
       },
       {
         id: 'light_hammer',
@@ -579,7 +580,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     description: 'A brutish giant who hoards whatever it can carry and smashes whatever it cannot.',
   },
 
-  // Simplified: the bite is a plain bite (no grapple, no Swallow).
+  // Simplified: the bite applies Grappled on a hit (no Medium-or-smaller check; escape is a Strength save-ends at
+  // the printed DC 11). Drops Swallow.
   {
     id: 'giant_frog',
     name: 'Giant Frog',
@@ -609,6 +611,7 @@ const BASE_MONSTERS: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 1 },
         attack: { bonus: 3 },
         damage: [{ dice: '1d6+2', type: 'piercing' }],
+        applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 11 } },
       },
     ],
     visual: { model: 'frog_green', scale: 1.4 },
@@ -653,7 +656,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'standard',
     description: 'A puddle of grey sludge that slides along the drain walls, waiting for a boot to settle into it.',
   },
-  // Simplified: the bite is a plain bite with poison damage (no grapple, no Swallow).
+  // Simplified: the bite deals poison damage and applies Grappled on a hit (no Medium-or-smaller check; escape is a
+  // Strength save-ends at the printed DC 12). Drops Swallow.
   {
     id: 'giant_toad',
     name: 'Giant Toad',
@@ -686,6 +690,7 @@ const BASE_MONSTERS: MonsterDef[] = [
           { dice: '1d6+2', type: 'piercing' },
           { dice: '2d4', type: 'poison' },
         ],
+        applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 12 } },
       },
     ],
     visual: { model: 'frog', tint: 0x8a7a3a, scale: 2.4 },
@@ -1282,8 +1287,12 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'standard',
     description: 'A small, rubbery lump that clings to cave ceilings and drops over the head of the unwary.',
   },
-  // Simplified: Multiattack is the SRD three Charged Tendrils (Engulf replacement dropped). Drops Engulf,
-  // Lightning Absorption and the pull-5-feet rider; Deafened and Exhaustion immunities are not expressible.
+  // Simplified: Multiattack is the SRD three Charged Tendrils, with a second Multiattack (two Tendrils + Engulf)
+  // for the Engulf replacement, as for the Salamander's Constrict. Engulf (Strength DC 15, within 5 feet) applies
+  // 'restrained' (the Grappled/Blinded/Restrained set of the SRD) with a Strength save-ends at the escape DC 14;
+  // its 3d10 lightning damage at the start of each of the victim's turns and the Medium-or-smaller limit are
+  // dropped. Drops Lightning Absorption and the pull-5-feet rider; Deafened and Exhaustion immunities are not
+  // expressible.
   // Proficiency bonus is the SRD +3 (CR 5).
   {
     id: 'shambling_mound',
@@ -1313,6 +1322,25 @@ const BASE_MONSTERS: MonsterDef[] = [
         cost: 'action',
         targeting: { kind: 'creature', melee: true, range: 2 },
         multiattack: ['charged_tendril', 'charged_tendril', 'charged_tendril'],
+      },
+      {
+        id: 'multiattack_engulf',
+        name: 'Multiattack (Engulf)',
+        description: 'The mound lashes twice and then folds its bulk around a foe within reach.',
+        icon: 'special',
+        cost: 'action',
+        targeting: { kind: 'creature', melee: true, range: 2 },
+        multiattack: ['charged_tendril', 'charged_tendril', 'engulf'],
+      },
+      {
+        id: 'engulf',
+        name: 'Engulf',
+        description: 'Drags a nearby foe into the writhing mass of vines, where it is pinned fast.',
+        icon: 'special',
+        cost: 'action',
+        targeting: { kind: 'creature', melee: true, range: 1 },
+        save: { ability: 'str', dc: 15, halfOnSave: false },
+        applies: { condition: 'restrained', saveEnds: { ability: 'str', dc: 14 } },
       },
       {
         id: 'charged_tendril',
@@ -3373,7 +3401,7 @@ export const MAGIC_ACTION_NAMES: ReadonlySet<string> = new Set([
   'Create Whirlwind', 'Death Glare', 'Dominate Mind', 'Dreadful Glare', 'Entangle', 'Finger of Death', 'Fireball', 'Flame Strike',
   'Harm', 'Hellfire Spellcasting', 'Hold Monster', 'Hold Person', 'Horrific Visage', 'Horror Nimbus', 'Hypnotic Pattern',
   'Ice Storm', 'Ice Wall', 'Lightning Bolt', 'Mind Spike', 'Nightmare', 'Petrifying Gaze', 'Phantasmal Killer', 'Shatter', 'Sleep',
-  'Spirit Guardians', 'Vitriolic Sphere', 'Wall of Fire',
+  'Spirit Guardians', 'Vile Appearance', 'Vitriolic Sphere', 'Wall of Fire',
 ]);
 
 export const MONSTERS: MonsterDef[] = BASE_MONSTERS.map((m) => ({
