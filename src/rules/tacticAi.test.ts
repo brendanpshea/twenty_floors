@@ -452,6 +452,21 @@ describe('encounter placement by post', () => {
     expect(out.map((o) => o.post).sort()).toEqual(['back', 'front']);
   });
 
+  it('the builder sets the flexible tactic on the creature from its post, and flags the boss', () => {
+    // One flexible monster (a knight) in a room with a 'back' slot only, then a 'front' slot only.
+    const mk = (post: SpawnPostLike) => makePlan(2, 'crypt', [{ role: 'entrance' }, { role: 'combat', distanceFromEntrance: 1 }], [{ ...slot(1, post), roomId: 1 }]);
+    const only = [def('knight')].map((m) => ({ ...m, themes: ['crypt' as const], role: 'standard' as const, xp: 10, cr: 0.1 }));
+    const back = buildEncounters(mk('back'), only, new Rng(1));
+    const front = buildEncounters(mk('front'), only, new Rng(1));
+    expect(back.length).toBeGreaterThan(0);
+    expect(creatureTactic(back[0]!.creature)).toBe('archer');
+    expect(creatureTactic(front[0]!.creature)).toBe('guard');
+    // The boss of a boss room carries the hidden _boss flag.
+    const bossPlan = makePlan(5, 'crypt', [{ role: 'entrance' }, { role: 'boss', distanceFromEntrance: 1 }], [{ pos: at(2, 1), roomId: 1, role: 'boss' }]);
+    const placed = buildEncounters(bossPlan, MONSTERS, new Rng(3));
+    expect(placed.some((p) => p.creature.resources['_boss'] !== undefined)).toBe(true);
+  });
+
   it('keeps the old order when no slot has a post', () => {
     const slots = [slot(1), slot(2), slot(3)];
     expect(assignSlots([def('ogre'), def('scout'), def('wolf')], slots)).toEqual(slots);

@@ -81,6 +81,8 @@ export interface EncounterTuning {
    * the quick party model proved a poor guide for the real engine, so the real-engine measurements of src/balance set this.
    */
   depthScale: number[];
+  /** From this depth the boss room's escorts may be of any role and one more than `maxBossMinions` (the boss room is the peak). */
+  richEscortsFromDepth: number;
 }
 
 /**
@@ -99,7 +101,7 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   /** Global multiplier on every budget. */
   soloFactor: 1,
   /** Budget multiplier by room role. 0 = never spawn. */
-  roomRoleFactor: { entrance: 0, combat: 1, treasure: 0.75, passage: 0.5, boss: 0.6 },
+  roomRoleFactor: { entrance: 0, combat: 1, treasure: 0.75, passage: 0.5, boss: 0.3 },
   /** Budget grows by this much per room-graph step from the entrance... */
   perDistance: 0.08,
   /** ...starting from this base multiplier, capped at distanceCap. */
@@ -134,6 +136,7 @@ export const ENCOUNTER_TUNING: EncounterTuning = {
   bossByDepth: { 4: 'green_hag', 5: 'otyugh', 6: 'shambling_mound', 7: 'treant', 8: 'pirate_captain', 9: 'assassin', 10: 'stone_golem', 11: 'archmage', 12: 'clay_golem', 13: 'fire_giant', 14: 'remorhaz', 15: 'adult_white_dragon', 16: 'storm_giant', 17: 'adult_green_dragon', 18: 'marilith', 19: 'balor', 20: 'adult_red_dragon' },
   themeTuning: THEME_TUNING,
   depthScale: Array<number>(20).fill(1),
+  richEscortsFromDepth: 4,
   monsterWeight: { giant_spider: 0.1, bugbear_warrior: 0.5, wolf: 0.4, goblin_warrior: 0.4, giant_rat: 0.5, efreeti: 0.3, erinyes: 0.3, horned_devil: 0.4, young_brass_dragon: 0.5, otyugh: 0.5 },
 };
 
@@ -304,7 +307,7 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
     if (!room || room.role === 'entrance') continue;
     const monsterSlots = rng.shuffle(plan.spawns.filter((s) => s.roomId === roomId && s.role === 'monster'));
     const bossSlots = plan.spawns.filter((s) => s.roomId === roomId && s.role === 'boss');
-    const placements: { def: MonsterDef; slot: SpawnSlot }[] = [];
+    const placements: { def: MonsterDef; slot: SpawnSlot; boss?: boolean }[] = [];
 
     let bossDef: MonsterDef | undefined;
     if (room.role === 'boss' || bossSlots.length > 0) {
@@ -313,17 +316,26 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
     }
     if (bossDef) {
       const bossSlot = bossSlots[0] ?? monsterSlots.shift();
-      if (bossSlot) placements.push({ def: bossDef, slot: bossSlot });
+      if (bossSlot) placements.push({ def: bossDef, slot: bossSlot, boss: true });
       // Boss escorts must fit the boss-room budget, so a 200 XP "standard" monster is never an escort at low depth.
       const escortCap = Math.max(roomBudget(plan.depth, 'boss', room.distanceFromEntrance, plan.theme) * 1.2, Math.min(...regular.map((m) => m.xp)));
       const legal = regular.filter((m) => m.cr <= plan.depth && m.xp <= escortCap);
       const minionPool = legal.filter((m) => m.role === 'minion');
-      const pool = minionPool.length > 0 ? minionPool : legal.filter((m) => m.role === 'standard');
-      const cap = pool.length > 0 ? Math.min(bossMinionLimit(plan.depth), monsterSlots.length) : 0;
+      // From floor 4 the boss room is the peak of the floor: escorts of any role (not only minions), one more than before,
+      // up to the boss-room budget (re-tune: with minion-only escorts a rested party burst the boss down and lost a tenth of its HP).
+      const rich = plan.depth >= ENCOUNTER_TUNING.richEscortsFromDepth;
+      const pool = rich && legal.length > 0 ? legal : minionPool.length > 0 ? minionPool : legal.filter((m) => m.role === 'standard');
+      const cap = pool.length > 0 ? Math.min(bossMinionLimit(plan.depth) + (rich ? 1 : 0), monsterSlots.length) : 0;
       let n = 0;
       for (let i = 0; i < cap; i++) if (rng.chance(bossMinionChanceAt(plan.depth))) n++;
       const escorts: MonsterDef[] = [];
-      for (let i = 0; i < n; i++) escorts.push(rng.pick(pool));
+      let spent = 0;
+      for (let i = 0; i < n; i++) {
+        const pick = rng.pick(pool);
+        if (rich && escorts.length > 0 && spent + pick.xp > escortCap * 1.6) break;
+        spent += pick.xp;
+        escorts.push(pick);
+      }
       const escortSlots = assignSlots(escorts, monsterSlots);
       escorts.forEach((def, i) => placements.push({ def, slot: escortSlots[i] as SpawnSlot }));
     } else if (monsterSlots.length > 0 && regular.length > 0) {
@@ -341,6 +353,8 @@ export function buildEncounters(plan: FloorPlan, monsters: MonsterDef[], rng: Rn
     const seen = new Map<string, number>();
     placements.forEach((p, n) => {
       const creature = instantiateMonster(p.def, `m_${roomId}_${n}`, p.slot.pos);
+      // The floor's boss carries the hidden `_boss` flag (the combat engine gives it boss momentum from a set depth).
+      if (p.boss) creature.resources['_boss'] = flagPool('boss');
       // A monster with both a good bow and a good sword plays the role its post gives it: archer on a high or back post,
       // the alternative (guard or brute) on a front, guard or flank post. Without a post it keeps its default.
       if (isFlexible(p.def) && p.slot.post !== undefined) {

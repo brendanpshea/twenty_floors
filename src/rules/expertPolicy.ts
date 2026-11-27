@@ -49,10 +49,8 @@ export interface ExpertOptions {
   cover?: boolean;
   /** Shove enemies (Shove: Push, Push mastery bonus, Thunderwave) into hazards. */
   shove?: boolean;
-  /** Experiment: let the generic AI pick the attack (as the naive hero does) instead of the expert's own scoring. */
-  genericStrike?: boolean;
 }
-const ALL_ON: Required<ExpertOptions> = { hold: false, setup: true, safe: true, priority: true, focus: true, throws: true, cover: true, shove: true, genericStrike: false };
+const ALL_ON: Required<ExpertOptions> = { hold: false, setup: true, safe: true, priority: true, focus: true, throws: true, cover: true, shove: true };
 
 interface HoldMemory {
   round: number;
@@ -366,7 +364,7 @@ export function makeExpertPolicy(options: ExpertOptions = {}): (combat: CombatAp
     const outnumbered = enemies.filter((e) => !isRangedEnemy(e)).length >= 3;
 
     // 2. Terrain and 3. the best target now.
-    const strike = striking && !o.genericStrike ? bestStrike(ctx) : null;
+    const strike = striking ? bestStrike(ctx) : null;
     if (striking) {
       const setup = o.setup ? shoveSetup(ctx, strike ? strike.value : 0) : null;
       if (setup) {

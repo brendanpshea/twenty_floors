@@ -44,6 +44,9 @@ const attackReaders = new WeakMap<CombatApi, () => number>();
 const depthReaders = new WeakMap<CombatApi, number>();
 const navReaders = new WeakMap<CombatApi, NavGrid>();
 
+/** HOUSE RULE "boss momentum": from this floor depth the floor's boss acts once more at the end of each of its turns. */
+export const BOSS_MOMENTUM_FROM_DEPTH = 6;
+
 /** The floor depth this combat was created for (hazard damage is 1d6 per depth); 1 when none was given. */
 export function combatDepth(combat: CombatApi): number {
   return depthReaders.get(combat) ?? 1;
@@ -1407,7 +1410,46 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
         if (cond.rounds <= 0) removeCondition(holder, cond);
       }
     }
+    if (isAlive(c) && hasFlag(c, 'boss') && depth >= BOSS_MOMENTUM_FROM_DEPTH) bossMomentum(c);
     emit({ type: 'turnEnd', creatureId: c.id });
+  }
+
+  /**
+   * HOUSE RULE "boss momentum" (not in the SRD; legendary actions are not in the engine): the floor's boss (hidden `_boss` flag, set by
+   * the encounter builder) gets one extra action at the end of its own turn from `BOSS_MOMENTUM_FROM_DEPTH` on: its single best
+   * attack (not its whole Multiattack) against the weakest enemy in reach, and a second chance to recharge each spent ability.
+   * Emits `actionUsed`, then a `feature` 'bossAction', then the attack's own events.
+   */
+  function bossMomentum(c: Creature): void {
+    if (isIncapacitated(c)) return;
+    const spent = spentRecharge.get(c.id);
+    if (spent) {
+      for (const aid of [...spent]) {
+        const a = c.actions.find((x) => x.id === aid);
+        if (a && a.recharge !== undefined && rng.die(6) >= a.recharge) {
+          spent.delete(aid);
+          log(`${c.name}'s ${a.name} recharges (boss momentum).`);
+        }
+      }
+    }
+    let best: ActionDef | undefined;
+    let bestAvg = -1;
+    for (const a of c.actions) {
+      if (!a.attack || a.multiattack || a.cost !== 'action' || a.targeting.kind !== 'creature' || isSpellAction(a)) continue;
+      if (a.recharge !== undefined && spentRecharge.get(c.id)?.has(a.id)) continue;
+      if (targetsFor(c, a).length === 0) continue;
+      const avg = (a.damage ?? []).reduce((s, p) => s + averageDice(p.dice), 0);
+      if (avg > bestAvg) {
+        best = a;
+        bestAvg = avg;
+      }
+    }
+    if (!best) return;
+    const tgt = targetsFor(c, best).map((id) => byId.get(id) as Creature).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
+    if (!tgt) return;
+    emit({ type: 'actionUsed', creatureId: c.id, actionId: best.id, name: `Boss momentum: ${best.name}`, targetId: tgt.id });
+    feature(c, 'bossAction', 'Boss momentum', { targetId: tgt.id });
+    resolveOn(c, best, tgt);
   }
 
   /** Move the index to the next living creature, emitting roundStart on wrap. */
