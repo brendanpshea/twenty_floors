@@ -53,6 +53,19 @@ export const IMPLEMENTED_SPELL_IDS: ReadonlySet<string> = new Set([
   'inflict_wounds',
   'bane',
   'command',
+  // Levels 2 to 5, for the companions' kits (src/data/companions.ts). Not offered to the hero (offeredSpells is levels 0 and 1).
+  'aid',
+  'prayer_of_healing',
+  'scorching_ray',
+  'shatter',
+  'mass_healing_word',
+  'spirit_guardians',
+  'fireball',
+  'lightning_bolt',
+  'death_ward',
+  'ice_storm',
+  'mass_cure_wounds',
+  'cone_of_cold',
 ]);
 
 /**

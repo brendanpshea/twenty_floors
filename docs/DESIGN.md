@@ -68,9 +68,8 @@ sensibly: 80 to 90% on floor 1, 70 to 80% on floor 2, 60 to 75% on floor 3.
 The archer starting kit is well behind on floors 2 and 3 and is the harder
 choice.
 
-Weapon Mastery follows each weapon's SRD mastery property. Slow, Vex, Sap,
-Topple, Push and Graze are implemented; Cleave and Nick need a second attack
-and wait for Extra Attack. The hero has mastery with three weapon kinds,
+Weapon Mastery follows each weapon's SRD mastery property. All eight are
+implemented: Slow, Vex, Sap, Topple, Push, Graze, Nick and Cleave. The hero has mastery with three weapon kinds,
 filled from the starting kit.
 
 Magic weapons, armor and shields (+1 to +3) add their bonus to attack and

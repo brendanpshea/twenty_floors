@@ -255,14 +255,21 @@ The branch `wip/spell-engine` is superseded: that work is finished and on
 `main`. Remaining, in order (the owner wants one re-tune at the end, not
 piecemeal):
 
-1. Fighter levels 4 to 20 in `src/rules`, from `src/data/fighter.ts`.
-2. Companion engine in `src/rules`: the shared level table, the three kits
-   (the Blink Dog gets rogue abilities including Sneak Attack), stance-driven
-   behaviour, return at 1 HP after a fight. Spells of levels 2 to 5 are in
-   `src/data/spells.ts` as data only; the engine casts levels 0 and 1.
-3. Game layer: the spell wiring listed above, the companion on the floor, in
-   fights and in saves, level-ups past 3.
-4. Raise `MILESTONE_FLOORS` to 20 and re-tune every floor on the real engine.
+1. Done (27 November): Fighter levels 4 to 20 (Champion) and the companion
+   engine in `src/rules` (level table, three kits, stances, return at 1 HP).
+   The engine casts twelve of the level 2 to 5 spells, for companions.
+2. Game layer: the companion on the floor, in fights and in saves; level-ups
+   past 3; the new sound ids.
+3. Raise `MILESTONE_FLOORS` to 20 and re-tune every floor on the real engine.
+   Measured with the real engine, hero plus companion, floors 4 to 20 are far
+   from playable as tuned by the quick model: first-attempt clears are about
+   10% on floors 4 and 5, 0% on 18 and 19, and 100% on 16. Deaths come from
+   ordinary rooms, not bosses. Reproduce with
+   `BALANCE_COMPANIONS=1 BALANCE_RUNS=100 npx vitest run src/balance/companion.test.ts --disableConsoleIntercept -t REPORT`.
+
+Design additions under discussion with the owner, not started: terrain as a
+weapon (Shove, hazards, cover), monster roles and formations, shop items
+beyond potions, chests locked by puzzles, and game-like NPC encounters.
 
 ## Known problems
 

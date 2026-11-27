@@ -1,18 +1,51 @@
-import type { ActionDef, CombatApi, Command, Creature, GameEvent, GridPos, NavGrid } from '../core/types';
+import type { ActionDef, CombatApi, Command, Creature, DamageType, GameEvent, GridPos, NavGrid } from '../core/types';
+import { attacksLeft } from './combat';
 import { hasCondition } from './conditions';
 import { averageDice } from './dice';
 import { areHostile, chebyshev, isAlive } from './util';
 
-/** Hard cap on commands per AI turn; reaching it forces endTurn. */
-export const MAX_AI_STEPS = 12;
+/** Hard cap on commands per AI turn; reaching it forces endTurn. (A level 20 hero: four attacks, two surges, moves, bonus actions.) */
+export const MAX_AI_STEPS = 24;
 
-const UTILITY_EFFECTS = ['dash', 'disengage', 'dodge', 'aggressive', 'actionSurge', 'breakFree'];
+const UTILITY_EFFECTS = ['dash', 'disengage', 'dodge', 'aggressive', 'actionSurge', 'breakFree', 'blink'];
 /** Score given to landing a condition, in "expected damage" units. */
 const CONTROL_VALUE = 4;
 const KILL_BONUS = 20;
 
-function isOffense(a: ActionDef): boolean {
-  if (a.cost !== 'action') return false;
+/** Multiplier of a damage type against a target: 0 immune, 0.5 resistant, 2 vulnerable. */
+export function typeFactor(t: Pick<Creature, 'immunities' | 'resistances' | 'vulnerabilities'>, type: DamageType): number {
+  if (t.immunities.includes(type)) return 0;
+  let f = 1;
+  if (t.resistances.includes(type)) f *= 0.5;
+  if (t.vulnerabilities.includes(type)) f *= 2;
+  return f;
+}
+
+/** Expected damage of an action's dice against a target, with resistances and immunities applied. */
+export function damageAgainst(a: ActionDef, t: Pick<Creature, 'immunities' | 'resistances' | 'vulnerabilities'>): number {
+  return (a.damage ?? []).reduce((s, p) => s + averageDice(p.dice) * typeFactor(t, p.type), 0);
+}
+
+/** Deterministic pseudo-random in [0, 1) from a string and a number, so attention can split without an Rng. */
+function jitter(key: string, n: number): number {
+  let h = 2166136261 ^ n;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+  return ((h >>> 0) % 1000) / 1000;
+}
+
+/**
+ * How much a monster wants to hit this target compared with another of equal worth: the hero draws somewhat
+ * more attention than an ally, and a deterministic per-round wobble lets the ally be picked now and then.
+ */
+function attention(combat: CombatApi, c: Creature, t: Creature): number {
+  if (c.faction !== 'enemy') return 1;
+  // The hero's armor is usually better than an ally's, so raw expected damage already favours the ally: the weight corrects for that.
+  const base = t.faction === 'player' ? 1.6 : 1;
+  return base * (0.5 + jitter(`${c.id}>${t.id}`, combat.round));
+}
+
+function isOffense(a: ActionDef, cost: ActionDef['cost'] = 'action'): boolean {
+  if (a.cost !== cost) return false;
   // Spells are chosen by the hero policy (spellPolicy.ts), never by the generic AI.
   if (a.effects?.includes('spell')) return false;
   if (a.effects?.some((e) => UTILITY_EFFECTS.includes(e))) return false;
@@ -50,7 +83,7 @@ function reachOf(c: Creature, a: ActionDef): number {
 
 function singleValue(combat: CombatApi, a: ActionDef, target: Creature): number {
   const chance = combat.hitChance(a.id, target.id) ?? 1;
-  const dmg = (a.damage ?? []).reduce((s, p) => s + averageDice(p.dice), 0);
+  const dmg = damageAgainst(a, target);
   let v: number;
   if (a.attack) v = dmg * chance;
   else if (a.save) v = dmg * (chance + (a.save.halfOnSave ? (1 - chance) * 0.5 : 0));
@@ -91,10 +124,10 @@ interface Choice {
   melee: boolean;
 }
 
-function bestChoices(combat: CombatApi, nav: NavGrid, c: Creature, hostiles: Creature[]): Choice[] {
+function bestChoices(combat: CombatApi, nav: NavGrid, c: Creature, hostiles: Creature[], cost: ActionDef['cost'] = 'action'): Choice[] {
   const out: Choice[] = [];
   for (const a of c.actions) {
-    if (!isOffense(a) || !combat.canUse(a.id).ok) continue;
+    if (!isOffense(a, cost) || !combat.canUse(a.id).ok) continue;
     const recharge = a.recharge !== undefined;
     const melee = isMeleeOption(c, a);
     if (a.targeting.kind === 'point') {
@@ -119,7 +152,7 @@ function bestChoices(combat: CombatApi, nav: NavGrid, c: Creature, hostiles: Cre
     for (const id of combat.validTargets(a.id)) {
       const t = combat.creature(id);
       if (!t) continue;
-      const score = valueOf(combat, c, a, t) + (t.id === 'player' ? 0.01 : 0);
+      const score = valueOf(combat, c, a, t) * attention(combat, c, t) + (t.id === 'player' ? 0.01 : 0);
       if (!best || score > best.score) best = { actionId: a.id, targetId: id, score, recharge, melee };
     }
     if (best) out.push(best);
@@ -162,8 +195,16 @@ export function chooseCommand(combat: CombatApi, nav: NavGrid): Command {
   const occupiedByOther = (p: GridPos): boolean =>
     combat.creatures().some((o) => isAlive(o) && o !== c && o.pos.x === p.x && o.pos.y === p.y);
   const adjacent = hostiles.some((h) => chebyshev(c.pos, h.pos) <= 1);
-  const options = c.actions.filter(isOffense);
+  const options = c.actions.filter((a) => isOffense(a));
   const rangedOptions = options.filter((a) => isRangedOption(c, a) && combat.canUse(a.id).ok);
+  // Extra Attack: attacks left in the current Attack action can be made (and moved between) after the action is used.
+  const extra = attacksLeft(combat) > 0 && turn.actionUsed;
+
+  // Bonus actions of monsters (a heal, a gaze, a spiritual weapon): used when sensible, before the main action.
+  if (c.faction === 'enemy' && !turn.bonusUsed) {
+    const bonus = bonusCommand(combat, nav, c, hostiles);
+    if (bonus) return bonus;
+  }
 
   // Hit and run: a creature with Nimble Escape and a ranged attack backs off and shoots.
   if (c.traits.includes('nimbleEscape') && adjacent && rangedOptions.length > 0) {
@@ -180,17 +221,18 @@ export function chooseCommand(combat: CombatApi, nav: NavGrid): Command {
   const meleeOptions = options.filter((a) => isMeleeOption(c, a));
   const meleeFirst = prefersMelee(c, options);
   // Melee-minded creatures walk up to their target rather than trading ranged shots at distance.
-  if (!turn.actionUsed && meleeFirst && !adjacent && meleeOptions.length > 0) {
+  if ((!turn.actionUsed || extra) && meleeFirst && !adjacent && meleeOptions.length > 0) {
     const cmd = cellMove(combat, nav, c, hostiles, meleeOptions.filter((a) => combat.canUse(a.id).ok), occupiedByOther);
     if (cmd) return cmd;
   }
 
   // Attack from where we stand.
-  if (!turn.actionUsed) {
+  if (!turn.actionUsed || extra) {
     const all = bestChoices(combat, nav, c, hostiles);
     const rech = all.filter((x) => x.recharge);
     let choices = rech.length > 0 ? rech : all;
-    if (rech.length === 0 && adjacent && choices.some((x) => x.melee)) choices = choices.filter((x) => x.melee);
+    // Adjacent: fight in melee, unless nothing melee can hurt anything (immunities): then a ranged or thrown attack of another type.
+    if (rech.length === 0 && adjacent && choices.some((x) => x.melee && x.score > 0)) choices = choices.filter((x) => x.melee);
     if (choices.length > 0) {
       const pool = choices;
       const pick = pool.reduce((a, b) => (b.score > a.score ? b : a));
@@ -204,7 +246,7 @@ export function chooseCommand(combat: CombatApi, nav: NavGrid): Command {
   }
 
   // Move: only before attacking, or after a dash granted extra movement.
-  const mayMove = !turn.actionUsed || turn.movementLeft > c.speed || (meleeFirst && !adjacent);
+  const mayMove = !turn.actionUsed || extra || turn.movementLeft > c.speed || (meleeFirst && !adjacent);
   if (!mayMove || turn.movementLeft <= 0) return end;
   const usable = options.filter((a) => combat.canUse(a.id).ok || turn.actionUsed);
   if (usable.length === 0) return end;
@@ -213,7 +255,7 @@ export function chooseCommand(combat: CombatApi, nav: NavGrid): Command {
   if (cellCmd) return cellCmd;
 
   // Close the distance toward the nearest reachable enemy.
-  let best: { path: GridPos[]; cost: number } | undefined;
+  let best: { path: GridPos[]; cost: number; rank: number } | undefined;
   for (const h of hostiles) {
     const raw = nav.findPath(c.pos, h.pos, {
       blocked: (p) => !(p.x === h.pos.x && p.y === h.pos.y) && occupiedByOther(p),
@@ -221,7 +263,9 @@ export function chooseCommand(combat: CombatApi, nav: NavGrid): Command {
     if (!raw || raw.length === 0) continue;
     const path = raw.slice(0, -1);
     const cost = pathCost(nav, c.pos, path);
-    if (!best || cost < best.cost) best = { path, cost };
+    // Monsters lean toward the hero: an ally has to be clearly closer to be chased instead.
+    const rank = c.faction === 'enemy' && h.faction !== 'player' ? cost * 1.25 + 1 : cost;
+    if (!best || rank < best.rank) best = { path, cost, rank };
   }
   if (!best || best.path.length === 0) return end;
 
@@ -232,6 +276,32 @@ export function chooseCommand(combat: CombatApi, nav: NavGrid): Command {
   const walk = pathPrefix(nav, c.pos, best.path, turn.movementLeft, occupiedByOther);
   if (walk.length === 0) return end;
   return { type: 'move', path: walk };
+}
+
+/** A monster's bonus action: heal itself or a hurt friend below half health, else the best attack, gaze or control effect now in range. */
+function bonusCommand(combat: CombatApi, nav: NavGrid, c: Creature, hostiles: Creature[]): Command | null {
+  const bonus = c.actions.filter((a) => a.cost === 'bonus' && !a.effects?.some((e) => UTILITY_EFFECTS.includes(e)) && !a.effects?.includes('spell') && combat.canUse(a.id).ok);
+  if (bonus.length === 0) return null;
+  for (const a of bonus) {
+    if (!a.heal) continue;
+    if (a.targeting.kind === 'self') {
+      if (c.hp <= c.maxHp * 0.5) return { type: 'action', actionId: a.id };
+    } else if (a.targeting.kind === 'creature') {
+      const t = combat
+        .validTargets(a.id)
+        .map((id) => combat.creature(id) as Creature)
+        .filter((o) => o.hp <= o.maxHp * 0.5)
+        .sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
+      if (t) return { type: 'action', actionId: a.id, targetId: t.id };
+    }
+  }
+  const pool = bestChoices(combat, nav, c, hostiles, 'bonus').filter((x) => x.score > 0);
+  if (pool.length === 0) return null;
+  const pick = pool.reduce((a, b) => (b.score > a.score ? b : a));
+  const cmd: Command = { type: 'action', actionId: pick.actionId };
+  if (pick.targetId !== undefined) cmd.targetId = pick.targetId;
+  if (pick.point !== undefined) cmd.point = pick.point;
+  return cmd;
 }
 
 function retreatCell(

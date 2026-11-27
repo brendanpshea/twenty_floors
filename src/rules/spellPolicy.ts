@@ -1,4 +1,5 @@
 import type { ActionDef, CombatApi, Command, Creature, GridPos } from '../core/types';
+import { damageAgainst } from './ai';
 import { averageDice } from './dice';
 import { concentratingOn, isSpellAction } from './spells';
 import { areHostile, chebyshev, isAlive } from './util';
@@ -19,9 +20,9 @@ function avg(a: ActionDef): number {
 /** Expected damage of an action on a target: attacks by hit chance, saves by fail chance (plus half on a success). */
 function expected(combat: CombatApi, a: ActionDef, t: Creature): number {
   const id = a.id;
-  if (a.effects?.includes('magicMissile')) return 3 * avg(a);
+  if (a.effects?.includes('magicMissile')) return 3 * damageAgainst(a, t);
   const chance = combat.hitChance(id, t.id);
-  let v = avg(a);
+  let v = damageAgainst(a, t);
   if (a.effects?.includes('chromaticOrbChoice')) v = 13.5;
   if (a.attack) v *= chance ?? 0.5;
   else if (a.save) v *= (chance ?? 0.5) + (a.save.halfOnSave ? (1 - (chance ?? 0.5)) * 0.5 : 0);
@@ -39,6 +40,11 @@ function cmd(a: ActionDef, extra: { targetId?: string; point?: GridPos } = {}): 
 }
 
 const isWeapon = (a: ActionDef): boolean => !!a.attack && !isSpellAction(a) && a.cost === 'action' && !a.effects?.includes('offhand');
+
+/** True when a friendly creature other than the caster (the companion) stands in the area. */
+function friendInside(combat: CombatApi, caster: Creature, cells: GridPos[]): boolean {
+  return combat.creatures().some((o) => o !== caster && isAlive(o) && !areHostile(caster, o) && cells.some((q) => q.x === o.pos.x && q.y === o.pos.y));
+}
 
 export function spellCommand(combat: CombatApi, c: Creature): Command | null {
   const spells = c.actions.filter(isSpellAction);
@@ -130,6 +136,7 @@ export function spellCommand(combat: CombatApi, c: Creature): Command | null {
       for (const p of centers) {
         if (!range0 && chebyshev(c.pos, p) > a.targeting.range) continue;
         const cells = combat.areaCells(a.id, p);
+        if (friendInside(combat, c, cells)) continue;
         const inside = hostiles.filter((h) => cells.some((q) => q.x === h.pos.x && q.y === h.pos.y));
         if (inside.length < 2) continue;
         const score = inside.reduce((s, h) => s + expected(combat, a, h), 0);
@@ -142,7 +149,7 @@ export function spellCommand(combat: CombatApi, c: Creature): Command | null {
       for (const h of hostiles) {
         if (chebyshev(c.pos, h.pos) > area.range) continue;
         const cells = combat.areaCells(a.id, h.pos);
-        if (cells.some((q) => q.x === c.pos.x && q.y === c.pos.y)) continue;
+        if (cells.some((q) => q.x === c.pos.x && q.y === c.pos.y) || friendInside(combat, c, cells)) continue;
         const inside = hostiles.filter((o) => cells.some((q) => q.x === o.pos.x && q.y === o.pos.y));
         if (inside.length < 2) continue;
         const score = inside.reduce((s, o) => s + (combat.hitChance(a.id, o.id) ?? 0.5) * 8, 0);

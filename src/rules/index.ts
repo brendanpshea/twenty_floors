@@ -9,6 +9,7 @@ export {
   syncFromCreature,
   previewLevelUp,
   applyLevelUp,
+  suggestedLevelChoices,
   takeShortRest,
   shortRestGain,
   longRestGain,
@@ -47,8 +48,34 @@ export {
   isSpellAction,
   type Caster,
 } from './spells';
-export { createCombat, ELEVATION_ATTACK_BONUS, BREAK_FREE_ID, BREAK_FREE_DC } from './combat';
+export { createCombat, attacksLeft, ELEVATION_ATTACK_BONUS, BREAK_FREE_ID, BREAK_FREE_DC } from './combat';
 export { instantiateMonster } from './monster';
+export {
+  COMPANION_LEVEL_OFFSET,
+  companionLevel,
+  companionProgression,
+  companionAbilities,
+  companionMaxHp,
+  companionCaster,
+  companionRole,
+  companionNeedsRest,
+  companionPrayer,
+  companionInfo,
+  companionOptions,
+  companionResources,
+  companionShortRest,
+  companionLongRest,
+  createCompanion,
+  getCompanion,
+  kitAt,
+  newCompanionState,
+  requireCompanion,
+  syncCompanion,
+  usesAt,
+  type CompanionRow,
+} from './companion';
+export { createPartyDriver, type PartyDriver } from './party';
+export { chooseCompanionCommand, runCompanionTurn, heroLastTarget, isChokepoint, isChasmEdge } from './companionAi';
 export { chooseCommand, runAiTurn, runTurnWith, MAX_AI_STEPS } from './ai';
 export { buildEncounters, ENCOUNTER_TUNING, bossMinionLimit, bossMinionChanceAt, minMonstersAt, maxMonstersAt, levelBudgetAt, roomBudget, type EncounterTuning, type PlacedMonster } from './encounters';
 export { simulateFight, simulateOne, playerPolicy, type PolicyFn, type SimOptions, type SimResult, type SingleFight } from './sim';

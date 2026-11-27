@@ -109,6 +109,19 @@ describe('companion data', () => {
     }
   });
 
+  it('has a kit in level order from level 1 to 18, with a summary for each step and no spell twice', () => {
+    for (const c of COMPANIONS) {
+      expect(c.kit.length, `${c.id} kit`).toBeGreaterThanOrEqual(10);
+      const levels = c.kit.map((f) => f.level);
+      expect([...levels].sort((a, b) => a - b), `${c.id} order`).toEqual(levels);
+      expect(levels[0], `${c.id} first`).toBe(1);
+      expect(levels[levels.length - 1], `${c.id} last`).toBe(18);
+      for (const f of c.kit) expect(f.summary.length, `${c.id}.${f.name}`).toBeGreaterThan(10);
+      const spells = c.kit.map((f) => f.spellId).filter((s): s is string => s !== undefined);
+      expect(new Set(spells).size, `${c.id} spells`).toBe(spells.length);
+    }
+  });
+
   it('starts visual tiers at level 1, in ascending order, matching the base visual', () => {
     for (const c of COMPANIONS) {
       const levels = c.visualTiers.map((t) => t.fromLevel);

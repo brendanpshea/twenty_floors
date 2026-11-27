@@ -6,6 +6,7 @@ import type {
   CharacterBuild,
   BackgroundInfo,
   BuildPreset,
+  ChoiceSlot,
   CreationOptions,
   Creature,
   ItemDef,
@@ -26,7 +27,7 @@ import {
   trueStrikeBonusDice,
   type Caster,
 } from './spells';
-import { CLASSES, classInfo, getClass, type ClassDef } from './classes';
+import { CLASSES, classInfo, getClass, masteryKey, type ClassDef } from './classes';
 import { averageDice, rollDice } from './dice';
 import { getItem, itemCatalog, requireItem } from './items';
 import { SPECIES, getSpecies, speciesFlagPools, type SpeciesDef } from './species';
@@ -106,6 +107,21 @@ export function buildFromPreset(
 export function finalAbilities(build: CharacterBuild): AbilityScores {
   const out = { ...build.baseAbilities };
   for (const a of ABILITIES) out[a] += build.abilityIncreases[a] ?? 0;
+  // Level-up choices: Ability Score Improvements ("asi4", "asi6", ...) in level order, then the Epic Boon.
+  const keys = Object.keys(build.choices ?? {})
+    .filter((k) => /^asi\d+$/.test(k))
+    .sort((x, y) => Number(x.slice(3)) - Number(y.slice(3)));
+  for (const k of keys) {
+    for (const part of (build.choices[k] as string).split(',')) {
+      const m = /^(str|dex|con|int|wis|cha)\+(\d)$/.exec(part);
+      if (m) out[m[1] as Ability] = Math.max(out[m[1] as Ability], Math.min(20, out[m[1] as Ability] + Number(m[2])));
+    }
+  }
+  const boon = build.choices?.['epicBoon'];
+  if (boon) {
+    const best: Ability = out.str >= out.dex ? 'str' : 'dex';
+    out[best] = boon === 'combatProwess' ? Math.min(30, out[best] + 1) : Math.min(20, out[best] + 2);
+  }
   return out;
 }
 
@@ -242,8 +258,9 @@ function addToStack(inv: ItemStack[], itemId: string, qty: number): void {
 
 // ------------------------------------------------------------------ equipment
 
-function fightingStyle(pc: PlayerCharacter): string | undefined {
-  return pc.build.choices['fightingStyle'];
+/** Fighting styles the hero has: the level-1 style and, from level 7 (Champion), a second one. */
+function fightingStyles(pc: PlayerCharacter): string[] {
+  return [pc.build.choices['fightingStyle'], pc.build.choices['fightingStyle2']].filter((s): s is string => typeof s === 'string');
 }
 
 export function computeAc(pc: PlayerCharacter): number {
@@ -255,7 +272,7 @@ export function computeAc(pc: PlayerCharacter): number {
   if (armor) {
     const cap = armor.dexCap;
     ac = armor.baseAc + (cap === undefined ? dex : Math.min(dex, cap));
-    if (fightingStyle(pc) === 'defense') ac += 1;
+    if (fightingStyles(pc).includes('defense')) ac += 1;
     ac += (pc.equipped.armor ? getItem(pc.equipped.armor)?.magicBonus : 0) ?? 0;
   }
   const shield = pc.equipped.offHand ? getItem(pc.equipped.offHand) : undefined;
@@ -264,11 +281,16 @@ export function computeAc(pc: PlayerCharacter): number {
 }
 
 /**
- * Engine effect ids for a weapon mastery property. Nick is handled by the off-hand action (weaponActions) and
- * Cleave needs Extra Attack-style multiple attacks, so neither produces an effect id here.
+ * Engine effect ids for a weapon mastery property. Nick is handled by the off-hand action (weaponActions).
+ * Cleave carries the ability modifier the second attack's damage leaves out.
+ * `tactical` (Fighter 9, Tactical Master): HOUSE RULE for the automation, a Graze weapon uses Sap instead
+ * (Push, Sap and Slow are the only properties it may be swapped for, and Graze is the weakest to give up).
  */
-function masteryEffects(mastery: WeaponMastery | undefined, mod: number, pb: number): string[] {
+function masteryEffects(mastery: WeaponMastery | undefined, mod: number, pb: number, tactical = false): string[] {
+  if (tactical && mastery === 'graze') mastery = 'sap';
   switch (mastery) {
+    case 'cleave':
+      return [`mastery:cleave:${Math.max(0, mod)}`];
     case 'slow':
       return ['mastery:slow'];
     case 'vex':
@@ -326,9 +348,11 @@ function weaponAction(
   opts: {
     abilities: AbilityScores;
     pb: number;
-    style: string | undefined;
+    styles: string[];
     twoHands: boolean;
     mastered?: boolean;
+    /** Tactical Master (Fighter 9) is active. */
+    tactical?: boolean;
     /** Off-hand attack of two-weapon fighting: no modifier on the damage unless negative (or the style). */
     offhand?: { free: boolean };
     /** The weapon's attack has a Light off-hand partner. */
@@ -343,13 +367,13 @@ function weaponAction(
   const finesse = w.properties.includes('finesse');
   const ranged = !w.melee && mode === 'attack';
   const mod = opts.modOverride ?? (ranged ? dex : finesse ? Math.max(str, dex) : str);
-  const archery = ranged && opts.style === 'archery' ? 2 : 0;
+  const archery = ranged && opts.styles.includes('archery') ? 2 : 0;
   const mb = item.magicBonus ?? 0;
   const bonus = mod + opts.pb + archery + mb;
   const dice = opts.twoHands && w.versatileDice ? w.versatileDice : w.damage.dice;
-  const dmgMod = opts.offhand && opts.style !== 'twoWeaponFighting' ? Math.min(0, mod) : mod;
+  const dmgMod = opts.offhand && !opts.styles.includes('twoWeaponFighting') ? Math.min(0, mod) : mod;
   const dmgDice = `${dice}${dmgMod + mb === 0 ? '' : fmtMod(dmgMod + mb)}`;
-  const masteryFx = opts.mastered ? masteryEffects(w.mastery, mod, opts.pb) : [];
+  const masteryFx = opts.mastered ? masteryEffects(w.mastery, mod, opts.pb, opts.tactical) : [];
   // SRD Heavy property: disadvantage with a Heavy weapon if Strength (melee) or Dexterity (ranged) is below 13.
   const heavyFx = w.properties.includes('heavy') && mode === 'attack' && (ranged ? opts.abilities.dex : opts.abilities.str) < 13 ? ['heavyDisadvantage'] : [];
   const base = { cost: 'action' as const, attack: { bonus }, damage: [{ dice: dmgDice, type: w.damage.type }] };
@@ -365,8 +389,9 @@ function weaponAction(
       targeting: { kind: 'creature', melee: false, range: r.normal, longRange: r.long },
     };
   }
-  const gwf = !ranged && opts.twoHands && opts.style === 'greatWeaponFighting';
-  const fx = [...(gwf ? ['greatWeaponFighting'] : []), ...masteryFx, ...heavyFx, ...(opts.lightPair ? ['lightAttack'] : [])];
+  const gwf = !ranged && opts.twoHands && opts.styles.includes('greatWeaponFighting');
+  const loadingFx = w.properties.includes('loading') ? ['loading'] : [];
+  const fx = [...(gwf ? ['greatWeaponFighting'] : []), ...masteryFx, ...heavyFx, ...loadingFx, ...(opts.lightPair ? ['lightAttack'] : [])];
   if (opts.offhand) {
     const nick = opts.offhand.free;
     return {
@@ -408,7 +433,8 @@ function offhandPartner(pc: PlayerCharacter): ItemDef | undefined {
 /** Weapon attack actions: main-hand melee, the ranged slot, the off-hand attack, and thrown weapons. */
 function weaponActions(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: number): ActionDef[] {
   const pc = migrateEquipment(pcRaw);
-  const style = fightingStyle(pc);
+  const styles = fightingStyles(pc);
+  const tactical = classOf(pc.build).flagsAt(pc.level).includes('tacticalMaster');
   const kinds = masteredKinds(pc);
   const mastered = (i: ItemDef): boolean => kinds.includes(i.baseId ?? i.id);
   const hasWeapon = (i: ItemDef | undefined): i is ItemDef => !!i?.weapon;
@@ -420,14 +446,14 @@ function weaponActions(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: num
   if (hasWeapon(main)) {
     const w = main.weapon as NonNullable<ItemDef['weapon']>;
     const twoHands = w.properties.includes('twoHanded') || (w.properties.includes('versatile') && !shieldOn && !partner);
-    out.push(weaponAction(main, 'attack', { abilities, pb, style, twoHands, mastered: mastered(main), lightPair: partner !== undefined }));
+    out.push(weaponAction(main, 'attack', { abilities, pb, styles, tactical, twoHands, mastered: mastered(main), lightPair: partner !== undefined }));
   }
-  if (hasWeapon(rangedItem)) out.push(weaponAction(rangedItem, 'attack', { abilities, pb, style, twoHands: false, mastered: mastered(rangedItem) }));
+  if (hasWeapon(rangedItem)) out.push(weaponAction(rangedItem, 'attack', { abilities, pb, styles, tactical, twoHands: false, mastered: mastered(rangedItem) }));
   if (hasWeapon(main) && partner) {
     // Nick: the extra attack of the Light property is made as part of the Attack action (once per turn) instead of a bonus action.
     // SRD: the mastery of the weapon that makes the extra attack (the off-hand one) decides.
     const nick = mastered(partner) && partner.weapon?.mastery === 'nick';
-    out.push(weaponAction(partner, 'attack', { abilities, pb, style, twoHands: false, mastered: mastered(partner), offhand: { free: nick } }));
+    out.push(weaponAction(partner, 'attack', { abilities, pb, styles, tactical, twoHands: false, mastered: mastered(partner), offhand: { free: nick } }));
   }
   const carried = pc.inventory
     .map((s) => getItem(s.itemId))
@@ -436,7 +462,7 @@ function weaponActions(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: num
   for (const item of carried) {
     const w = item.weapon as NonNullable<ItemDef['weapon']>;
     if (w.properties.includes('thrown')) {
-      out.push(weaponAction(item, 'throw', { abilities, pb, style, twoHands: false, mastered: mastered(item) }));
+      out.push(weaponAction(item, 'throw', { abilities, pb, styles, tactical, twoHands: false, mastered: mastered(item) }));
     }
   }
   if (out.length === 0) {
@@ -464,7 +490,7 @@ function trueStrikeAction(pcRaw: PlayerCharacter, abilities: AbilityScores, pb: 
   const w = item.weapon;
   const shieldOn = pc.equipped.offHand !== undefined && getItem(pc.equipped.offHand)?.kind === 'shield';
   const twoHands = w.properties.includes('twoHanded') || (w.properties.includes('versatile') && !shieldOn);
-  const base = weaponAction(item, 'attack', { abilities, pb, style: fightingStyle(pc), twoHands, modOverride: caster.mod });
+  const base = weaponAction(item, 'attack', { abilities, pb, styles: fightingStyles(pc), twoHands, modOverride: caster.mod });
   const extra = trueStrikeBonusDice(caster.level);
   const damage = [...(base.damage ?? []), ...(extra ? [{ dice: extra, type: 'radiant' as const }] : [])];
   const fx = (base.effects ?? []).filter((e) => !e.startsWith('mastery:') && e !== 'lightAttack');
@@ -488,12 +514,22 @@ export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): 
 
   const resources: Record<string, ResourcePool> = clone(pc.resources);
   for (const f of [...sp.flags, ...cls.flagsAt(pc.level), ...featFlags(pc.build.backgroundId)]) resources['_' + f] = flagPool(f);
+  if (pc.build.choices['epicBoon'] === 'combatProwess') resources['_combatProwess'] = flagPool('combatProwess');
+  // Extra Attack: attacks per Attack action, and how many of each thrown weapon are carried (one throw per weapon per attack).
+  const attacks = cls.attacksAt?.(pc.level) ?? 1;
+  if (attacks > 1) resources['_attacks'] = { name: 'Attacks', current: attacks, max: 0, refresh: 'longRest' };
+  for (const stack of pc.inventory) {
+    const item = getItem(stack.itemId);
+    if (item?.weapon?.properties.includes('thrown') && stack.quantity > 0) {
+      resources[`_carry_${item.id}`] = { name: item.name, current: stack.quantity, max: 0, refresh: 'longRest' };
+    }
+  }
 
   if (resources['secondWind']) {
     actions.push({
       id: 'second_wind',
       name: 'Second Wind',
-      description: `Bonus action: regain 1d10 + ${pc.level} hit points.`,
+      description: `Bonus action: regain 1d10 + ${pc.level} hit points${cls.flagsAt(pc.level).includes('tacticalShift') ? ', then move up to half your speed without provoking opportunity attacks' : ''}.`,
       icon: 'heal',
       cost: 'bonus',
       targeting: { kind: 'self' },
@@ -506,7 +542,7 @@ export function toCreature(pc: PlayerCharacter, pos: { x: number; y: number }): 
     actions.push({
       id: 'action_surge',
       name: 'Action Surge',
-      description: 'Take one additional action this turn. Usable after you have used your action.',
+      description: 'Take one additional action this turn (a full new Attack action, with all its attacks). Usable once per turn, after you have used your action.',
       icon: 'surge',
       cost: 'free',
       targeting: { kind: 'self' },
@@ -608,17 +644,99 @@ export function syncFromCreature(pc: PlayerCharacter, creature: Creature): Playe
 
 // -------------------------------------------------------------------- levelling
 
+/** An ASI option that would still raise something (every named score below 20). */
+function asiUseful(abilities: AbilityScores, id: string): boolean {
+  return id.split(',').every((part) => {
+    const m = /^(str|dex|con|int|wis|cha)\+(\d)$/.exec(part);
+    return !!m && abilities[m[1] as Ability] < 20;
+  });
+}
+
+/** The weapon mastery a new mastery slot offers: base weapons with a mastery property not yet known, carried ones first. */
+function masterySlot(pc: PlayerCharacter, toLevel: number): ChoiceSlot {
+  const known = masteredKinds(pc);
+  const carried = new Set(pc.inventory.map((s) => getItem(s.itemId)?.baseId ?? s.itemId));
+  const options = [...itemCatalog()]
+    .filter((i) => i.kind === 'weapon' && i.weapon?.mastery && i.baseId === undefined && !i.magicBonus && !known.includes(i.id))
+    .sort((a, b) => Number(carried.has(b.id)) - Number(carried.has(a.id)) || a.name.localeCompare(b.name))
+    .map((i) => ({ id: i.id, name: i.name, description: `Mastery: ${i.weapon?.mastery}${carried.has(i.id) ? ' (you carry one)' : ''}.` }));
+  return { key: masteryKey(toLevel), name: 'Weapon Mastery', options };
+}
+
+/** The choices a level-up asks for, with ASI options trimmed to those that still raise a score. */
+function levelSlots(pc: PlayerCharacter, to: number): ChoiceSlot[] {
+  const cls = classOf(pc.build);
+  const abilities = finalAbilities(pc.build);
+  const out: ChoiceSlot[] = [];
+  for (const slot of cls.levelChoices[to] ?? []) {
+    let options = slot.options.map((o) => ({ ...o }));
+    if (slot.key.startsWith('asi')) options = options.filter((o) => asiUseful(abilities, o.id));
+    if (slot.key === 'fightingStyle2') options = options.filter((o) => !fightingStyles(pc).includes(o.id));
+    out.push({ ...slot, options });
+  }
+  if ((cls.weaponMasteriesAt?.(to) ?? 0) > (cls.weaponMasteriesAt?.(pc.level) ?? 0)) {
+    const slot = masterySlot(pc, to);
+    if (slot.options.length > 0) out.push(slot);
+  }
+  return out;
+}
+
 export function previewLevelUp(pc: PlayerCharacter): LevelUpPreview | null {
   const cls = classOf(pc.build);
   if (pc.level >= cls.maxLevel) return null;
   const to = pc.level + 1;
-  return {
-    fromLevel: pc.level,
-    toLevel: to,
-    hpGain: hpPerLevel(pc.build),
-    featureSummaries: cls.features.filter((f) => f.level === to).map((f) => `${f.name}: ${f.summary}`),
-    choices: cls.levelChoices[to] ?? [],
+  const feats = cls.features.filter((f) => f.level === to).map((f) => `${f.name}: ${f.summary}`);
+  const row = cls.resourcesAt(to);
+  const before = cls.resourcesAt(pc.level);
+  for (const [key, pool] of Object.entries(row)) {
+    const old = before[key];
+    if (old && pool.max > old.max) feats.push(`${pool.name}: ${old.max} to ${pool.max} uses.`);
+  }
+  const attacks = cls.attacksAt?.(to) ?? 1;
+  const slots = levelSlots(pc, to);
+  if (slots.some((s) => s.key.startsWith('asi'))) feats.push('Hit points rise retroactively if the improvement raises your Constitution modifier.');
+  if (cls.weaponMasteriesAt && cls.weaponMasteriesAt(to) > cls.weaponMasteriesAt(pc.level)) feats.push(`Weapon Mastery: you can now use ${cls.weaponMasteriesAt(to)} weapon kinds.`);
+  if (attacks > (cls.attacksAt?.(pc.level) ?? 1)) feats.push(`Attack action: ${attacks} attacks.`);
+  return { fromLevel: pc.level, toLevel: to, hpGain: hpPerLevel(pc.build), featureSummaries: feats, choices: slots };
+}
+
+/**
+ * Sensible picks for every choice of the next level-up (for autoplay, quick builds and the balance runs):
+ * ASIs raise the better of Strength or Dexterity to 20 and then Constitution; the second fighting style fits
+ * the wielded gear; a new weapon mastery is the first offered (a weapon you carry); the Epic Boon is Combat Prowess.
+ */
+export function suggestedLevelChoices(pc: PlayerCharacter): Record<string, string> {
+  const preview = previewLevelUp(pc);
+  const out: Record<string, string> = {};
+  if (!preview) return out;
+  const ab = finalAbilities(pc.build);
+  const primary: Ability = ab.str >= ab.dex ? 'str' : 'dex';
+  const pair = (a: Ability, b: Ability): string => {
+    const order = ABILITIES.indexOf(a) < ABILITIES.indexOf(b) ? [a, b] : [b, a];
+    return `${order[0]}+1,${order[1]}+1`;
   };
+  for (const slot of preview.choices) {
+    const has = (id: string): boolean => slot.options.some((o) => o.id === id);
+    let pick: string | undefined;
+    if (slot.key.startsWith('asi')) {
+      const wish = [
+        ab[primary] <= 18 ? `${primary}+2` : '',
+        ab[primary] === 19 ? pair(primary, 'con') : '',
+        ab.con <= 18 ? 'con+2' : '',
+        pair('con', primary === 'str' ? 'dex' : 'str'),
+        `${primary === 'str' ? 'dex' : 'str'}+2`,
+      ];
+      pick = wish.find((id) => id !== '' && has(id));
+    } else if (slot.key === 'fightingStyle2') {
+      const main = pc.equipped.mainHand ? getItem(pc.equipped.mainHand) : undefined;
+      const pref = main?.weapon?.properties.includes('twoHanded') ? ['greatWeaponFighting', 'defense'] : pc.equipped.ranged && !pc.equipped.mainHand ? ['archery', 'defense'] : ['defense', 'archery', 'twoWeaponFighting'];
+      pick = pref.find(has);
+    } else if (slot.key === 'epicBoon') {
+      pick = 'combatProwess';
+    }
+    out[slot.key] = pick ?? (slot.options[0] as { id: string }).id;
+  }
+  return out;
 }
 
 export function applyLevelUp(pc: PlayerCharacter, choices: Record<string, string>): PlayerCharacter {
@@ -626,14 +744,19 @@ export function applyLevelUp(pc: PlayerCharacter, choices: Record<string, string
   if (!preview) throw new Error('Already at maximum level');
   const cls = classOf(pc.build);
   const next = clone(pc);
+  const conBefore = abilityMod(finalAbilities(pc.build).con);
   for (const slot of preview.choices) {
     const picked = choices[slot.key];
     if (!picked || !slot.options.some((o) => o.id === picked)) throw new Error(`Invalid or missing choice: ${slot.name}`);
     next.build.choices[slot.key] = picked;
+    if (slot.key.startsWith('mastery')) next.build.choices['masteries'] = [...masteredKinds(pc), picked].join(',');
   }
   next.level = preview.toLevel;
-  next.maxHp += preview.hpGain;
-  next.hp += preview.hpGain;
+  // A higher Constitution modifier counts for every level already taken (SRD), then the new level's hit points.
+  const retro = (abilityMod(finalAbilities(next.build).con) - conBefore) * pc.level;
+  const gain = hpPerLevel(next.build) + Math.max(0, retro);
+  next.maxHp += gain;
+  next.hp += gain;
   next.hitDiceLeft += 1;
   for (const [key, pool] of Object.entries(cls.resourcesAt(next.level))) {
     const old = next.resources[key];

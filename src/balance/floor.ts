@@ -7,21 +7,28 @@ import {
   buildEncounters,
   castOutOfCombat,
   chestLoot,
+  companionLevel,
+  companionLongRest,
+  companionMaxHp,
+  companionPrayer,
+  companionShortRest,
   createCombat,
+  createCompanion,
+  createPartyDriver,
   playerPolicy,
-  runAiTurn,
-  runTurnWith,
   longRest,
   longRestGain,
+  requireCompanion,
   shortRestGain,
   takeShortRest,
+  syncCompanion,
   syncFromCreature,
   useConsumable,
   toCreature,
   type PlacedMonster,
   type PolicyFn,
 } from '../rules';
-import { SHORT_RESTS_PER_LONG_REST } from '../core/types';
+import { SHORT_RESTS_PER_LONG_REST, type CompanionStance, type CompanionState } from '../core/types';
 import { getItem } from '../rules/items';
 
 export interface FloorOptions {
@@ -36,6 +43,8 @@ export interface FloorOptions {
   careless?: boolean;
   /** Short rests available on this floor. Default 2. */
   shortRests?: number;
+  /** The travelling companion (from floor 4 on): who, how it behaves, and its state entering the floor (default: new, at full health). */
+  companion?: { id: string; stance?: CompanionStance; state?: CompanionState };
 }
 
 export interface FloorResult {
@@ -54,6 +63,12 @@ export interface FloorResult {
   shortRestsUsed: number;
   longRestsUsed: number;
   chestGold: number;
+  /** The companion's state after the floor (when one travelled). */
+  companion?: CompanionState;
+  /** Times the companion was downed in a fight. */
+  companionDowns?: number;
+  /** Fights lost, with how the hero fell: 'timeout' counts the turn cap. */
+  fightsLost?: number;
 }
 
 
@@ -109,6 +124,27 @@ interface FightOutcome {
   won: boolean;
   killer?: string;
   heroPos: GridPos;
+  companion?: CompanionState;
+  companionDown?: boolean;
+}
+
+interface Party {
+  id: string;
+  stance: CompanionStance;
+  state: CompanionState;
+}
+
+/** A free walkable cell next to `at` (then further out) for the companion to start on. */
+function cellBeside(at: GridPos, nav: NavGrid, taken: GridPos[]): GridPos {
+  for (let r = 1; r < 5; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const p = { x: at.x + dx, y: at.y + dy };
+        if ((dx !== 0 || dy !== 0) && nav.inBounds(p) && nav.isWalkable(p) && !taken.some((t) => t.x === p.x && t.y === p.y)) return p;
+      }
+    }
+  }
+  return at;
 }
 
 function fight(
@@ -118,17 +154,30 @@ function fight(
   at: GridPos,
   policy: PolicyFn,
   rng: Rng,
+  party?: Party,
 ): FightOutcome {
   const hero = toCreature(pc, at);
-  const combat = createCombat([hero, ...monsters], nav, rng);
+  const companion = party
+    ? createCompanion(requireCompanion(party.id), pc.level, party.state, cellBeside(at, nav, [at, ...monsters.map((m) => m.pos)]))
+    : undefined;
+  const combat = createCombat(companion ? [hero, companion, ...monsters] : [hero, ...monsters], nav, rng);
+  const driver = createPartyDriver(party?.stance ?? 'close', policy);
   const events: GameEvent[] = [...combat.begin()];
   let rounds = 0;
+  const finish = (won: boolean, killer?: string): FightOutcome => {
+    const out: FightOutcome = { pc: syncFromCreature(pc, hero), won, heroPos: hero.pos };
+    if (killer !== undefined) out.killer = killer;
+    if (party && companion) {
+      out.companion = syncCompanion(party.state, companion);
+      out.companionDown = companion.dead || companion.hp <= 0;
+    }
+    return out;
+  };
   while (!combat.isOver) {
-    if (combat.round > MAX_ROUNDS || rounds++ > 4000) return { pc: syncFromCreature(pc, hero), won: false, killer: 'timeout', heroPos: hero.pos };
-    if (combat.activeId === 'player') events.push(...runTurnWith(combat, (c) => policy(c, nav)));
-    else events.push(...runAiTurn(combat, nav));
+    if (combat.round > MAX_ROUNDS || rounds++ > 4000) return finish(false, 'timeout');
+    events.push(...driver.playTurn(combat, nav));
   }
-  if (combat.winner === 'player') return { pc: syncFromCreature(pc, hero), won: true, heroPos: hero.pos };
+  if (combat.winner === 'player') return finish(true);
   let killer = 'unknown';
   for (let i = events.length - 1; i >= 0; i--) {
     const e = events[i] as GameEvent;
@@ -137,7 +186,7 @@ function fight(
       break;
     }
   }
-  return { pc: syncFromCreature(pc, hero), won: false, killer, heroPos: hero.pos };
+  return finish(false, killer);
 }
 
 /** Play one whole floor with the scripted hero. */
@@ -170,6 +219,11 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
   let cur = pc;
   let pos: GridPos = plan.entrance;
   let potionsFound = 0;
+  const compDef = opts.companion ? requireCompanion(opts.companion.id) : undefined;
+  let party: Party | undefined = opts.companion
+    ? { id: opts.companion.id, stance: opts.companion.stance ?? 'close', state: opts.companion.state ?? (companionLongRest({ id: opts.companion.id, hp: 1, resources: {}, stance: 'close' }, requireCompanion(opts.companion.id), pc.level)) }
+    : undefined;
+  if (party) result.companionDowns = 0;
   const careless = opts.careless === true;
   const alive = (m: PlacedMonster): boolean => !m.creature.dead && m.creature.hp > 0;
   const cheb = (p: GridPos, q: GridPos): number => Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y));
@@ -209,6 +263,14 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
     if (!('error' in r)) cur = r.pc;
   };
   const healSpell = (): void => {
+    // A Sphinx of Wonder's Prayer of Healing between fights (companion level 8 and up).
+    if (party && compDef && (cur.hp / cur.maxHp < 0.6 || party.state.hp < 0.5 * companionHpMax(compDef, cur.level))) {
+      const r = companionPrayer(cur, party.state, compDef, cur.level, rng);
+      if (!('error' in r)) {
+        cur = r.pc;
+        party.state = r.state;
+      }
+    }
     if (cur.hp / cur.maxHp >= 0.6) return;
     for (const id of ['cure_wounds', 'healing_word']) {
       const r = castOutOfCombat(cur, id, rng);
@@ -251,14 +313,18 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
     if (shortRestsLeft <= 0) return;
     const frac = cur.hp / cur.maxHp;
     const gain = shortRestGain(cur);
-    const want = careless ? frac < 0.4 && (gain.hp || gain.resources) : frac < 0.6 || gain.resources;
-    if (!want || !(gain.hp || gain.resources)) return;
+    // The companion rests with the hero: hurt, or knocked out in the last fight (it came back at 1 HP).
+    const compHurt = party !== undefined && compDef !== undefined && (party.state.hp < 0.6 * companionHpMax(compDef, cur.level));
+    const want = careless ? frac < 0.4 && (gain.hp || gain.resources) : frac < 0.6 || gain.resources || compHurt;
+    if (!want || !(gain.hp || gain.resources || compHurt)) return;
     cur = takeShortRest(cur, rng).pc;
+    if (party && compDef) party.state = companionShortRest(party.state, compDef, cur.level, rng).state;
     shortRestsLeft--;
     result.shortRestsUsed++;
   };
   const longRestHere = (site: Site): void => {
     cur = longRest(cur);
+    if (party && compDef) party.state = companionLongRest(party.state, compDef, cur.level);
     castBuffs();
     site.used = true;
     shortRestsLeft = SHORT_RESTS_PER_LONG_REST;
@@ -310,9 +376,11 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
       at = freeCell(at, group);
       const role = group.some((m) => plan.rooms.find((r) => r.id === m.roomId)?.role === 'boss') ? 'boss' : roleOfTarget === 'boss' ? 'combat' : (plan.rooms.find((r) => r.id === group[0]?.roomId)?.role ?? 'combat');
       const hpBefore = cur.hp / cur.maxHp;
-      const out = fight(cur, group.map((m) => m.creature), nav, at, policy, rng);
+      const out = fight(cur, group.map((m) => m.creature), nav, at, policy, rng, party);
       result.log.push({ roomId: group[0]?.roomId ?? -1, role, monsters: group.map((m) => m.creature.defId), hpBefore, won: out.won });
       cur = out.pc;
+      if (party && out.companion) party.state = out.companion;
+      if (out.companionDown) result.companionDowns = (result.companionDowns ?? 0) + 1;
       pos = out.heroPos;
       if (!out.won) {
         result.death = { roomId: group[0]?.roomId ?? -1, role, killer: out.killer ?? 'unknown' };
@@ -342,7 +410,7 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
       }
       result.bossEntryHp = cur.hp / cur.maxHp;
     }
-    if (!walkTo(room.center, room.role)) return finishWith(result, cur, startPotions, potionsFound);
+    if (!walkTo(room.center, room.role)) return finishWith(result, cur, startPotions, potionsFound, party);
     if (room.role === 'treasure') {
       const loot = chestLoot(depth, rng);
       result.chestGold += loot.gold;
@@ -354,11 +422,16 @@ export function simulateFloor(pc: PlayerCharacter, opts: FloorOptions): FloorRes
     }
   }
   result.cleared = true;
-  return finishWith(result, cur, startPotions, potionsFound);
+  return finishWith(result, cur, startPotions, potionsFound, party);
 }
 
-function finishWith(result: FloorResult, cur: PlayerCharacter, startPotions: number, found: number): FloorResult {
+function companionHpMax(def: ReturnType<typeof requireCompanion>, heroLevel: number): number {
+  return companionMaxHp(def, companionLevel(heroLevel));
+}
+
+function finishWith(result: FloorResult, cur: PlayerCharacter, startPotions: number, found: number, party?: Party): FloorResult {
   result.pc = cur;
+  if (party) result.companion = party.state;
   result.potionsUsed = Math.max(0, startPotions + found - potionCount(cur));
   return result;
 }

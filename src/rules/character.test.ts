@@ -200,7 +200,7 @@ describe('toCreature', () => {
 });
 
 describe('levelling', () => {
-  it('levels 1 to 3 with max HP and new features, then stops', () => {
+  it('levels 1 to 3 with max HP and new features, then asks for the level 4 improvement', () => {
     let pc = hero();
     const p2 = previewLevelUp(pc)!;
     expect(p2).toMatchObject({ fromLevel: 1, toLevel: 2, hpGain: 12 });
@@ -213,8 +213,8 @@ describe('levelling', () => {
     pc = applyLevelUp(pc, {});
     expect(pc.level).toBe(3);
     expect(pc.maxHp).toBe(36);
-    expect(previewLevelUp(pc)).toBeNull();
-    expect(() => applyLevelUp(pc, {})).toThrow();
+    expect(previewLevelUp(pc)?.toLevel).toBe(4);
+    expect(() => applyLevelUp(pc, {})).toThrow(); // level 4 needs its Ability Score Improvement
   });
 
   it('keeps spent resources spent when the maximum grows', () => {

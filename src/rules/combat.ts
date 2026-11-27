@@ -32,9 +32,31 @@ import {
   singleSaveProbability,
   type RollMode,
 } from './conditions';
-import { averageDice, rollDice } from './dice';
+import { averageDice, formatDice, parseDice, rollDice } from './dice';
 import { abilityMod, areHostile, chebyshev, hasFlag, isAlive, isFriendlySide } from './util';
 import { chromaticOrbType, fxVal, isSpellAction } from './spells';
+
+/** Per-combat readers that the CombatApi surface has no room for (see `attacksLeft`). */
+const attackReaders = new WeakMap<CombatApi, () => number>();
+
+/**
+ * Attacks the active creature can still make with its current Attack action(s). A hero with Extra Attack has
+ * 1 + extra attacks per Attack action: the first weapon attack uses the action, the others are free while
+ * `attacksLeft` is above 0 (movement may come between them). After Action Surge a full new set is available once
+ * these are spent. Creatures without Extra Attack: 1 until the action is used, then 0.
+ */
+export function attacksLeft(combat: CombatApi): number {
+  return attackReaders.get(combat)?.() ?? 0;
+}
+
+/** Remove a flat modifier from a dice string ("1d8+4" minus 3 is "1d8+1"). Used by Cleave. */
+function withoutModifier(dice: string, amount: number): string {
+  const p = parseDice(dice);
+  return formatDice({ ...p, mod: p.mod - amount });
+}
+
+/** Condition ids that take a creature's turn away: the "heavy effect" that Indomitable answers. */
+const TURN_LOSING: readonly Condition[] = ['incapacitated', 'paralyzed', 'stunned', 'unconscious'];
 
 /**
  * HOUSE RULE: a ranged attacker standing at least `minSteps` elevation steps
@@ -186,6 +208,26 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
   const lightMain = new Set<string>();
   const offhandDone = new Set<string>();
   const turnKey = (): string => `${round}:${turn.creatureId}`;
+  /** Extra Attack: the active creature's Attack action. `left` attacks remain after the action was used. */
+  const atk = { open: false, left: 0, loadingUsed: false };
+  /** Thrown weapons used this turn, per item id (a weapon thrown once needs another to throw again). */
+  const thrownThisTurn = new Map<string, number>();
+  const surgeUsed = new Set<string>();
+  /** Studied Attacks (Fighter 13): attacker id -> creature it missed and has advantage against, in its own turn ends. */
+  const studied = new Map<string, { targetId: string; turnEnds: number }>();
+  /** Tactical Shift / Remarkable Athlete: cells of free (non-provoking) movement left this turn, per creature. */
+  const shift = new Map<string, number>();
+  /** Peerless Aim (Boon of Combat Prowess), Sneak Attack and Cleave: turn key of the last use, per creature. */
+  const peerlessUsed = new Map<string, string>();
+  const sneakUsed = new Map<string, string>();
+  const cleaveUsed = new Map<string, string>();
+  /** HOUSE RULE: the attack made straight after a Blink Dog teleport counts as made from hiding (advantage). */
+  const blinkAdv = new Set<string>();
+  /** Death Ward: the first time the creature would drop to 0 HP it drops to 1 instead. */
+  const deathWard = new Set<string>();
+  /** Spirit Guardians: caster id -> the emanation (radius in cells, save DC, damage) that follows them. */
+  const auras = new Map<string, { radius: number; dc: number; dice: string; type: DamageType }>();
+  let lastAttackMode: RollMode = 'normal';
   const speedOf = (c: Creature): number => Math.max(0, effectiveSpeed(c) - (slowed.get(c.id)?.cells ?? 0));
   let events: GameEvent[] = [];
 
@@ -238,13 +280,18 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     }
     if (packTacticsActive(att, tgt)) adv = true;
     if (vexed.get(att.id)?.targetId === tgt.id) adv = true;
+    if (studied.get(att.id)?.targetId === tgt.id) adv = true;
+    if (blinkAdv.has(att.id)) adv = true;
     if (sapped.has(att.id)) dis = true;
     if (guided.has(tgt.id)) adv = true;
+    // Elusive (Blink Dog 18): no attack roll has advantage against it while it can act.
+    if (hasFlag(tgt, 'elusive') && !isIncapacitated(tgt)) adv = false;
     // SRD Heavy property: disadvantage when the hero lacks the Strength (melee) or Dexterity (ranged) for the weapon.
     if (a.effects?.includes('heavyDisadvantage')) dis = true;
-    // Improved Critical covers weapon attacks, not spell attacks.
+    // Improved and Superior Critical cover weapon attacks, not spell attacks.
     const spellOnly = isSpellAction(a) && !a.effects?.includes('weaponAttack');
-    return { bonus, mode: mergeMode(adv, dis), critMin: hasFlag(att, 'crit19') && !spellOnly ? 19 : 20 };
+    const critMin = spellOnly ? 20 : hasFlag(att, 'crit18') ? 18 : hasFlag(att, 'crit19') ? 19 : 20;
+    return { bonus, mode: mergeMode(adv, dis), critMin };
   }
 
   /** Equiprobable outcomes of the Bless/Bane dice on a creature's d20 tests ([0] without either). */
@@ -274,10 +321,13 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
 
   function rollAttack(att: Creature, tgt: Creature, a: ActionDef, reaction: boolean, name: string): AttackOutcome {
     const s = attackSetup(att, tgt, a);
+    lastAttackMode = s.mode;
     const bonus = s.bonus + rollMod(att);
     let r = rollD20(s.mode);
     let outcome = classify(r.d20, bonus, tgt.ac, s.critMin);
     if (vexed.get(att.id)?.targetId === tgt.id) vexed.delete(att.id);
+    if (studied.get(att.id)?.targetId === tgt.id) studied.delete(att.id);
+    blinkAdv.delete(att.id);
     guided.delete(tgt.id);
     sapped.delete(att.id);
     if ((outcome === 'miss' || outcome === 'fumble') && canInspire(att)) {
@@ -285,6 +335,12 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       log(`${att.name} spends Heroic Inspiration to reroll (was ${r.d20}).`);
       r = rollD20(s.mode);
       outcome = classify(r.d20, bonus, tgt.ac, s.critMin);
+    }
+    // Boon of Combat Prowess, Peerless Aim: once per turn, a miss becomes a hit.
+    if ((outcome === 'miss' || outcome === 'fumble') && hasFlag(att, 'combatProwess') && peerlessUsed.get(att.id) !== turnKey()) {
+      peerlessUsed.set(att.id, turnKey());
+      outcome = 'hit';
+      log(`${att.name}'s Peerless Aim turns the miss into a hit.`);
     }
     if (
       outcome === 'hit' &&
@@ -319,17 +375,67 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     return abilityMod(c.abilities[ability]) + (c.saveProficiencies.includes(ability) ? c.proficiencyBonus : 0);
   }
 
-  function rollSave(c: Creature, ability: Ability, dc: number, applies?: Condition): boolean {
+  /** A friendly Sphinx of Wonder with a Burst of Ingenuity left, close enough (30 ft) to help `c`. */
+  function burstHelper(c: Creature): { helper: Creature; bonus: number } | undefined {
+    if (!isFriendlySide(c)) return undefined;
+    for (const o of all) {
+      const pool = o.resources['burstOfIngenuity'];
+      if (!pool || pool.current <= 0 || !isAlive(o) || isIncapacitated(o) || reactionUsed.has(o.id) || !isFriendlySide(o)) continue;
+      if (chebyshev(o.pos, c.pos) > 6) continue;
+      return { helper: o, bonus: hasFlag(o, 'burstGreater') ? 4 : 2 };
+    }
+    return undefined;
+  }
+
+  /**
+   * One saving throw. `opts.magical`: the effect is a spell or magical, so Magic Resistance gives advantage.
+   * `opts.heavy`: the extra damage a failure costs, for Indomitable's HOUSE RULE automation.
+   * Reactions that rescue a failed save, in order: a Sphinx's Burst of Ingenuity (+2, only if that makes it succeed),
+   * then the Fighter's Indomitable (reroll with a bonus equal to the level, only against an effect that would take
+   * the turn away or deal heavy damage).
+   */
+  function rollSave(c: Creature, ability: Ability, dc: number, applies?: Condition, opts: { magical?: boolean; heavy?: number } = {}): boolean {
     const bonus = saveBonus(c, ability) + (autoFailsSave(c, ability) ? 0 : rollMod(c));
     if (autoFailsSave(c, ability)) {
       emit({ type: 'saveRoll', creatureId: c.id, ability, d20: 0, bonus, total: 0, dc, success: false });
       return false;
     }
-    const r = rollD20(saveMode(c, ability, applies));
-    const total = r.d20 + bonus;
-    const success = total >= dc;
-    emit({ type: 'saveRoll', creatureId: c.id, ability, d20: r.d20, bonus, total, dc, success });
-    return success;
+    let mode = saveMode(c, ability, applies);
+    if (opts.magical && hasFlag(c, 'magicResistance')) mode = mode === 'disadvantage' ? 'normal' : 'advantage';
+    const r = rollD20(mode);
+    let total = r.d20 + bonus;
+    if (total < dc) {
+      const burst = burstHelper(c);
+      if (burst && total + burst.bonus >= dc) {
+        (burst.helper.resources['burstOfIngenuity'] as { current: number }).current -= 1;
+        reactionUsed.add(burst.helper.id);
+        total += burst.bonus;
+        log(`${burst.helper.name}'s Burst of Ingenuity adds ${burst.bonus} to ${c.name}'s save.`);
+      }
+    }
+    const first = total >= dc;
+    emit({ type: 'saveRoll', creatureId: c.id, ability, d20: r.d20, bonus: total - r.d20, total, dc, success: first });
+    if (first) return true;
+    const ind = c.resources['indomitable'];
+    const dangerous = (applies !== undefined && TURN_LOSING.includes(applies)) || (opts.heavy ?? 0) >= Math.max(12, c.maxHp * 0.2);
+    if (ind && ind.current > 0 && dangerous) {
+      ind.current -= 1;
+      const again = rollD20(mode);
+      const bonus2 = bonus + c.level;
+      const total2 = again.d20 + bonus2;
+      const ok = total2 >= dc;
+      log(`${c.name} is Indomitable: rerolls the save with +${c.level}.`);
+      emit({ type: 'saveRoll', creatureId: c.id, ability, d20: again.d20, bonus: bonus2, total: total2, dc, success: ok });
+      return ok;
+    }
+    return false;
+  }
+
+  const isMagical = (a: ActionDef): boolean => a.effects?.includes('spell') === true || a.effects?.includes('magic') === true;
+  /** The save options for an action: magic for Magic Resistance, expected failure cost for Indomitable. */
+  function saveOpts(a: ActionDef): { magical: boolean; heavy: number } {
+    const avg = (a.damage ?? []).reduce((s, p) => s + averageDice(p.dice), 0);
+    return { magical: isMagical(a), heavy: a.save?.halfOnSave ? avg / 2 : avg };
   }
 
   // ------------------------------------------------------- damage and healing
@@ -375,6 +481,13 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
         log(`${target.name} refuses to fall!`);
       }
     }
+    if (target.hp === 0 && !survived && deathWard.has(target.id)) {
+      deathWard.delete(target.id);
+      delete target.resources['_deathWard'];
+      target.hp = 1;
+      survived = true;
+      log(`Death Ward! ${target.name} drops to 1 HP instead and the ward ends.`);
+    }
     // HOUSE RULE "Last Stand": once per floor the hero drops to 1 HP instead of 0 (replaces death saves).
     let lastStand = false;
     const ls = target.resources['lastStand'];
@@ -391,6 +504,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     if (target.hp === 0 && !survived) {
       target.dead = true;
       emit({ type: 'death', creatureId: target.id });
+      if (target.faction === 'ally') log(`${target.name} is down — it will be back after the fight.`);
       endConcentration(target, 'dead');
       return;
     }
@@ -583,6 +697,26 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       tgt.ac += 2;
       return true;
     }
+    if (fx.includes('aid')) {
+      // HOUSE RULE: Aid lasts the fight (it is 8 hours in the SRD, but no state outlives a combat here). Up to three allies in 30 ft.
+      const group = all
+        .filter((o) => isAlive(o) && isFriendlySide(o) === isFriendlySide(att) && chebyshev(o.pos, att.pos) <= 6)
+        .sort((x, y) => (x.id === tgt.id ? -1 : 0) - (y.id === tgt.id ? -1 : 0) || x.hp / x.maxHp - y.hp / y.maxHp)
+        .slice(0, 3);
+      for (const o of group) {
+        o.maxHp += 5;
+        o.hp += 5;
+        o.resources['_aid'] = { name: 'Aid', current: (o.resources['_aid']?.current ?? 0) + 5, max: 0, refresh: 'longRest' };
+      }
+      log(`${att.name} casts Aid: ${group.map((o) => o.name).join(', ')} gain 5 maximum hit points.`);
+      return true;
+    }
+    if (fx.includes('deathWard')) {
+      deathWard.add(tgt.id);
+      tgt.resources['_deathWard'] = { name: 'Death Ward', current: 1, max: 0, refresh: 'longRest' };
+      log(`${tgt.name} is warded against death.`);
+      return true;
+    }
     if (fx.includes('resistanceCantrip')) {
       const type = pickResistanceType(tgt);
       beginConcentration(att, a, a.name, () => {
@@ -665,8 +799,50 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     log(`${tgt.name} is pushed back.`);
   }
 
+  /** Scorching Ray: three spell attacks, each 2d6 fire, on one target or split among others when it falls. */
+  function castScorchingRays(att: Creature, a: ActionDef, tgt: Creature): void {
+    const single: ActionDef = { ...a, effects: (a.effects ?? []).filter((e) => e !== 'scorchingRays') };
+    let target = tgt;
+    for (let ray = 0; ray < 3; ray++) {
+      if (!isAlive(target)) {
+        const next = nearestHostiles(att, a, [], 1)[0];
+        if (!next) return;
+        target = next;
+      }
+      resolveOn(att, single, target, false, `${a.name} (ray ${ray + 1})`);
+    }
+  }
+
+  /** Spirit Guardians: a concentration emanation around the caster that burns enemies at the start of their turns. */
+  function castSpiritGuardians(att: Creature, a: ActionDef): void {
+    const save = a.save as NonNullable<ActionDef['save']>;
+    const part = (a.damage as NonNullable<ActionDef['damage']>)[0] as NonNullable<ActionDef['damage']>[number];
+    const size = a.targeting.kind === 'point' ? a.targeting.area.size : 3;
+    beginConcentration(att, a, a.name, () => {
+      auras.delete(att.id);
+    });
+    auras.set(att.id, { radius: size, dc: save.dc, dice: part.dice, type: part.type });
+  }
+
+  /** The damage a target takes from a save-based effect: Evasion (DEX saves) turns half into none and none into half. */
+  function saveDamage(t: Creature, a: ActionDef, ok: boolean, amount: number): number {
+    const half = a.save?.halfOnSave === true;
+    if (half && a.save?.ability === 'dex' && hasFlag(t, 'evasion') && !isIncapacitated(t)) return ok ? 0 : Math.floor(amount / 2);
+    return ok ? (half ? Math.floor(amount / 2) : 0) : amount;
+  }
+
+  /** Whether `att` can make the Cleave attack now: a second creature next to the first and within reach. */
+  function cleaveTarget(att: Creature, a: ActionDef, first: Creature): Creature | undefined {
+    if (cleaveUsed.get(att.id) === turnKey()) return undefined;
+    return all
+      .filter((o) => isAlive(o) && o !== first && areHostile(att, o) && chebyshev(o.pos, first.pos) <= 1 && inReach(att, a, o))
+      .sort((x, y) => x.hp - y.hp)[0];
+  }
+
   function resolveOn(att: Creature, a: ActionDef, tgt: Creature, reaction = false, name: string = a.name): void {
     const fx = a.effects ?? [];
+    if (fx.includes('scorchingRays')) return castScorchingRays(att, a, tgt);
+    if (fx.includes('spiritGuardians')) return castSpiritGuardians(att, a);
     if (fx.includes('magicMissile')) return castMagicMissile(att, a, tgt);
     if (fx.includes('bane')) return castBane(att, a, tgt);
     if (fx.includes('command')) return castCommand(att, a, tgt);
@@ -674,6 +850,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     if (a.attack) {
       const outcome = rollAttack(att, tgt, a, reaction, name);
       if (outcome === 'miss' || outcome === 'fumble') {
+        // Studied Attacks (Fighter 13): after a miss, advantage on the next attack against that creature before the end of the next turn.
+        if (hasFlag(att, 'studiedAttacks')) studied.set(att.id, { targetId: tgt.id, turnEnds: att.id === turn.creatureId ? 2 : 1 });
         // Weapon Mastery: Graze deals the ability modifier on a miss.
         const graze = a.effects?.find((e) => e.startsWith('mastery:graze:'));
         const first = a.damage?.[0];
@@ -688,9 +866,50 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       let dealt = 0;
       const orb = fx.includes('chromaticOrbChoice') ? chromaticOrbType(tgt) : undefined;
       if (orb) log(`${att.name} shapes a ${orb} orb.`);
-      for (const part of rollParts(a, crit, att, orb)) {
-        dealDamage(tgt, part.amount, part.type, att.id, crit);
+      // Uncanny Dodge (reaction): the target halves the damage of one attack it can see.
+      const dodge = hasFlag(tgt, 'uncannyDodge') && isAlive(tgt) && !isIncapacitated(tgt) && !reactionUsed.has(tgt.id);
+      if (dodge) {
+        reactionUsed.add(tgt.id);
+        log(`${tgt.name} uses Uncanny Dodge and halves the damage.`);
+      }
+      const parts = rollParts(a, crit, att, orb);
+      for (const part of parts) {
+        dealDamage(tgt, dodge ? Math.floor(part.amount / 2) : part.amount, part.type, att.id, crit);
         dealt += part.amount;
+      }
+      // Sneak Attack (Blink Dog, rogue rule): once per turn, extra d6s when the attack has advantage, or when an ally of the
+      // attacker is within 5 ft of the target and the roll does not have disadvantage.
+      const sneak = att.resources['_sneakAttack'];
+      if (sneak && sneak.current > 0 && isAlive(tgt) && a.attack && !a.effects?.includes('spell') && sneakUsed.get(att.id) !== turnKey()) {
+        const allyNear = all.some((o) => o !== att && isAlive(o) && isFriendlySide(o) === isFriendlySide(att) && !isIncapacitated(o) && chebyshev(o.pos, tgt.pos) <= 1);
+        if (lastAttackMode === 'advantage' || (allyNear && lastAttackMode !== 'disadvantage')) {
+          sneakUsed.set(att.id, turnKey());
+          const extra = rollDice(rng, `${sneak.current}d6`, { crit }).total;
+          log(`${att.name} lands a Sneak Attack!`);
+          dealDamage(tgt, dodge ? Math.floor(extra / 2) : extra, parts[0]?.type ?? 'piercing', att.id, crit);
+          dealt += extra;
+        }
+      }
+      // Remarkable Athlete: after a critical hit, move up to half speed without provoking opportunity attacks.
+      if (crit && hasFlag(att, 'remarkableAthlete') && att.id === turn.creatureId && isWeaponAttack(a)) {
+        shift.set(att.id, Math.max(shift.get(att.id) ?? 0, Math.floor(speedOf(att) / 2)));
+      }
+      // Weapon Mastery: Cleave, once per turn on a melee hit: a second attack against another creature next to the first,
+      // within reach, with the weapon's damage but no ability modifier.
+      const cleave = a.effects?.find((e) => e.startsWith('mastery:cleave:'));
+      if (cleave && a.targeting.kind === 'creature' && a.targeting.melee) {
+        const second = cleaveTarget(att, a, tgt);
+        if (second) {
+          cleaveUsed.set(att.id, turnKey());
+          const mod = parseInt(cleave.slice('mastery:cleave:'.length), 10);
+          const sub: ActionDef = {
+            ...a,
+            damage: (a.damage ?? []).map((p, i) => (i === 0 ? { ...p, dice: withoutModifier(p.dice, mod) } : p)),
+            effects: (a.effects ?? []).filter((e) => !e.startsWith('mastery:')),
+          };
+          log(`${att.name} cleaves into ${second.name}.`);
+          resolveOn(att, sub, second, false, `${name} (Cleave)`);
+        }
       }
       // Weapon Mastery: Vex gives advantage on the next attack against this target until the end of the attacker's next turn.
       if (dealt > 0 && isAlive(tgt) && a.effects?.includes('mastery:vex')) {
@@ -716,17 +935,17 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       if (fx.includes('iceKnifeBurst')) iceKnifeBurst(att, a, tgt);
       if (!isAlive(tgt)) return;
       if (a.save) {
-        if (!rollSave(tgt, a.save.ability, a.save.dc, a.applies?.condition) && a.applies) addCondition(tgt, a.applies, att);
+        if (!rollSave(tgt, a.save.ability, a.save.dc, a.applies?.condition, saveOpts(a)) && a.applies) addCondition(tgt, a.applies, att);
       } else if (a.applies) {
         addCondition(tgt, a.applies, att);
       }
       return;
     }
     if (a.save) {
-      const ok = rollSave(tgt, a.save.ability, a.save.dc, a.applies?.condition);
+      const ok = rollSave(tgt, a.save.ability, a.save.dc, a.applies?.condition, saveOpts(a));
       for (const part of rollParts(a, false)) {
-        if (!ok) dealDamage(tgt, part.amount, part.type, att.id, false);
-        else if (a.save.halfOnSave) dealDamage(tgt, Math.floor(part.amount / 2), part.type, att.id, false);
+        const amount = saveDamage(tgt, a, ok, part.amount);
+        if (amount > 0 || !ok) dealDamage(tgt, amount, part.type, att.id, false);
       }
       if (!ok && isAlive(tgt) && a.applies) addCondition(tgt, a.applies, att);
       return;
@@ -744,14 +963,25 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       (o) => isAlive(o) && !(centeredOnSelf && o === att) && cells.some((p) => p.x === o.pos.x && p.y === o.pos.y),
     );
     if (fx.includes('sleep')) return castSleep(att, a, targets);
+    if (fx.includes('spiritGuardians')) return castSpiritGuardians(att, a);
+    // Area healing (Mass Healing Word, Mass Cure Wounds): up to six friendly creatures in the area, most hurt first.
+    if (a.heal && !a.damage) {
+      const friends = all
+        .filter((o) => isAlive(o) && isFriendlySide(o) === isFriendlySide(att) && cells.some((p) => p.x === o.pos.x && p.y === o.pos.y))
+        .sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)
+        .slice(0, 6);
+      for (const t of friends) heal(t, a.heal);
+      return;
+    }
     // Farthest first, so a push is not blocked by the creature behind it.
     if (push) targets = targets.sort((x, y) => chebyshev(att.pos, y.pos) - chebyshev(att.pos, x.pos));
     const parts = rollParts(a, false);
+    const opts = saveOpts(a);
     for (const t of targets) {
-      const ok = a.save ? rollSave(t, a.save.ability, a.save.dc, a.applies?.condition) : false;
+      const ok = a.save ? rollSave(t, a.save.ability, a.save.dc, a.applies?.condition, opts) : false;
       for (const part of parts) {
-        if (!ok) dealDamage(t, part.amount, part.type, att.id, false);
-        else if (a.save?.halfOnSave) dealDamage(t, Math.floor(part.amount / 2), part.type, att.id, false);
+        const amount = saveDamage(t, a, ok, part.amount);
+        if (amount > 0 || !ok) dealDamage(t, amount, part.type, att.id, false);
       }
       if (!ok && isAlive(t) && a.applies) addCondition(t, a.applies, att);
       if (!ok && push && isAlive(t)) pushTarget(att, t);
@@ -797,6 +1027,11 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     return d <= a.targeting.range && (d <= 1 || nav.hasLineOfSight(att.pos, point));
   }
 
+  /** A weapon attack that belongs to the Attack action and so draws on Extra Attack (not spells, not off-hand extras). */
+  function isPoolAttack(c: Creature, a: ActionDef): boolean {
+    return c.resources['_attacks'] !== undefined && a.cost === 'action' && !isSpellAction(a) && (a.id.startsWith('atk_') || a.id.startsWith('throw_') || a.id === 'unarmed');
+  }
+
   function useCheck(c: Creature, id: string): { ok: boolean; reason?: string } {
     if (!began) return { ok: false, reason: 'Combat has not begun' };
     if (over) return { ok: false, reason: 'Combat is over' };
@@ -814,9 +1049,21 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       }
     }
     if (a.recharge !== undefined && spentRecharge.get(c.id)?.has(a.id)) return { ok: false, reason: 'Recharging' };
-    if (cost === 'action' && turn.actionUsed) return { ok: false, reason: 'No action left' };
+    // Extra Attack: weapon attacks after the first use the same Attack action while attacks are left.
+    const pool = isPoolAttack(c, a);
+    const continuing = pool && atk.open && atk.left > 0;
+    if (cost === 'action' && turn.actionUsed && !continuing) return { ok: false, reason: pool && atk.open ? 'No attacks left' : 'No action left' };
+    if (continuing && a.effects?.includes('loading') && atk.loadingUsed) return { ok: false, reason: 'Loading: one shot per action' };
+    if (a.id.startsWith('throw_')) {
+      const itemId = a.id.slice('throw_'.length);
+      const carried = c.resources[`_carry_${itemId}`];
+      if (carried && (thrownThisTurn.get(itemId) ?? 0) >= carried.current) return { ok: false, reason: `No more ${carried.name} to throw` };
+    }
     if (cost === 'bonus' && turn.bonusUsed) return { ok: false, reason: 'No bonus action left' };
-    if (a.effects?.includes('actionSurge') && !turn.actionUsed) return { ok: false, reason: 'Use your action first' };
+    if (a.effects?.includes('actionSurge')) {
+      if (!turn.actionUsed) return { ok: false, reason: 'Use your action first' };
+      if (surgeUsed.has(turnKey())) return { ok: false, reason: 'Action Surge already used this turn' };
+    }
     if (a.multiattack && a.multiattack.every((sid) => !findAction(c, sid))) return { ok: false, reason: 'Nothing to attack with' };
     if (a.effects?.includes('offhand')) {
       if (!lightMain.has(c.id)) return { ok: false, reason: 'Attack with your main hand first' };
@@ -836,7 +1083,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
 
   function checkOver(): boolean {
     if (over) return true;
-    const friendly = all.some((c) => isAlive(c) && isFriendlySide(c));
+    // The fight is lost when the HERO falls (after Last Stand), even if an ally still stands.
+    const friendly = all.some((c) => isAlive(c) && c.faction === 'player');
     const enemy = all.some((c) => isAlive(c) && !isFriendlySide(c));
     if (enemy && friendly) return false;
     over = true;
@@ -856,6 +1104,35 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     noOpportunity.delete(c.id);
     lightMain.delete(c.id);
     offhandDone.delete(c.id);
+    atk.open = false;
+    atk.left = 0;
+    atk.loadingUsed = false;
+    thrownThisTurn.clear();
+    shift.delete(c.id);
+    // Spirit Guardians: enemies of the caster take radiant damage at the start of their turn inside the emanation.
+    for (const [ownerId, aura] of [...auras]) {
+      const owner = byId.get(ownerId);
+      if (!owner || !isAlive(owner) || !isAlive(c) || !areHostile(owner, c) || chebyshev(owner.pos, c.pos) > aura.radius) continue;
+      log(`${c.name} starts its turn in ${owner.name}'s Spirit Guardians.`);
+      const ok = rollSave(c, 'wis', aura.dc, undefined, { magical: true });
+      const amount = rollDice(rng, aura.dice).total;
+      dealDamage(c, ok ? Math.floor(amount / 2) : amount, aura.type, owner.id, false);
+    }
+    // Champion: Heroic Warrior gives Heroic Inspiration at the start of any turn begun without it.
+    if (hasFlag(c, 'heroicWarrior') && isAlive(c)) {
+      const insp = c.resources['inspiration'];
+      if (!insp) c.resources['inspiration'] = { name: 'Heroic Inspiration', current: 1, max: 1, refresh: 'longRest' };
+      else if (insp.current < 1) {
+        insp.current = 1;
+        if (insp.max < 1) insp.max = 1;
+      }
+    }
+    // Champion: Survivor's Heroic Rally. Bloodied (half hit points or fewer) and still standing: regain 5 + CON.
+    if (hasFlag(c, 'heroicRally') && isAlive(c) && c.hp <= c.maxHp / 2) {
+      const before = c.hp;
+      heal(c, String(Math.max(1, 5 + abilityMod(c.abilities.con))));
+      if (c.hp > before) log(`${c.name}'s Heroic Rally restores ${c.hp - before} hit points.`);
+    }
     for (const [id, by] of [...noHealing]) if (by === c.id) noHealing.delete(id);
     if (shielded.has(c.id)) {
       c.ac -= 5;
@@ -900,6 +1177,10 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
   }
 
   function endOfTurn(c: Creature): void {
+    blinkAdv.delete(c.id);
+    shift.delete(c.id);
+    const st = studied.get(c.id);
+    if (st && --st.turnEnds <= 0) studied.delete(c.id);
     const cp = c.resources['_concentration'];
     if (cp && conc.has(c.id)) {
       cp.current -= 1;
@@ -971,6 +1252,15 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
 
   // --------------------------------------------------------------- commands
 
+  /**
+   * Cost of one step for a creature. HOUSE RULE: a flier (the Sphinx and the Pseudodragon, hidden flag `_flying`)
+   * ignores difficult terrain (shallow water costs 1). It still cannot cross a chasm or a wall: the grid says so.
+   */
+  function stepFor(c: Creature, from: GridPos, to: GridPos): number {
+    const sc = nav.stepCost(from, to);
+    return sc === 2 && hasFlag(c, 'flying') ? 1 : sc;
+  }
+
   function validateMove(c: Creature, path: GridPos[]): void {
     if (path.length === 0) throw new Error('Move path is empty');
     if (isIncapacitated(c)) throw new Error(`${c.name} cannot move while incapacitated`);
@@ -978,7 +1268,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     let cost = 0;
     for (const p of path) {
       if (chebyshev(cur, p) !== 1) throw new Error('Move path is not contiguous');
-      const sc = nav.stepCost(cur, p);
+      const sc = stepFor(c, cur, p);
       if (!Number.isFinite(sc)) throw new Error(`Cannot step from (${cur.x},${cur.y}) to (${p.x},${p.y})`);
       if (occupiedBy(p, c.id)) throw new Error(`Cell (${p.x},${p.y}) is occupied`);
       cost += sc;
@@ -1009,7 +1299,12 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       segment = [];
     };
     for (const next of path) {
-      if (!hasCondition(c, 'disengaged')) {
+      // Tactical Shift / Remarkable Athlete: up to half speed of this turn's movement provokes nothing.
+      const free = shift.get(c.id) ?? 0;
+      const stepCost = stepFor(c, c.pos, next);
+      const noProvoke = free >= stepCost;
+      if (noProvoke) shift.set(c.id, free - stepCost);
+      if (!hasCondition(c, 'disengaged') && !noProvoke) {
         for (const h of all) {
           if (!isAlive(c)) break;
           if (!isAlive(h) || !areHostile(c, h) || reactionUsed.has(h.id) || isIncapacitated(h) || noOpportunity.has(h.id)) continue;
@@ -1025,7 +1320,7 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
         }
       }
       if (!isAlive(c)) break;
-      const sc = nav.stepCost(c.pos, next);
+      const sc = stepFor(c, c.pos, next);
       c.pos = { x: next.x, y: next.y };
       turn.movementLeft -= sc;
       segment.push({ x: next.x, y: next.y });
@@ -1044,7 +1339,27 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     if (point !== undefined) ev.point = point;
     emit(ev);
     const cost = actionCost(c, a);
-    if (cost === 'action') turn.actionUsed = true;
+    if (cost === 'action') {
+      if (isPoolAttack(c, a)) {
+        if (atk.open && atk.left > 0) atk.left -= 1;
+        else {
+          // A new Attack action: this attack plus the extra ones.
+          turn.actionUsed = true;
+          atk.open = true;
+          atk.left = (c.resources['_attacks']?.current ?? 1) - 1;
+          atk.loadingUsed = false;
+        }
+        if (a.effects?.includes('loading')) atk.loadingUsed = true;
+        if (a.id.startsWith('throw_')) {
+          const itemId = a.id.slice('throw_'.length);
+          thrownThisTurn.set(itemId, (thrownThisTurn.get(itemId) ?? 0) + 1);
+        }
+      } else {
+        turn.actionUsed = true;
+        atk.open = false;
+        atk.left = 0;
+      }
+    }
     if (cost === 'bonus') turn.bonusUsed = true;
     if (a.uses) (c.resources[a.uses.resource] as { current: number }).current -= a.uses.amount;
     if (a.recharge !== undefined) {
@@ -1062,7 +1377,18 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
     }
     if (fx.includes('actionSurge')) {
       turn.actionUsed = false;
+      surgeUsed.add(turnKey());
       log(`${c.name} surges into action!`);
+    }
+    // Tactical Shift: Second Wind also lets the hero move up to half speed without provoking opportunity attacks.
+    if (fx.includes('secondWind') && hasFlag(c, 'tacticalShift')) shift.set(c.id, Math.floor(speedOf(c) / 2));
+    // Blink Dog Teleport. HOUSE RULE: the attack straight after it counts as made from hiding (advantage, so Sneak Attack applies).
+    if (fx.includes('blink') && point) {
+      c.pos = { x: point.x, y: point.y };
+      emit({ type: 'move', creatureId: c.id, path: [{ x: point.x, y: point.y }] });
+      blinkAdv.add(c.id);
+      log(`${c.name} blinks across the room.`);
+      return;
     }
     if (fx.includes('disengage')) addSelfCondition(c, 'disengaged');
     if (fx.includes('dodge')) addSelfCondition(c, 'dodging');
@@ -1256,6 +1582,8 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
           }
         } else if (t.kind === 'point') {
           if (!pointLegal(c, a, command.point)) throw new Error(`Invalid target point for ${a.name}`);
+          const dest = command.point as GridPos;
+          if (a.effects?.includes('blink') && (!nav.isWalkable(dest) || occupiedBy(dest, c.id))) throw new Error(`Invalid target point for ${a.name}`);
         }
       } else if (command.type !== 'endTurn') {
         throw new Error('Unknown command');
@@ -1271,5 +1599,13 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng): Com
       return events;
     },
   };
+  attackReaders.set(api, () => {
+    if (!began || over) return 0;
+    const c = active();
+    const pool = c.resources['_attacks'];
+    if (!pool) return turn.actionUsed ? 0 : 1;
+    if (atk.open && atk.left > 0) return atk.left;
+    return turn.actionUsed ? 0 : pool.current;
+  });
   return api;
 }

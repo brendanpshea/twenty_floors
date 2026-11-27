@@ -1057,6 +1057,11 @@ export interface HudModel {
     speed: number;
     actionAvailable: boolean;
     bonusAvailable: boolean;
+    /**
+     * Weapon attacks the hero can still make this turn, once the hero has more
+     * than one per Attack action (Extra Attack). Omitted for a single-attack hero.
+     */
+    attacksLeft?: { current: number; max: number };
     initiative: HudInitiativeEntry[];
   };
   actions: HudAction[];

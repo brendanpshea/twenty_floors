@@ -1,10 +1,11 @@
 import { Rng } from '../core/rng';
 import type { Command, CombatApi, Creature, GameEvent, MonsterDef, NavGrid, PlayerCharacter } from '../core/types';
-import { chooseCommand, runAiTurn, runTurnWith } from './ai';
+import { MONSTERS } from '../data/monsters';
+import { chooseCommand, damageAgainst, runAiTurn, runTurnWith } from './ai';
 import { spellCommand } from './spellPolicy';
 import { maxDice } from './dice';
 import { toCreature } from './character';
-import { createCombat } from './combat';
+import { attacksLeft, createCombat } from './combat';
 import { instantiateMonster } from './monster';
 import { createOpenRoomNav } from './testing/openRoomNav';
 
@@ -75,9 +76,9 @@ export function playerPolicy(combat: CombatApi, nav: NavGrid): Command {
       .sort((x, y) => x.hp - y.hp)[0];
     if (t) return { type: 'action', actionId: off.id, targetId: t.id };
   }
-  if (combat.canUse('action_surge').ok) {
+  if (attacksLeft(combat) === 0 && combat.canUse('action_surge').ok) {
     const canHit = c.actions.some((a) => a.attack && combat.validTargets(a.id).length > 0);
-    if (canHit) return { type: 'action', actionId: 'action_surge' };
+    if (canHit && shouldSurge(combat, c)) return { type: 'action', actionId: 'action_surge' };
   }
   if (c.hp <= c.maxHp * 0.35 && combat.canUse('spell_cure_wounds').ok && !combat.turn.actionUsed && !c.actions.some((a) => a.id.startsWith('drink_') && combat.canUse(a.id).ok)) {
     return { type: 'action', actionId: 'spell_cure_wounds', targetId: c.id };
@@ -90,13 +91,37 @@ export function playerPolicy(combat: CombatApi, nav: NavGrid): Command {
 }
 
 /**
+ * Action Surge is kept for when it matters (HOUSE RULE for the scripted hero; a hero with a single attack per
+ * action surges as soon as it can, as it always did): against a boss, in a crowd of three or more, when it can
+ * finish an enemy, or when the hero is hurt.
+ */
+function shouldSurge(combat: CombatApi, c: Creature): boolean {
+  const attacks = c.resources['_attacks']?.current ?? 1;
+  if (attacks <= 1) return true;
+  const hostiles = combat.creatures().filter((o) => !o.dead && o.hp > 0 && o.faction === 'enemy');
+  if (hostiles.length === 0) return false;
+  let perAttack = 0;
+  for (const a of c.actions) {
+    if (!a.attack || !(a.id.startsWith('atk_') || a.id.startsWith('throw_'))) continue;
+    for (const id of combat.validTargets(a.id)) {
+      const t = combat.creature(id) as Creature;
+      perAttack = Math.max(perAttack, damageAgainst(a, t) * (combat.hitChance(a.id, id) ?? 0.5));
+    }
+  }
+  const round = attacks * perAttack;
+  const boss = hostiles.some((h) => MONSTERS.find((m) => m.id === h.defId)?.role === 'boss');
+  const finish = hostiles.some((h) => h.hp <= round * 1.15);
+  return boss || finish || hostiles.length >= 3 || c.hp <= c.maxHp * 0.5;
+}
+
+/**
  * Archers shoot, then use the rest of their movement to back away from
  * enemies that are not yet adjacent (so no opportunity attack is provoked).
  */
 function archerRetreat(combat: CombatApi, nav: NavGrid, c: Creature): Command | null {
   if ((globalThis as { __NOKITE?: boolean }).__NOKITE) return null;
   const turn = combat.turn;
-  if (!turn.actionUsed || turn.movementLeft <= 0) return null;
+  if (!turn.actionUsed || turn.movementLeft <= 0 || attacksLeft(combat) > 0) return null;
   const main = c.actions.find((a) => a.id.startsWith('atk_') && a.targeting.kind === 'creature' && !a.targeting.melee);
   if (!main) return null;
   const hostiles = combat.creatures().filter((o) => !o.dead && o.hp > 0 && o.faction === 'enemy');
@@ -188,7 +213,7 @@ export function simulateFight(pc: PlayerCharacter, monsterDefs: MonsterDef[], op
 function incomingMax(combat: CombatApi, c: Creature): number {
   let total = 0;
   for (const h of combat.creatures()) {
-    if (h.dead || h.hp <= 0 || h.faction === c.faction) continue;
+    if (h.dead || h.hp <= 0 || h.faction !== 'enemy') continue;
     const d = Math.max(Math.abs(h.pos.x - c.pos.x), Math.abs(h.pos.y - c.pos.y));
     let best = 0;
     for (const a of h.actions) {
