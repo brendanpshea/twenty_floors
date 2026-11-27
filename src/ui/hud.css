@@ -1261,7 +1261,7 @@
     position: absolute;
     top: max(var(--tf-pad), env(safe-area-inset-top, 0px));
     right: max(var(--tf-pad), env(safe-area-inset-right, 0px));
-    width: min(250px, 30vw);
+    width: var(--tf-side);
   }
   .tf-temp.is-on {
     margin-bottom: 4px;
@@ -1282,4 +1282,86 @@
 .tf-comp.is-compact .tf-stance-btn .tf-icon {
   width: 16px;
   height: 16px;
+}
+
+/* ---------- Initiative labels and dense strip ---------- */
+
+.tf-init-list {
+  position: relative;
+}
+.tf-tile-letter[data-len='3'] {
+  font-size: 1em;
+}
+.tf-tile-letter[data-len='4'] {
+  font-size: 0.88em;
+  letter-spacing: -0.02em;
+}
+.tf-init-list.is-dense {
+  gap: 4px;
+}
+.tf-init-list.is-dense .tf-tile {
+  width: 38px;
+  height: 38px;
+}
+.tf-init-list.is-dense .tf-tile-letter {
+  font-size: 0.95em;
+}
+.tf-init-list.is-dense .tf-tile-letter[data-len='4'] {
+  font-size: 0.78em;
+}
+.tf-init-list.is-dense .tf-tile.is-active {
+  margin: 0 4px;
+}
+.tf-init {
+  max-width: min(100%, 720px);
+}
+
+/* ---------- Concentration chip ---------- */
+
+.tf-conc {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  max-height: 0;
+  margin: 0;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 0 solid rgba(160, 131, 214, 0.55);
+  border-radius: 999px;
+  background: rgba(100, 70, 160, 0.28);
+  color: #d8c9f5;
+  font-size: 0.78em;
+  white-space: nowrap;
+  opacity: 0;
+  transform: scale(0.9);
+  transform-origin: left center;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    max-height 220ms ease,
+    padding 220ms ease,
+    border-width 220ms ease;
+  pointer-events: auto;
+}
+.tf-conc.is-on {
+  max-height: 32px;
+  padding: 3px 10px;
+  border-width: 1px;
+  opacity: 1;
+  transform: none;
+}
+.tf-conc-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.tf-conc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.tf-conc-rounds {
+  color: var(--tf-dim);
 }

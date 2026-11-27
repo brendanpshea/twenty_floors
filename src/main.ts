@@ -27,6 +27,12 @@ function parseOptions(search: string): GameOptions {
   }
   if (q.get('reveal') === '1') opts.reveal = true;
   if (q.get('peace') === '1') opts.peace = true;
+  const preset = q.get('preset');
+  if (preset) opts.preset = preset;
+  const background = q.get('background');
+  if (background) opts.background = background;
+  const spell = q.get('spell');
+  if (spell) opts.spell = spell;
   const theme = q.get('theme');
   if (theme !== null && Object.hasOwn(THEMES, theme)) opts.theme = theme as ThemeId;
   return opts;

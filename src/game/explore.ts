@@ -1,6 +1,6 @@
 import type { CellHighlight, GridPos, PickResult } from '../core/types';
 import { CellKind, SHORT_RESTS_PER_LONG_REST } from '../core/types';
-import { chestLoot, getItem, isHiddenResource, longRest, longRestGain, rollDice, syncFromCreature, takeShortRest } from '../rules';
+import { castOutOfCombat, chestLoot, getItem, isHiddenResource, longRest, longRestGain, rollDice, syncFromCreature, takeShortRest } from '../rules';
 import { adjacentRestSite, shortRestBlock } from './hudModel';
 import { cellDistance } from './fog';
 import type { MonsterState, SessionCtx } from './floorState';
@@ -410,6 +410,37 @@ export class Explore {
     deps.renderer.setEntityState('player', { hpFraction: state.player.hp / state.player.maxHp });
     deps.renderer.floatText('player', `+${gained}`, 'heal');
     this.ctx.say(`${next.build.name} drinks ${item.name} and regains ${gained} hit points.`);
+    this.ctx.hud();
+  }
+
+  private spellCasts = 0;
+
+  /** Cast a known spell between fights (castOutOfCombat): cures, False Life, Mage Armor. */
+  async castSpell(spellId: string): Promise<void> {
+    const { state, deps } = this.ctx;
+    if (this.walking || this.resting || state.mode !== 'explore' || state.finished) return;
+    const synced = syncFromCreature(state.pc, state.player);
+    const result = castOutOfCombat(synced, spellId, state.floorRng.fork(`cast:${spellId}:${this.spellCasts++}`));
+    if ('error' in result) {
+      deps.audio.play('uiError');
+      this.ctx.prompt(result.error, 2500);
+      return;
+    }
+    this.resting = true; // blocks other input while the cast plays
+    try {
+      state.pc = result.pc;
+      this.ctx.rebuildPlayer();
+      this.ctx.hud();
+      deps.audio.play(result.healed !== undefined ? 'heal' : 'buff');
+      await this.ctx.guard(deps.renderer.playAnim('player', 'cast'), 1200);
+      const hp = state.player;
+      deps.renderer.setEntityState('player', { hpFraction: hp.hp / hp.maxHp });
+      if (result.healed !== undefined) deps.renderer.floatText('player', `+${result.healed}`, 'heal');
+      else deps.renderer.floatText('player', spellId === 'false_life' ? `+${hp.tempHp} temp HP` : 'Mage Armor', 'info');
+      this.ctx.say(result.log);
+    } finally {
+      this.resting = false;
+    }
     this.ctx.hud();
   }
 

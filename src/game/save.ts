@@ -1,4 +1,5 @@
 import type { PlayerCharacter, QualityLevel, SaveGame } from '../core/types';
+import { migrateEquipment } from '../rules';
 import { QUALITY_KEY, SAVE_KEY } from './deps';
 import type { RunState, StorageLike } from './deps';
 
@@ -79,7 +80,8 @@ export function runFromSave(save: SaveGame): RunState {
   return {
     runSeed: save.runSeed,
     depth: save.depth,
-    pc: JSON.parse(JSON.stringify(save.character)) as PlayerCharacter,
+    // Older saves held a bow in the main hand; move it to the ranged slot.
+    pc: migrateEquipment(JSON.parse(JSON.stringify(save.character)) as PlayerCharacter),
     shortRestsLeft: save.shortRestsLeft,
   };
 }

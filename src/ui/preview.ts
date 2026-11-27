@@ -1,7 +1,7 @@
 /** Dev harness for the UI. Open dev/ui-preview.html; see the `?screen=` values in SCREENS. */
 import type { HubIntent, HubModel, HudModel, UiIntent } from '../core/types';
 import { createUi } from './index';
-import { combatHud, creationOptions, exploreHud, makeCompanionHubModel, makeHubModel, withCompanion } from './mocks';
+import { combatHud, creationOptions, crowdedInitiative, exploreHud, makeCompanionHubModel, makeHubModel, withCompanion } from './mocks';
 
 const rootEl = document.getElementById('ui-root');
 if (!rootEl) throw new Error('#ui-root missing');
@@ -48,6 +48,7 @@ ui.onIntent((i: UiIntent) => {
       hud.prompt = 'Choose a target';
       break;
     case 'cancel':
+      if (hud.concentration) delete hud.concentration; // preview: Escape ends concentration so the exit animation can be seen
       hud.actions = hud.actions.map((a) => ({ ...a, selected: false }));
       hud.prompt = undefined;
       break;
@@ -197,6 +198,11 @@ const SCREENS: Record<string, Runner> = {
     hud = withCompanion(combatHud(), params.get('c') ?? 'pseudodragon', { downed: true, stance: 'back' });
     pushHud();
   },
+  'hud-concentration': () => {
+    hud = combatHud();
+    hud.concentration = { spellName: 'Bless', roundsLeft: 8 };
+    pushHud();
+  },
   'hud-blocked': () => {
     hud = exploreHud();
     hud.canShortRest = false;
@@ -205,6 +211,13 @@ const SCREENS: Record<string, Runner> = {
   },
   'hud-combat': () => {
     hud = combatHud();
+    const n = Number(params.get('n') ?? 0);
+    if (n > 0 && hud.combat) {
+      const act = Number(params.get('active') ?? 0);
+      hud.combat.initiative = crowdedInitiative(n, act);
+      if (act !== 0) hud.combat.playerTurn = false;
+      if (params.get('companion') === '1') hud = withCompanion(hud, 'pseudodragon');
+    }
     pushHud();
   },
   'hud-targeting': () => {

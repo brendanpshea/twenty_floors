@@ -1,5 +1,5 @@
 import { MILESTONE_FLOORS } from '../core/themes';
-import { createCharacter, getCreationOptions } from '../rules';
+import { createCharacter, getCreationOptions, migrateEquipment } from '../rules';
 import { runBot } from './autoplay';
 import type { BotResult } from './autoplay';
 import type { GameDeps, RunState } from './deps';
@@ -8,7 +8,17 @@ import { FloorSession } from './floorSession';
 import { runHub } from './hubFlow';
 import { quickCharacter } from './quickBuild';
 import { devStartDepth, isDevStart } from './runPlan';
+import type { QuickOptions } from './quickBuild';
 import { deleteSave, loadQuality, loadSave, runFromSave, writeSave } from './save';
+
+/** The ?preset= ?background= ?spell= choices of a dev start. */
+function devHero(o: GameDeps['options']): QuickOptions {
+  const out: QuickOptions = {};
+  if (o.preset) out.preset = o.preset;
+  if (o.background) out.background = o.background;
+  if (o.spell) out.spell = o.spell;
+  return out;
+}
 
 export type RunEnd = 'victory' | 'quit';
 
@@ -51,7 +61,7 @@ export class Game {
       await this.playRun({
         runSeed: options.seed ?? this.deps.newSeed(),
         depth,
-        pc: quickCharacter(depth),
+        pc: quickCharacter(depth, devHero(options)),
         shortRestsLeft: SHORT_RESTS_PER_FLOOR,
       });
     }
@@ -67,7 +77,7 @@ export class Game {
         const build = await ui.showCreation(getCreationOptions());
         let pc;
         try {
-          pc = createCharacter(build);
+          pc = migrateEquipment(createCharacter(build));
         } catch (err) {
           // The creation screen handed over an invalid build: report it and go back to the title.
           console.error('Invalid character build', build, err);

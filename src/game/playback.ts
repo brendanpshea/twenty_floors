@@ -1,5 +1,6 @@
 import type { DamageType, GameEvent, GridPos } from '../core/types';
 import { CellKind } from '../core/types';
+import { isSpellAction } from '../rules';
 import { QUIET_CONDITIONS, capitalize, logLine } from './eventLog';
 import type { SessionCtx } from './floorState';
 import { cellDistance } from './fog';
@@ -75,19 +76,34 @@ export class Playback {
     const attacker = creatureById(this.ctx.state, e.attackerId);
     const def = attacker?.actions.find((a) => a.name === e.actionName);
     const melee = def?.targeting.kind === 'creature' ? def.targeting.melee : true;
+    const spell = def !== undefined && isSpellAction(def);
     const name = e.actionName.toLowerCase();
     audio.play('diceRoll');
     const swing = name.includes('bite') ? 'bite' : name.includes('claw') ? 'claw' : melee ? 'swing' : 'bowShot';
-    audio.play(swing, { delay: 0.12 });
+    // A spell attack was announced by the cast sound; it has no swing.
+    if (!spell) audio.play(swing, { delay: 0.12 });
     if (e.outcome === 'miss' || e.outcome === 'fumble') {
       audio.play('miss', { delay: 0.3 });
       return;
     }
     const dmg = ahead.find((x) => x.type === 'damage' && x.targetId === e.targetId);
     const type: DamageType = dmg && dmg.type === 'damage' ? dmg.damageType : 'slashing';
-    const impact = !melee ? 'arrowHit' : type === 'bludgeoning' ? 'hitBlunt' : type === 'piercing' ? 'hitPierce' : 'hitBlade';
+    // Spells have no sound of their own yet: every damage type lands as a blunt hit.
+    const impact = spell ? 'hitBlunt' : !melee ? 'arrowHit' : type === 'bludgeoning' ? 'hitBlunt' : type === 'piercing' ? 'hitPierce' : 'hitBlade';
     audio.play(impact, { delay: 0.3 });
     if (e.outcome === 'crit') audio.play('crit', { delay: 0.35 });
+  }
+
+  /** Shield and concentration arrive as log events: show them over the creature too. */
+  private logFloat(text: string): void {
+    const m =
+      /^(.+) casts Shield!/.exec(text) ?? /^(.+) begins concentrating on (.+)\.$/.exec(text) ?? /^(.+?)'s concentration on (.+?) ends/.exec(text);
+    if (!m) return;
+    const state = this.ctx.state;
+    const who = [state.player, ...state.monsters.map((x) => x.creature)].find((c) => c.name === m[1]);
+    if (!who || !isEntityVisible(state, who.id)) return;
+    const label = text.includes('casts Shield') ? 'Shield!' : text.includes('begins') ? `Concentrating: ${m[2]}` : 'Concentration ends';
+    this.ctx.deps.renderer.floatText(who.id, label, 'info');
   }
 
   private posOf(id: string): GridPos | undefined {
@@ -113,9 +129,21 @@ export class Playback {
         audio.setCombat(false);
         audio.play(e.winner === 'player' ? 'victory' : 'defeat', { delay: 0.3 });
         break;
-      case 'actionUsed':
+      case 'actionUsed': {
         if (e.actionId === 'dash') audio.play('dash');
         else if (e.actionId.startsWith('drink_')) audio.play('potion');
+        const caster = creatureById(state, e.creatureId);
+        const act = caster?.actions.find((a) => a.id === e.actionId);
+        if (act && isSpellAction(act)) this.ctx.say(`${this.nameOf(e.creatureId)} casts ${e.name}.`);
+        if (act && isSpellAction(act) && isEntityVisible(state, e.creatureId)) {
+          audio.play('buff');
+          const facing = e.point ?? (e.targetId ? this.posOf(e.targetId) : undefined);
+          await this.ctx.guard(r.playAnim(e.creatureId, 'cast', facing ? { facing } : undefined), this.wait(1000));
+        }
+        break;
+      }
+      case 'log':
+        this.logFloat(e.text);
         break;
       case 'turnStart': {
         const prev = state.shownActive;
@@ -164,7 +192,9 @@ export class Playback {
         const target = this.posOf(e.targetId);
         const visible = isEntityVisible(state, e.attackerId) || isEntityVisible(state, e.targetId);
         if (visible) this.attackSounds(e, ahead);
-        if (visible) {
+        const atkDef = creatureById(state, e.attackerId)?.actions.find((a) => a.name === e.actionName);
+        // A spell attack already played the cast animation.
+        if (visible && !(atkDef && isSpellAction(atkDef))) {
           const p = r.playAnim(e.attackerId, 'attack', target ? { facing: target } : undefined);
           await this.ctx.guard(p, this.wait(1500));
         }

@@ -2,7 +2,7 @@ import type { GridPos } from '../core/types';
 import { canShortRest } from './hudModel';
 import { cellDistance } from './fog';
 import type { FloorSession } from './floorSession';
-import { longRestGain, shortRestGain, syncFromCreature } from '../rules';
+import { longRestGain, outOfCombatSpells, shortRestGain, syncFromCreature } from '../rules';
 import { blockedAt, isSeen, livingMonsters, samePos } from './floorState';
 
 export type BotResult = 'finished' | 'stuck' | 'cap';
@@ -21,6 +21,7 @@ export async function runBot(
   const ignoredChests = new Set<string>();
   const ignoredSites = new Set<string>();
   const ignoredRooms = new Set<number>();
+  const casts = new Map<string, number>();
   for (let step = 0; step < maxSteps; step++) {
     if (session.finished) return 'finished';
     const state = session.state;
@@ -35,6 +36,17 @@ export async function runBot(
     }
     const frac = state.player.hp / state.player.maxHp;
     const synced = syncFromCreature(state.pc, state.player);
+    // Spells first: wards before the first fight, cures when hurt (they cost nothing but a long-rest use).
+    if (canCastNow(state)) {
+      const want = outOfCombatSpells(synced).find(
+        (sp) => sp.available && (casts.get(sp.id) ?? 0) < 3 && (sp.id === 'cure_wounds' || sp.id === 'healing_word' ? frac < 0.7 : state.mode === 'explore'),
+      );
+      if (want) {
+        casts.set(want.id, (casts.get(want.id) ?? 0) + 1);
+        await session.explore.castSpell(want.id);
+        continue;
+      }
+    }
     // Short rest between fights when hurt or missing short-rest abilities.
     if (canShortRest(state, false) && (frac < 0.6 || shortRestGain(synced).resources)) {
       await session.explore.shortRest();
@@ -106,4 +118,8 @@ function pathLen(session: FloorSession, from: GridPos, to: GridPos): number {
   const s = session.state;
   const path = s.nav.findPath(from, to, { blocked: blockedAt(s) });
   return path ? path.length : Number.POSITIVE_INFINITY;
+}
+
+function canCastNow(state: FloorSession['state']): boolean {
+  return state.mode === 'explore' && !state.finished;
 }

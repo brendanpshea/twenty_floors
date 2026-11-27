@@ -8,6 +8,7 @@ import { createCombat, instantiateMonster, playerPolicy, runAiTurn, toCreature }
 import { runBot } from './autoplay';
 import { FloorSession } from './floorSession';
 import { quickCharacter } from './quickBuild';
+import type { QuickOptions } from './quickBuild';
 import { makeHarness } from './testing/fakes';
 
 /**
@@ -59,12 +60,12 @@ function neighbours(p: GridPos): GridPos[] {
   return out;
 }
 
-async function smokeFloor(theme: ThemeId, depth: number, seed: number): Promise<void> {
+async function smokeFloor(theme: ThemeId, depth: number, seed: number, hero: QuickOptions = {}): Promise<void> {
   const fail = (where: string, message: string): void => {
     failures.push({ theme, depth, seed, where, message });
   };
   const h = makeHarness({ theme, depth, seed });
-  const session = new FloorSession(h.deps, { runSeed: seed, depth, pc: quickCharacter(depth), shortRestsLeft: 2 }, 1);
+  const session = new FloorSession(h.deps, { runSeed: seed, depth, pc: quickCharacter(depth, hero), shortRestsLeft: 2 }, 1);
   try {
     await session.enter();
   } catch (e) {
@@ -118,9 +119,9 @@ async function smokeFloor(theme: ThemeId, depth: number, seed: number): Promise<
     const near = neighbours(m.creature.pos).find((p) => nav.inBounds(p) && nav.isWalkable(p) && nav.stepCost(m.creature.pos, p) < Infinity);
     if (!near) continue;
     try {
-      const hero: Creature = toCreature(quickCharacter(depth), near);
+      const duelist: Creature = toCreature(quickCharacter(depth, hero), near);
       const mon = instantiateMonster(def, 'duel', m.creature.pos);
-      const combat = createCombat([hero, mon], nav, new Rng(seed));
+      const combat = createCombat([duelist, mon], nav, new Rng(seed));
       combat.begin();
       for (let i = 0; i < 80 && !combat.isOver; i++) {
         if (combat.activeId === 'player') combat.execute(playerPolicy(combat, nav));
@@ -171,6 +172,15 @@ describe('every theme through the real game stack', () => {
       },
       120_000,
     );
+  }
+
+  // Caster and archer heroes on a few themes: spells, out-of-combat casts and the off-hand attack through the bot.
+  for (const hero of [{ background: 'sage', spell: 'burning_hands' }, { background: 'acolyte' }, { preset: 'archer' }] as QuickOptions[]) {
+    it(`hero ${JSON.stringify(hero)} on a few themes`, async () => {
+      const before = failures.length;
+      for (const [theme, depth] of [['crypt', 4], ['ice', 12], ['hell', 18]] as const) await smokeFloor(theme, depth, 7, hero);
+      expect(failures.slice(before).map((f) => `${f.theme} ${f.where}: ${f.message}`)).toEqual([]);
+    }, 120_000);
   }
 
   it('reports model stand-ins (informational)', () => {

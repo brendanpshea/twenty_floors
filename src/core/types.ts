@@ -1060,6 +1060,8 @@ export interface HudModel {
     initiative: HudInitiativeEntry[];
   };
   actions: HudAction[];
+  /** The spell the hero is concentrating on, if any, and the turns it has left. */
+  concentration?: { spellName: string; roundsLeft: number };
   /** Info on the hovered or selected creature. */
   target?: {
     name: string;
@@ -1068,6 +1070,8 @@ export interface HudModel {
     ac: number;
     conditions: Condition[];
     description?: string;
+    /** Whose side it is on; the panel reads as friendly for 'ally' and 'player'. */
+    faction?: Faction;
     /** 0..1 hit chance with the selected action, if one is selected. */
     hitChance?: number;
   };

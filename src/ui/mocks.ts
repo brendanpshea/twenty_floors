@@ -5,6 +5,7 @@ import type {
   CreationOptions,
   FeatInfo,
   HubModel,
+  HudInitiativeEntry,
   HudModel,
   ItemDef,
 } from '../core/types';
@@ -661,4 +662,35 @@ export function makeCompanionHubModel(required: boolean): HubModel {
   m.character.level = 4;
   m.companions = { options: companionInfos, chosenId: required ? null : 'pseudodragon', required };
   return m;
+}
+
+// ---------------------------------------------------------------------------
+// Crowded fights
+// ---------------------------------------------------------------------------
+
+const crowd: { name: string; faction: 'player' | 'enemy' | 'ally'; hp: number }[] = [
+  { name: 'Aldric', faction: 'player', hp: 0.77 },
+  { name: 'Young White Dragon A', faction: 'enemy', hp: 0.9 },
+  { name: 'Young White Dragon B', faction: 'enemy', hp: 0.5 },
+  { name: 'Wyvern A', faction: 'enemy', hp: 1 },
+  { name: 'Goblin Boss', faction: 'enemy', hp: 0.42 },
+  { name: 'Pseudodragon', faction: 'ally', hp: 0.7 },
+  { name: 'Goblin A', faction: 'enemy', hp: 0 },
+  { name: 'Goblin B', faction: 'enemy', hp: 0.6 },
+  { name: 'Skeleton A', faction: 'enemy', hp: 1 },
+  { name: 'Skeleton B', faction: 'enemy', hp: 0.3 },
+  { name: 'Wyvern B', faction: 'enemy', hp: 0.8 },
+  { name: 'Ogre', faction: 'enemy', hp: 1 },
+];
+
+/** An initiative list of n creatures (with duplicates), with the creature at index `active` on its turn. */
+export function crowdedInitiative(n: number, active = 0): HudInitiativeEntry[] {
+  return crowd.slice(0, n).map((c, i) => ({
+    id: i === 0 ? 'player' : `c${i}`,
+    name: c.name,
+    faction: c.faction,
+    hpFraction: c.hp,
+    active: i === active,
+    dead: c.hp === 0,
+  }));
 }

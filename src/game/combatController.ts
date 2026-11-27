@@ -201,6 +201,7 @@ export class CombatController {
     }
     this.mode = 'move';
     this.selectedActionId = null;
+    this.ctx.prompt(undefined);
     await this.playback.play(events);
     if (combat.isOver || combat.activeId !== 'player') await this.advance();
     else this.refreshReach();
@@ -230,7 +231,20 @@ export class CombatController {
       if (!cell) return;
       const a = combat.availableActions().find((x) => x.id === actionId);
       const range = a?.targeting.kind === 'point' ? a.targeting.range : 0;
-      if (cellDistance(this.ctx.state.player.pos, cell) > range) {
+      if (range === 0) {
+        // A cone or line from the hero: the tapped cell gives the direction. Touch has no hover, so the first
+        // tap aims (and shows the area) and a second tap on the same cell confirms.
+        if (samePos(cell, this.ctx.state.player.pos)) {
+          this.ctx.prompt('Aim away from yourself.', 1800);
+          return;
+        }
+        if (!sameCell(cell, this.hoverCell)) {
+          this.hoverCell = { ...cell };
+          this.renderHighlights();
+          this.ctx.prompt(`${a?.name ?? 'Spell'}: tap again to confirm.`, 2500);
+          return;
+        }
+      } else if (cellDistance(this.ctx.state.player.pos, cell) > range) {
         this.ctx.prompt('Out of range.', 1800);
         return;
       }

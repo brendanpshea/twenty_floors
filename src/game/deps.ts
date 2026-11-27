@@ -23,6 +23,12 @@ export interface GameOptions {
   reveal?: boolean;
   /** Force this theme on the dev start floor (?theme=). */
   theme?: ThemeId;
+  /** Build preset for a dev-start hero (?preset=defender|greatweapon|archer). */
+  preset?: string;
+  /** Background for a dev-start hero (?background=soldier|criminal|sage|acolyte). */
+  background?: string;
+  /** Magic Initiate level-1 spell for a dev-start hero (?spell=). */
+  spell?: string;
   /** Monsters are spawned but never start a fight (?peace=1). For walking and looking at a floor. */
   peace?: boolean;
 }

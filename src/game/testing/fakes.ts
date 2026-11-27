@@ -28,7 +28,7 @@ export class FakeRenderer implements Renderer3D {
   revealed: Uint8Array = new Uint8Array(0);
   quality: QualityLevel = 'medium';
   following: string | null = null;
-  floats: { text: string; style: string }[] = [];
+  floats: { text: string; style: string; at?: string }[] = [];
   pickCb: (p: PickResult) => void = () => undefined;
   hoverCb: (p: PickResult) => void = () => undefined;
 
@@ -60,8 +60,10 @@ export class FakeRenderer implements Renderer3D {
     const e = this.entities.get(id);
     if (e) e.pos = { ...pos };
   }
-  async playAnim(id: string): Promise<void> {
+  anims: { id: string; anim: string; facing?: GridPos }[] = [];
+  async playAnim(id: string, anim: string, opts?: { facing?: GridPos }): Promise<void> {
     this.need(id, 'playAnim');
+    this.anims.push(opts?.facing ? { id, anim, facing: opts.facing } : { id, anim });
   }
   setEntityState(id: string, state: { visible?: boolean; dead?: boolean }): void {
     this.need(id, 'setEntityState');
@@ -72,7 +74,7 @@ export class FakeRenderer implements Renderer3D {
   }
   floatText(at: string | GridPos, text: string, style: string): void {
     if (typeof at === 'string') this.need(at, 'floatText');
-    this.floats.push({ text, style });
+    this.floats.push(typeof at === 'string' ? { text, style, at } : { text, style });
   }
   setHighlights(cells: CellHighlight[]): void {
     this.highlights = cells;

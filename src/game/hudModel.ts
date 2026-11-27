@@ -1,5 +1,5 @@
 import type { ActionDef, CombatApi, Condition, Creature, HudAction, HudModel } from '../core/types';
-import { getCreationOptions, isHiddenResource, longRestGain, shortRestGain, syncFromCreature } from '../rules';
+import { concentratingOn, getCreationOptions, getSpell, isHiddenResource, longRestGain, outOfCombatSpells, shortRestGain, spellPoolKey, syncFromCreature } from '../rules';
 import type { FloorState, RestSiteState } from './floorState';
 import { creatureById, isEntityVisible, livingMonsters, monsterDef } from './floorState';
 
@@ -13,6 +13,9 @@ function classNameOf(id: string): string {
   if (!classNames) classNames = new Map(getCreationOptions().classes.map((c) => [c.id, c.name]));
   return classNames.get(id) ?? id;
 }
+
+/** Action-id prefix of a spell cast between fights (the explore HUD). */
+export const CAST_PREFIX = 'cast_';
 
 /** Past this many creatures in a fight the initiative strip drops the defeated. */
 export const MAX_STRIP_WITH_DEAD = 8;
@@ -131,11 +134,34 @@ export function buildHudModel(inp: HudInputs): HudModel {
     }
   }
 
+  if (inCombat && combat) {
+    const spell = concentratingOn(player);
+    if (spell) model.concentration = { spellName: spell, roundsLeft: player.resources['_concentration']?.current ?? 0 };
+  }
+
   if (!inCombat) {
     const hurt = player.hp < player.maxHp;
     model.actions = player.actions
       .filter((x) => x.id.startsWith('drink_') && (usesLeft(player, x) ?? 1) > 0)
       .map((x) => hudAction(player, x, hurt && !busy, busy ? 'Wait' : 'You are at full health', false));
+    // Spells that work between fights (cures, False Life, Mage Armor), next to the potions.
+    const synced = syncFromCreature(state.pc, player);
+    for (const sp of outOfCombatSpells(synced)) {
+      const def = getSpell(sp.id);
+      const pool = synced.resources[spellPoolKey(sp.id)];
+      const a: HudAction = {
+        id: CAST_PREFIX + sp.id,
+        name: sp.name,
+        description: def?.description ?? sp.name,
+        icon: 'spell',
+        cost: 'action',
+        enabled: sp.available && !busy && !state.finished,
+        selected: false,
+      };
+      if (!a.enabled) a.disabledReason = busy ? 'Wait' : (sp.reason ?? 'Not now');
+      if (pool) a.usesLeft = pool.current;
+      model.actions.push(a);
+    }
   }
 
   const target = state.targetId ? creatureById(state, state.targetId) : undefined;
@@ -146,11 +172,14 @@ export function buildHudModel(inp: HudInputs): HudModel {
       maxHp: target.maxHp,
       ac: target.ac,
       conditions: conditionsOf(target),
+      faction: target.faction,
     };
     const desc = target.id === 'player' ? undefined : monsterDef(target.defId)?.description;
     if (desc) t.description = desc;
     const chanceAction = selectedActionId ?? inp.previewActionId ?? null;
-    if (inCombat && combat && chanceAction && target.id !== 'player' && !busy) {
+    // Only attack rolls have a hit chance (a save spell or an area has none to show).
+    const chanceDef = chanceAction ? player.actions.find((x) => x.id === chanceAction) : undefined;
+    if (inCombat && combat && chanceAction && chanceDef?.attack !== undefined && target.id !== 'player' && !busy) {
       const chance = combat.hitChance(chanceAction, target.id);
       if (chance !== null) t.hitChance = chance;
     }

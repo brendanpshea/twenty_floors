@@ -91,6 +91,20 @@ const STANCES: { id: CompanionStance; label: string; tip: string }[] = [
   { id: 'focus', label: 'Focus', tip: 'Focus: attacks whatever you attacked last' },
 ];
 
+/** "Young White Dragon A" -> "YW\u00b7A", "Goblin Boss" -> "GB", "Wyvern A" -> "W\u00b7A". */
+export function tileLabel(name: string, faction: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  if (faction === 'player') return (words[0]?.charAt(0) ?? '?').toUpperCase();
+  let suffix = '';
+  if (words.length > 1 && /^[A-Za-z]$/.test(words[words.length - 1] ?? '')) suffix = (words.pop() ?? '').toUpperCase();
+  const base = words
+    .slice(0, 2)
+    .map((w) => w.charAt(0).toUpperCase())
+    .join('');
+  return suffix ? `${base}\u00b7${suffix}` : base;
+}
+
 const ROLE_LABEL = { healer: 'Healer', blaster: 'Blaster', skirmisher: 'Skirmisher' } as const;
 
 export class Hud {
@@ -150,6 +164,10 @@ export class Hud {
   private readonly stanceEl = h('div', 'tf-stance');
   private readonly stanceBtns = new Map<CompanionStance, HTMLButtonElement>();
   private compOpen = false;
+  private lastActiveTile = '';
+  private readonly concEl = h('div', 'tf-conc');
+  private readonly concName = h('span', 'tf-conc-name');
+  private readonly concRounds = h('span', 'tf-conc-rounds');
 
   // log
   private readonly logEl = h('section', 'tf-log');
@@ -289,7 +307,12 @@ export class Hud {
     }));
     const statRow = h('div', 'tf-statrow');
     statRow.append(this.hdEl, this.resEl);
-    pMain.append(pHead, this.playerBar.el, this.playerTemp, this.playerConds, statRow);
+    this.concEl.append(createIcon('stance-focus', 'tf-icon tf-conc-icon'), this.concName, this.concRounds);
+    this.tip.attach(this.concEl, () => ({
+      title: `Concentrating: ${this.concName.textContent ?? ''}`,
+      body: 'Concentrating: ends if you cast another concentration spell, fail a Constitution save after taking damage, or are incapacitated.',
+    }));
+    pMain.append(pHead, this.playerBar.el, this.playerTemp, this.concEl, this.playerConds, statRow);
     player.append(acBadge, pMain);
     this.playerCondList = chipList(this.playerConds);
     this.resList = new KeyedList(
@@ -499,6 +522,13 @@ export class Hud {
     this.syncPlayer(m);
     this.syncCombat(m);
     this.syncCompanion(m);
+    const conc = m.concentration;
+    if (conc) {
+      setText(this.concName, conc.spellName);
+      setText(this.concRounds, `${conc.roundsLeft} round${conc.roundsLeft === 1 ? '' : 's'}`);
+      setAttr(this.concEl, 'aria-label', `Concentrating on ${conc.spellName}, ${conc.roundsLeft} rounds left`);
+    }
+    this.concEl.classList.toggle('is-on', !!conc);
     this.syncTarget(m);
     this.actions.sync(m.actions);
     this.actionsEl.classList.toggle('is-many', m.actions.length > 5);
@@ -550,6 +580,16 @@ export class Hud {
     }
     setText(this.initRound, `Round ${c.round}`);
     this.tiles.sync(c.initiative);
+    this.initList.classList.toggle('is-dense', c.initiative.length > 8);
+    const active = c.initiative.find((e) => e.active)?.id ?? '';
+    if (active !== this.lastActiveTile) {
+      this.lastActiveTile = active;
+      const el = this.tiles.get(active)?.el;
+      if (el) {
+        const list = this.initList;
+        list.scrollLeft = el.offsetLeft - (list.clientWidth - el.offsetWidth) / 2;
+      }
+    }
     this.pipAction.classList.toggle('is-spent', !c.actionAvailable);
     this.pipBonus.classList.toggle('is-spent', !c.bonusAvailable);
     this.pipAction.setAttribute('aria-label', c.actionAvailable ? 'Action available' : 'Action used');
@@ -569,7 +609,7 @@ export class Hud {
     const t = m.target;
     this.targetEl.classList.toggle('is-open', !!t);
     if (!t) return;
-    const friendly = !!m.companion && m.companion.name === t.name;
+    const friendly = t.faction !== undefined ? t.faction === 'ally' || t.faction === 'player' : !!m.companion && m.companion.name === t.name;
     this.targetEl.classList.toggle('is-friendly', friendly);
     setText(this.targetName, t.name);
     setText(this.targetAcNum, String(t.ac));
@@ -670,12 +710,15 @@ export class Hud {
     const comp = e.faction === 'ally' && this.model?.companion?.name === e.name ? this.model.companion : undefined;
     const cls = `tf-tile tf-tile--${e.faction}${comp ? ' is-companion' : ''}${e.active ? ' is-active' : ''}${e.dead ? ' is-dead' : ''}`;
     if (item.el.className !== cls) item.el.className = cls;
-    setText(item.letter, (e.name.trim().charAt(0) || '?').toUpperCase());
+    const label = tileLabel(e.name, e.faction);
+    setText(item.letter, label);
+    item.letter.dataset['len'] = String(label.length);
     item.letter.hidden = !!comp;
     item.glyph.hidden = !comp;
     if (comp) swapIcon(item.glyph, `role-${comp.role}`);
     setBar(item.bar, e.dead ? 0 : e.hpFraction);
     setAttr(item.el, 'aria-label', `${e.name}${e.active ? ', active' : ''}${e.dead ? ', fallen' : ''}`);
+    setAttr(item.el, 'data-name', e.name);
     setAttr(item.el, 'aria-current', e.active ? 'true' : null);
   }
 

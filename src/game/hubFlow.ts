@@ -4,12 +4,14 @@ import type { HubIntent, HubModel, ItemDef, PlayerCharacter, GameUi } from '../c
 import {
   applyLevelUp,
   buyItem,
+  canEquip,
   computeAc,
   equipItem,
   floorReward,
   getCreationOptions,
   getItem,
   longRest,
+  migrateEquipment,
   previewLevelUp,
   shopStock,
 } from '../rules';
@@ -29,8 +31,10 @@ export class HubFlow {
     private readonly cleared: number,
     private readonly audio: GameAudio,
     private readonly runSeed: number,
+    /** Tells the player what an equip did (the hub has no confirm dialog). */
+    private readonly notify: (text: string) => void = () => undefined,
   ) {
-    this.pc = { ...longRest(character) };
+    this.pc = { ...longRest(migrateEquipment(character)) };
     this.pc.gold = Math.round((this.pc.gold + floorReward(cleared)) * 100) / 100;
   }
 
@@ -80,8 +84,18 @@ export class HubFlow {
           this.audio.play('coins');
           break;
         case 'equip':
-          this.pc = equipItem(this.pc, intent.itemId);
-          this.audio.play('uiConfirm');
+          {
+            const check = canEquip(this.pc, intent.itemId);
+            if (!check.ok) {
+              this.audio.play('uiError');
+              this.notify(check.reason ?? 'You cannot equip that');
+              break;
+            }
+            this.pc = equipItem(this.pc, intent.itemId);
+            this.audio.play('uiConfirm');
+            if (check.reason) this.notify(check.reason);
+            else if (check.unequips) this.notify(`${getItem(check.unequips)?.name ?? check.unequips} is put away.`);
+          }
           break;
         case 'descend':
           break;
@@ -112,7 +126,7 @@ export async function runHub(
   headless: boolean,
   runSeed: number,
 ): Promise<PlayerCharacter> {
-  const hub = new HubFlow(character, clearedDepth, audio, runSeed);
+  const hub = new HubFlow(character, clearedDepth, audio, runSeed, (text) => ui.banner('Equipment', text));
   if (!headless) await ui.showHub(hub.model(), (intent) => hub.handle(intent));
   return hub.settle();
 }

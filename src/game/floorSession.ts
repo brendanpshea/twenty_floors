@@ -11,7 +11,7 @@ import { Explore } from './explore';
 import { cellDistance, revealFrom } from './fog';
 import type { FloorState, SessionCtx } from './floorState';
 import { creatureById, isSeen, livingMonsters, monsterDef, setEntityVisible } from './floorState';
-import { buildHudModel } from './hudModel';
+import { CAST_PREFIX, buildHudModel } from './hudModel';
 import { Playback } from './playback';
 import { floorTheme } from './runPlan';
 import { loadQuality, saveQuality } from './save';
@@ -113,6 +113,17 @@ export class FloorSession {
     this.combat = new CombatController(this.ctx, playback, this.attempt, () => undefined);
 
     await renderer.loadFloor(plan);
+    // Warm the model cache (bounded) so entities show real models on the first frame, before the veil drops.
+    const warm = (renderer as { preloadModels?: (keys: string[], timeoutMs?: number) => Promise<void> }).preloadModels;
+    if (typeof warm === 'function') {
+      const keys = new Set<string>([HERO_MODEL, 'chest', 'rest_site']);
+      for (const m of state.monsters) keys.add(m.creature.visual.model);
+      try {
+        await warm.call(renderer, [...keys], 2000);
+      } catch (err) {
+        console.warn('Model preload failed', err);
+      }
+    }
     renderer.spawnEntity('player', state.player.visual, state.player.pos, { faction: 'player', size: state.player.size });
     state.entityVisible.set('player', true);
     for (const m of state.monsters) {
@@ -337,6 +348,7 @@ export class FloorSession {
         break;
       case 'selectAction':
         if (state.mode === 'combat') this.safe(this.combat.selectAction(intent.actionId));
+        else if (intent.actionId.startsWith(CAST_PREFIX)) this.safe(this.explore.castSpell(intent.actionId.slice(CAST_PREFIX.length)));
         else this.explore.useItem(intent.actionId);
         break;
       case 'selectCreature': {
