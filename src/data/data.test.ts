@@ -327,6 +327,7 @@ const MIN_RANGED_OR_AREA = 113;
 const MIN_WITH_RANGED_ATTACK = 62;
 const MIN_WITH_AREA = 59;
 
+const DAMAGE_TYPES = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
 const DICE_RE = /^\d+(d\d+)?([+-]\d+)?$/;
 
 /** Average of an "NdM+K" expression. */
@@ -341,7 +342,7 @@ function averageOf(dice: string): number {
   return (n * (sides + 1)) / 2 + mod;
 }
 
-const KNOWN_CONDITIONS = ['blinded', 'charmed', 'frightened', 'grappled', 'incapacitated', 'invisible', 'paralyzed', 'poisoned', 'prone', 'restrained', 'stunned', 'unconscious', 'dodging', 'disengaged'];
+const KNOWN_CONDITIONS = ['blinded', 'burning', 'charmed', 'frightened', 'grappled', 'incapacitated', 'invisible', 'paralyzed', 'poisoned', 'prone', 'restrained', 'stunned', 'unconscious', 'dodging', 'disengaged'];
 
 describe('monster data', () => {
   it('has exactly the expected ids, each unique', () => {
@@ -500,6 +501,15 @@ describe('monster ranged, spell and area actions', () => {
           expect(a.applies, `${m.id}.${a.id} alsoApplies needs applies`).toBeDefined();
         }
         if (a.applies?.saveEnds) expect(a.applies.saveEnds.dc, `${m.id}.${a.id} saveEnds dc`).toBeGreaterThanOrEqual(8);
+        for (const o of [a.applies?.ongoing, ...(a.alsoApplies ?? []).map((e) => e.ongoing)]) {
+          if (!o) continue;
+          expect(o.damage.length, `${m.id}.${a.id} ongoing damage`).toBeGreaterThan(0);
+          for (const d of o.damage) {
+            expect(d.dice, `${m.id}.${a.id} ongoing dice`).toMatch(DICE_RE);
+            expect(DAMAGE_TYPES, `${m.id}.${a.id} ongoing type`).toContain(d.type);
+          }
+          if (o.when) expect(['targetTurnStart', 'sourceTurnStart'], `${m.id}.${a.id} ongoing when`).toContain(o.when);
+        }
       }
     }
   });

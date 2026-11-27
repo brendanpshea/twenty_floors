@@ -449,8 +449,8 @@ export const TOUGH_CRYPT: MonsterDef[] = [
   // Simplified: Invisibility (the Invisible condition) is dropped, so it is always visible. Its 50 ft. walking speed is
   // used as is (it also flies 50 ft. and hovers; flying is not modelled). Air Form is dropped. Multiattack is three Wind
   // Swipes (the Vortex swap is a separate action rather than a replacement): Vortex needs the target in its space and
-  // grapples with Constitution save DC 14 (escape DC 13 as a Strength save-ends); the ongoing 2d6 Thunder and spell
-  // block are dropped. Exhaustion and Petrified immunities are not expressible; the SRD's Bludgeoning, Piercing and
+  // grapples with Constitution save DC 14 (escape DC 13 as a Strength save-ends); the grappled target takes 2d6 thunder at the start of each of the stalker's turns (ongoing, sourceTurnStart); the
+  // spellcasting limit is dropped. Exhaustion and Petrified immunities are not expressible; the SRD's Bludgeoning, Piercing and
   // Slashing resistances have no "nonmagical" condition and are kept as plain types.
   {
     id: 'invisible_stalker',
@@ -500,7 +500,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 1 },
         save: { ability: 'con', dc: 14, halfOnSave: false },
         damage: [{ dice: '1d8+3', type: 'thunder' }],
-        applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 13 } },
+        applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 13 }, ongoing: { damage: [{ dice: '2d6', type: 'thunder' }], when: 'sourceTurnStart' } },
       },
     ],
     visual: { model: 'shadow', tint: 0xe0f8ff, scale: 1.5 },

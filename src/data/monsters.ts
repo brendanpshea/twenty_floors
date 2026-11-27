@@ -858,7 +858,12 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A snake as long as a barge, draped through the old pipes and the stagnant water below.',
   },
-  // Simplified: an ordinary one-cell ooze with its Pseudopod; drops Engulf, Ooze Cube and Transparent.
+  // Simplified: an ordinary one-cell ooze with its Pseudopod; drops Ooze Cube and Transparent. Engulf is a melee
+  // Dexterity save (DC 12) against one creature within reach instead of the SRD's move through several spaces: a
+  // failure deals 3d6 acid (half on a success) and leaves the target Restrained, taking 3d6 acid at the start of each of
+  // the cube's turns (ongoing). The SRD's escape is an action with a DC 12 Strength (Athletics) check; here it is a
+  // Strength save-ends at the same DC (HOUSE RULE, there is no escape action). The cube does not carry the victim as
+  // it moves, and suffocation, the spellcasting limit, total cover, the capacity limit and the pull-out damage are dropped.
   {
     id: 'gelatinous_cube',
     name: 'Gelatinous Cube',
@@ -888,6 +893,17 @@ const BASE_MONSTERS: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 1 },
         attack: { bonus: 4 },
         damage: [{ dice: '3d6+2', type: 'acid' }],
+      },
+      {
+        id: 'engulf',
+        name: 'Engulf',
+        description: 'The cube rolls over a foe and swallows it into its glassy body, where acid eats at it every turn.',
+        icon: 'special',
+        cost: 'action',
+        targeting: { kind: 'creature', melee: true, range: 1 },
+        save: { ability: 'dex', dc: 12, halfOnSave: true },
+        damage: [{ dice: '3d6', type: 'acid' }],
+        applies: { condition: 'restrained', saveEnds: { ability: 'str', dc: 12 }, ongoing: { damage: [{ dice: '3d6', type: 'acid' }], when: 'sourceTurnStart' } },
       },
     ],
     visual: { model: 'slime_cyan', scale: 3 },
@@ -1301,9 +1317,9 @@ const BASE_MONSTERS: MonsterDef[] = [
   },
   // Simplified: Multiattack is the SRD three Charged Tendrils, with a second Multiattack (two Tendrils + Engulf)
   // for the Engulf replacement, as for the Salamander's Constrict. Engulf (Strength DC 15, within 5 feet) applies
-  // Grappled with a Strength save-ends at the escape DC 14, plus Blinded and Restrained until the grapple ends;
-  // its 3d10 lightning damage at the start of each of the victim's turns and the Medium-or-smaller limit are
-  // dropped. Drops Lightning Absorption and the pull-5-feet rider; Deafened and Exhaustion immunities are not
+  // Grappled with a Strength save-ends at the escape DC 14, plus Blinded and Restrained until the grapple ends, and
+  // the victim takes 3d6 lightning at the start of each of its turns while grappled (ongoing); the Medium-or-smaller
+  // limit, the move-with-it rule and the one-victim limit are dropped. Drops Lightning Absorption and the pull-5-feet rider; Deafened and Exhaustion immunities are not
   // expressible.
   // Proficiency bonus is the SRD +3 (CR 5).
   {
@@ -1352,7 +1368,7 @@ const BASE_MONSTERS: MonsterDef[] = [
         cost: 'action',
         targeting: { kind: 'creature', melee: true, range: 1 },
         save: { ability: 'str', dc: 15, halfOnSave: false },
-        applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 14 } },
+        applies: { condition: 'grappled', saveEnds: { ability: 'str', dc: 14 }, ongoing: { damage: [{ dice: '3d6', type: 'lightning' }] } },
         alsoApplies: [{ condition: 'blinded', endsWith: true }, { condition: 'restrained', endsWith: true }],
       },
       {
@@ -2166,8 +2182,9 @@ const BASE_MONSTERS: MonsterDef[] = [
     description: 'A grinning stone perch-guardian that sits so still among the shelves you would swear it was carved there.',
   },
   // Simplified: Smother restrains on a hit instead of the full grapple (escape modelled as a Strength save-ends at
-  // the printed escape DC 13); it also deals its 2d6+3 bludgeoning on the hit. Drops Blinded/suffocation, the
-  // per-turn damage, the one-victim limit, the Medium-or-smaller check and the half-damage-while-grappling rule.
+  // the printed escape DC 13); as in the SRD the grapple replaces the hit damage, and the victim takes 2d6+3
+  // bludgeoning at the start of each of its turns while restrained (ongoing). Drops Blinded/suffocation, the
+  // one-victim limit, the Medium-or-smaller check and the half-damage-while-grappling rule.
   // Exhaustion, Petrified and Deafened immunities are not expressible; the rest are kept.
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): nothing fits (an animated rug); shadow body as stand-in (VisualSpec cannot flatten it).
   {
@@ -2198,8 +2215,7 @@ const BASE_MONSTERS: MonsterDef[] = [
         cost: 'action',
         targeting: { kind: 'creature', melee: true, range: 1 },
         attack: { bonus: 5 },
-        damage: [{ dice: '2d6+3', type: 'bludgeoning' }],
-        applies: { condition: 'restrained', saveEnds: { ability: 'str', dc: 13 } },
+        applies: { condition: 'restrained', saveEnds: { ability: 'str', dc: 13 }, ongoing: { damage: [{ dice: '2d6+3', type: 'bludgeoning' }] } },
       },
     ],
     visual: { model: 'shadow', tint: 0xe04a4a, scale: 1.6 },
@@ -3055,10 +3071,12 @@ const BASE_MONSTERS: MonsterDef[] = [
     role: 'elite',
     description: 'A long, lizard-bodied fire spirit that lounges in the slag and spears intruders with a lance of white-hot metal.',
   },
-  // Simplified: Fire Aura is an end-of-turn aura (10 ft. = 2 cells, 1d10 fire, no save) without its "start burning" rider (creatures
-  // and flammable objects), which the engine lacks. Drops Fire Form (moving
-  // through spaces and the fire damage for entering one), Illumination and Water Susceptibility. Burn keeps its
-  // fire damage but not the "starts burning" rider. Exhaustion and Petrified condition immunities are not
+  // Simplified: Fire Aura is an end-of-turn aura (10 ft. = 2 cells, 1d10 fire, no save) without setting things alight.
+  // Drops Fire Form (moving through spaces and the fire damage for entering one), Illumination and Water
+  // Susceptibility. Burn sets a creature burning (1d4 fire at the start of each of its turns, the SRD Burning hazard).
+  // HOUSE RULE: the SRD ends burning when a creature takes an action to roll on the ground; the game has no such
+  // action, so the burning creature instead ends it with a Dexterity save at the end of each of its turns (DC 10, the
+  // stat block gives none). Exhaustion and Petrified condition immunities are not
   // expressible. The three physical resistances are plain in the stat block, so they are kept.
   // TODO model (free sources re-checked 2026-11-26, nothing acceptable): existing ghost (shadow) model, orange tint (docs/research/roster-options.md); shadow as stand-in.
   {
@@ -3109,6 +3127,7 @@ const BASE_MONSTERS: MonsterDef[] = [
         targeting: { kind: 'creature', melee: true, range: 1 },
         attack: { bonus: 6 },
         damage: [{ dice: '2d6+3', type: 'fire' }],
+        applies: { condition: 'burning', saveEnds: { ability: 'dex', dc: 10 }, ongoing: { damage: [{ dice: '1d4', type: 'fire' }] } },
       },
     ],
     visual: { model: 'shadow', tint: 0xffa020, scale: 1.9 },

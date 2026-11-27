@@ -264,6 +264,8 @@ export type DamageType =
 
 export type Condition =
   | 'blinded'
+  /** Carries only `ongoing` fire damage (HOUSE RULE save-ends in the monster data); no other penalty. */
+  | 'burning'
   | 'charmed'
   | 'frightened'
   | 'grappled'
@@ -366,6 +368,7 @@ export interface ActionDef {
      * usual; a failure replaces it with this condition, which has no save.
      */
     thenOnFail?: { condition: Condition };
+    ongoing?: OngoingDamage;
   };
   /**
    * Further conditions from the same hit or failed save (no extra roll), same entry shape as `applies`.
@@ -377,6 +380,7 @@ export interface ActionDef {
     rounds?: number;
     saveEnds?: { ability: Ability; dc: number };
     endsWith?: boolean;
+    ongoing?: OngoingDamage;
   }>;
   /** Consumes this much of a named resource pool on the creature. */
   uses?: { resource: string; amount: number };
@@ -392,6 +396,16 @@ export interface ActionDef {
   effects?: string[];
 }
 
+/**
+ * Damage taken every turn while a condition lasts, with no save and no attack roll (resistances and immunities still
+ * apply). It stops when the condition ends or its source dies. 'targetTurnStart' (default): the start of each of the
+ * holder's turns; 'sourceTurnStart': the start of each of the source monster's turns.
+ */
+export interface OngoingDamage {
+  damage: DamagePart[];
+  when?: 'targetTurnStart' | 'sourceTurnStart';
+}
+
 export interface ActiveCondition {
   condition: Condition;
   /** Remaining rounds, or null for indefinite. */
@@ -402,6 +416,8 @@ export interface ActiveCondition {
   endsWith?: Condition;
   /** Condition that replaces this one when the `saveEnds` save fails (see `ActionDef.applies.thenOnFail`). */
   thenOnFail?: { condition: Condition };
+  /** Continuing damage while this condition lasts (see `OngoingDamage`). */
+  ongoing?: OngoingDamage;
 }
 
 export interface ResourcePool {
