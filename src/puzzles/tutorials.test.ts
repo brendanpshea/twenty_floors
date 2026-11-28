@@ -78,3 +78,14 @@ describe('lock tutorials', () => {
     expect(step.nudge).toBeTruthy();
   });
 });
+
+describe('rune lesson board', () => {
+  it('has exactly one solution, reachable by one-rune-left steps alone', async () => {
+    const { countRunesSolutions, solveByTechniques } = await import('./runes');
+    const inst = TUTORIALS.runes.instance;
+    if (inst.kind !== 'runes') throw new Error('not a rune lock');
+    const { n, boxRows, boxCols, givens } = inst.data;
+    expect(countRunesSolutions(givens, n, boxRows, boxCols)).toBe(1);
+    expect(solveByTechniques(givens, n, boxRows, boxCols, 1)).toEqual(inst.solution);
+  });
+});
