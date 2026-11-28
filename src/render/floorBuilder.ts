@@ -1,5 +1,6 @@
 import {
   AdditiveBlending,
+  MultiplyBlending,
   BufferAttribute,
   BufferGeometry,
   Color,
@@ -17,7 +18,7 @@ import { CellKind } from '../core/types';
 import { Bake } from './bake';
 import type { Fow } from './fow';
 import type { ThemeLook } from './themeLooks';
-import { CELL, STEP, clamp, hash2 } from './util';
+import { CELL, STEP, clamp, hash2, propScatter } from './util';
 
 export const WALL_HEIGHT = 1.6;
 /** Warrens walls are lower and flatter so tunnels stay readable. */
@@ -592,6 +593,188 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
   let minElev = 0;
   const chasmCells: number[] = [];
 
+  // ---- floor detail (FloorDetail on the look; the crypt pilot) ----------
+  const detail = look.detail;
+  const hexRgb = (hex: number): number[] => [((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255];
+  const crackC = detail ? hexRgb(detail.crack) : [0, 0, 0];
+  const rimC = detail ? hexRgb(detail.rim) : [0, 0, 0];
+  // Grime and contact shadows are MULTIPLIED onto the finished floor (their own layer, see decalBuf), so they darken
+  // whatever is underneath (slab tones, cracks, baked light) without painting over it.
+  const grimeMul = detail ? hexRgb(detail.grime) : [1, 1, 1];
+  const shadowMul = detail ? hexRgb(detail.shadow) : [1, 1, 1];
+  const WHITE = [1, 1, 1];
+  const decalBuf = new Buf();
+  const setM = (v: V, x: number, y: number, z: number, m: number[]): void => {
+    v[0] = x;
+    v[1] = y;
+    v[2] = z;
+    v[3] = m[0]!;
+    v[4] = m[1]!;
+    v[5] = m[2]!;
+  };
+  /** Top height and colour of every floor cell, for decals drawn after the loop. NaN: not a floor. */
+  const topY = new Float32Array(W * H).fill(NaN);
+  /** Heavy things (they crack the floor around them) and clutter, by cell. */
+  const HEAVY = new Set(['statue', 'sarcophagus', 'pillar', 'broken_pillar', 'altar', 'fallen_column', 'rubble', 'brazier']);
+  const heavyAt = new Uint8Array(W * H);
+  if (detail) for (const p of plan.props) if (HEAVY.has(p.type) && p.pos.x >= 0 && p.pos.y >= 0 && p.pos.x < W && p.pos.y < H) heavyAt[p.pos.y * W + p.pos.x] = 1;
+  const heavyNear = (x: number, y: number): boolean => {
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx >= 0 && ny >= 0 && nx < W && ny < H && heavyAt[ny * W + nx]) return true;
+    }
+    return false;
+  };
+
+  /** A flat strip from (ax, az) to (bx, bz), `w0` wide at the start tapering to `w1`, at height y. */
+  const strip = (buf: Buf, idx: number, ax: number, az: number, bx: number, bz: number, w0: number, w1: number, y: number, col: number[], shade = 1): void => {
+    const dx = bx - ax;
+    const dz = bz - az;
+    const l = Math.hypot(dx, dz) || 1;
+    const px = -dz / l;
+    const pz = dx / l;
+    setV(va, ax + px * w0, y, az + pz * w0, col, shade);
+    setV(vb, bx + px * w1, y, bz + pz * w1, col, shade);
+    setV(vc, bx - px * w1, y, bz - pz * w1, col, shade);
+    setV(vd, ax - px * w0, y, az - pz * w0, col, shade);
+    quad(buf, va, vb, vc, vd, idx, 0, 1, 0);
+  };
+
+  /** The tile top as 1 to 3 flagstones of slightly different tone, with dark joints between them. */
+  const slabs = (buf: Buf, idx: number, cx: number, cy: number, x0: number, z0: number, x1: number, z1: number, y: number, alb: number[]): void => {
+    const h = hash2(cx, cy, 61);
+    const rect = (ax: number, az: number, bx: number, bz: number, salt: number): void => {
+      const c = scale3(alb, 0.95 + 0.1 * hash2(cx, cy, salt));
+      setV(va, ax, y, az, c, 1);
+      setV(vb, bx, y, az, c, 1);
+      setV(vc, bx, y, bz, c, 1);
+      setV(vd, ax, y, bz, c, 1);
+      quad(buf, va, vb, vc, vd, idx, 0, 1, 0);
+    };
+    const joint = scale3(alb, 0.48);
+    const jy = y + 0.003;
+    if (h < 0.4) {
+      rect(x0, z0, x1, z1, 62);
+      return;
+    }
+    const alongX = hash2(cx, cy, 63) < 0.5;
+    const t = 0.38 + 0.24 * hash2(cx, cy, 64);
+    if (alongX) {
+      const zm = z0 + (z1 - z0) * t;
+      rect(x0, z0, x1, zm, 62);
+      if (h < 0.75) rect(x0, zm, x1, z1, 65);
+      else {
+        const xm = x0 + (x1 - x0) * (0.35 + 0.3 * hash2(cx, cy, 66));
+        rect(x0, zm, xm, z1, 65);
+        rect(xm, zm, x1, z1, 67);
+        strip(buf, idx, xm, zm, xm, z1, 0.022, 0.022, jy, joint);
+      }
+      strip(buf, idx, x0, zm, x1, zm, 0.022, 0.022, jy, joint);
+    } else {
+      const xm = x0 + (x1 - x0) * t;
+      rect(x0, z0, xm, z1, 62);
+      if (h < 0.75) rect(xm, z0, x1, z1, 65);
+      else {
+        const zm = z0 + (z1 - z0) * (0.35 + 0.3 * hash2(cx, cy, 66));
+        rect(xm, z0, x1, zm, 65);
+        rect(xm, zm, x1, z1, 67);
+        strip(buf, idx, xm, zm, x1, zm, 0.022, 0.022, jy, joint);
+      }
+      strip(buf, idx, xm, z0, xm, z1, 0.022, 0.022, jy, joint);
+    }
+  };
+
+  /**
+   * A crack: a tapering, slightly wandering line with one branch, a dark core and a pale chipped rim along one side.
+   * It starts at the tile edge nearest a wall when there is one (damage creeps in from the walls).
+   */
+  const crackDetail = (buf: Buf, idx: number, cx: number, cy: number, x0: number, z0: number, x1: number, z1: number, y: number, alb: number[], wallDir: number): void => {
+    const core = mix3(alb, crackC, 0.82);
+    const rim = mix3(alb, rimC, 0.45);
+    const lo = 0.1;
+    const clampX = (v: number): number => Math.min(x1 - lo, Math.max(x0 + lo, v));
+    const clampZ = (v: number): number => Math.min(z1 - lo, Math.max(z0 + lo, v));
+    const cxm = (x0 + x1) / 2;
+    const czm = (z0 + z1) / 2;
+    // Start on an edge: the wall's, else a random one; head roughly across the tile.
+    const edge = wallDir >= 0 ? wallDir : Math.floor(hash2(cx, cy, 81) * 4);
+    const along = (hash2(cx, cy, 82) - 0.5) * 1.2;
+    let px = edge === 1 ? x1 - lo : edge === 3 ? x0 + lo : cxm + along;
+    let pz = edge === 2 ? z1 - lo : edge === 0 ? z0 + lo : czm + along;
+    let ang = Math.atan2(czm - pz, cxm - px) + (hash2(cx, cy, 83) - 0.5) * 0.9;
+    const segs = 4;
+    let w = 0.055;
+    let branchAt: [number, number, number] | null = null;
+    for (let i = 0; i < segs; i++) {
+      const len = 0.32 + 0.16 * hash2(cx, cy, 84 + i);
+      const nx = clampX(px + Math.cos(ang) * len);
+      const nz = clampZ(pz + Math.sin(ang) * len);
+      const nw = w * 0.68;
+      strip(buf, idx, px, pz, nx, nz, w, nw, y + 0.004, core);
+      // The chipped rim: a pale sliver on one side of the crack.
+      const l = Math.hypot(nx - px, nz - pz) || 1;
+      const ox = (-(nz - pz) / l) * (w + 0.018);
+      const oz = ((nx - px) / l) * (w + 0.018);
+      strip(buf, idx, px + ox, pz + oz, nx + ox * 0.8, nz + oz * 0.8, 0.012, 0.006, y + 0.0035, rim);
+      if (i === 1) branchAt = [nx, nz, ang + (hash2(cx, cy, 90) < 0.5 ? 1 : -1) * (0.7 + 0.4 * hash2(cx, cy, 91))];
+      px = nx;
+      pz = nz;
+      w = nw;
+      ang += (hash2(cx, cy, 95 + i) - 0.5) * 0.9;
+    }
+    if (branchAt) {
+      let [bx, bz, ba] = branchAt;
+      let bw = 0.03;
+      for (let i = 0; i < 2; i++) {
+        const nx = clampX(bx + Math.cos(ba) * 0.3);
+        const nz = clampZ(bz + Math.sin(ba) * 0.3);
+        strip(buf, idx, bx, bz, nx, nz, bw, bw * 0.5, y + 0.0042, core);
+        bx = nx;
+        bz = nz;
+        bw *= 0.5;
+        ba += (hash2(cx, cy, 99 + i) - 0.5) * 0.8;
+      }
+    }
+  };
+
+  /** Grime along the foot of a wall on side d: the `grime` multiplier at the wall, fading to nothing `depth` in. */
+  const grimeEdge = (idx: number, d: number, x0: number, z0: number, x1: number, z1: number, y: number, depth: number): void => {
+    const yy = y + 0.006;
+    let ax: number, az: number, bx: number, bz: number, ix: number, iz: number;
+    if (d === 0) { ax = x0; az = z0; bx = x1; bz = z0; ix = 0; iz = depth; }
+    else if (d === 1) { ax = x1; az = z0; bx = x1; bz = z1; ix = -depth; iz = 0; }
+    else if (d === 2) { ax = x1; az = z1; bx = x0; bz = z1; ix = 0; iz = -depth; }
+    else { ax = x0; az = z1; bx = x0; bz = z0; ix = depth; iz = 0; }
+    setM(va, ax, yy, az, grimeMul);
+    setM(vb, bx, yy, bz, grimeMul);
+    setM(vc, bx + ix, yy, bz + iz, WHITE);
+    setM(vd, ax + ix, yy, az + iz, WHITE);
+    quad(decalBuf, va, vb, vc, vd, idx, 0, 1, 0);
+  };
+
+  /** A soft round contact shadow, multiplied onto the floor: `shadow` at the centre, nothing at radius r. */
+  const disc = (idx: number, x: number, z: number, r: number, y: number, wobble: number, salt: number): void => {
+    const n = 16;
+    const mid = mix3(shadowMul, WHITE, 0.3);
+    const rad = (i: number): number => r * (1 + (hash2(salt, i % n, 7) - 0.5) * wobble);
+    const ang = (i: number): number => (i / n) * Math.PI * 2 + (hash2(salt, i % n, 8) - 0.5) * 0.25;
+    for (let i = 0; i < n; i++) {
+      const a0 = ang(i);
+      const a1 = ang(i + 1);
+      const r0 = rad(i);
+      const r1 = rad(i + 1);
+      // The inner 55% keeps most of the darkness, then it fades out: a soft edge rather than a cone.
+      setM(va, x, y, z, shadowMul);
+      setM(vb, x + Math.cos(a0) * r0 * 0.55, y, z + Math.sin(a0) * r0 * 0.55, mid);
+      setM(vc, x + Math.cos(a1) * r1 * 0.55, y, z + Math.sin(a1) * r1 * 0.55, mid);
+      tri(decalBuf, va, vb, vc, idx, 0, 1, 0);
+      setM(va, x + Math.cos(a0) * r0, y, z + Math.sin(a0) * r0, WHITE);
+      setM(vd, x + Math.cos(a1) * r1, y, z + Math.sin(a1) * r1, WHITE);
+      quad(decalBuf, vb, va, vd, vc, idx, 0, 1, 0);
+    }
+  };
+
   for (let cy = 0; cy < H; cy++) {
     for (let cx = 0; cx < W; cx++) {
       const idx = cy * W + cx;
@@ -686,6 +869,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       minElev = Math.min(minElev, g);
       let alb: number[];
       let cracked = false;
+      let carpet = false;
       let off = 0;
       let isBridge = false;
       if (k === CellKind.Water) alb = bedC;
@@ -713,8 +897,10 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
           if (nearWall) alb = scale3(alb, 0.86);
         } else {
           alb = scale3(mix3(fA, fB, hA), 0.88 + 0.24 * hB);
-          cracked = hash2(cx, cy, 51) < 0.07;
-          if (cracked) alb = scale3(alb, 0.72);
+          // With floor detail, damage gathers where it makes sense: by walls and around heavy things.
+          const crackChance = detail ? 0.035 + (nearWall ? 0.14 : 0) + (heavyNear(cx, cy) ? 0.16 : 0) : 0.07;
+          cracked = hash2(cx, cy, 51) < crackChance;
+          if (cracked && !detail) alb = scale3(alb, 0.72);
           if (hash2(cx, cy, 52) < 0.06) off = (hash2(cx, cy, 53) - 0.5) * 0.05;
           if (look.id === 'crypt') {
             const r = plan.roomIds[idx]!;
@@ -732,6 +918,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
                 if (Math.abs(c - mid) <= 0.51 && pos >= lo && pos <= hi) {
                   alb = scale3(mix3(carpetC, alb, 0.22), 0.85 + 0.25 * hB);
                   cracked = false;
+                  carpet = true;
                 }
               }
             }
@@ -749,12 +936,26 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       if (cx === plan.entrance.x && cy === plan.entrance.y) alb = mix3(alb, stoneC, 0.5);
       const groove = scale3(alb, look.groove);
       const yi = g + 0.04 + off;
-      setV(va, x0 + INSET, yi, z0 + INSET, alb, 1);
-      setV(vb, x1 - INSET, yi, z0 + INSET, alb, 1);
-      setV(vc, x1 - INSET, yi, z1 - INSET, alb, 1);
-      setV(vd, x0 + INSET, yi, z1 - INSET, alb, 1);
-      quad(buf, va, vb, vc, vd, idx, 0, 1, 0);
-      if (cracked) {
+      const plainStone = !!detail && k === CellKind.Floor && !isBridge && !carpet;
+      if (plainStone && detail.slabs) slabs(buf, idx, cx, cy, x0 + INSET, z0 + INSET, x1 - INSET, z1 - INSET, yi, alb);
+      else {
+        setV(va, x0 + INSET, yi, z0 + INSET, alb, 1);
+        setV(vb, x1 - INSET, yi, z0 + INSET, alb, 1);
+        setV(vc, x1 - INSET, yi, z1 - INSET, alb, 1);
+        setV(vd, x0 + INSET, yi, z1 - INSET, alb, 1);
+        quad(buf, va, vb, vc, vd, idx, 0, 1, 0);
+      }
+      if (k !== CellKind.Water) topY[idx] = yi;
+      if (detail && k !== CellKind.Water && !isBridge) {
+        let wallDir = -1;
+        for (let d = 0; d < 4; d++) {
+          if (kindAt(cx + DIRS[d]![0], cy + DIRS[d]![1]) !== CellKind.Wall) continue;
+          grimeEdge(idx, d, x0 + INSET, z0 + INSET, x1 - INSET, z1 - INSET, yi, detail.grimeDepth);
+          if (wallDir < 0 || hash2(cx, cy, 80 + d) < 0.5) wallDir = d;
+        }
+        if (cracked && plainStone) crackDetail(buf, idx, cx, cy, x0 + INSET, z0 + INSET, x1 - INSET, z1 - INSET, yi, alb, wallDir);
+      }
+      if (cracked && !detail) {
         const a0 = hash2(cx, cy, 54) * 6.28;
         let px = x0 + 1 + Math.cos(a0) * 0.7;
         let pz = z0 + 1 + Math.sin(a0) * 0.7;
@@ -908,6 +1109,27 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
     }
   }
 
+  // Contact shadows under props, and dust spread under rubble (floor detail only).
+  if (detail) {
+    const SHADOW: Record<string, number> = {
+      // Radii in world units (a cell is 2). Big bases need the most, to show round them.
+      statue: 1.05, sarcophagus: 1.25, brazier: 0.62, urn: 0.48, pillar: 1.0, broken_pillar: 0.95, altar: 1.2, rubble: 0.8,
+      bones: 0.5, crate: 0.85, barrel: 0.62, fallen_column: 1.2, book_pile: 0.5, skull_pile: 0.55, lectern: 0.6, chest: 0.7,
+    };
+    for (const p of plan.props) {
+      const r = SHADOW[p.type];
+      if (r === undefined) continue;
+      const i = p.pos.y * W + p.pos.x;
+      const y = topY[i];
+      if (y === undefined || y !== y) continue;
+      const [sx, sz] = propScatter(p.type, p.pos.x, p.pos.y, true);
+      const x = p.pos.x * CELL + CELL / 2 + sx;
+      const z = p.pos.y * CELL + CELL / 2 + sz;
+      // A shadow may spill past the tile onto its neighbours; it is multiplied, so it sits on whatever is there.
+      disc(i, x, z, r, y + 0.007, 0.15, i * 3 + 2);
+    }
+  }
+
   // Chasm glow far below (or, in lava themes, the molten surface a little below the floors).
   const depthY = lava ? lavaY : minElev - CLIFF_DROP - 2;
   for (const idx of chasmCells) {
@@ -962,6 +1184,27 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
     m.receiveShadow = true;
     group.add(m);
     solids.push(m);
+  }
+
+  if (decalBuf.pos.length) {
+    // Grime and contact shadows: multiplied onto the floor (white = no change). No fog-of-war patch: the floor under
+    // them is already dimmed or hidden, and multiplying keeps it so.
+    const dm = new MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      blending: MultiplyBlending,
+      premultipliedAlpha: true,
+      depthWrite: false,
+      fog: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+    disposables.push(dm);
+    const mesh = new Mesh(toGeo(decalBuf), dm);
+    mesh.renderOrder = 1;
+    mesh.frustumCulled = false;
+    group.add(mesh);
   }
 
   if (waterBuf.pos.length) {

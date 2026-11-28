@@ -28,3 +28,12 @@ export function angleDiff(a: number, b: number): number {
   else if (d < -Math.PI) d += Math.PI * 2;
   return d;
 }
+
+/** Small clutter that a FloorDetail theme scatters off the tile centre (render only: the prop stays in its cell). */
+const SCATTER = new Set(['rubble', 'bones', 'urn', 'skull_pile', 'book_pile']);
+
+/** World-space offset of a prop from its cell centre: none unless the theme has floor detail and the prop is clutter. */
+export function propScatter(type: string, x: number, y: number, detail: boolean): [number, number] {
+  if (!detail || !SCATTER.has(type)) return [0, 0];
+  return [(hash2(x, y, 71) - 0.5) * 0.7, (hash2(x, y, 72) - 0.5) * 0.7];
+}

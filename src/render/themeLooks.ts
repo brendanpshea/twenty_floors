@@ -1,8 +1,28 @@
 import type { ThemeId } from '../core/types';
 
 /** Everything that makes a theme look like itself. Colours are 0xRRGGBB. */
+/**
+ * Floor detail (the crypt pilot, 28 November 2026; other themes to follow): flagstone slabs, cracks placed where damage
+ * makes sense (near walls and heavy props) with a chipped rim, grime along the foot of walls, soft contact shadows under
+ * props, and small clutter scattered off the tile centre. Colours are hex; see floorBuilder.ts.
+ */
+export interface FloorDetail {
+  /** Split tiles into 1 to 3 slabs with joints. */
+  slabs: boolean;
+  /** Crack core and the lighter chipped rim beside it. */
+  crack: number;
+  rim: number;
+  /** Multiplier at the foot of a wall (white = none), fading out `grimeDepth` world units in (a cell is 2). */
+  grime: number;
+  grimeDepth: number;
+  /** Multiplier at the centre of a prop's contact shadow. */
+  shadow: number;
+}
+
 export interface ThemeLook {
   id: ThemeId;
+  /** Richer floor detail (see FloorDetail). Absent: the plain floor of before. */
+  detail?: FloorDetail;
   wallStyle: 'rough' | 'dressed' | 'jagged' | 'foliage';
   /**
    * Required with wallStyle 'foliage': Wall cells that border open ground are drawn as a dense wall of
@@ -121,6 +141,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   crypt: {
     id: 'crypt',
+    detail: { slabs: true, crack: 0x161b24, rim: 0xc9d3e2, grime: 0x8a93a8, grimeDepth: 0.95, shadow: 0x5f677c },
     wallStyle: 'dressed',
     floorA: 0x8a94a2,
     floorB: 0x9ca6b4,

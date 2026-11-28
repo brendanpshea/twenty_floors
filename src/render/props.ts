@@ -6,7 +6,7 @@ import type { Bake } from './bake';
 import type { Fow } from './fow';
 import { GeoBuilder } from './gb';
 import type { ThemeLook } from './themeLooks';
-import { CELL, hash2 } from './util';
+import { CELL, hash2, propScatter } from './util';
 
 interface PropGeo {
   lit: BufferGeometry | null;
@@ -1051,7 +1051,8 @@ export function buildProps(
       if (gy !== gy) gy = (plan.elevation[gi] ?? 0) * 1;
       const h1 = hash2(p.pos.x, p.pos.y, 41);
       const h2 = hash2(p.pos.x, p.pos.y, 42);
-      _o.position.set(p.pos.x * CELL + CELL / 2, gy, p.pos.y * CELL + CELL / 2);
+      const [sx, sz] = propScatter(type, p.pos.x, p.pos.y, !!look.detail);
+      _o.position.set(p.pos.x * CELL + CELL / 2 + sx, gy, p.pos.y * CELL + CELL / 2 + sz);
       const q = ((p.rotation % 4) + 4) % 4;
       let yaw = wallMounted ? -q * (Math.PI / 2) : q * (Math.PI / 2);
       if (type === 'cobweb') yaw = -cornerOf(p.pos.x, p.pos.y, h1) * (Math.PI / 2);
