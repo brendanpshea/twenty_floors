@@ -548,6 +548,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   forest: {
     id: 'forest',
+    detail: { slabs: false, crack: 0x2a2416, rim: 0xb8b08a, grime: 0x8e906a, grimeDepth: 0.9, shadow: 0x6a7056, crackRate: 0 },
     highlight: 'green',
     wallStyle: 'foliage',
     foliage: { hMin: 0.85, hMax: 1.25, trunk: 0x3e2e1e, greens: [0x1a301a, 0x2a4624, 0x3c5c30] },
@@ -586,6 +587,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   marsh: {
     id: 'marsh',
+    detail: { slabs: false, crack: 0x1e1c12, rim: 0x9a9470, grime: 0x6c6450, grimeDepth: 1.0, shadow: 0x585a44, crackRate: 0 },
     highlight: 'green',
     wallStyle: 'foliage',
     foliage: { hMin: 0.9, hMax: 1.4, trunk: 0x3a361e, greens: [0x484e26, 0x6a7236, 0x8c9250], lumpy: 2.0 },
@@ -624,6 +626,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   peaks: {
     id: 'peaks',
+    detail: { slabs: false, crack: 0x343a48, rim: 0xe2e8f2, grime: 0xa4acbc, grimeDepth: 0.8, shadow: 0x707a90, crackRate: 0.35 },
     highlight: 'cool',
     wallStyle: 'jagged',
     sky: true,

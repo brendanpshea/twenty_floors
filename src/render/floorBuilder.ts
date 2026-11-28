@@ -1125,6 +1125,8 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       // Radii in world units (a cell is 2). Big bases need the most, to show round them.
       statue: 1.05, sarcophagus: 1.25, brazier: 0.62, urn: 0.48, pillar: 1.0, broken_pillar: 0.95, altar: 1.2, rubble: 0.65,
       bones: 0.5, crate: 0.85, barrel: 0.62, fallen_column: 1.2, book_pile: 0.5, skull_pile: 0.55, lectern: 0.6, chest: 0.7,
+      // Outdoor props (forest, marsh, peaks). No campfire (it is a light) or snow drift (it is flat).
+      gnarled_tree: 0.95, bush: 0.7, log: 0.85, standing_stone: 0.75, mushrooms: 0.45, reeds: 0.5, boulder: 0.95, crystal: 0.5,
     };
     for (const p of plan.props) {
       const r = SHADOW[p.type];
