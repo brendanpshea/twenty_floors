@@ -172,7 +172,7 @@ export function createUi(root: HTMLElement): GameUi {
         cancelConfirm?.();
         const prev = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         let live = true;
-        const finish = (r: { ok: boolean; remember: boolean }): void => {
+        const finish = (r: { ok: boolean; remember: boolean; alt?: boolean }): void => {
           if (!live) return;
           live = false;
           el.classList.remove('is-in');

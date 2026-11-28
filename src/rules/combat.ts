@@ -2324,6 +2324,31 @@ export function createCombat(creatures: Creature[], nav: NavGrid, rng: Rng, opti
     creature: (id) => byId.get(id),
     creatures: () => all,
 
+    opportunityThreats(path: GridPos[]): string[] {
+      if (!began || over) return [];
+      const c = active();
+      if (hasCondition(c, 'disengaged')) return [];
+      // The same checks as doMove, walked without moving anything.
+      let free = shift.get(c.id) ?? 0;
+      let at = c.pos;
+      const out: string[] = [];
+      for (const next of path) {
+        const stepCost = stepFor(c, at, next);
+        const noProvoke = free >= stepCost;
+        if (noProvoke) free -= stepCost;
+        else {
+          for (const h of all) {
+            if (out.includes(h.id) || !isAlive(h) || !areHostile(c, h) || noReaction(h) || isIncapacitated(h) || noOpportunity.has(h.id)) continue;
+            const oa = opportunityAction(h);
+            if (!oa || oa.targeting.kind !== 'creature') continue;
+            const reach = oa.targeting.range;
+            if (chebyshev(at, h.pos) <= reach && chebyshev(next, h.pos) > reach) out.push(h.id);
+          }
+        }
+        at = next;
+      }
+      return out;
+    },
     reachable(): ReachableCell[] {
       if (!began || over) return [];
       const c = active();

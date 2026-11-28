@@ -147,7 +147,7 @@ export interface FakeUiScript {
   hub?: (model: HubModel) => HubIntent[];
   menu?: MenuResult[];
   /** Answers to confirm() questions, in order; the default is to confirm. */
-  confirm?: { ok: boolean; remember: boolean }[];
+  confirm?: { ok: boolean; remember: boolean; alt?: boolean }[];
   /** Results of lock puzzles, in order; the default is solved for silver. */
   puzzle?: PuzzleResult[];
   /** The answer to the help-mode question (default 'standard'). */
@@ -228,7 +228,7 @@ export class FakeUi implements GameUi {
     return this.script.help ?? 'standard';
   }
   confirms: unknown[] = [];
-  async confirm(q?: unknown): Promise<{ ok: boolean; remember: boolean }> {
+  async confirm(q?: unknown): Promise<{ ok: boolean; remember: boolean; alt?: boolean }> {
     this.confirms.push(q);
     return this.script.confirm?.shift() ?? { ok: true, remember: false };
   }

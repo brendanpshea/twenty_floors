@@ -1220,6 +1220,11 @@ export interface CombatApi {
   /** Cells covered by an area action if aimed at `point`. */
   areaCells(actionId: string, point: GridPos): GridPos[];
   /**
+   * Ids of the creatures that would make an opportunity attack if the active creature walked this path now (in the
+   * order they would strike). Empty when it has Disengaged, when the movement is free (Tactical Shift) or nobody can react.
+   */
+  opportunityThreats(path: GridPos[]): string[];
+  /**
    * Apply a command for the active creature. Returns the resulting events,
    * including the start of the next turn after 'endTurn'. Throws on an
    * illegal command.
@@ -1677,7 +1682,9 @@ export interface GameUi {
     confirmLabel: string;
     cancelLabel?: string;
     rememberKey?: string;
-  }): Promise<{ ok: boolean; remember: boolean }>;
+    /** A third choice between cancel and confirm; choosing it resolves `{ ok: false, alt: true }`. */
+    altLabel?: string;
+  }): Promise<{ ok: boolean; remember: boolean; alt?: boolean }>;
   /** Show a hint (replacing any hint on screen); the callback fires when the player dismisses it or turns tips off. */
   showHint(hint: HintRequest, onClose?: (result: 'dismissed' | 'tipsOff') => void): void;
   /** Remove the hint with this id if it is showing (the player did the thing). */

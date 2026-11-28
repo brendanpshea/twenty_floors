@@ -19,6 +19,7 @@ import { cellDistance } from './fog';
 import type { MonsterState, SessionCtx } from './floorState';
 import { blockedAt, isEntityVisible, samePos } from './floorState';
 import { companionSpot, rebuildCompanion } from './party';
+import { Prefs } from './prefs';
 import type { Playback } from './playback';
 
 type Mode = 'move' | 'target' | 'point';
@@ -384,12 +385,15 @@ export class CombatController {
         const plan = this.approachPlan(ent);
         if (!plan || plan.path.length === 0) {
           this.ctx.deps.audio.play('uiError');
-          this.ctx.prompt('Out of reach. Move closer or choose an action.', 2200);
+          this.ctx.prompt(this.whyNoAttack(ent), 2600);
           this.ctx.hud();
           return;
         }
+        const leave = await this.confirmLeave(plan.path);
+        if (leave === 'cancel') return;
         this.ctx.prompt(undefined);
         await this.run(async () => {
+          if (leave === 'disengage') await this.perform({ type: 'action', actionId: 'disengage' });
           await this.perform({ type: 'move', path: plan.path });
           const c = this.combat;
           if (plan.attackId && c && !c.isOver && c.activeId === 'player') {
@@ -410,9 +414,14 @@ export class CombatController {
     }
     const path = this.pathTo(cell);
     if (!path) return;
+    const leave = await this.confirmLeave(path);
+    if (leave === 'cancel') return;
     this.ctx.prompt(undefined);
     this.warnEdge(cell);
-    await this.run(() => this.perform({ type: 'move', path }));
+    await this.run(async () => {
+      if (leave === 'disengage') await this.perform({ type: 'action', actionId: 'disengage' });
+      await this.perform({ type: 'move', path });
+    });
   }
 
   async selectAction(actionId: string): Promise<void> {
@@ -555,6 +564,57 @@ export class CombatController {
   }
 
   /** The action a plain tap on this creature would use: melee if it reaches, else ranged. */
+  /** Why a click on this enemy cannot become an attack: nothing left to attack with, or nowhere in reach to get to. */
+  private whyNoAttack(targetId: string): string {
+    const combat = this.combat;
+    if (!combat) return 'Not now.';
+    const attacks = combat.availableActions().filter((a) => a.attack !== undefined && a.targeting.kind === 'creature' && !a.targeting.friendly);
+    const usable = attacks.filter((a) => combat.canUse(a.id).ok);
+    if (usable.length === 0) {
+      const bonus = combat.availableActions().some((a) => a.cost === 'bonus' && combat.canUse(a.id).ok && a.attack !== undefined);
+      return bonus
+        ? 'Your action is spent: only a bonus-action attack is left. Pick it below, or End Turn (Space).'
+        : 'No attacks left this turn. End Turn (Space) to let the enemies act.';
+    }
+    const name = combat.creature(targetId)?.name ?? 'That enemy';
+    return combat.turn.movementLeft <= 0
+      ? `${name} is out of reach and you have no movement left. Use a ranged attack, or End Turn (Space).`
+      : `${name} is out of reach this turn. Use a ranged attack or move closer.`;
+  }
+
+  /**
+   * Walking out of an enemy's reach gives it an opportunity attack. Before such a move, ask: Disengage first (if the hero
+   * can still take it), move anyway, or stay. Remembered with "Don't ask again" (then the move simply goes ahead).
+   */
+  private async confirmLeave(path: GridPos[]): Promise<'go' | 'disengage' | 'cancel'> {
+    const combat = this.combat;
+    const { deps } = this.ctx;
+    if (!combat || deps.options.autoplay) return 'go';
+    const threats = combat.opportunityThreats(path);
+    if (threats.length === 0) return 'go';
+    const prefs = new Prefs(deps.storage);
+    if (prefs.remembered('leaveReach')) return 'go';
+    const names = threats.map((id) => combat.creature(id)?.name ?? 'An enemy');
+    const who = names.length === 1 ? `${names[0]} gets` : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} each get`;
+    const dis = combat.availableActions().find((a) => a.id === 'disengage');
+    const canDisengage = !!dis && combat.canUse('disengage').ok;
+    const cost = dis?.cost === 'bonus' ? 'your bonus action' : 'your action';
+    const lines = [`${who} a free attack (an opportunity attack) as you move out of reach.`];
+    lines.push(canDisengage ? `Disengage first to leave safely: it uses ${cost}.` : 'You cannot Disengage now: your action is spent.');
+    const answer = await deps.ui.confirm({
+      title: 'Leave and take a free hit?',
+      lines,
+      confirmLabel: 'Move anyway',
+      cancelLabel: 'Stay',
+      ...(canDisengage ? { altLabel: 'Disengage first' } : {}),
+      rememberKey: 'leaveReach',
+    });
+    if (answer.alt) return 'disengage';
+    if (!answer.ok) return 'cancel';
+    if (answer.remember) prefs.remember('leaveReach');
+    return 'go';
+  }
+
   quickAttackFor(targetId: string): string | null {
     const combat = this.combat;
     if (!combat) return null;

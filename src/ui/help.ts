@@ -44,9 +44,11 @@ export interface ConfirmQ {
   confirmLabel: string;
   cancelLabel?: string;
   rememberKey?: string;
+  /** A third choice (between cancel and confirm); it resolves with `alt: true`. */
+  altLabel?: string;
 }
 
-export function buildConfirm(q: ConfirmQ, done: (r: { ok: boolean; remember: boolean }) => void): HTMLElement {
+export function buildConfirm(q: ConfirmQ, done: (r: { ok: boolean; remember: boolean; alt?: boolean }) => void): HTMLElement {
   const root = h('div', 'tf-confirm');
   const box = h('div', 'tf-modal tf-confirm-box');
   box.setAttribute('role', 'alertdialog');
@@ -76,7 +78,11 @@ export function buildConfirm(q: ConfirmQ, done: (r: { ok: boolean; remember: boo
   cancel.dataset['key'] = 'cancel';
   const ok = button('tf-btn tf-btn--primary', q.confirmLabel, () => finish(true));
   ok.dataset['key'] = 'confirm';
-  row.append(cancel, ok);
+  if (q.altLabel) {
+    const alt = button('tf-btn', q.altLabel, () => done({ ok: false, remember: false, alt: true }));
+    alt.dataset['key'] = 'alt';
+    row.append(cancel, alt, ok);
+  } else row.append(cancel, ok);
   box.append(row);
   root.append(box);
   root.addEventListener('keydown', (e) => {
