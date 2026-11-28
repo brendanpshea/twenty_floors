@@ -362,7 +362,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   foundry: {
     id: 'foundry',
-    detail: { slabs: true, crack: 0x1a1410, rim: 0x3a2e28, grime: 0x786860, grimeDepth: 0.9, shadow: 0x584c48, glow: 0xffa53a, crackRate: 0.8 },
+    detail: { slabs: true, crack: 0x1a1410, rim: 0x3a2e28, grime: 0x786860, grimeDepth: 0.9, shadow: 0x584c48, glow: 0xff8226, crackRate: 0.7 },
     highlight: 'warm',
     wallStyle: 'jagged',
     floorA: 0x62636e,
