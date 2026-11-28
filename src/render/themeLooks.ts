@@ -112,6 +112,7 @@ export interface ThemeLook {
 export const LOOKS: Record<ThemeId, ThemeLook> = {
   warrens: {
     id: 'warrens',
+    detail: { slabs: false, crack: 0x2a1a0e, rim: 0xc8a47a, grime: 0x9a8068, grimeDepth: 1.0, shadow: 0x6e5844, crackRate: 0.45 },
     wallStyle: 'rough',
     floorA: 0x8e6c4c,
     floorB: 0xb28a62,
@@ -183,6 +184,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   sewers: {
     id: 'sewers',
+    detail: { slabs: true, crack: 0x1c1e12, rim: 0xb8b494, grime: 0x7c8466, grimeDepth: 1.05, shadow: 0x5c6048, joint: 0x36521f },
     highlight: 'green',
     wallStyle: 'dressed',
     floorA: 0x7c7a62,
@@ -219,6 +221,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   fungal: {
     id: 'fungal',
+    detail: { slabs: false, crack: 0x1a1830, rim: 0xb0acd0, grime: 0x8a88a8, grimeDepth: 0.95, shadow: 0x5a5878, crackRate: 0.6, glow: 0x237a68 },
     highlight: 'cool',
     wallStyle: 'rough',
     floorA: 0x6e6c8c,
@@ -255,6 +258,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   hold: {
     id: 'hold',
+    detail: { slabs: true, crack: 0x22180e, rim: 0xd2bc98, grime: 0x92806a, grimeDepth: 0.9, shadow: 0x66584a, crackRate: 0.8 },
     wallStyle: 'dressed',
     floorA: 0x847058,
     floorB: 0x9c8668,
@@ -290,6 +294,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   library: {
     id: 'library',
+    detail: { slabs: true, crack: 0x1a1d26, rim: 0xd0d4de, grime: 0x9a9caa, grimeDepth: 0.85, shadow: 0x666a7c, crackRate: 0.5 },
     highlight: 'cool',
     wallStyle: 'dressed',
     floorA: 0x8c8f9c,
