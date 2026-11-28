@@ -14,14 +14,21 @@ describe('grading', () => {
   const tumblers = generatePuzzle({ kind: 'tumblers', seed: 1, difficulty: 3 });
   const par = runes.parSeconds;
 
-  it('gold at par, boundary inclusive', () => {
-    expect(gradeResult(runes, { ...base, seconds: par }).grade).toBe('gold');
-    expect(gradeResult(runes, { ...base, seconds: par + 0.1 }).grade).toBe('silver');
+  it('gold up to 2x par, boundary inclusive (GRADE_TIME)', () => {
+    expect(gradeResult(runes, { ...base, seconds: par * 2 }).grade).toBe('gold');
+    expect(gradeResult(runes, { ...base, seconds: par * 2 + 0.1 }).grade).toBe('silver');
   });
 
-  it('silver up to 2x par, bronze beyond', () => {
-    expect(gradeResult(runes, { ...base, seconds: par * 2 }).grade).toBe('silver');
-    expect(gradeResult(runes, { ...base, seconds: par * 2 + 0.1 }).grade).toBe('bronze');
+  it('silver up to 4x par, bronze beyond', () => {
+    expect(gradeResult(runes, { ...base, seconds: par * 4 }).grade).toBe('silver');
+    expect(gradeResult(runes, { ...base, seconds: par * 4 + 0.1 }).grade).toBe('bronze');
+  });
+
+  it('the pace grade the skill model learns from keeps the original par and 2x par', () => {
+    expect(gradeResult(runes, { ...base, seconds: par }).paceGrade).toBe('gold');
+    expect(gradeResult(runes, { ...base, seconds: par + 0.1 }).paceGrade).toBe('silver');
+    expect(gradeResult(runes, { ...base, seconds: par * 2 + 0.1 }).paceGrade).toBe('bronze');
+    expect(gradeResult(runes, { ...base, seconds: par * 1.5 }).grade).toBe('gold');
   });
 
   it('mistakes: allowance for gold, a few for silver', () => {
@@ -52,8 +59,8 @@ describe('grading', () => {
 
   it('prospective grade and thresholds', () => {
     expect(prospectiveGrade(runes, { seconds: 0, mistakes: 0, hintsUsed: 0, moves: 0 })).toBe('gold');
-    expect(prospectiveGrade(runes, { seconds: par + 1, mistakes: 0, hintsUsed: 0, moves: 0 })).toBe('silver');
-    expect(timeThresholds(runes)).toEqual({ gold: par, silver: par * 2 });
+    expect(prospectiveGrade(runes, { seconds: par * 2 + 1, mistakes: 0, hintsUsed: 0, moves: 0 })).toBe('silver');
+    expect(timeThresholds(runes)).toEqual({ gold: par * 2, silver: par * 4 });
   });
 });
 

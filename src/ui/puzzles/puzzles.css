@@ -792,10 +792,82 @@
   cursor: default;
 }
 .tf-pz-cell--ward.is-sprung {
-  background: linear-gradient(180deg, #4a1a20, #2a1015);
+  background: radial-gradient(circle at 50% 45%, #b8323a 0%, #6a1820 55%, #2a1015 100%);
   border-color: var(--tf-blood-hi);
-  box-shadow: none;
+  box-shadow: 0 0 10px rgba(226, 74, 80, 0.55);
   cursor: default;
+  overflow: visible;
+}
+.tf-pz-cell--ward.is-sprung .tf-pz-glyph {
+  width: 86%;
+  height: 86%;
+  color: #ffd0d2 !important;
+}
+/* The moment a trap goes off: the tile bursts and the grid flashes. */
+.tf-pz-cell--ward.is-boom .tf-pz-glyph {
+  animation: tf-pz-boom 520ms cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.tf-pz-cell--ward.is-boom::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 120, 120, 0.9);
+  animation: tf-pz-ring 600ms ease-out forwards;
+  pointer-events: none;
+}
+@keyframes tf-pz-boom {
+  0% { transform: scale(0.2) rotate(-30deg); }
+  60% { transform: scale(1.35) rotate(8deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+@keyframes tf-pz-ring {
+  from { transform: scale(0.3); opacity: 1; }
+  to { transform: scale(1.4); opacity: 0; }
+}
+.tf-pz-grid--wards.is-hit {
+  animation: tf-pz-gridhit 520ms ease;
+}
+@keyframes tf-pz-gridhit {
+  0%, 100% { box-shadow: none; }
+  20% { box-shadow: 0 0 0 3px var(--tf-blood-hi), 0 0 24px rgba(226, 74, 80, 0.6); }
+}
+/* A mark put on a safe tile: a struck-out flag flashes over it. */
+.tf-pz-wrongmark {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(163, 39, 46, 0.55);
+  border-radius: inherit;
+  animation: tf-pz-wrongmark 900ms ease forwards;
+  pointer-events: none;
+}
+.tf-pz-wrongmark .tf-pz-glyph {
+  width: 70%;
+  height: 70%;
+}
+.tf-pz-wrongmark::after {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 50%;
+  height: 3px;
+  background: #ffd0d2;
+  transform: rotate(-35deg);
+  border-radius: 2px;
+}
+@keyframes tf-pz-wrongmark {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tf-pz-cell--ward.is-boom .tf-pz-glyph,
+  .tf-pz-cell--ward.is-boom::after,
+  .tf-pz-grid--wards.is-hit {
+    animation: none;
+  }
 }
 .tf-pz-cell--ward.is-nope {
   animation: tf-pz-nope 320ms ease;

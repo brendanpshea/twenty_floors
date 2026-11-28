@@ -1,6 +1,6 @@
 export * from './types';
 export { generatePuzzle, start, apply, isSolved, isFailed, mistakes, hint, solve } from './engine';
-export { gradeResult, prospectiveGrade, timeThresholds } from './grading';
+export { GRADE_TIME, gradeResult, prospectiveGrade, timeThresholds } from './grading';
 export { newSkill, ratingFor, seenKinds, nextDifficulty, updateSkill, pickKind } from './skill';
 export { simulatePlayer } from './sim';
 export { EXPLAINERS } from './explain';

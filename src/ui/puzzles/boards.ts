@@ -657,11 +657,29 @@ function createWardsBoard(inst: WardsInstance, host: BoardHost): Board {
           b.setAttribute('aria-disabled', s === W_HIDDEN ? 'false' : 'true');
         }
       });
-      if (state.mistakes > lastMistakes && lastTapped >= 0 && !reducedMotion()) {
+      if (state.mistakes > lastMistakes && lastTapped >= 0) {
         const b = cells[lastTapped] as HTMLButtonElement;
-        b.classList.remove('is-nope');
-        void b.offsetWidth;
-        b.classList.add('is-nope');
+        const sprung = state.cells[lastTapped] === W_SPRUNG;
+        // What happened must be seen on the board, not only read: a sprung trap bursts and the whole grid flashes red;
+        // a mark put on a safe tile flashes the tile red with a struck-out flag, then the tile stays as it was.
+        if (sprung) {
+          b.classList.add('is-boom');
+          grid.classList.remove('is-hit');
+          void grid.offsetWidth;
+          grid.classList.add('is-hit');
+          host.say('Trap sprung! It counts as a mistake; the trap is now shown.');
+        } else {
+          const ghost = h('span', 'tf-pz-wrongmark');
+          ghost.appendChild(wardFlag());
+          b.appendChild(ghost);
+          window.setTimeout(() => ghost.remove(), 900);
+          host.say('That tile is safe: no trap to mark. It counts as a mistake.');
+        }
+        if (!reducedMotion()) {
+          b.classList.remove('is-nope');
+          void b.offsetWidth;
+          b.classList.add('is-nope');
+        }
       }
       lastMistakes = state.mistakes;
     },

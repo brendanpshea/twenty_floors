@@ -1717,6 +1717,11 @@ export interface PuzzleResult {
   hintsUsed: number;
   /** Guesses or taps where the kind counts them, else 0. */
   moves: number;
+  /**
+   * The grade at the original pace (gold within par time, silver within twice par), which the player-skill model learns
+   * from. `grade` (what the chest pays) allows more time (GRADE_TIME in src/puzzles/grading.ts). Absent on old saves.
+   */
+  paceGrade?: PuzzleGrade;
 }
 
 /** The player's puzzle rating, kept in the save. Ratings are on the 1..10 difficulty scale. */

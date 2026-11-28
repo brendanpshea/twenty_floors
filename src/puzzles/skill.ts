@@ -42,7 +42,8 @@ function expected(rating: number, difficulty: number): number {
 /** Elo-like update: the more the result beats expectation, the more the rating moves. K shrinks as games accumulate. */
 export function updateSkill(skill: PlayerSkill, kind: PuzzleKind, difficulty: number, result: PuzzleResult): PlayerSkill {
   const playedKind = skill.playedByKind[kind] ?? 0;
-  const score = SCORE[result.grade];
+  // Measured at the original pace, so easier reward thresholds do not make the model think the player is stronger.
+  const score = SCORE[result.paceGrade ?? result.grade];
   const kindRating = ratingFor(skill, kind);
   const kKind = Math.max(0.7, 2.8 - 0.6 * playedKind);
   const kAll = Math.max(0.6, 2.6 - 0.25 * skill.played);
