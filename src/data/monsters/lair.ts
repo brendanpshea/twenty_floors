@@ -22,6 +22,7 @@ export const LAIR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 8,
     traits: ['packTactics', 'sunlightSensitivity'],
     actions: [
       {
@@ -73,6 +74,8 @@ export const LAIR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -133,6 +136,8 @@ export const LAIR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['acid'],
     conditionImmunities: [],
+    passivePerception: 16,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -193,6 +198,8 @@ export const LAIR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['lightning'],
     conditionImmunities: [],
+    passivePerception: 19,
+    stealth: 4,
     traits: [],
     actions: [
       {
@@ -253,6 +260,8 @@ export const LAIR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire'],
     conditionImmunities: [],
+    passivePerception: 18,
+    stealth: 4,
     traits: [],
     actions: [
       {
@@ -313,6 +322,8 @@ export const LAIR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['acid'],
     conditionImmunities: [],
+    passivePerception: 21,
+    stealth: 7,
     traits: [],
     actions: [
       {
@@ -433,6 +444,8 @@ export const LAIR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['lightning'],
     conditionImmunities: [],
+    passivePerception: 22,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -510,6 +523,8 @@ export const LAIR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire'],
     conditionImmunities: [],
+    passivePerception: 23,
+    stealth: 6,
     traits: [],
     actions: [
       {
@@ -618,6 +633,8 @@ export const LAIR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire'],
     conditionImmunities: [],
+    passivePerception: 26,
+    stealth: 7,
     traits: [],
     actions: [
       {

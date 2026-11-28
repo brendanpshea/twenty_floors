@@ -28,6 +28,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['necrotic', 'poison'],
     conditionImmunities: ['charmed', 'grappled', 'paralyzed', 'poisoned', 'prone', 'restrained', 'unconscious'],
+    passivePerception: 10,
     traits: ['sunlightSensitivity'],
     actions: [
       {
@@ -68,6 +69,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     vulnerabilities: ['bludgeoning'],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 9,
     traits: [],
     actions: [
       {
@@ -115,6 +117,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 8,
     traits: ['undeadFortitude'],
     actions: [
       {
@@ -167,6 +170,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
       'restrained',
       'stunned',
     ],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -208,6 +212,8 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['charmed'],
+    passivePerception: 14,
+    stealth: 7,
     traits: [],
     actions: [
       {
@@ -282,6 +288,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['necrotic', 'poison'],
     conditionImmunities: ['charmed', 'grappled', 'paralyzed', 'poisoned', 'prone', 'restrained', 'unconscious'],
+    passivePerception: 12,
     traits: ['sunlightSensitivity'],
     actions: [
       {
@@ -324,6 +331,8 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 13,
+    stealth: 6,
     traits: ['spiderClimb', 'sunlightSensitivity'],
     actions: [
       {
@@ -413,6 +422,8 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 17,
+    stealth: 9,
     traits: ['spiderClimb', 'sunlightSensitivity'],
     legendary: {
       options: [
@@ -511,6 +522,8 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['grappled', 'paralyzed', 'poisoned', 'prone', 'restrained', 'unconscious'],
+    passivePerception: 18,
+    stealth: 10,
     traits: [],
     actions: [
       {
@@ -574,6 +587,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison', 'psychic'],
     conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'petrified', 'poisoned'],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -658,6 +672,7 @@ export const TOUGH_CRYPT: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['psychic'],
     conditionImmunities: [],
+    passivePerception: 16,
     traits: [],
     actions: [
       {

@@ -36,6 +36,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 12,
     traits: ['packTactics'],
     actions: [
       {
@@ -72,6 +73,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 9,
+    stealth: 6,
     traits: ['nimbleEscape'],
     actions: [
       {
@@ -118,6 +121,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 9,
+    stealth: 6,
     traits: ['nimbleEscape'],
     actions: [
       {
@@ -164,6 +169,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
+    stealth: 4,
     traits: ['packTactics'],
     actions: [
       {
@@ -205,6 +212,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 9,
+    stealth: 6,
     traits: ['nimbleEscape'],
     actions: [
       {
@@ -269,6 +278,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: ['bludgeoning'],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 9,
     traits: [],
     actions: [
       {
@@ -315,6 +325,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 8,
     traits: ['undeadFortitude'],
     actions: [
       {
@@ -351,6 +362,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: ['radiant'],
     immunities: ['necrotic', 'poison'],
     conditionImmunities: ['frightened', 'grappled', 'paralyzed', 'poisoned', 'prone', 'restrained', 'unconscious'],
+    passivePerception: 10,
+    stealth: 6,
     traits: ['amorphous', 'sunlightSensitivity'],
     actions: [
       {
@@ -389,6 +402,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['charmed', 'poisoned'],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -449,6 +463,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
+    stealth: 7,
     traits: ['spiderClimb'],
     actions: [
       {
@@ -499,6 +515,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
+    stealth: 6,
     traits: [],
     actions: [
       {
@@ -558,6 +576,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 8,
     traits: [],
     actions: [
       {
@@ -617,6 +636,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 12,
+    stealth: 4,
     traits: [],
     actions: [
       {
@@ -655,6 +676,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['blinded', 'charmed', 'frightened', 'grappled', 'prone', 'restrained'],
+    passivePerception: 8,
+    stealth: 2,
     traits: ['amorphous'],
     actions: [
       {
@@ -693,6 +716,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -734,6 +758,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['lightning', 'slashing'],
     conditionImmunities: ['charmed', 'frightened', 'grappled', 'prone', 'restrained'],
+    passivePerception: 8,
     traits: ['amorphous', 'spiderClimb'],
     actions: [
       {
@@ -772,6 +797,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -837,6 +864,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 12,
     traits: [],
     actions: [
       {
@@ -899,6 +927,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['acid'],
     conditionImmunities: ['blinded', 'charmed', 'frightened', 'prone'],
+    passivePerception: 8,
     traits: [],
     actions: [
       {
@@ -950,6 +979,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
+    stealth: 3,
     traits: [],
     actions: [
       {
@@ -1012,6 +1043,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['blinded', 'charmed', 'frightened'],
+    passivePerception: 6,
     traits: [],
     actions: [
       {
@@ -1060,6 +1092,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 12,
+    stealth: 4,
     traits: [],
     actions: [
       {
@@ -1121,6 +1155,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['prone'],
+    passivePerception: 10,
     traits: [],
     auras: [
       {
@@ -1185,6 +1220,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 14,
     traits: [],
     actions: [
       {
@@ -1244,6 +1280,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 13,
+    stealth: 4,
     traits: ['spiderClimb'],
     actions: [
       {
@@ -1316,6 +1354,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
+    stealth: 3,
     traits: [],
     actions: [
       {
@@ -1359,6 +1399,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['lightning'],
     conditionImmunities: [],
+    passivePerception: 10,
+    stealth: 3,
     traits: [],
     actions: [
       {
@@ -1429,6 +1471,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
+    stealth: 6,
     traits: [],
     actions: [
       {
@@ -1496,6 +1540,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -1561,6 +1606,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -1599,6 +1645,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 12,
     traits: [],
     actions: [
       {
@@ -1665,6 +1712,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
     traits: ['packTactics'],
     actions: [
       {
@@ -1737,6 +1785,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
     traits: [],
     actions: [
       {
@@ -1826,6 +1875,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -1894,6 +1944,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 11,
     traits: [],
     actions: [
       {
@@ -1981,6 +2032,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 11,
     traits: [],
     actions: [
       {
@@ -2058,6 +2110,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['blinded', 'charmed', 'frightened', 'stunned', 'unconscious'],
+    passivePerception: 15,
+    stealth: 4,
     traits: [],
     actions: [
       {
@@ -2108,6 +2162,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['charmed', 'poisoned'],
+    passivePerception: 10,
     traits: [],
     auras: [
       {
@@ -2173,6 +2228,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 10,
+    stealth: 4,
     traits: [],
     actions: [
       {
@@ -2224,6 +2281,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison', 'psychic'],
     conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'poisoned'],
+    passivePerception: 6,
     traits: [],
     actions: [
       {
@@ -2263,6 +2321,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 13,
+    stealth: 4,
     traits: ['sunlightSensitivity'],
     actions: [
       {
@@ -2346,6 +2406,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['charmed'],
+    passivePerception: 11,
     traits: [],
     actions: [
       {
@@ -2408,6 +2469,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
     traits: [],
     actions: [
       {
@@ -2497,6 +2559,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: ['fire'],
     immunities: ['necrotic', 'poison'],
     conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'poisoned'],
+    passivePerception: 11,
     traits: [],
     actions: [
       {
@@ -2560,6 +2623,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['necrotic', 'poison'],
     conditionImmunities: ['charmed', 'frightened', 'grappled', 'paralyzed', 'poisoned', 'prone', 'restrained'],
+    passivePerception: 11,
     traits: [],
     actions: [
       {
@@ -2619,6 +2683,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'petrified', 'poisoned'],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -2676,6 +2741,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: ['cold'],
     immunities: ['fire', 'poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 10,
+    stealth: 3,
     traits: [],
     actions: [
       {
@@ -2728,6 +2795,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison', 'psychic'],
     conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'poisoned'],
+    passivePerception: 6,
     traits: [],
     actions: [
       {
@@ -2776,6 +2844,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire', 'poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 11,
     traits: [],
     auras: [
       {
@@ -2826,6 +2895,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire'],
     conditionImmunities: [],
+    passivePerception: 15,
     traits: ['packTactics'],
     actions: [
       {
@@ -2887,6 +2957,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire'],
     conditionImmunities: [],
+    passivePerception: 14,
+    stealth: 2,
     traits: [],
     actions: [
       {
@@ -2952,6 +3024,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['petrified'],
+    passivePerception: 17,
     traits: [],
     actions: [
       {
@@ -3005,6 +3078,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: ['cold'],
     immunities: ['fire'],
     conditionImmunities: [],
+    passivePerception: 10,
     traits: [],
     auras: [
       {
@@ -3117,6 +3191,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire', 'poison'],
     conditionImmunities: ['grappled', 'paralyzed', 'poisoned', 'prone', 'restrained', 'unconscious'],
+    passivePerception: 10,
     traits: [],
     auras: [
       {
@@ -3177,6 +3252,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: ['thunder'],
     immunities: ['poison'],
     conditionImmunities: ['paralyzed', 'poisoned', 'unconscious'],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -3245,6 +3321,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['lightning', 'poison'],
     conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'poisoned'],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -3296,6 +3373,8 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -3365,6 +3444,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire'],
     conditionImmunities: [],
+    passivePerception: 16,
     traits: [],
     actions: [
       {
@@ -3441,6 +3521,7 @@ const BASE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['acid', 'poison', 'psychic'],
     conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'petrified', 'poisoned'],
+    passivePerception: 9,
     traits: [],
     actions: [
       {

@@ -21,6 +21,8 @@ export const DEEP_DRAGONS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire'],
     conditionImmunities: [],
+    passivePerception: 16,
+    stealth: 3,
     traits: [],
     actions: [
       {
@@ -90,6 +92,8 @@ export const DEEP_DRAGONS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['acid'],
     conditionImmunities: [],
+    passivePerception: 17,
+    stealth: 4,
     traits: [],
     actions: [
       {
@@ -168,6 +172,8 @@ export const DEEP_DRAGONS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['lightning'],
     conditionImmunities: [],
+    passivePerception: 17,
+    stealth: 3,
     traits: [],
     actions: [
       {
@@ -237,6 +243,8 @@ export const DEEP_DRAGONS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['cold'],
     conditionImmunities: [],
+    passivePerception: 18,
+    stealth: 4,
     traits: [],
     actions: [
       {
@@ -306,6 +314,8 @@ export const DEEP_DRAGONS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire'],
     conditionImmunities: [],
+    passivePerception: 19,
+    stealth: 6,
     traits: [],
     actions: [
       {
@@ -365,6 +375,8 @@ export const DEEP_DRAGONS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['cold'],
     conditionImmunities: [],
+    passivePerception: 21,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -487,6 +499,8 @@ export const DEEP_DRAGONS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['cold'],
     conditionImmunities: [],
+    passivePerception: 23,
+    stealth: 6,
     traits: [],
     actions: [
       {

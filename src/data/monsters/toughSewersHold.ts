@@ -28,6 +28,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 11,
     traits: [],
     actions: [
       {
@@ -91,6 +92,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -188,6 +190,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['acid', 'cold', 'lightning', 'slashing'],
     conditionImmunities: ['charmed', 'frightened', 'grappled', 'prone', 'restrained'],
+    passivePerception: 8,
     traits: ['amorphous', 'spiderClimb'],
     retaliate: { dice: '1d8', damageType: 'acid', name: 'Corrosive Form' },
     actions: [
@@ -229,6 +232,8 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -293,6 +298,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['grappled', 'paralyzed', 'poisoned', 'prone', 'restrained', 'unconscious'],
+    passivePerception: 10,
     traits: ['amorphous'],
     actions: [
       {
@@ -357,6 +363,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 11,
     traits: [],
     actions: [
       {
@@ -434,6 +441,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 20,
     traits: [],
     legendary: {
       options: [{ name: 'Lash', description: 'The aboleth lashes out with one more tentacle.', use: 'tentacle' }],
@@ -507,6 +515,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: ['fire'],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 13,
     traits: [],
     actions: [
       {
@@ -566,6 +575,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 12,
     traits: [],
     actions: [
       {
@@ -641,6 +651,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['frightened'],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -713,6 +724,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
     traits: [],
     actions: [
       {
@@ -791,6 +803,7 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
     traits: [],
     actions: [
       {
@@ -871,6 +884,8 @@ export const TOUGH_SEWERS_HOLD: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 16,
+    stealth: 10,
     traits: [],
     actions: [
       {

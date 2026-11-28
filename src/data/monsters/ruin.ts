@@ -27,6 +27,8 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -97,6 +99,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: ['fire'],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -137,6 +140,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
     traits: [],
     actions: [
       {
@@ -186,6 +190,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
     traits: [],
     actions: [
       {
@@ -233,6 +238,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
     traits: [],
     actions: [
       {
@@ -299,6 +305,8 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
+    stealth: 6,
     traits: [],
     actions: [
       {
@@ -390,6 +398,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
     traits: [],
     actions: [
       {
@@ -452,6 +461,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['blinded', 'charmed', 'frightened', 'stunned', 'unconscious'],
+    passivePerception: 16,
     traits: [],
     actions: [
       {
@@ -499,6 +509,8 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 17,
+    stealth: 4,
     traits: [],
     actions: [
       {
@@ -565,6 +577,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['charmed', 'paralyzed', 'poisoned', 'restrained'],
+    passivePerception: 14,
     traits: [],
     actions: [
       {
@@ -662,6 +675,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 18,
     traits: [],
     actions: [
       {
@@ -732,6 +746,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 21,
     traits: [],
     actions: [
       {
@@ -806,6 +821,7 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['lightning', 'thunder'],
     conditionImmunities: [],
+    passivePerception: 20,
     traits: [],
     actions: [
       {
@@ -891,6 +907,8 @@ export const RUIN_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 22,
+    stealth: 6,
     traits: [],
     actions: [
       {

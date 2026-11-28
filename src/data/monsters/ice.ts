@@ -23,6 +23,8 @@ export const ICE_MONSTERS: MonsterDef[] = [
     vulnerabilities: ['fire'],
     immunities: ['cold', 'poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 12,
+    stealth: 3,
     traits: [],
     actions: [
       {
@@ -75,6 +77,8 @@ export const ICE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['cold'],
     conditionImmunities: [],
+    passivePerception: 14,
+    stealth: 2,
     traits: [],
     actions: [
       {
@@ -136,6 +140,8 @@ export const ICE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
+    stealth: 4,
     traits: [],
     actions: [
       {
@@ -183,6 +189,8 @@ export const ICE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
+    stealth: 7,
     traits: ['nimbleEscape'],
     actions: [
       {
@@ -230,6 +238,8 @@ export const ICE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['cold'],
     conditionImmunities: [],
+    passivePerception: 15,
+    stealth: 5,
     traits: ['packTactics'],
     actions: [
       {
@@ -281,6 +291,7 @@ export const ICE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -328,6 +339,8 @@ export const ICE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['cold'],
     conditionImmunities: [],
+    passivePerception: 16,
+    stealth: 3,
     traits: [],
     actions: [
       {
@@ -391,6 +404,7 @@ export const ICE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['cold'],
     conditionImmunities: [],
+    passivePerception: 13,
     traits: [],
     actions: [
       {
@@ -468,6 +482,7 @@ export const ICE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['cold', 'fire'],
     conditionImmunities: [],
+    passivePerception: 10,
     traits: [],
     auras: [
       {
@@ -541,6 +556,8 @@ export const ICE_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['cold'],
     conditionImmunities: [],
+    passivePerception: 21,
+    stealth: 5,
     traits: [],
     actions: [
       {

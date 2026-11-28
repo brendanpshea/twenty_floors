@@ -22,6 +22,8 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 12,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -72,6 +74,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 13,
     traits: [],
     actions: [
       {
@@ -130,6 +133,8 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 13,
+    stealth: 7,
     traits: ['nimbleEscape'],
     actions: [
       {
@@ -169,6 +174,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 8,
     traits: [],
     actions: [
       {
@@ -208,6 +214,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 13,
     traits: [],
     actions: [
       {
@@ -274,6 +281,8 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
+    stealth: 4,
     traits: ['packTactics'],
     actions: [
       {
@@ -359,6 +368,8 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
+    stealth: 4,
     traits: ['nimbleEscape'],
     actions: [
       {
@@ -444,6 +455,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 12,
     traits: [],
     actions: [
       {
@@ -539,6 +551,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 17,
     traits: [],
     actions: [
       {
@@ -633,6 +646,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 9,
     traits: [],
     actions: [
       {
@@ -674,6 +688,8 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
+    stealth: 2,
     traits: [],
     actions: [
       {
@@ -713,6 +729,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['charmed', 'frightened', 'grappled', 'paralyzed', 'prone', 'restrained', 'stunned'],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -754,6 +771,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['lightning', 'poison'],
     conditionImmunities: ['grappled', 'paralyzed', 'poisoned', 'prone', 'restrained', 'unconscious'],
+    passivePerception: 12,
     traits: [],
     actions: [
       {
@@ -791,6 +809,8 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['acid'],
     conditionImmunities: [],
+    passivePerception: 14,
+    stealth: 4,
     traits: [],
     actions: [
       {
@@ -851,6 +871,8 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['charmed'],
+    passivePerception: 15,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -919,6 +941,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 13,
     traits: [],
     actions: [
       {
@@ -956,6 +979,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 16,
     traits: [],
     actions: [
       {
@@ -1006,6 +1030,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -1056,6 +1081,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
     traits: [],
     actions: [
       {
@@ -1102,6 +1128,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 13,
     traits: ['packTactics'],
     actions: [
       {
@@ -1141,6 +1168,7 @@ export const OUTDOOR_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison', 'thunder'],
     conditionImmunities: ['grappled', 'paralyzed', 'poisoned', 'prone', 'restrained', 'unconscious'],
+    passivePerception: 10,
     traits: [],
     actions: [
       {

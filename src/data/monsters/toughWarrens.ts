@@ -22,6 +22,7 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
     traits: ['packTactics'],
     actions: [
       {
@@ -72,6 +73,7 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
     traits: [],
     actions: [
       {
@@ -109,6 +111,8 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
+    stealth: 4,
     traits: ['packTactics'],
     actions: [
       {
@@ -150,6 +154,8 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 11,
+    stealth: 6,
     traits: [],
     actions: [
       {
@@ -236,6 +242,7 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['blinded', 'charmed', 'frightened', 'stunned', 'unconscious'],
+    passivePerception: 14,
     traits: [],
     actions: [
       {
@@ -295,6 +302,7 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
     traits: [],
     actions: [
       {
@@ -343,6 +351,7 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 12,
     traits: [],
     actions: [
       {
@@ -416,6 +425,7 @@ export const TOUGH_WARRENS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 14,
     traits: [],
     actions: [
       {

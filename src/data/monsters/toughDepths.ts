@@ -23,6 +23,8 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 10,
+    stealth: 7,
     traits: ['spiderClimb'],
     actions: [
       {
@@ -74,6 +76,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 9,
     traits: [],
     actions: [
       {
@@ -128,6 +131,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 11,
     traits: [],
     actions: [
       {
@@ -196,6 +200,8 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 16,
+    stealth: 5,
     traits: ['spiderClimb'],
     actions: [
       {
@@ -256,6 +262,8 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['paralyzed', 'poisoned'],
+    passivePerception: 16,
+    stealth: 6,
     traits: [],
     actions: [
       {
@@ -315,6 +323,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 16,
     traits: [],
     actions: [
       {
@@ -377,6 +386,8 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 16,
+    stealth: 10,
     traits: ['spiderClimb', 'sunlightSensitivity'],
     actions: [
       {
@@ -455,6 +466,7 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 18,
     traits: [],
     actions: [
       {
@@ -539,6 +551,8 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['frightened'],
+    passivePerception: 12,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -611,6 +625,8 @@ export const TOUGH_DEPTHS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['lightning'],
     conditionImmunities: [],
+    passivePerception: 16,
+    stealth: 7,
     traits: [],
     actions: [
       {

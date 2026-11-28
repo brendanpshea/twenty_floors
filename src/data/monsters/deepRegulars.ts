@@ -31,6 +31,8 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 15,
+    stealth: 7,
     traits: [],
     actions: [
       {
@@ -103,6 +105,8 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 12,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -178,6 +182,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['charmed', 'poisoned'],
+    passivePerception: 12,
     traits: [],
     actions: [
       {
@@ -275,6 +280,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire'],
     conditionImmunities: [],
+    passivePerception: 12,
     traits: [],
     actions: [
       {
@@ -363,6 +369,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['lightning', 'thunder'],
     conditionImmunities: [],
+    passivePerception: 13,
     traits: [],
     actions: [
       {
@@ -450,6 +457,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['psychic'],
     conditionImmunities: ['charmed', 'frightened'],
+    passivePerception: 18,
     traits: [],
     legendary: {
       options: [{ name: 'Arcane Prowl', description: 'It slips in close and rakes a foe with one more claw.', use: 'claw' }],
@@ -517,6 +525,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: ['charmed', 'frightened'],
+    passivePerception: 18,
     traits: [],
     actions: [
       {
@@ -587,6 +596,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['cold', 'fire', 'poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 17,
     traits: [],
     actions: [
       {
@@ -705,6 +715,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: ['fire'],
     immunities: ['necrotic', 'poison'],
     conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'poisoned'],
+    passivePerception: 19,
     traits: [],
     legendary: {
       options: [
@@ -819,6 +830,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: [],
     conditionImmunities: [],
+    passivePerception: 9,
     traits: [],
     actions: [
       {
@@ -883,6 +895,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire', 'poison', 'psychic'],
     conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'petrified', 'poisoned'],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -974,6 +987,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire', 'poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 20,
     traits: [],
     legendary: { options: [], resistance: 4 },
     auras: [
@@ -1104,6 +1118,7 @@ export const DEEP_REGULARS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['necrotic', 'poison'],
     conditionImmunities: ['charmed', 'frightened', 'paralyzed', 'poisoned'],
+    passivePerception: 19,
     traits: [],
     legendary: {
       options: [

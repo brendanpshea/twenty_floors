@@ -22,6 +22,8 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire', 'poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 11,
+    stealth: 5,
     traits: [],
     actions: [
       {
@@ -69,6 +71,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire', 'poison'],
     conditionImmunities: ['frightened', 'poisoned'],
+    passivePerception: 10,
     traits: [],
     actions: [
       {
@@ -132,6 +135,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire', 'poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 18,
     traits: [],
     actions: [
       {
@@ -213,6 +217,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 11,
     traits: [],
     actions: [
       {
@@ -291,6 +296,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire', 'poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 11,
     traits: [],
     actions: [
       {
@@ -350,6 +356,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 11,
     traits: [],
     auras: [
       {
@@ -411,6 +418,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire', 'poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 12,
     traits: [],
     actions: [
       {
@@ -475,6 +483,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 17,
     traits: [],
     actions: [
       {
@@ -538,6 +547,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire', 'poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 13,
     traits: [],
     actions: [
       {
@@ -629,6 +639,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['frightened', 'poisoned'],
+    passivePerception: 11,
     traits: [],
     actions: [
       {
@@ -694,6 +705,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire', 'poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 16,
     traits: [],
     actions: [
       {
@@ -758,6 +770,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['poison'],
     conditionImmunities: ['poisoned'],
+    passivePerception: 18,
     traits: [],
     actions: [
       {
@@ -823,6 +836,7 @@ export const HELL_MONSTERS: MonsterDef[] = [
     vulnerabilities: [],
     immunities: ['fire', 'poison'],
     conditionImmunities: ['charmed', 'frightened', 'poisoned'],
+    passivePerception: 19,
     traits: [],
     legendary: { options: [], resistance: 3 },
     auras: [
