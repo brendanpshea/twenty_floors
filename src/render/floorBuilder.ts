@@ -615,6 +615,8 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
   /** Top height and colour of every floor cell, for decals drawn after the loop. NaN: not a floor. */
   const topY = new Float32Array(W * H).fill(NaN);
   /** Heavy things (they crack the floor around them) and clutter, by cell. */
+  /** Floor clutter: scenery that must not look like something to pick up or click. */
+  const CLUTTER = new Set(['rubble', 'bones', 'skull_pile', 'book_pile']);
   const HEAVY = new Set(['statue', 'sarcophagus', 'pillar', 'broken_pillar', 'altar', 'fallen_column', 'rubble', 'brazier']);
   const heavyAt = new Uint8Array(W * H);
   if (detail) for (const p of plan.props) if (HEAVY.has(p.type) && p.pos.x >= 0 && p.pos.y >= 0 && p.pos.x < W && p.pos.y < H) heavyAt[p.pos.y * W + p.pos.x] = 1;
@@ -754,9 +756,10 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
   };
 
   /** A soft round contact shadow, multiplied onto the floor: `shadow` at the centre, nothing at radius r. */
-  const disc = (idx: number, x: number, z: number, r: number, y: number, wobble: number, salt: number): void => {
+  const disc = (idx: number, x: number, z: number, r: number, y: number, wobble: number, salt: number, strength = 1): void => {
     const n = 16;
-    const mid = mix3(shadowMul, WHITE, 0.3);
+    const core = mix3(WHITE, shadowMul, strength);
+    const mid = mix3(core, WHITE, 0.3);
     const rad = (i: number): number => r * (1 + (hash2(salt, i % n, 7) - 0.5) * wobble);
     const ang = (i: number): number => (i / n) * Math.PI * 2 + (hash2(salt, i % n, 8) - 0.5) * 0.25;
     for (let i = 0; i < n; i++) {
@@ -765,7 +768,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       const r0 = rad(i);
       const r1 = rad(i + 1);
       // The inner 55% keeps most of the darkness, then it fades out: a soft edge rather than a cone.
-      setM(va, x, y, z, shadowMul);
+      setM(va, x, y, z, core);
       setM(vb, x + Math.cos(a0) * r0 * 0.55, y, z + Math.sin(a0) * r0 * 0.55, mid);
       setM(vc, x + Math.cos(a1) * r1 * 0.55, y, z + Math.sin(a1) * r1 * 0.55, mid);
       tri(decalBuf, va, vb, vc, idx, 0, 1, 0);
@@ -1113,7 +1116,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
   if (detail) {
     const SHADOW: Record<string, number> = {
       // Radii in world units (a cell is 2). Big bases need the most, to show round them.
-      statue: 1.05, sarcophagus: 1.25, brazier: 0.62, urn: 0.48, pillar: 1.0, broken_pillar: 0.95, altar: 1.2, rubble: 0.8,
+      statue: 1.05, sarcophagus: 1.25, brazier: 0.62, urn: 0.48, pillar: 1.0, broken_pillar: 0.95, altar: 1.2, rubble: 0.65,
       bones: 0.5, crate: 0.85, barrel: 0.62, fallen_column: 1.2, book_pile: 0.5, skull_pile: 0.55, lectern: 0.6, chest: 0.7,
     };
     for (const p of plan.props) {
@@ -1126,7 +1129,8 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       const x = p.pos.x * CELL + CELL / 2 + sx;
       const z = p.pos.y * CELL + CELL / 2 + sz;
       // A shadow may spill past the tile onto its neighbours; it is multiplied, so it sits on whatever is there.
-      disc(i, x, z, r, y + 0.007, 0.15, i * 3 + 2);
+      // Floor clutter (rubble, bones) only gets a faint smudge: it should sit in the floor, not stand out from it.
+      disc(i, x, z, r, y + 0.007, 0.15, i * 3 + 2, CLUTTER.has(p.type) ? 0.35 : 1);
     }
   }
 

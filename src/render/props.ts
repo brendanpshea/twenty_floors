@@ -39,6 +39,18 @@ const BUILDERS: Record<string, Builder> = {
   rubble: (look) => {
     const p = look.prop;
     const g = new GeoBuilder();
+    if (look.detail) {
+      // Floor-detail themes: rubble is scenery, not a pickup or an obstacle. Low, flat chips close to the floor's own
+      // colour, so it reads as part of the floor rather than as something to click.
+      const a = tintToward(p.stone, look.floorB, 0.55);
+      const b = tintToward(p.stoneDark, look.floorA, 0.45);
+      const chips: [number, number, number, number][] = [
+        [-0.3, -0.2, 0.17, a], [0.3, 0.1, 0.14, b], [-0.05, 0.38, 0.12, a], [0.12, -0.42, 0.1, b],
+        [0.48, -0.35, 0.08, a], [-0.52, 0.22, 0.09, b], [0.05, 0.05, 0.07, a], [-0.35, 0.5, 0.06, b],
+      ];
+      chips.forEach(([x, z, r, c], i) => g.ico(r, 0, c, { x, y: r * 0.25, z, sy: 0.4, ry: i * 1.3, rx: i * 0.3, shade: 0.95 + 0.05 * (i % 2) }));
+      return { lit: g.build(), glow: null };
+    }
     const rocks: [number, number, number, number, number][] = [
       [-0.3, 0.12, -0.2, 0.3, p.stone],
       [0.35, 0.1, 0.1, 0.24, p.stoneDark],
@@ -86,7 +98,9 @@ const BUILDERS: Record<string, Builder> = {
     return { lit: g.build(), glow: null };
   },
   bones: (look) => {
-    const p = look.prop;
+    const p = { ...look.prop };
+    // Floor-detail themes: old bones, dulled toward the floor, so they read as scenery.
+    if (look.detail) p.bone = tintToward(p.bone, look.floorA, 0.4);
     const g = new GeoBuilder();
     g.ico(0.16, 0, p.bone, { x: -0.25, y: 0.14, z: 0.1, sy: 0.9 });
     g.box(0.1, 0.07, 0.08, p.bone, { x: -0.25, y: 0.06, z: 0.24 });
@@ -1107,4 +1121,10 @@ export function buildProps(
       steadyMat.dispose();
     },
   };
+}
+
+/** A hex colour moved toward another by t (0..1). */
+function tintToward(a: number, b: number, t: number): number {
+  const ch = (sh: number): number => Math.round(((a >> sh) & 255) * (1 - t) + ((b >> sh) & 255) * t);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
 }
