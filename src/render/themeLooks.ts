@@ -17,6 +17,12 @@ export interface FloorDetail {
   grimeDepth: number;
   /** Multiplier at the centre of a prop's contact shadow. */
   shadow: number;
+  /** If set, crack cores glow in this colour (drawn unlit: magma in hell, heat in the foundry). */
+  glow?: number;
+  /** If set, slab joints take this colour (moss in the sewers, frost in ice) instead of plain shadow. */
+  joint?: number;
+  /** Multiplies how many tiles crack (default 1). */
+  crackRate?: number;
 }
 
 export interface ThemeLook {
@@ -467,6 +473,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   hell: {
     id: 'hell',
+    detail: { slabs: true, crack: 0x1a0806, rim: 0x4a1a10, grime: 0x7a5048, grimeDepth: 0.9, shadow: 0x5a3a36, glow: 0xff5a1f, crackRate: 1.4 },
     highlight: 'warm',
     wallStyle: 'dressed',
     floorA: 0x7a3c34,

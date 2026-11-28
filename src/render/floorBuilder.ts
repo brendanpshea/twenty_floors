@@ -595,9 +595,12 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
 
   // ---- floor detail (FloorDetail on the look; the crypt pilot) ----------
   const detail = look.detail;
-  const hexRgb = (hex: number): number[] => [((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255];
+  // Colours as the rest of the floor builder uses them (three's Color: linear working space).
+  const hexRgb = rgbOf;
   const crackC = detail ? hexRgb(detail.crack) : [0, 0, 0];
   const rimC = detail ? hexRgb(detail.rim) : [0, 0, 0];
+  const crackGlowC = detail?.glow !== undefined ? hexRgb(detail.glow) : null;
+  const jointC = detail?.joint !== undefined ? hexRgb(detail.joint) : null;
   // Grime and contact shadows are MULTIPLIED onto the finished floor (their own layer, see decalBuf), so they darken
   // whatever is underneath (slab tones, cracks, baked light) without painting over it.
   const grimeMul = detail ? hexRgb(detail.grime) : [1, 1, 1];
@@ -630,16 +633,18 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
   };
 
   /** A flat strip from (ax, az) to (bx, bz), `w0` wide at the start tapering to `w1`, at height y. */
-  const strip = (buf: Buf, idx: number, ax: number, az: number, bx: number, bz: number, w0: number, w1: number, y: number, col: number[], shade = 1): void => {
+  const strip = (buf: Buf, idx: number, ax: number, az: number, bx: number, bz: number, w0: number, w1: number, y: number, col: number[], shade = 1, raw = false): void => {
     const dx = bx - ax;
     const dz = bz - az;
     const l = Math.hypot(dx, dz) || 1;
     const px = -dz / l;
     const pz = dx / l;
-    setV(va, ax + px * w0, y, az + pz * w0, col, shade);
-    setV(vb, bx + px * w1, y, bz + pz * w1, col, shade);
-    setV(vc, bx - px * w1, y, bz - pz * w1, col, shade);
-    setV(vd, ax - px * w0, y, az - pz * w0, col, shade);
+    // `raw`: the colour as given, without baked light (for the unlit glow layer).
+    const put = raw ? (v: V, x: number, yy: number, z: number): void => setM(v, x, yy, z, col) : (v: V, x: number, yy: number, z: number): void => setV(v, x, yy, z, col, shade);
+    put(va, ax + px * w0, y, az + pz * w0);
+    put(vb, bx + px * w1, y, bz + pz * w1);
+    put(vc, bx - px * w1, y, bz - pz * w1);
+    put(vd, ax - px * w0, y, az - pz * w0);
     quad(buf, va, vb, vc, vd, idx, 0, 1, 0);
   };
 
@@ -654,7 +659,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       setV(vd, ax, y, bz, c, 1);
       quad(buf, va, vb, vc, vd, idx, 0, 1, 0);
     };
-    const joint = scale3(alb, 0.48);
+    const joint = jointC ? mix3(scale3(alb, 0.7), jointC, 0.6) : scale3(alb, 0.48);
     const jy = y + 0.003;
     if (h < 0.4) {
       rect(x0, z0, x1, z1, 62);
@@ -713,7 +718,8 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       const nx = clampX(px + Math.cos(ang) * len);
       const nz = clampZ(pz + Math.sin(ang) * len);
       const nw = w * 0.68;
-      strip(buf, idx, px, pz, nx, nz, w, nw, y + 0.004, core);
+      if (crackGlowC) strip(glowBuf, idx, px, pz, nx, nz, w, nw, y + 0.004, crackGlowC, 1, true);
+      else strip(buf, idx, px, pz, nx, nz, w, nw, y + 0.004, core);
       // The chipped rim: a pale sliver on one side of the crack.
       const l = Math.hypot(nx - px, nz - pz) || 1;
       const ox = (-(nz - pz) / l) * (w + 0.018);
@@ -731,7 +737,8 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       for (let i = 0; i < 2; i++) {
         const nx = clampX(bx + Math.cos(ba) * 0.3);
         const nz = clampZ(bz + Math.sin(ba) * 0.3);
-        strip(buf, idx, bx, bz, nx, nz, bw, bw * 0.5, y + 0.0042, core);
+        if (crackGlowC) strip(glowBuf, idx, bx, bz, nx, nz, bw, bw * 0.5, y + 0.0042, crackGlowC, 1, true);
+        else strip(buf, idx, bx, bz, nx, nz, bw, bw * 0.5, y + 0.0042, core);
         bx = nx;
         bz = nz;
         bw *= 0.5;
@@ -901,7 +908,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
         } else {
           alb = scale3(mix3(fA, fB, hA), 0.88 + 0.24 * hB);
           // With floor detail, damage gathers where it makes sense: by walls and around heavy things.
-          const crackChance = detail ? 0.035 + (nearWall ? 0.14 : 0) + (heavyNear(cx, cy) ? 0.16 : 0) : 0.07;
+          const crackChance = detail ? (0.035 + (nearWall ? 0.14 : 0) + (heavyNear(cx, cy) ? 0.16 : 0)) * (detail.crackRate ?? 1) : 0.07;
           cracked = hash2(cx, cy, 51) < crackChance;
           if (cracked && !detail) alb = scale3(alb, 0.72);
           if (hash2(cx, cy, 52) < 0.06) off = (hash2(cx, cy, 53) - 0.5) * 0.05;
