@@ -580,6 +580,10 @@ export interface MonsterDef {
   immunities: DamageType[];
   conditionImmunities: Condition[];
   traits: TraitId[];
+  /** Passive Perception as printed in the stat block's Senses line. When omitted: 10 + Wis modifier. */
+  passivePerception?: number;
+  /** Stealth bonus as printed in the stat block's Skills line. When omitted the monster is not trained (Dex modifier). */
+  stealth?: number;
   /** Passive emanations that hit hostile creatures near the monster (Stench, Fear Aura, Fire Aura). */
   auras?: MonsterAura[];
   legendary?: MonsterLegendary;
