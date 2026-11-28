@@ -696,6 +696,79 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
    * A crack: a tapering, slightly wandering line with one branch, a dark core and a pale chipped rim along one side.
    * It starts at the tile edge nearest a wall when there is one (damage creeps in from the walls).
    */
+  /**
+   * An organic crack: a random walk of short segments that tapers to a hairline, with forks that fork again, a chipped
+   * rim that wanders from side to side, and a size class (mostly hairlines, some medium cracks, the odd long fissure).
+   * It stops where it would leave the tile rather than running along the edge.
+   */
+  const organicCrack = (buf: Buf, idx: number, cx: number, cy: number, x0: number, z0: number, x1: number, z1: number, y: number, alb: number[], wallDir: number): void => {
+    const core = mix3(alb, crackC, 0.82);
+    const rim = mix3(alb, rimC, 0.45);
+    let seed = (Math.floor(hash2(cx, cy, 80) * 4294967296) ^ 0x9e3779b9) >>> 0;
+    const rnd = (): number => {
+      seed = (seed + 0x6d2b79f5) >>> 0;
+      let t = seed;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const lo = 0.06;
+    const inside = (x: number, z: number): boolean => x > x0 + lo && x < x1 - lo && z > z0 + lo && z < z1 - lo;
+    const r = rnd();
+    // Size class: segments, start width, and how many forks it may throw.
+    const [segs, w0, forks] = r < 0.55 ? [3 + Math.floor(rnd() * 3), 0.03, 0] : r < 0.88 ? [6 + Math.floor(rnd() * 3), 0.05, 1] : [9 + Math.floor(rnd() * 4), 0.072, 2];
+    const cxm = (x0 + x1) / 2;
+    const czm = (z0 + z1) / 2;
+    const edge = wallDir >= 0 ? wallDir : Math.floor(rnd() * 4);
+    const along = (rnd() - 0.5) * 1.3;
+    const sx = edge === 1 ? x1 - lo - 0.01 : edge === 3 ? x0 + lo + 0.01 : cxm + along;
+    const sz = edge === 2 ? z1 - lo - 0.01 : edge === 0 ? z0 + lo + 0.01 : czm + along;
+    const walk = (px: number, pz: number, ang: number, n: number, w: number, forksLeft: number, depth: number): void => {
+      let side = rnd() < 0.5 ? 1 : -1;
+      for (let i = 0; i < n; i++) {
+        const len = 0.11 + 0.15 * rnd();
+        // Mostly gentle wander, now and then a sharp kink.
+        ang += (rnd() - 0.5) * (rnd() < 0.18 ? 1.6 : 0.7);
+        let nx = px + Math.cos(ang) * len;
+        let nz = pz + Math.sin(ang) * len;
+        if (!inside(nx, nz)) {
+          // Turn back toward the middle of the tile once; a crack that still can't continue ends here.
+          ang = Math.atan2(czm - pz, cxm - px) + (rnd() - 0.5) * 1.2;
+          nx = px + Math.cos(ang) * len;
+          nz = pz + Math.sin(ang) * len;
+          if (!inside(nx, nz) || rnd() < 0.3) return;
+        }
+        const t = (i + 1) / n;
+        const nw = Math.max(0.006, w * Math.pow(1 - t, 0.85));
+        const cw = i === 0 ? w : Math.max(0.006, w * Math.pow(1 - i / n, 0.85));
+        // Start each segment a little behind the joint so bends don't open gaps.
+        const sl = Math.hypot(nx - px, nz - pz) || 1;
+        const bx = px - ((nx - px) / sl) * cw * 0.9;
+        const bz = pz - ((nz - pz) / sl) * cw * 0.9;
+        if (crackGlowC) strip(glowBuf, idx, bx, bz, nx, nz, cw, nw, y + 0.004 + depth * 0.0002, crackGlowC, 1, true);
+        else strip(buf, idx, bx, bz, nx, nz, cw, nw, y + 0.004 + depth * 0.0002, core);
+        // Jagged chipped rim: uneven width, and it sometimes swaps sides.
+        if (rnd() < 0.3) side = -side;
+        if (cw > 0.012 && rnd() < 0.8) {
+          const l = Math.hypot(nx - px, nz - pz) || 1;
+          const off = cw + 0.012 + 0.01 * rnd();
+          const ox = (-(nz - pz) / l) * off * side;
+          const oz = ((nx - px) / l) * off * side;
+          const rw = 0.006 + 0.012 * rnd();
+          strip(buf, idx, px + ox, pz + oz, nx + ox * 0.8, nz + oz * 0.8, rw, rw * 0.4, y + 0.0035, rim);
+        }
+        if (forksLeft > 0 && i >= 1 && i < n - 1 && rnd() < 0.35) {
+          forksLeft--;
+          const fa = ang + (rnd() < 0.5 ? 1 : -1) * (0.55 + 0.6 * rnd());
+          walk(nx, nz, fa, Math.max(2, Math.floor((n - i) * (0.4 + 0.3 * rnd()))), nw * 0.75, depth === 0 ? 1 : 0, depth + 1);
+        }
+        px = nx;
+        pz = nz;
+      }
+    };
+    walk(sx, sz, Math.atan2(czm - sz, cxm - sx) + (rnd() - 0.5) * 1.0, segs, w0, forks, 0);
+  };
+
   const crackDetail = (buf: Buf, idx: number, cx: number, cy: number, x0: number, z0: number, x1: number, z1: number, y: number, alb: number[], wallDir: number): void => {
     const core = mix3(alb, crackC, 0.82);
     const rim = mix3(alb, rimC, 0.45);
@@ -963,7 +1036,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
           grimeEdge(idx, d, x0 + INSET, z0 + INSET, x1 - INSET, z1 - INSET, yi, detail.grimeDepth);
           if (wallDir < 0 || hash2(cx, cy, 80 + d) < 0.5) wallDir = d;
         }
-        if (cracked && plainStone) crackDetail(buf, idx, cx, cy, x0 + INSET, z0 + INSET, x1 - INSET, z1 - INSET, yi, alb, wallDir);
+        if (cracked && plainStone) (detail?.crackStyle === 'organic' ? organicCrack : crackDetail)(buf, idx, cx, cy, x0 + INSET, z0 + INSET, x1 - INSET, z1 - INSET, yi, alb, wallDir);
       }
       if (cracked && !detail) {
         const a0 = hash2(cx, cy, 54) * 6.28;
