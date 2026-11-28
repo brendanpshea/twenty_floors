@@ -23,8 +23,6 @@ export interface FloorDetail {
   joint?: number;
   /** Multiplies how many tiles crack (default 1). */
   crackRate?: number;
-  /** 'organic': random-walk cracks of varied size with forks and a jagged rim (pilot). Default: the simple crack. */
-  crackStyle?: 'organic';
 }
 
 export interface ThemeLook {
@@ -150,7 +148,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   crypt: {
     id: 'crypt',
-    detail: { slabs: true, crack: 0x161b24, rim: 0xc9d3e2, grime: 0x8a93a8, grimeDepth: 0.95, shadow: 0x5f677c, crackStyle: 'organic' },
+    detail: { slabs: true, crack: 0x161b24, rim: 0xc9d3e2, grime: 0x8a93a8, grimeDepth: 0.95, shadow: 0x5f677c },
     wallStyle: 'dressed',
     floorA: 0x8a94a2,
     floorB: 0x9ca6b4,
@@ -484,7 +482,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   hell: {
     id: 'hell',
-    detail: { slabs: true, crack: 0x1a0806, rim: 0x4a1a10, grime: 0x7a5048, grimeDepth: 0.9, shadow: 0x5a3a36, glow: 0xff5a1f, crackRate: 1.4, crackStyle: 'organic' },
+    detail: { slabs: true, crack: 0x1a0806, rim: 0x4a1a10, grime: 0x7a5048, grimeDepth: 0.9, shadow: 0x5a3a36, glow: 0xff5a1f, crackRate: 1.4 },
     highlight: 'warm',
     wallStyle: 'dressed',
     floorA: 0x7a3c34,

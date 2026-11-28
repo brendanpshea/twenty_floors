@@ -567,7 +567,7 @@ Every theme has a `detail` block in `src/render/themeLooks.ts` (`FloorDetail`), 
 - **Cracks:** a dark core and a chipped rim, more likely near walls and heavy props, scaled by `crackRate`. `glow` draws the core unlit: magma in hell, heat in the foundry, a faint teal in the fungal caves.
 - **Grime and shadows:** wall-foot grime and prop contact shadows go on one multiply-blended decal mesh.
 - **Clutter:** with detail on, rubble and bones are flat, dulled and offset, so they don't read as interactable.
-- **Next (planned):** organic crack geometry (random-walk paths, tapering width, branches, size classes), piloted on crypt and hell first.
+- **Organic cracks:** each crack is a random walk that tapers to a hairline, with forks and a jagged rim. Sizes: about 55% hairlines, 33% medium, 12% long double-forked fissures. Cracks stay inside their tile; letting fissures cross into the next floor tile is a possible next step.
 
 ## Work in order from here
 

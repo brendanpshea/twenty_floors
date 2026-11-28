@@ -693,13 +693,10 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
   };
 
   /**
-   * A crack: a tapering, slightly wandering line with one branch, a dark core and a pale chipped rim along one side.
-   * It starts at the tile edge nearest a wall when there is one (damage creeps in from the walls).
-   */
-  /**
    * An organic crack: a random walk of short segments that tapers to a hairline, with forks that fork again, a chipped
    * rim that wanders from side to side, and a size class (mostly hairlines, some medium cracks, the odd long fissure).
-   * It stops where it would leave the tile rather than running along the edge.
+   * It starts at the tile edge nearest a wall when there is one (damage creeps in from the walls), and turns back or
+   * stops where it would leave the tile rather than running along the edge.
    */
   const organicCrack = (buf: Buf, idx: number, cx: number, cy: number, x0: number, z0: number, x1: number, z1: number, y: number, alb: number[], wallDir: number): void => {
     const core = mix3(alb, crackC, 0.82);
@@ -767,57 +764,6 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
       }
     };
     walk(sx, sz, Math.atan2(czm - sz, cxm - sx) + (rnd() - 0.5) * 1.0, segs, w0, forks, 0);
-  };
-
-  const crackDetail = (buf: Buf, idx: number, cx: number, cy: number, x0: number, z0: number, x1: number, z1: number, y: number, alb: number[], wallDir: number): void => {
-    const core = mix3(alb, crackC, 0.82);
-    const rim = mix3(alb, rimC, 0.45);
-    const lo = 0.1;
-    const clampX = (v: number): number => Math.min(x1 - lo, Math.max(x0 + lo, v));
-    const clampZ = (v: number): number => Math.min(z1 - lo, Math.max(z0 + lo, v));
-    const cxm = (x0 + x1) / 2;
-    const czm = (z0 + z1) / 2;
-    // Start on an edge: the wall's, else a random one; head roughly across the tile.
-    const edge = wallDir >= 0 ? wallDir : Math.floor(hash2(cx, cy, 81) * 4);
-    const along = (hash2(cx, cy, 82) - 0.5) * 1.2;
-    let px = edge === 1 ? x1 - lo : edge === 3 ? x0 + lo : cxm + along;
-    let pz = edge === 2 ? z1 - lo : edge === 0 ? z0 + lo : czm + along;
-    let ang = Math.atan2(czm - pz, cxm - px) + (hash2(cx, cy, 83) - 0.5) * 0.9;
-    const segs = 4;
-    let w = 0.055;
-    let branchAt: [number, number, number] | null = null;
-    for (let i = 0; i < segs; i++) {
-      const len = 0.32 + 0.16 * hash2(cx, cy, 84 + i);
-      const nx = clampX(px + Math.cos(ang) * len);
-      const nz = clampZ(pz + Math.sin(ang) * len);
-      const nw = w * 0.68;
-      if (crackGlowC) strip(glowBuf, idx, px, pz, nx, nz, w, nw, y + 0.004, crackGlowC, 1, true);
-      else strip(buf, idx, px, pz, nx, nz, w, nw, y + 0.004, core);
-      // The chipped rim: a pale sliver on one side of the crack.
-      const l = Math.hypot(nx - px, nz - pz) || 1;
-      const ox = (-(nz - pz) / l) * (w + 0.018);
-      const oz = ((nx - px) / l) * (w + 0.018);
-      strip(buf, idx, px + ox, pz + oz, nx + ox * 0.8, nz + oz * 0.8, 0.012, 0.006, y + 0.0035, rim);
-      if (i === 1) branchAt = [nx, nz, ang + (hash2(cx, cy, 90) < 0.5 ? 1 : -1) * (0.7 + 0.4 * hash2(cx, cy, 91))];
-      px = nx;
-      pz = nz;
-      w = nw;
-      ang += (hash2(cx, cy, 95 + i) - 0.5) * 0.9;
-    }
-    if (branchAt) {
-      let [bx, bz, ba] = branchAt;
-      let bw = 0.03;
-      for (let i = 0; i < 2; i++) {
-        const nx = clampX(bx + Math.cos(ba) * 0.3);
-        const nz = clampZ(bz + Math.sin(ba) * 0.3);
-        if (crackGlowC) strip(glowBuf, idx, bx, bz, nx, nz, bw, bw * 0.5, y + 0.0042, crackGlowC, 1, true);
-        else strip(buf, idx, bx, bz, nx, nz, bw, bw * 0.5, y + 0.0042, core);
-        bx = nx;
-        bz = nz;
-        bw *= 0.5;
-        ba += (hash2(cx, cy, 99 + i) - 0.5) * 0.8;
-      }
-    }
   };
 
   /** Grime along the foot of a wall on side d: the `grime` multiplier at the wall, fading to nothing `depth` in. */
@@ -1036,7 +982,7 @@ export function buildFloor(plan: FloorPlan, look: ThemeLook, fow: Fow): FloorBui
           grimeEdge(idx, d, x0 + INSET, z0 + INSET, x1 - INSET, z1 - INSET, yi, detail.grimeDepth);
           if (wallDir < 0 || hash2(cx, cy, 80 + d) < 0.5) wallDir = d;
         }
-        if (cracked && plainStone) (detail?.crackStyle === 'organic' ? organicCrack : crackDetail)(buf, idx, cx, cy, x0 + INSET, z0 + INSET, x1 - INSET, z1 - INSET, yi, alb, wallDir);
+        if (cracked && plainStone) organicCrack(buf, idx, cx, cy, x0 + INSET, z0 + INSET, x1 - INSET, z1 - INSET, yi, alb, wallDir);
       }
       if (cracked && !detail) {
         const a0 = hash2(cx, cy, 54) * 6.28;
