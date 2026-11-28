@@ -157,6 +157,26 @@ The shop sells up to four different potions of this kind per visit: the
 floor 15). The scripted hero of the balance harness does not buy or drink
 them, so the tuning does not count them.
 
+## Chest locks: practice lessons and grading (28 November 2026)
+
+- **Practice locks.** Each of the four lock kinds has a guided, untimed lesson
+  on a small hand-made board (`src/puzzles/tutorials/`): coach text with
+  inline symbols, the controls to touch lit up (`data-spot` addresses on the
+  boards), a goal per step, refused moves with a nudge, and a Show me
+  button. Opened from the lock's help card ("Practise first" the first time,
+  "Practise" from the ? button; the real lock's clock does not run) and from
+  How to play (Chest locks section). `src/puzzles/tutorials.test.ts` plays
+  every lesson through with its Show me moves. The view is
+  `src/ui/puzzles/tutorial.ts`.
+- **Twice the time for every grade** (`GRADE_TIME` in
+  `src/puzzles/grading.ts`): gold within 2x par time, silver within 4x. The
+  player-skill model still learns from the original pace (`paceGrade` on the
+  result), so lock difficulty does not climb because grades got easier.
+- **Ward lock feedback:** a sprung trap bursts on its tile and the grid
+  flashes red; a mark on a safe tile flashes a struck-out flag over it.
+- **Tumbler lock feedback:** a key to the pips above the tries, and each
+  try's result in words ("1 in place, 2 misplaced, 1 not in the lock").
+
 ## Monster conditions the engine gained (27 November 2026)
 
 - **Several conditions from one hit.** `ActionDef.alsoApplies` lists further

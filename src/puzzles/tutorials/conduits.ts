@@ -38,7 +38,8 @@ const placed = (s: PuzzleState, i: number): boolean => tile(s, i) === instance.s
 const turnsWrong =
   (...cells: number[]) =>
   (m: PuzzleMove, s: PuzzleState): boolean =>
-    'cell' in m && cells.includes(m.cell) && !placed(s, m.cell);
+    // A plain tap (a quarter turn clockwise): every fix in this lesson is one tap, so a backwards turn is refused too.
+    m.type === 'rotate' && (m.dir ?? 1) === 1 && cells.includes(m.cell) && !placed(s, m.cell);
 const tap = (cell: number): ConduitsMove => ({ type: 'rotate', cell, dir: 1 });
 
 export const CONDUITS_TUTORIAL: Tutorial = {
