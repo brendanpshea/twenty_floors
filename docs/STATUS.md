@@ -560,6 +560,15 @@ parameters reach any floor: `?depth=1..20`, `?theme=<id>`, `?peace=1`
   with the model's solo hero, which is the model at its least reliable.
   Check them on the real engine before letting runs randomize those floors.
 
+## Floor detail: in use
+
+Every theme has a `detail` block in `src/render/themeLooks.ts` (`FloorDetail`), drawn by `src/render/floorBuilder.ts`:
+- **Slabs:** tiles split into slabs with joints; `joint` tints them (moss in the sewers, frost in ice). Earth, cave and outdoor themes have no slabs.
+- **Cracks:** a dark core and a chipped rim, more likely near walls and heavy props, scaled by `crackRate`. `glow` draws the core unlit: magma in hell, heat in the foundry, a faint teal in the fungal caves.
+- **Grime and shadows:** wall-foot grime and prop contact shadows go on one multiply-blended decal mesh.
+- **Clutter:** with detail on, rubble and bones are flat, dulled and offset, so they don't read as interactable.
+- **Next (planned):** organic crack geometry (random-walk paths, tapering width, branches, size classes), piloted on crypt and hell first.
+
 ## Work in order from here
 
 Agreed with the owner, to make the game reward thinking (see
