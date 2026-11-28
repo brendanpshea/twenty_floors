@@ -935,6 +935,8 @@
 .tf-pz-veil {
   position: absolute;
   inset: 0;
+  /* Above the lock's own raised tiles (a selected cell has a z-index of its own). */
+  z-index: 20;
   display: grid;
   place-items: center;
   padding: 12px;
