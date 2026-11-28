@@ -326,6 +326,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   depths: {
     id: 'depths',
+    detail: { slabs: false, crack: 0x12141a, rim: 0x9aa0ad, grime: 0x7c8296, grimeDepth: 1.0, shadow: 0x585d6e, crackRate: 0.7 },
     wallStyle: 'jagged',
     floorA: 0x6d727d,
     floorB: 0x7b808c,
@@ -361,6 +362,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   foundry: {
     id: 'foundry',
+    detail: { slabs: true, crack: 0x1a1410, rim: 0x3a2e28, grime: 0x786860, grimeDepth: 0.9, shadow: 0x584c48, glow: 0xffa53a, crackRate: 0.8 },
     highlight: 'warm',
     wallStyle: 'jagged',
     floorA: 0x62636e,
@@ -398,6 +400,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   ice: {
     id: 'ice',
+    detail: { slabs: true, crack: 0x6f98c4, rim: 0xffffff, grime: 0xa2bce0, grimeDepth: 0.9, shadow: 0x8098bc, joint: 0xe4f2ff },
     highlight: 'cool',
     wallStyle: 'jagged',
     floorA: 0xc4d8ea,
@@ -436,6 +439,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   ruin: {
     id: 'ruin',
+    detail: { slabs: true, crack: 0x1c2118, rim: 0xc8cfb4, grime: 0x9e987e, grimeDepth: 0.95, shadow: 0x646b5a, crackRate: 1.5 },
     highlight: 'cool',
     wallStyle: 'dressed',
     floorA: 0x838e78,
@@ -511,6 +515,7 @@ export const LOOKS: Record<ThemeId, ThemeLook> = {
   },
   lair: {
     id: 'lair',
+    detail: { slabs: false, crack: 0x110b07, rim: 0x86766a, grime: 0x5e4a40, grimeDepth: 1.05, shadow: 0x4c4038, crackRate: 1.1 },
     highlight: 'warm',
     wallStyle: 'jagged',
     floorA: 0x4e4743,
